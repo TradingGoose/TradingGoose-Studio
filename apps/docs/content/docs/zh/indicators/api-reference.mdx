@@ -1,0 +1,222 @@
+---
+title: API 参考文档
+description: TradingGoose 中 PineTS 的完整函数参考
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+TradingGoose 中所有受支持的 PineTS 函数的完整参考，按命名空间组织。本页内容源自 PineTS 运行时类型定义。
+
+## input（13 个函数）
+
+| 函数 | 返回值 | 描述 |
+|----------|---------|-------------|
+| `input.int(defval, title, min?, max?, step?)` | `number` | 整数输入 |
+| `input.float(defval, title, min?, max?, step?)` | `number` | 浮点数输入 |
+| `input.bool(defval, title)` | `boolean` | 布尔值输入 |
+| `input.string(defval, title)` | `string` | 字符串输入 |
+| `input.color(defval, title)` | `string` | 颜色选择器 |
+| `input.source(defval, title)` | `series` | 数据源选择器 |
+| `input.timeframe(defval, title)` | `string` | 时间框架选择器 |
+| `input.price(defval, title)` | `number` | 价格输入 |
+| `input.time(defval, title)` | `number` | 时间戳输入 |
+| `input.session(defval, title)` | `string` | 交易时段输入 |
+| `input.symbol(defval, title)` | `string` | 交易品种输入 |
+| `input.text_area(defval, title)` | `string` | 多行文本 |
+| `input.enum(defval, title, options)` | `T` | 下拉选择器 |
+
+## ta（57 个函数）
+
+### 移动平均线
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.alma(source, length, offset?, sigma?)` | Arnaud Legoux 均线 |
+| `ta.ema(source, length)` | 指数移动平均线 |
+| `ta.hma(source, length)` | Hull 均线 |
+| `ta.linreg(source, length, offset?)` | 线性回归 |
+| `ta.rma(source, length)` | 滚动移动平均线 |
+| `ta.sma(source, length)` | 简单移动平均线 |
+| `ta.swma(source)` | 对称加权移动平均线 |
+| `ta.vwap` / `ta.vwap(source)` | 成交量加权平均价格 |
+| `ta.vwma(source, length)` | 成交量加权移动平均线 |
+| `ta.wma(source, length)` | 加权移动平均线 |
+
+### 振荡指标
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.cci(source, length)` | 商品通道指数 |
+| `ta.change(source, length?)` | 价格变动 |
+| `ta.cmo(source, length)` | Chande 动量振荡器 |
+| `ta.cog(source, length)` | 重心指标 |
+| `ta.macd(source, fast, slow, signal)` | MACD → `[macd, signal, hist]` |
+| `ta.mfi(series, length)` | 资金流量指数 |
+| `ta.mom(source, length)` | 动量指标 |
+| `ta.roc(source, length)` | 变动率 |
+| `ta.rsi(source, length)` | 相对强弱指数 |
+| `ta.stoch(source, high, low, length)` | 随机指标 |
+| `ta.tsi(source, short, long)` | 真实强度指数 |
+| `ta.wpr(length)` | 威廉姆斯 %R |
+
+### 波动率
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.atr(length)` | 平均真实波幅 |
+| `ta.bb(source, length, mult)` | 布林带 → `[mid, upper, lower]` |
+| `ta.bbw(source, length, mult)` | 布林带宽度 |
+| `ta.dev(source, length)` | 平均绝对偏差 |
+| `ta.kc(source, length, mult)` | 肯特纳通道 → `[mid, upper, lower]` |
+| `ta.kcw(source, length, mult)` | 肯特纳通道宽度 |
+| `ta.range(source, length)` | 区间 |
+| `ta.stdev(source, length)` | 标准差 |
+| `ta.tr` / `ta.tr(handleNa?)` | 真实波幅 |
+| `ta.variance(source, length)` | 方差 |
+
+### 成交量（变量）
+
+| 变量 | 描述 |
+|----------|-------------|
+| `ta.accdist` | 累积/派发 |
+| `ta.iii` | 盘中强度指数 |
+| `ta.nvi` | 负成交量指数 |
+| `ta.obv` | 能量潮 |
+| `ta.pvi` | 正成交量指数 |
+| `ta.pvt` | 价格成交量趋势 |
+| `ta.wad` | 威廉姆斯 A/D |
+| `ta.wvad` | 威廉姆斯可变 A/D |
+
+### 趋势
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.cross(a, b)` | 交叉（任意方向） |
+| `ta.crossover(a, b)` | 向上交叉 |
+| `ta.crossunder(a, b)` | 向下交叉 |
+| `ta.dmi(diLength, adxSmoothing)` | DMI → `[plus, minus, adx]` |
+| `ta.falling(source, length)` | 下降检测 |
+| `ta.rising(source, length)` | 上升检测 |
+| `ta.sar(start, inc, max)` | 抛物线SAR |
+| `ta.supertrend(factor, atrLength)` | 超级趋势 → `[value, direction]` |
+
+### 统计
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.barssince(condition)` | 条件成立以来的K线数 |
+| `ta.correlation(a, b, length)` | 相关系数 |
+| `ta.cum(source)` | 累计求和 |
+| `ta.highest(source, length)` | N根K线内最高值 |
+| `ta.highestbars(source, length)` | 距最高点的K线数 |
+| `ta.lowest(source, length)` | N根K线内最低值 |
+| `ta.lowestbars(source, length)` | 距最低点的K线数 |
+| `ta.max(a, b)` | 最大值 |
+| `ta.median(source, length)` | 中位数 |
+| `ta.min(a, b)` | 最小值 |
+| `ta.mode(source, length)` | 众数 |
+| `ta.percentile_linear_interpolation(source, len, pct)` | 百分位数（线性插值） |
+| `ta.percentile_nearest_rank(source, len, pct)` | 百分位数（最近秩次） |
+| `ta.percentrank(source, length)` | 百分位排名 |
+| `ta.pivot_point_levels(type, anchor)` | 枢轴点位 |
+| `ta.pivothigh(source, left, right)` | 枢轴高点 |
+| `ta.pivotlow(source, left, right)` | 枢轴低点 |
+| `ta.rci(source, length)` | 秩相关指数 |
+| `ta.valuewhen(condition, source, occurrence)` | 条件成立时的值 |
+
+## math（28个函数 + 4个常量）
+
+| 函数 / 常量 | 描述 |
+|---------------------|-------------|
+| `math.pi`, `math.e`, `math.phi`, `math.rphi` | 数学常量 |
+| `math.abs(x)` | 绝对值 |
+| `math.ceil(x)` | 向上取整 |
+| `math.floor(x)` | 向下取整 |
+| `math.round(x, precision?)` | 四舍五入 |
+| `math.round_to_mintick(x)` | 取整至最小跳动点 |
+| `math.sign(x)` | 符号函数 |
+| `math.max(a, b)` | 最大值 |
+| `math.min(a, b)` | 最小值 |
+| `math.avg(...)` | 平均值 |
+| `math.sum(source, length)` | 求和 |
+| `math.pow(base, exp)` | 幂运算 |
+| `math.sqrt(x)` | 平方根 |
+| `math.exp(x)` | 指数函数 |
+| `math.log(x)` | 自然对数 |
+| `math.log10(x)` | 以10为底的对数 |
+| `math.sin(x)`, `math.cos(x)`, `math.tan(x)` | 三角函数 |
+| `math.asin(x)`, `math.acos(x)`, `math.atan(x)` | 反三角函数 |
+| `math.todegrees(x)`, `math.toradians(x)` | 角度转换 |
+| `math.random(min?, max?)` | 随机数 |
+
+## plot（10个函数）
+
+| 函数 | 描述 |
+|----------|-------------|
+| `plot(series, title?, options?)` | 折线/面积/直方图绘制 |
+| `plotshape(series, title?, options?)` | 形状标记 |
+| `plotchar(series, title?, char?, options?)` | 字符标记 |
+| `plotarrow(series, title?, options?)` | 箭头标记 |
+| `plotbar(o, h, l, c, title?, options?)` | OHLC柱状图 |
+| `plotcandle(o, h, l, c, title?, options?)` | K线图 |
+| `hline(price, title?, options?)` | 水平线 |
+| `fill(plot1, plot2, color?)` | 填充绘图区间 |
+| `bgcolor(color, offset?, options?)` | 背景颜色 |
+| `barcolor(color, offset?, options?)` | 柱状颜色 |
+
+## array（52个方法）
+
+| 类别 | 函数 |
+|----------|-----------|
+| **创建** | `from`, `new_float`, `new_int`, `new_bool`, `new_string`, `copy` |
+| **访问** | `get`, `set`, `first`, `last` |
+| **修改** | `push`, `pop`, `shift`, `unshift`, `insert`, `remove`, `clear`, `fill`, `reverse` |
+| **形状** | `size`, `slice`, `concat` |
+| **搜索** | `indexof`, `lastindexof`, `includes`, `binary_search`, `binary_search_leftmost`, `binary_search_rightmost`, `every`, `some` |
+| **排序** | `sort`, `sort_indices` |
+| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance`, `covariance`, `range`, `percentrank`, `percentile_linear_interpolation`, `percentile_nearest_rank` |
+| **变换** | `abs`, `join`, `standardize` |
+
+## map（11 个方法）
+
+`new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
+
+## matrix（50 个方法）
+
+| 类别 | 函数 |
+|----------|-----------|
+| **访问** | `get`, `set`, `row`, `col` |
+| **大小** | `rows`, `columns`, `elements_count`, `reshape`, `submatrix` |
+| **修改** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
+| **算术** | `mult`, `pow`, `diff`, `kron` |
+| **线性代数** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
+| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **布尔** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
+| **排序** | `sort` |
+
+## str（19 个方法）
+
+`length`, `contains`, `startswith`, `endswith`, `pos`, `match`, `substring`, `split`, `replace`, `replace_all`, `lower`, `upper`, `trim`, `repeat`, `format`, `tonumber`, `tostring`
+
+## log（3 个方法）
+
+`log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
+
+## request（2 个函数）
+
+| 函数 | 描述 |
+|----------|-------------|
+| `request.security(symbol, timeframe, expression)` | 多时间周期数据 |
+| `request.security_lower_tf(expression)` | 较低时间周期数据 |
+
+## trigger（TradingGoose 扩展）
+
+```
+trigger(event: string, options: { condition, input, signal, position?, color? })
+```
+
+请参阅 [指标触发器](/indicators/triggers) 获取完整文档。
+
+<Callout type="info">
+  本参考文档涵盖 TradingGoose 的 PineTS 运行时中可用的函数。PineTS 基于开源 [PineTS 项目](https://github.com/nicholasgasior/PineTS)，支持 Pine Script v5/v6 API 的部分功能。`strategy.*`、`label.*`、`line.*`、`box.*` 和 `table.*` 等功能目前暂不支持。
+</Callout>

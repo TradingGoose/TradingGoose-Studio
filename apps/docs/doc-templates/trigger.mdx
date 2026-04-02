@@ -1,0 +1,103 @@
+{/*
+  TEMPLATE: Trigger
+  OUTPUT:   apps/docs/content/docs/en/triggers/{{SLUG}}.mdx
+  SOURCE:   apps/tradinggoose/triggers/{{TRIGGER_DIR}}/
+
+  Uses ShowcaseCard with both BlockConfigPreview (block view)
+  and TriggerDeployPreview (deploy modal view) in tabs.
+  No screenshots needed.
+*/}
+---
+title: {{TRIGGER_NAME}}
+description: {{SHORT_DESCRIPTION}}
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockConfigPreview, TriggerDeployPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+{{SHORT_DESCRIPTION_PARAGRAPH}}
+
+## How It Looks
+
+<Tabs items={['As Workflow Block', 'Deploy Modal']}>
+  <Tab>
+    <ShowcaseCard>
+      <BlockConfigPreview
+        name="{{TRIGGER_NAME}}"
+        type="{{TRIGGER_TYPE}}"
+        color="{{BG_COLOR}}"
+        subBlocks={[
+          {
+            "id": "webhookUrl",
+            "title": "Webhook URL",
+            "type": "short-input",
+            "placeholder": "Auto-generated webhook URL"
+          }
+        ]}
+        outputs={[
+          { "key": "{{OUTPUT_KEY}}", "type": "{{TYPE}}", "description": "{{OUTPUT_DESC}}" }
+        ]}
+        compact
+      />
+    </ShowcaseCard>
+  </Tab>
+  <Tab>
+    <ShowcaseCard>
+      <TriggerDeployPreview
+        name="{{TRIGGER_NAME}}"
+        fields={[
+          {
+            "id": "webhookUrl",
+            "title": "Webhook URL",
+            "type": "webhook-url",
+            "value": "https://app.tradinggoose.com/api/webhooks/..."
+          },
+          {
+            "id": "contentType",
+            "title": "Content Type",
+            "type": "dropdown",
+            "options": [
+              { "label": "application/json", "id": "application/json" }
+            ],
+            "value": "application/json"
+          }
+        ]}
+      />
+    </ShowcaseCard>
+  </Tab>
+</Tabs>
+
+## Setup
+
+<Steps>
+  <Step>
+    {{SETUP_STEP_1}}
+  </Step>
+  <Step>
+    {{SETUP_STEP_2}}
+  </Step>
+  <Step>
+    {{SETUP_STEP_3}}
+  </Step>
+</Steps>
+
+{/* ──── FOR INTEGRATION TRIGGERS ──── */}
+
+## Supported Events
+
+| Event | Description |
+|-------|-------------|
+| `{{EVENT_ID}}` | {{EVENT_DESC}} |
+
+## Output Schema
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `{{OUTPUT_KEY}}` | {{TYPE}} | {{OUTPUT_DESC}} |
+
+<Callout type="info">
+  {{NOTE_ABOUT_TRIGGER}}
+</Callout>

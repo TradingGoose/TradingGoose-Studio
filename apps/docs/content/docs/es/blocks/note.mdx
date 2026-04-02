@@ -1,0 +1,101 @@
+---
+title: Nota
+description: Añade anotaciones visuales al lienzo del flujo de trabajo sin
+  afectar la ejecución
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <rect
+        x='4'
+        y='3'
+        
+        
+        rx='2.5'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+      />
+      <path d='M15 3H18C18.5523 3 19 3.44772 19 4V7L15 3Z' fill='currentColor' />
+      <path d='M8 11H15.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+      <path d='M8 15H13' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+    </svg>`}
+/>
+
+El bloque Nota es una anotación exclusivamente visual que reside en el lienzo del flujo de trabajo. No se ejecuta, no tiene entradas ni salidas, y el ejecutor lo ignora por completo. Úsalo para documentar decisiones, dejar instrucciones a colaboradores o explicar secciones complejas de un flujo de trabajo.
+
+## Descripción general
+
+Los bloques Nota cumplen una función puramente organizativa:
+
+- **Documentar decisiones de diseño** -- explica por qué se eligió una determinada estrategia de ramificación o modelo.
+- **Dejar instrucciones** -- indica a los colaboradores cómo configurar las variables de entorno o qué hace una sección del flujo de trabajo.
+- **Insertar referencias** -- pega enlaces de YouTube y se renderizarán como videos incrustados directamente en el lienzo.
+
+<Callout type="info">
+  Los bloques Nota no tienen ningún efecto sobre la ejecución del flujo de trabajo. No producen salidas y no pueden conectarse a otros bloques. Se eliminan por completo cuando el flujo de trabajo se ejecuta.
+</Callout>
+
+## Configuración
+
+El único campo es un área de texto en Markdown. Escribe texto sin formato, usa el formato Markdown (encabezados, listas, negrita, bloques de código) o pega una URL de YouTube para incrustar un video.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Nota"
+    type="note"
+    color="#F59E0B"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <rect
+        x='4'
+        y='3'
+        
+        
+        rx='2.5'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+      />
+      <path d='M15 3H18C18.5523 3 19 3.44772 19 4V7L15 3Z' fill='currentColor' />
+      <path d='M8 11H15.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+      <path d='M8 15H13' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "Agrega contexto o instrucciones para los colaboradores...",
+            "description": "Escribe tu nota usando Markdown. Los enlaces de YouTube se mostrarán como videos incrustados."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Mejores prácticas
+
+- **Coloca las notas cerca de los bloques que describen** para que el contexto sea inmediatamente visible.
+- **Usa encabezados y listas de Markdown** para mantener las notas más extensas fáciles de escanear.
+- **Prefiere las notas sobre los comentarios en los bloques de código** -- las notas son visibles en el nivel del lienzo sin necesidad de abrir la configuración de un bloque.

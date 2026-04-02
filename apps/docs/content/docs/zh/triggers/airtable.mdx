@@ -1,0 +1,133 @@
+---
+title: Airtable 触发器
+description: 通过 Airtable 记录变更（如创建、更新和删除事件）触发工作流（需要 Airtable 凭据）
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+通过 Airtable 记录变更（如创建、更新和删除事件）触发工作流（需要 Airtable 凭据）
+
+<Callout type="info">
+  这是一个**基于 Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以将事件发送至 TradingGoose。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable Webhook"
+    type="airtable_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Airtable 凭据以访问您的账户。",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "Base ID",
+            "placeholder": "appXXXXXXXXXXXXXX",
+            "description": "此 Webhook 将监控的 Airtable Base 的 ID。",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "Table ID",
+            "placeholder": "tblXXXXXXXXXXXXXX",
+            "description": "Webhook 将监控的 Base 中数据表的 ID。",
+            "required": true
+        },
+        {
+            "id": "includeCellValues",
+            "type": "switch",
+            "title": "包含完整记录数据",
+            "description": "启用后，Payload 中将包含完整的记录数据，而非仅包含变更内容。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payloads",
+          "type": "array",
+          "description": "Airtable 变更的负载数据"
+      },
+      {
+          "name": "latestPayload",
+          "type": "object",
+          "description": "latestPayload",
+          "children": [
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "Airtable 变更的时间戳"
+              },
+              {
+                  "name": "payloadFormat",
+                  "type": "object",
+                  "description": "Airtable 变更的格式"
+              },
+              {
+                  "name": "actionMetadata",
+                  "type": "object",
+                  "description": "actionMetadata",
+                  "children": [
+                      {
+                          "name": "source",
+                          "type": "string",
+                          "description": "Airtable 变更的来源"
+                      },
+                      {
+                          "name": "sourceMetadata",
+                          "type": "object",
+                          "description": "sourceMetadata",
+                          "children": [
+                              {
+                                  "name": "pageId",
+                                  "type": "string",
+                                  "description": "触发 Airtable 变更的页面 ID"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "changedTablesById",
+                          "type": "object",
+                          "description": "已变更的数据表"
+                      },
+                      {
+                          "name": "baseTransactionNumber",
+                          "type": "number",
+                          "description": "Airtable 变更的事务编号"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "airtableChanges",
+          "type": "array",
+          "description": "对 Airtable 数据表所做的变更"
+      }
+  ]}
+/>

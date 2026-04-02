@@ -1,0 +1,1905 @@
+---
+title: SendGrid
+description: Send emails and manage contacts, lists, and templates with SendGrid
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sendgrid"
+  color="#1A82E2"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Send Mail
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "send_mail"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "From Email",
+            "placeholder": "sender@yourdomain.com",
+            "required": true
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "From Name",
+            "placeholder": "Sender Name"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To Email",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "toName",
+            "type": "short-input",
+            "title": "To Name",
+            "placeholder": "Recipient Name"
+        },
+        {
+            "id": "mailSubject",
+            "type": "short-input",
+            "title": "Subject",
+            "placeholder": "Email subject (required unless using template)"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Content",
+            "placeholder": "Email body content (required unless using template)"
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "options": [
+                {
+                    "label": "Plain Text",
+                    "id": "text/plain"
+                },
+                {
+                    "label": "HTML",
+                    "id": "text/html"
+                }
+            ]
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "Reply To",
+            "placeholder": "replyto@example.com"
+        },
+        {
+            "id": "replyToName",
+            "type": "short-input",
+            "title": "Reply To Name",
+            "placeholder": "Reply To Name"
+        },
+        {
+            "id": "mailTemplateId",
+            "type": "short-input",
+            "title": "Template ID",
+            "placeholder": "SendGrid template ID"
+        },
+        {
+            "id": "dynamicTemplateData",
+            "type": "code",
+            "title": "Dynamic Template Data",
+            "placeholder": "{\"name\": \"John\", \"order_id\": \"12345\"}",
+            "language": "json"
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Attachments",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Attachments",
+            "placeholder": "Reference files from previous blocks"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Add Contact
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "add_contact"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Email",
+            "placeholder": "contact@example.com",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "First Name",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Last Name",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "customFields",
+            "type": "code",
+            "title": "Custom Fields",
+            "placeholder": "{\"custom_field_1\": \"value1\"}",
+            "language": "json"
+        },
+        {
+            "id": "contactListIds",
+            "type": "short-input",
+            "title": "List IDs",
+            "placeholder": "Comma-separated list IDs"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Get Contact
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_contact"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "Contact ID",
+            "placeholder": "Contact ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Search Contacts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "search_contacts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Search Query",
+            "placeholder": "Describe the search criteria...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Delete Contacts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_contacts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "Contact IDs",
+            "placeholder": "Comma-separated contact IDs",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Create List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listName",
+            "type": "short-input",
+            "title": "List Name",
+            "placeholder": "List name",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Get List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List ID",
+            "placeholder": "List ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### List All Lists
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "list_all_lists"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listPageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Delete List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List ID",
+            "placeholder": "List ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Add Contacts to List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "add_contacts_to_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contacts (JSON Array)",
+            "placeholder": "[{\"email\": \"user@example.com\", \"first_name\": \"John\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List ID",
+            "placeholder": "List ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Remove Contacts from List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "remove_contacts_from_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "Contact IDs",
+            "placeholder": "Comma-separated contact IDs",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List ID",
+            "placeholder": "List ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Create Template
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateName",
+            "type": "short-input",
+            "title": "Template Name",
+            "placeholder": "Template name",
+            "required": true
+        },
+        {
+            "id": "generation",
+            "type": "dropdown",
+            "title": "Template Generation",
+            "options": [
+                {
+                    "label": "Dynamic",
+                    "id": "dynamic"
+                },
+                {
+                    "label": "Legacy",
+                    "id": "legacy"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Get Template
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "Template ID",
+            "placeholder": "Template ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### List Templates
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "list_templates"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateGenerations",
+            "type": "short-input",
+            "title": "Filter by Generation",
+            "placeholder": "legacy, dynamic, or both"
+        },
+        {
+            "id": "templatePageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "20"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Delete Template
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "Template ID",
+            "placeholder": "Template ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Create Template Version
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Mail",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "Add Contact",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contacts",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "Create List",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Get List",
+                    "id": "get_list"
+                },
+                {
+                    "label": "List All Lists",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "Delete List",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "Add Contacts to List",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "Remove Contacts from List",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "Create Template",
+                    "id": "create_template"
+                },
+                {
+                    "label": "Get Template",
+                    "id": "get_template"
+                },
+                {
+                    "label": "List Templates",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "Delete Template",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "Create Template Version",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_template_version"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API Key",
+            "placeholder": "Enter your SendGrid API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "Template ID",
+            "placeholder": "Template ID",
+            "required": true
+        },
+        {
+            "id": "versionName",
+            "type": "short-input",
+            "title": "Version Name",
+            "placeholder": "Version name",
+            "required": true
+        },
+        {
+            "id": "templateSubject",
+            "type": "short-input",
+            "title": "Template Subject",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "htmlContent",
+            "type": "code",
+            "title": "HTML Content",
+            "placeholder": "<html><body>{{name}}</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "plainContent",
+            "type": "long-input",
+            "title": "Plain Text Content",
+            "placeholder": "Plain text content"
+        },
+        {
+            "id": "active",
+            "type": "dropdown",
+            "title": "Active",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                },
+                {
+                    "label": "No",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate SendGrid into your workflow. Send transactional emails, manage marketing contacts and lists, and work with email templates. Supports dynamic templates, attachments, and comprehensive contact management.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `sendgrid`

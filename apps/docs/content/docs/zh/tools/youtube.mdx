@@ -1,158 +1,522 @@
 ---
 title: YouTube
-description: 与 YouTube 视频、频道和播放列表互动
+description: 与YouTube视频、频道和播放列表进行交互
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="youtube"
-  color="#FF0000"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      
-      viewBox='0 0 28 20'
-      fill='currentColor'
-      xmlns='http://www.w3.org/2000/svg'
-      
-    >
-      <path
-        d='M11.2 14L18.466 9.8L11.2 5.6V14ZM27.384 3.038C27.566 3.696 27.692 4.578 27.776 5.698C27.874 6.818 27.916 7.784 27.916 8.624L28 9.8C28 12.866 27.776 15.12 27.384 16.562C27.034 17.822 26.222 18.634 24.962 18.984C24.304 19.166 23.1 19.292 21.252 19.376C19.432 19.474 17.766 19.516 16.226 19.516L14 19.6C8.134 19.6 4.48 19.376 3.038 18.984C1.778 18.634 0.966 17.822 0.616 16.562C0.434 15.904 0.308 15.022 0.224 13.902C0.126 12.782 0.0839999 11.816 0.0839999 10.976L0 9.8C0 6.734 0.224 4.48 0.616 3.038C0.966 1.778 1.778 0.966 3.038 0.616C3.696 0.434 4.9 0.308 6.748 0.224C8.568 0.126 10.234 0.0839999 11.774 0.0839999L14 0C19.866 0 23.52 0.224 24.962 0.616C26.222 0.966 27.034 1.778 27.384 3.038Z'
-        fill='currentColor'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[YouTube](https://www.youtube.com/) 是全球最大的视频分享平台，拥有数十亿个视频，并为超过 20 亿的登录月活跃用户提供服务。
+## 配置
 
-通过 YouTube 的强大 API 功能，您可以：
+### 搜索视频
 
-- **搜索内容**：使用特定关键词、过滤器和参数，在 YouTube 的庞大视频库中找到相关视频
-- **访问元数据**：获取视频的详细信息，包括标题、描述、观看次数和互动指标
-- **分析趋势**：识别特定类别或地区内的热门内容和趋势话题
-- **提取洞察**：收集关于观众偏好、内容表现和互动模式的数据
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "搜索视频",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "获取视频详情",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "获取频道信息",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "获取播放列表内容",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "获取视频评论",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API 密钥",
+            "layout": "full",
+            "placeholder": "请输入 YouTube API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索关键词",
+            "layout": "full",
+            "placeholder": "请输入搜索关键词",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "最大结果数",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-在 TradingGoose 中，YouTube 集成使您的代理能够以编程方式搜索和分析 YouTube 内容，作为其工作流程的一部分。这为需要最新视频信息的强大自动化场景提供了可能。您的代理可以搜索教学视频、研究内容趋势、从教育频道收集信息，或监控特定创作者的新上传内容。此集成弥合了您的 AI 工作流程与全球最大视频库之间的差距，使自动化更加复杂且内容感知。通过将 TradingGoose 与 YouTube 连接，您可以创建能够跟上最新信息的代理，提供更准确的响应，并为用户带来更多价值——这一切都无需人工干预或自定义代码。
-{/* MANUAL-CONTENT-END */}
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索视频（<code>youtube_search</code>）</div>
 
-## 使用说明
+使用 YouTube Data API 在 YouTube 上搜索视频。
 
-将 YouTube 集成到工作流程中。可以搜索视频、获取视频详情、获取频道信息、获取播放列表项目以及获取视频评论。
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-## 工具
-
-### `youtube_search`
-
-使用 YouTube Data API 搜索 YouTube 视频。
-
-#### 输入
-
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `query` | 字符串 | 是 | YouTube 视频的搜索查询 |
-| `maxResults` | 数字 | 否 | 返回视频的最大数量 |
-| `apiKey` | 字符串 | 是 | YouTube API 密钥 |
+| `query` | string | 是 | YouTube 视频搜索关键词 |
+| `maxResults` | number | 否 | 最多返回的视频数量 |
+| `apiKey` | string | 是 | YouTube API 密钥 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `items` | 数组 | 匹配搜索查询的 YouTube 视频数组 |
+| `videoId` | string | YouTube 视频 ID |
+| `title` | string | 视频标题 |
+| `description` | string | 视频描述 |
 
-### `youtube_video_details`
+</div>
+
+---
+
+### 获取视频详情
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "搜索视频",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "获取视频详情",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "获取频道信息",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "获取播放列表内容",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "获取视频评论",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_video_details"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API 密钥",
+            "layout": "full",
+            "placeholder": "请输入 YouTube API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "视频 ID",
+            "layout": "full",
+            "placeholder": "请输入 YouTube 视频 ID（例如：dQw4w9WgXcQ）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取视频详情（<code>youtube_video_details</code>）</div>
 
 获取特定 YouTube 视频的详细信息。
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `videoId` | 字符串 | 是 | YouTube 视频 ID |
-| `apiKey` | 字符串 | 是 | YouTube API 密钥 |
+| `videoId` | string | 是 | YouTube 视频 ID |
+| `apiKey` | string | 是 | YouTube API 密钥 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `videoId` | 字符串 | YouTube 视频 ID |
-| `title` | 字符串 | 视频标题 |
-| `description` | 字符串 | 视频描述 |
-| `channelId` | 字符串 | 频道 ID |
-| `channelTitle` | 字符串 | 频道名称 |
-| `publishedAt` | 字符串 | 发布日期和时间 |
-| `duration` | 字符串 | 视频时长（ISO 8601 格式） |
-| `viewCount` | 数字 | 查看次数 |
-| `likeCount` | 数字 | 点赞次数 |
-| `commentCount` | 数字 | 评论数量 |
-| `thumbnail` | 字符串 | 视频缩略图 URL |
-| `tags` | 数组 | 视频标签 |
+| `videoId` | string | YouTube 视频 ID |
+| `title` | string | 视频标题 |
+| `description` | string | 视频描述 |
+| `channelId` | string | 频道 ID |
+| `channelTitle` | string | 频道名称 |
+| `publishedAt` | string | 发布日期和时间 |
+| `duration` | string | ISO 8601 格式的视频时长 |
+| `viewCount` | number | 观看次数 |
+| `likeCount` | number | 点赞数 |
+| `commentCount` | number | 评论数 |
+| `thumbnail` | string | 视频缩略图 URL |
+| `items` | string | items 输出 |
 
-### `youtube_channel_info`
+</div>
+
+---
+
+### 获取频道信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "搜索视频",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "获取视频详情",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "获取频道信息",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "获取播放列表内容",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "获取视频评论",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_channel_info"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API 密钥",
+            "layout": "full",
+            "placeholder": "请输入 YouTube API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "channelId",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "请输入频道 ID（或留空以使用用户名）"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "频道用户名",
+            "layout": "full",
+            "placeholder": "请输入频道用户名（若不使用频道 ID）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取频道信息（<code>youtube_channel_info</code>）</div>
 
 获取 YouTube 频道的详细信息。
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `channelId` | 字符串 | 否 | YouTube 频道 ID \(使用 channelId 或 username\) |
-| `username` | 字符串 | 否 | YouTube 频道用户名 \(使用 channelId 或 username\) |
-| `apiKey` | 字符串 | 是 | YouTube API 密钥 |
+| `channelId` | string | 否 | YouTube 频道 ID（使用 channelId 或 username 其中之一）|
+| `username` | string | 否 | YouTube 频道用户名（使用 channelId 或 username 其中之一）|
+| `apiKey` | string | 是 | YouTube API 密钥 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `channelId` | 字符串 | YouTube 频道 ID |
-| `title` | 字符串 | 频道名称 |
-| `description` | 字符串 | 频道描述 |
-| `subscriberCount` | 数字 | 订阅者数量 |
-| `videoCount` | 数字 | 视频数量 |
-| `viewCount` | 数字 | 频道总观看次数 |
-| `publishedAt` | 字符串 | 频道创建日期 |
-| `thumbnail` | 字符串 | 频道缩略图 URL |
-| `customUrl` | 字符串 | 频道自定义 URL |
+| `channelId` | string | YouTube 频道 ID |
+| `title` | string | 频道名称 |
+| `description` | string | 频道描述 |
+| `subscriberCount` | number | 订阅者数量 |
+| `videoCount` | number | 视频数量 |
+| `viewCount` | number | 频道总观看次数 |
+| `publishedAt` | string | 频道创建日期 |
+| `thumbnail` | string | 频道缩略图 URL |
 
-### `youtube_playlist_items`
+</div>
+
+---
+
+### 获取播放列表项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "搜索视频",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "获取视频详情",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "获取频道信息",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "获取播放列表项目",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "获取视频评论",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_playlist_items"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API 密钥",
+            "layout": "full",
+            "placeholder": "请输入 YouTube API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "playlistId",
+            "type": "short-input",
+            "title": "播放列表 ID",
+            "layout": "full",
+            "placeholder": "请输入 YouTube 播放列表 ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "最大结果数",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取播放列表项目 (<code>youtube_playlist_items</code>)</div>
 
 从 YouTube 播放列表中获取视频。
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `playlistId` | 字符串 | 是 | YouTube 播放列表 ID |
-| `maxResults` | 数字 | 否 | 返回视频的最大数量 |
-| `pageToken` | 字符串 | 否 | 分页的页面令牌 |
-| `apiKey` | 字符串 | 是 | YouTube API 密钥 |
+| `playlistId` | string | 是 | YouTube 播放列表 ID |
+| `maxResults` | number | 否 | 返回视频的最大数量 |
+| `pageToken` | string | 否 | 分页页面令牌 |
+| `apiKey` | string | 是 | YouTube API 密钥 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `items` | 数组 | 播放列表中的视频数组 |
+| `videoId` | string | YouTube 视频 ID |
+| `title` | string | 视频标题 |
+| `description` | string | 视频描述 |
+| `thumbnail` | string | 视频缩略图 URL |
+| `publishedAt` | string | 加入播放列表的日期 |
+| `channelTitle` | string | 频道名称 |
 
-### `youtube_comments`
+</div>
+
+---
+
+### 获取视频评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "搜索视频",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "获取视频详情",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "获取频道信息",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "获取播放列表项目",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "获取视频评论",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_comments"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API 密钥",
+            "layout": "full",
+            "placeholder": "请输入 YouTube API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "视频 ID",
+            "layout": "full",
+            "placeholder": "请输入 YouTube 视频 ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "最大结果数",
+            "layout": "half",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "最相关",
+                    "id": "relevance"
+                },
+                {
+                    "label": "最新",
+                    "id": "time"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取视频评论 (<code>youtube_comments</code>)</div>
 
 从 YouTube 视频中获取评论。
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `videoId` | 字符串 | 是 | YouTube 视频 ID |
-| `maxResults` | 数字 | 否 | 返回评论的最大数量 |
-| `order` | 字符串 | 否 | 评论排序方式：时间或相关性 |
-| `pageToken` | 字符串 | 否 | 分页的页面令牌 |
-| `apiKey` | 字符串 | 是 | YouTube API 密钥 |
+| `videoId` | string | 是 | YouTube 视频 ID |
+| `maxResults` | number | 否 | 返回评论的最大数量 |
+| `order` | string | 否 | 评论排序方式：时间或相关性 |
+| `pageToken` | string | 否 | 分页页面令牌 |
+| `apiKey` | string | 是 | YouTube API 密钥 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `items` | 数组 | 视频评论的数组 |
+| `commentId` | string | 评论 ID |
+| `authorDisplayName` | string | 评论作者名称 |
+| `authorChannelUrl` | string | 评论作者频道 URL |
+| `textDisplay` | string | 评论文本 \(HTML 格式\) |
+| `textOriginal` | string | 评论文本 \(纯文本\) |
+| `likeCount` | number | 点赞数量 |
+| `publishedAt` | string | 评论发布日期 |
+| `updatedAt` | string | 评论最后更新日期 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 YouTube 集成到工作流中。可搜索视频、获取视频详情、获取频道信息、获取播放列表项目及获取视频评论。
 
 ## 注意事项
 

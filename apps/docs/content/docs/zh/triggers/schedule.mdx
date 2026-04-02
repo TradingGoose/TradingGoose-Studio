@@ -1,73 +1,66 @@
 ---
-title: 计划
+title: 定时触发器
+description: 按照循环计划自动触发工作流
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
 
-计划模块会在指定的时间间隔或时间点自动触发工作流。
+<BlockInfoCard
+  type="schedule"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
 
-<div className="flex justify-center">
-  <Image
-    src="/static/schedule.png"
-    alt="计划模块"
-    width={500}
-    height={400}
-    className="my-6"
+定时触发器按照指定的时间间隔或时间点，自动以循环计划方式运行工作流。
+
+<Callout type="info">
+  这是一个**基于轮询**的触发器。TradingGoose 将按照配置的时间间隔自动执行工作流。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="定时触发器"
+    type="schedule"
+    hideHeader
+    subBlocks={[
+      { "id": "scheduleConfig", "title": "计划", "type": "dropdown", "layout": "full", "placeholder": "选择计划间隔", "options": [{ "label": "每 5 分钟", "id": "5m" }, { "label": "每 15 分钟", "id": "15m" }, { "label": "每 30 分钟", "id": "30m" }, { "label": "每小时", "id": "1h" }, { "label": "每天", "id": "1d" }, { "label": "自定义（Cron）", "id": "cron" }] }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## 计划选项
 
-通过下拉选项配置工作流的运行时间：
-
 <Tabs items={['简单间隔', 'Cron 表达式']}>
   <Tab>
-    <ul className="list-disc space-y-1 pl-6">
-      <li><strong>每隔几分钟</strong>：5 分钟、15 分钟、30 分钟的间隔</li>
-      <li><strong>每小时</strong>：每小时或每隔几小时</li>
-      <li><strong>每天</strong>：每天一次或多次</li>
-      <li><strong>每周</strong>：一周中的特定日子</li>
-      <li><strong>每月</strong>：一个月中的特定日子</li>
-    </ul>
+    - **每隔几分钟**：5、15、30 分钟间隔
+    - **每小时**：每小时或每隔几小时
+    - **每天**：每天一次或多次
+    - **每周**：每周特定日期
+    - **每月**：每月特定日期
   </Tab>
   <Tab>
-    <p>使用 cron 表达式进行高级调度：</p>
-    <div className="text-sm space-y-1">
-      <div><code>0 9 * * 1-5</code> - 每个工作日的上午 9 点</div>
-      <div><code>*/15 * * * *</code> - 每 15 分钟</div>
-      <div><code>0 0 1 * *</code> - 每月的第一天</div>
-    </div>
+    使用 Cron 表达式进行高级调度：
+
+    - `0 9 * * 1-5` — 每个工作日上午 9 点
+    - `*/15 * * * *` — 每 15 分钟
+    - `0 0 1 * *` — 每月第一天
   </Tab>
 </Tabs>
 
-## 配置计划
+## 行为
 
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="configure-schedule.mp4" width={700} height={450} />
-</div>
-
-当工作流被计划时：
-- 计划变为**激活**状态，并显示下一次执行时间
-- 点击 **"已计划"** 按钮可以停用计划
-- 如果**连续失败 3 次**，计划会自动停用
-
-## 停用的计划
-
-<div className="flex justify-center">
-  <Image
-    src="/static/schedule-disabled.png"
-    alt="停用的计划"
-    width={500}
-    height={350}
-    className="my-6"
-  />
-</div>
-
-停用的计划会显示上次激活的时间，并可以随时重新启用。
+- 计划变为**活跃**状态，并显示下次执行时间
+- 点击**「已计划」**按钮可停用该计划
+- 计划在**连续失败 3 次**后自动停用
+- 已停用的计划会显示上次活跃时间，且可随时重新启用
 
 <Callout>
-计划模块无法接收传入连接，仅作为纯工作流触发器使用。
+定时块不接受传入连接，仅作为纯粹的工作流触发器。不产生任何输出——工作流以空上下文启动。
 </Callout>

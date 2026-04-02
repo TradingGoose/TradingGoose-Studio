@@ -1,0 +1,155 @@
+---
+title: Detalle de Orden
+description: Recuperar detalles del lado del proveedor para una orden de trading
+  previamente enviada.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_detail"
+  color="#0f766e"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 30 43'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M25.8333 6.33333H15M15 6.33333H9.58333C7.57211 6.33333 5.64326 7.13229 4.22111 8.55444C2.79896 9.97659 2 11.9054 2 13.9167C2 15.9279 2.79896 17.8567 4.22111 19.2789C5.64326 20.701 7.57211 21.5 9.58333 21.5H15M15 6.33333V2M15 6.33333V21.5M15 21.5H20.4167C21.4125 21.5 22.3986 21.6961 23.3187 22.0772C24.2387 22.4583 25.0747 23.0169 25.7789 23.7211C26.4831 24.4253 27.0417 25.2613 27.4228 26.1813C27.8039 27.1014 28 28.0875 28 29.0833C28 30.0792 27.8039 31.0653 27.4228 31.9853C27.0417 32.9054 26.4831 33.7414 25.7789 34.4456C25.0747 35.1497 24.2387 35.7083 23.3187 36.0894C22.3986 36.4705 21.4125 36.6667 20.4167 36.6667H15M15 21.5V36.6667M15 36.6667H2M15 36.6667V41'
+        stroke='currentColor'
+        strokeWidth='2.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Detalle de Orden"
+    type="trading_order_detail"
+    color="#0f766e"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 30 43'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M25.8333 6.33333H15M15 6.33333H9.58333C7.57211 6.33333 5.64326 7.13229 4.22111 8.55444C2.79896 9.97659 2 11.9054 2 13.9167C2 15.9279 2.79896 17.8567 4.22111 19.2789C5.64326 20.701 7.57211 21.5 9.58333 21.5H15M15 6.33333V2M15 6.33333V21.5M15 21.5H20.4167C21.4125 21.5 22.3986 21.6961 23.3187 22.0772C24.2387 22.4583 25.0747 23.0169 25.7789 23.7211C26.4831 24.4253 27.0417 25.2613 27.4228 26.1813C27.8039 27.1014 28 28.0875 28 29.0833C28 30.0792 27.8039 31.0653 27.4228 31.9853C27.0417 32.9054 26.4831 33.7414 25.7789 34.4456C25.0747 35.1497 24.2387 35.7083 23.3187 36.0894C22.3986 36.4705 21.4125 36.6667 20.4167 36.6667H15M15 21.5V36.6667M15 36.6667H2M15 36.6667V41'
+        stroke='currentColor'
+        strokeWidth='2.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "orderId",
+            "type": "order-id-selector",
+            "title": "ID de Orden",
+            "layout": "full",
+            "placeholder": "Buscar por ID de orden, símbolo, ticker, cotización o fecha",
+            "required": true
+        },
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Bróker",
+            "layout": "full",
+            "placeholder": "Seleccionar el bróker utilizado para esta orden",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "Entorno",
+            "layout": "half",
+            "placeholder": "Anulación de entorno opcional",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Trading en Vivo",
+                    "id": "live"
+                }
+            ]
+        },
+        {
+            "id": "accountId",
+            "type": "short-input",
+            "title": "ID de Cuenta",
+            "layout": "full",
+            "placeholder": "Anulación opcional del ID de cuenta de Tradier",
+            "condition": {
+                "field": "provider",
+                "value": "tradier"
+            }
+        },
+        {
+            "id": "accountUrl",
+            "type": "short-input",
+            "title": "URL de Cuenta",
+            "layout": "full",
+            "placeholder": "Anulación opcional de la URL de cuenta de Robinhood",
+            "condition": {
+                "field": "provider",
+                "value": "robinhood"
+            }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_order_detail`
+
+Recupera todos los detalles disponibles del proveedor para una orden de trading previamente registrada, mediante el ID de orden de Trading Goose.
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `orderId` | string | Sí | ID de orden de Trading Goose \(orderHistoryTable.id\) generado al enviar la orden. |
+| `provider` | string | No | Proveedor esperado para esta orden. Se utiliza para la selección de credenciales y la validación de discrepancias. |
+| `environment` | string | No | Anulación opcional del entorno \(paper o live\) para la obtención de detalles de la orden del proveedor. |
+| `credential` | string | No | ID de credencial OAuth para el bróker seleccionado \(completado desde la cuenta seleccionada\). |
+| `tradierCredential` | string | No | ID de credencial OAuth de Tradier. |
+| `robinhoodCredential` | string | No | ID de credencial OAuth de Robinhood. |
+| `alpacaCredential` | string | No | ID de credencial OAuth de Alpaca. |
+| `apiKey` | string | No | ID de clave API de Alpaca \(opcional si se utiliza OAuth\). |
+| `apiSecret` | string | No | Clave secreta de API de Alpaca \(opcional si se utiliza OAuth\). |
+| `accountId` | string | No | Anulación del ID de cuenta de Tradier si no está presente en los metadatos de la orden almacenada. |
+| `accountUrl` | string | No | Anulación de la URL de cuenta de Robinhood si es necesario. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | string | Mensaje de estado para la recuperación de detalles de la orden. |
+| `provider` | string | Bróker/proveedor de la orden. |
+| `appOrderId` | string | ID de orden de Trading Goose \(orderHistoryTable.id\). |
+| `providerOrderId` | string | ID de orden nativo del proveedor utilizado para la consulta a la API. |
+
+## Instrucciones de uso
+
+Busca el registro del historial de órdenes de Trading Goose por ID de orden, resuelve el ID de orden del proveedor y obtiene el detalle más reciente de la orden del proveedor.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_order_detail`

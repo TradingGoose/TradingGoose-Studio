@@ -1,0 +1,100 @@
+---
+title: 备注
+description: 在工作流画布上添加可视化注释，不影响执行
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <rect
+        x='4'
+        y='3'
+        
+        
+        rx='2.5'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+      />
+      <path d='M15 3H18C18.5523 3 19 3.44772 19 4V7L15 3Z' fill='currentColor' />
+      <path d='M8 11H15.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+      <path d='M8 15H13' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+    </svg>`}
+/>
+
+备注块是一种仅用于可视化的注释，存在于工作流画布上。它不会执行，没有输入或输出，且完全被执行器忽略。可用于记录决策、为协作者留下说明，或对工作流中的复杂部分进行解释。
+
+## 概述
+
+备注块仅用于组织管理目的：
+
+- **记录设计决策** -- 解释为何选择某种分支策略或模型。
+- **留下说明** -- 告知协作者如何配置环境变量，或说明工作流某个部分的功能。
+- **嵌入参考资料** -- 粘贴 YouTube 链接，链接将直接在画布上渲染为嵌入式视频。
+
+<Callout type="info">
+  备注块对工作流执行没有任何影响。它们不产生任何输出，也无法与其他块连接。工作流运行时，备注块会被完全剔除。
+</Callout>
+
+## 配置
+
+唯一的字段是一个 Markdown 文本区域。可以输入纯文本、使用 Markdown 格式（标题、列表、粗体、代码块），或粘贴 YouTube URL 以嵌入视频。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="备注"
+    type="note"
+    color="#F59E0B"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <rect
+        x='4'
+        y='3'
+        
+        
+        rx='2.5'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+      />
+      <path d='M15 3H18C18.5523 3 19 3.44772 19 4V7L15 3Z' fill='currentColor' />
+      <path d='M8 11H15.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+      <path d='M8 15H13' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "为协作者添加背景信息或操作说明...",
+            "description": "使用 Markdown 编写备注内容。YouTube 链接将显示为嵌入式视频。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 最佳实践
+
+- **将备注放置在其所描述的代码块附近**，以便上下文一目了然。
+- **使用 Markdown 标题和列表**，使较长的备注易于浏览。
+- **优先使用备注而非代码块中的注释** -- 备注在画布层级即可直接查看，无需打开代码块的配置。

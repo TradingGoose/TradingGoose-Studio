@@ -1,0 +1,989 @@
+---
+title: Google Slides
+description: 读取、写入和创建演示文稿
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_slides"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+/>
+
+## 配置
+
+### 读取演示文稿
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "替换所有文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账户",
+            "placeholder": "选择 Google 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取演示文稿（<code>google_slides_read</code>）</div>
+
+从 Google Slides 演示文稿中读取内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 要读取的演示文稿 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `slides` | json | 包含幻灯片内容的数组 |
+
+</div>
+
+---
+
+### 写入演示文稿
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "替换所有文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账户",
+            "placeholder": "选择 Google 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        },
+        {
+            "id": "slideIndex",
+            "type": "short-input",
+            "title": "幻灯片索引",
+            "placeholder": "输入幻灯片索引（0 表示第一张）"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "输入幻灯片内容",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入演示文稿（<code>google_slides_write</code>）</div>
+
+在 Google Slides 演示文稿中写入或更新内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 要写入的演示文稿的 ID |
+| `content` | string | 是 | 要写入幻灯片的内容 |
+| `slideIndex` | number | 否 | 要写入的幻灯片索引（默认为第一张幻灯片） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `updatedContent` | boolean | 指示演示文稿内容是否已成功更新 |
+
+</div>
+
+---
+
+### 创建演示文稿
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "全文替换",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "create"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账户",
+            "placeholder": "选择 Google 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "演示文稿标题",
+            "placeholder": "输入新演示文稿的标题",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父文件夹",
+            "placeholder": "选择父文件夹"
+        },
+        {
+            "id": "folderId",
+            "type": "short-input",
+            "title": "父文件夹 ID",
+            "placeholder": "输入父文件夹 ID（留空则使用根文件夹）"
+        },
+        {
+            "id": "createContent",
+            "type": "long-input",
+            "title": "初始内容",
+            "placeholder": "输入幻灯片初始内容（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建演示文稿（<code>google_slides_create</code>）</div>
+
+创建一个新的 Google Slides 演示文稿
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | 是 | 要创建的演示文稿标题 |
+| `content` | string | 否 | 要添加到第一张幻灯片的内容 |
+| `folderSelector` | string | 否 | 选择创建演示文稿所在的文件夹 |
+| `folderId` | string | 否 | 创建演示文稿所在文件夹的 ID（内部使用）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+---
+
+### 全部替换文本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "全部替换文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "replace_all_text"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        },
+        {
+            "id": "findText",
+            "type": "short-input",
+            "title": "查找文本",
+            "placeholder": "要查找的文本（例如：{{placeholder}}）",
+            "required": true
+        },
+        {
+            "id": "replaceText",
+            "type": "short-input",
+            "title": "替换为",
+            "placeholder": "替换后的文本",
+            "required": true
+        },
+        {
+            "id": "matchCase",
+            "type": "switch",
+            "title": "区分大小写"
+        },
+        {
+            "id": "pageObjectIds",
+            "type": "short-input",
+            "title": "限定幻灯片（ID）",
+            "placeholder": "以逗号分隔的幻灯片 ID（留空表示全部）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">替换所有文本（<code>google_slides_replace_all_text</code>）</div>
+
+查找并替换 Google Slides 演示文稿中所有匹配的文本内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 演示文稿的 ID |
+| `findText` | string | 是 | 要查找的文本 \(例如：\{\{placeholder\}\}\) |
+| `replaceText` | string | 是 | 替换后的文本内容 |
+| `matchCase` | boolean | 否 | 搜索是否区分大小写 \(默认值：true\) |
+| `pageObjectIds` | string | 否 | 以逗号分隔的幻灯片对象 ID 列表，用于将替换范围限定至特定幻灯片 \(留空则应用于所有幻灯片\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `occurrencesChanged` | number | 已替换的文本匹配项数量 |
+
+</div>
+
+---
+
+### 添加幻灯片
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "替换所有文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "add_slide"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        },
+        {
+            "id": "layout",
+            "type": "dropdown",
+            "title": "幻灯片版式",
+            "options": [
+                {
+                    "label": "空白",
+                    "id": "BLANK"
+                },
+                {
+                    "label": "标题",
+                    "id": "TITLE"
+                },
+                {
+                    "label": "标题与正文",
+                    "id": "TITLE_AND_BODY"
+                },
+                {
+                    "label": "仅标题",
+                    "id": "TITLE_ONLY"
+                },
+                {
+                    "label": "标题与两栏",
+                    "id": "TITLE_AND_TWO_COLUMNS"
+                },
+                {
+                    "label": "节标题",
+                    "id": "SECTION_HEADER"
+                },
+                {
+                    "label": "仅说明文字",
+                    "id": "CAPTION_ONLY"
+                },
+                {
+                    "label": "主要观点",
+                    "id": "MAIN_POINT"
+                },
+                {
+                    "label": "大数字",
+                    "id": "BIG_NUMBER"
+                }
+            ]
+        },
+        {
+            "id": "insertionIndex",
+            "type": "short-input",
+            "title": "插入位置",
+            "placeholder": "插入幻灯片的位置（留空则插入末尾）"
+        },
+        {
+            "id": "placeholderIdMappings",
+            "type": "long-input",
+            "title": "占位符 ID 映射",
+            "placeholder": "JSON 数组：[{\"layoutPlaceholder\":{\"type\":\"TITLE\"},\"objectId\":\"my_title\"}]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加幻灯片 (<code>google_slides_add_slide</code>)</div>
+
+在 Google Slides 演示文稿中以指定布局添加新幻灯片
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 演示文稿的 ID |
+| `layout` | string | 否 | 幻灯片的预定义布局（BLANK、TITLE、TITLE_AND_BODY、TITLE_ONLY、SECTION_HEADER 等）。默认为 BLANK。|
+| `insertionIndex` | number | 否 | 可选的从零开始的索引，指定幻灯片的插入位置。若未指定，则将幻灯片添加至末尾。|
+| `placeholderIdMappings` | string | 否 | 占位符映射的 JSON 数组，用于为占位符分配自定义对象 ID。格式：\[\{"layoutPlaceholder":\{"type":"TITLE"\},"objectId":"custom_title_id"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `slideId` | string | 新创建幻灯片的对象 ID |
+
+</div>
+
+---
+
+### 添加图片
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "替换全部文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "add_image"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        },
+        {
+            "id": "pageObjectId",
+            "type": "short-input",
+            "title": "幻灯片 ID",
+            "placeholder": "要添加图片的幻灯片对象 ID",
+            "required": true
+        },
+        {
+            "id": "imageUrl",
+            "type": "short-input",
+            "title": "图片 URL",
+            "placeholder": "图片的公开 URL（PNG、JPEG 或 GIF）",
+            "required": true
+        },
+        {
+            "id": "imageWidth",
+            "type": "short-input",
+            "title": "宽度（点）",
+            "placeholder": "图片宽度（点），默认：300"
+        },
+        {
+            "id": "imageHeight",
+            "type": "short-input",
+            "title": "高度（点）",
+            "placeholder": "图片高度（点），默认：200"
+        },
+        {
+            "id": "positionX",
+            "type": "short-input",
+            "title": "X 坐标（点）",
+            "placeholder": "距左侧的 X 坐标（默认：100）"
+        },
+        {
+            "id": "positionY",
+            "type": "short-input",
+            "title": "Y 坐标（点）",
+            "placeholder": "距顶部的 Y 坐标（默认：100）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加图片（<code>google_slides_add_image</code>）</div>
+
+将图片插入 Google Slides 演示文稿中的指定幻灯片
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 演示文稿的 ID |
+| `pageObjectId` | string | 是 | 要添加图片的幻灯片/页面的对象 ID |
+| `imageUrl` | string | 是 | 图片的公开访问 URL（必须为 PNG、JPEG 或 GIF 格式，最大 50MB） |
+| `width` | number | 否 | 图片宽度，单位为点（默认值：300） |
+| `height` | number | 否 | 图片高度，单位为点（默认值：200） |
+| `positionX` | number | 否 | 距左边缘的 X 坐标，单位为点（默认值：100） |
+| `positionY` | number | 否 | 距顶部边缘的 Y 坐标，单位为点（默认值：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `imageId` | string | 新创建图片的对象 ID |
+
+</div>
+
+---
+
+### 获取缩略图
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#FFC107'
+        d='M37,45H11c-1.657,0-3-1.343-3-3V6c0-1.657,1.343-3,3-3h19l10,10v29C40,43.657,38.657,45,37,45z'
+      />
+      <path fill='#FFECB3' d='M40 13L30 13 30 3z' />
+      <path fill='#FFA000' d='M30 13L40 23 40 13z' />
+      <path fill='#FFF8E1' d='M14 21H34V35H14z' />
+      <path fill='#FFA000' d='M16 23H32V26H16zM16 28H28V30H16z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "读取演示文稿",
+                    "id": "read"
+                },
+                {
+                    "label": "写入演示文稿",
+                    "id": "write"
+                },
+                {
+                    "label": "创建演示文稿",
+                    "id": "create"
+                },
+                {
+                    "label": "替换所有文本",
+                    "id": "replace_all_text"
+                },
+                {
+                    "label": "添加幻灯片",
+                    "id": "add_slide"
+                },
+                {
+                    "label": "添加图片",
+                    "id": "add_image"
+                },
+                {
+                    "label": "获取缩略图",
+                    "id": "get_thumbnail"
+                }
+            ],
+            "defaultValue": "get_thumbnail"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "选择演示文稿",
+            "placeholder": "选择一个演示文稿"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "演示文稿 ID",
+            "placeholder": "输入演示文稿 ID"
+        },
+        {
+            "id": "thumbnailPageId",
+            "type": "short-input",
+            "title": "幻灯片 ID",
+            "placeholder": "要获取缩略图的幻灯片对象 ID",
+            "required": true
+        },
+        {
+            "id": "thumbnailSize",
+            "type": "dropdown",
+            "title": "缩略图尺寸",
+            "options": [
+                {
+                    "label": "小（200px）",
+                    "id": "SMALL"
+                },
+                {
+                    "label": "中（800px）",
+                    "id": "MEDIUM"
+                },
+                {
+                    "label": "大（1600px）",
+                    "id": "LARGE"
+                }
+            ]
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "图片格式",
+            "options": [
+                {
+                    "label": "PNG",
+                    "id": "PNG"
+                },
+                {
+                    "label": "GIF",
+                    "id": "GIF"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取缩略图 (<code>google_slides_get_thumbnail</code>)</div>
+
+生成 Google Slides 演示文稿中特定幻灯片的缩略图
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | 是 | 演示文稿的 ID |
+| `pageObjectId` | string | 是 | 要获取缩略图的幻灯片/页面的对象 ID |
+| `thumbnailSize` | string | 否 | 缩略图尺寸：SMALL \(200px\)、MEDIUM \(800px\) 或 LARGE \(1600px\)，默认为 MEDIUM |
+| `mimeType` | string | 否 | 缩略图的 MIME 类型：PNG 或 GIF，默认为 PNG |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contentUrl` | string | 缩略图的 URL（有效期 30 分钟） |
+| `width` | number | 缩略图宽度（像素） |
+| `height` | number | 缩略图高度（像素） |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Google Slides 集成到工作流中，支持读取、写入、创建演示文稿、替换文本、添加幻灯片、添加图片及获取缩略图。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`google_slides`

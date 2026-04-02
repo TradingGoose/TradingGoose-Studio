@@ -1,0 +1,117 @@
+---
+title: Circleback Trigger
+description: Trigger workflow when meeting notes and action items are ready
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow when meeting notes and action items are ready
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Events
+
+### Circleback Meeting Notes Ready
+
+Trigger workflow when meeting notes and action items are ready
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Meeting Notes Ready"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Circleback Webhook
+
+Generic webhook trigger for all Circleback events
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Webhook"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Circleback Meeting Completed
+
+Trigger workflow when a meeting is processed and ready in Circleback
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Meeting Completed"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+

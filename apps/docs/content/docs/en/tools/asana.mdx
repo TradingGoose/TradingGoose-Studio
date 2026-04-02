@@ -1,0 +1,668 @@
+---
+title: Asana
+description: Interact with Asana
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="asana"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Get Task
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "get_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "Task GID",
+            "placeholder": "Leave empty to get all tasks with filters below"
+        },
+        {
+            "id": "getTasks_workspace",
+            "type": "short-input",
+            "title": "Workspace GID",
+            "placeholder": "Enter workspace GID"
+        },
+        {
+            "id": "getTasks_project",
+            "type": "short-input",
+            "title": "Project GID",
+            "placeholder": "Enter project GID"
+        },
+        {
+            "id": "getTasks_limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Max tasks to return (default: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Task (<code>asana_get_task</code>)</div>
+
+Retrieve a single task by GID or get multiple tasks with filters
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | No | The globally unique identifier \(GID\) of the task. If not provided, will get multiple tasks. |
+| `workspace` | string | No | Workspace GID to filter tasks \(required when not using taskGid\) |
+| `project` | string | No | Project GID to filter tasks |
+| `limit` | number | No | Maximum number of tasks to return \(default: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Assignee GID |
+| `resource_type` | string | Resource type \(task\) |
+| `resource_subtype` | string | Resource subtype |
+| `name` | string | Task name |
+| `notes` | string | Task notes or description |
+| `completed` | boolean | Whether the task is completed |
+
+</div>
+
+
+
+---
+
+### Create Task
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "create_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "Workspace GID",
+            "placeholder": "Enter Asana workspace GID",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Task Name",
+            "placeholder": "Enter task name",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Task Notes",
+            "placeholder": "Enter task notes or description"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "Assignee GID",
+            "placeholder": "Enter assignee user GID"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Due Date",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Task (<code>asana_create_task</code>)</div>
+
+Create a new task in Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Yes | Workspace GID where the task will be created |
+| `name` | string | Yes | Name of the task |
+| `notes` | string | No | Notes or description for the task |
+| `assignee` | string | No | User GID to assign the task to |
+| `due_on` | string | No | Due date in YYYY-MM-DD format |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Task globally unique identifier |
+| `name` | string | Task name |
+| `notes` | string | Task notes or description |
+| `completed` | boolean | Whether the task is completed |
+| `created_at` | string | Task creation timestamp |
+
+</div>
+
+
+
+---
+
+### Update Task
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "update_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "Task GID",
+            "placeholder": "Enter Asana task GID",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Task Name",
+            "placeholder": "Enter task name",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Task Notes",
+            "placeholder": "Enter task notes or description"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "Assignee GID",
+            "placeholder": "Enter assignee user GID"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Due Date",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Task (<code>asana_update_task</code>)</div>
+
+Update an existing task in Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Yes | The globally unique identifier \(GID\) of the task to update |
+| `name` | string | No | Updated name for the task |
+| `notes` | string | No | Updated notes or description for the task |
+| `assignee` | string | No | Updated assignee user GID |
+| `completed` | boolean | No | Mark task as completed or not completed |
+| `due_on` | string | No | Updated due date in YYYY-MM-DD format |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Task globally unique identifier |
+| `name` | string | Task name |
+| `notes` | string | Task notes or description |
+| `completed` | boolean | Whether the task is completed |
+
+</div>
+
+
+
+---
+
+### Get Projects
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "get_projects"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "Workspace GID",
+            "placeholder": "Enter Asana workspace GID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Projects (<code>asana_get_projects</code>)</div>
+
+Retrieve all projects from an Asana workspace
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Yes | Workspace GID to retrieve projects from |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Project GID |
+| `name` | string | Project name |
+
+</div>
+
+
+
+---
+
+### Search Tasks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "search_tasks"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "Workspace GID",
+            "placeholder": "Enter Asana workspace GID",
+            "required": true
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "Assignee GID",
+            "placeholder": "Enter assignee user GID"
+        },
+        {
+            "id": "searchText",
+            "type": "short-input",
+            "title": "Search Text",
+            "placeholder": "Enter search text"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Tasks (<code>asana_search_tasks</code>)</div>
+
+Search for tasks in an Asana workspace
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Yes | Workspace GID to search tasks in |
+| `text` | string | No | Text to search for in task names |
+| `assignee` | string | No | Filter tasks by assignee user GID |
+| `projects` | array | No | Array of project GIDs to filter tasks by |
+| `completed` | boolean | No | Filter by completion status |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Assignee GID |
+| `resource_type` | string | Resource type |
+| `resource_subtype` | string | Resource subtype |
+| `name` | string | Task name |
+| `notes` | string | Task notes |
+| `completed` | boolean | Completion status |
+
+</div>
+
+
+
+---
+
+### Add Comment
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Task",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Update Task",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "add_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Asana Account",
+            "placeholder": "Select Asana account",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "Task GID",
+            "placeholder": "Enter Asana task GID",
+            "required": true
+        },
+        {
+            "id": "commentText",
+            "type": "long-input",
+            "title": "Comment Text",
+            "placeholder": "Enter comment text",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add Comment (<code>asana_add_comment</code>)</div>
+
+Add a comment (story) to an Asana task
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Yes | The globally unique identifier \(GID\) of the task |
+| `text` | string | Yes | The text content of the comment |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `ts` | string | Timestamp of the response |
+| `gid` | string | Author GID |
+| `text` | string | Comment text content |
+| `created_at` | string | Comment creation timestamp |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Asana into the workflow. Can read, write, and update tasks.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `asana`

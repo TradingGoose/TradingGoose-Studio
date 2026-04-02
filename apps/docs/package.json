@@ -7,7 +7,7 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
-    "i18n": "bunx lingo.dev@latest i18n",
+    "i18n": "bunx lingo.dev@latest run",
     "postinstall": "fumadocs-mdx",
     "type-check": "tsc --noEmit"
   },

@@ -4,141 +4,491 @@ description: 管理 Webflow CMS 集合
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="webflow"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      
-      
-      viewBox='0 0 1080 674'
-      fill='none'
-      xmlns='http://www.w3.org/2000/svg'
-    >
-      <path
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M1080 0L735.386 673.684H411.695L555.916 394.481H549.445C430.464 548.934 252.942 650.61 -0.000488281 673.684V398.344C-0.000488281 398.344 161.813 388.787 256.938 288.776H-0.000488281V0.0053214H288.771V237.515L295.252 237.489L413.254 0.0053214H631.644V236.009L638.126 235.999L760.555 0H1080Z'
-        fill='#146EF5'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Webflow](https://webflow.com/) 是一个强大的可视化网页设计平台，能够让您无需编写代码即可构建响应式网站。它结合了可视化设计界面和强大的 CMS（内容管理系统），使您能够为网站创建、管理和发布动态内容。
+## 配置
 
-使用 Webflow，您可以：
+### 列出条目
 
-- **可视化设计**：使用可视化编辑器创建自定义网站，该编辑器会生成干净、语义化的 HTML/CSS 代码
-- **动态管理内容**：使用 CMS 创建结构化内容集合，例如博客文章、产品、团队成员或任何自定义数据
-- **即时发布**：将您的网站部署到 Webflow 的托管服务，或导出代码以进行自定义托管
-- **创建响应式设计**：构建在桌面、平板电脑和移动设备上无缝运行的网站
-- **自定义集合**：为您的内容类型定义自定义字段和数据结构
-- **自动更新内容**：通过 API 编程方式管理您的 CMS 内容
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "列出条目",
+                    "id": "list"
+                },
+                {
+                    "label": "获取条目",
+                    "id": "get"
+                },
+                {
+                    "label": "创建条目",
+                    "id": "create"
+                },
+                {
+                    "label": "更新条目",
+                    "id": "update"
+                },
+                {
+                    "label": "删除条目",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow 账户",
+            "layout": "full",
+            "placeholder": "选择 Webflow 账户",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "集合 ID",
+            "layout": "full",
+            "placeholder": "输入集合 ID",
+            "required": true
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "layout": "half",
+            "placeholder": "分页偏移量（可选）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "half",
+            "placeholder": "最大返回条目数（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-在 TradingGoose 中，Webflow 集成使您的代理能够通过 API 身份验证无缝与 Webflow CMS 集合交互。这支持强大的自动化场景，例如从 AI 生成的内容中自动创建博客文章、更新产品信息、管理团队成员资料以及检索 CMS 项目以生成动态内容。您的代理可以列出现有项目以浏览内容，通过 ID 检索特定项目，创建新条目以添加新内容，更新现有项目以保持信息最新，以及删除过时内容。此集成弥合了您的 AI 工作流与 Webflow CMS 之间的差距，实现了自动化内容管理、动态网站更新和简化的内容工作流，使您的网站无需人工干预即可保持新鲜和最新。{/* MANUAL-CONTENT-END */}
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出条目 (<code>webflow_list_items</code>)</div>
 
-## 使用说明
+列出 Webflow CMS 集合中的所有条目
 
-将 Webflow CMS 集成到工作流程中。可以创建、获取、列出、更新或删除 Webflow CMS 集合中的项目。以编程方式管理您的 Webflow 内容。可以在触发模式下使用，当集合项目发生变化或提交表单时触发工作流程。
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-## 工具
-
-### `webflow_list_items`
-
-列出 Webflow CMS 集合中的所有项目
-
-#### 输入
-
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | 是 | 集合的 ID |
-| `offset` | number | 否 | 分页偏移量（可选） |
-| `limit` | number | 否 | 返回的最大项目数（可选，默认值：100） |
+| `offset` | number | 否 | 分页偏移量 \(可选\) |
+| `limit` | number | 否 | 最大返回条目数 \(可选，默认值：100\) |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `items` | json | 集合项目的数组 |
-| `metadata` | json | 查询的元数据 |
+| `items` | json | 集合条目数组 |
 
-### `webflow_get_item`
+</div>
 
-从 Webflow CMS 集合中获取单个项目
+---
 
-#### 输入
+### 获取条目
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "列出条目",
+                    "id": "list"
+                },
+                {
+                    "label": "获取条目",
+                    "id": "get"
+                },
+                {
+                    "label": "创建条目",
+                    "id": "create"
+                },
+                {
+                    "label": "更新条目",
+                    "id": "update"
+                },
+                {
+                    "label": "删除条目",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "get"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow 账户",
+            "layout": "full",
+            "placeholder": "选择 Webflow 账户",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "集合 ID",
+            "layout": "full",
+            "placeholder": "输入集合 ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "条目 ID",
+            "layout": "full",
+            "placeholder": "条目的 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取条目（<code>webflow_get_item</code>）</div>
+
+从 Webflow CMS 集合中获取单个条目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | 是 | 集合的 ID |
-| `itemId` | string | 是 | 要检索的项目 ID |
+| `itemId` | string | 是 | 要检索的条目 ID |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
 | `item` | json | 检索到的项目对象 |
-| `metadata` | json | 检索到的项目的元数据 |
 
-### `webflow_create_item`
+</div>
 
-在 Webflow CMS 集合中创建一个新项目
+---
 
-#### 输入
+### 创建项目
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "列出条目",
+                    "id": "list"
+                },
+                {
+                    "label": "获取条目",
+                    "id": "get"
+                },
+                {
+                    "label": "创建条目",
+                    "id": "create"
+                },
+                {
+                    "label": "更新条目",
+                    "id": "update"
+                },
+                {
+                    "label": "删除条目",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "create"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow 账户",
+            "layout": "full",
+            "placeholder": "选择 Webflow 账户",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "集合 ID",
+            "layout": "full",
+            "placeholder": "输入集合 ID",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "字段数据",
+            "layout": "full",
+            "placeholder": "JSON 格式的字段数据：`{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建项目（<code>webflow_create_item</code>）</div>
+
+在 Webflow CMS 集合中创建新项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | 是 | 集合的 ID |
-| `fieldData` | json | 是 | 新项目的字段数据，格式为 JSON 对象。键名应与集合字段名称匹配。 |
+| `fieldData` | json | 是 | 新项目的字段数据（JSON 对象格式），键名应与集合字段名称对应。 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `item` | json | 创建的项目对象 |
-| `metadata` | json | 关于创建项目的元数据 |
+| `item` | json | 已创建的条目对象 |
 
-### `webflow_update_item`
+</div>
 
-更新 Webflow CMS 集合中的现有项目
+---
 
-#### 输入
+### 更新条目
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "列出项目",
+                    "id": "list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "update"
+                },
+                {
+                    "label": "删除项目",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow 账户",
+            "layout": "full",
+            "placeholder": "选择 Webflow 账户",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "集合 ID",
+            "layout": "full",
+            "placeholder": "输入集合 ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "项目的 ID",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "字段数据",
+            "layout": "full",
+            "placeholder": "JSON 格式的字段数据：`{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新条目 (<code>webflow_update_item</code>)</div>
+
+更新 Webflow CMS 集合中的现有条目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | 是 | 集合的 ID |
-| `itemId` | string | 是 | 要更新项目的 ID |
-| `fieldData` | json | 是 | 要更新的字段数据，格式为 JSON 对象。仅包含您想更改的字段。 |
+| `itemId` | string | 是 | 要更新的条目 ID |
+| `fieldData` | json | 是 | 以 JSON 对象形式提供的待更新字段数据，仅需包含需要修改的字段。 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `item` | json | 更新的项目对象 |
-| `metadata` | json | 关于更新项目的元数据 |
+| `item` | json | 已更新的项目对象 |
 
-### `webflow_delete_item`
+</div>
 
-从 Webflow CMS 集合中删除项目
+---
 
-#### 输入
+### 删除项目
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "列出项目",
+                    "id": "list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "update"
+                },
+                {
+                    "label": "删除项目",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow 账户",
+            "layout": "full",
+            "placeholder": "选择 Webflow 账户",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "集合 ID",
+            "layout": "full",
+            "placeholder": "输入集合 ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "项目的 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除项目（<code>webflow_delete_item</code>）</div>
+
+从 Webflow CMS 集合中删除一个项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | 是 | 集合的 ID |
-| `itemId` | string | 是 | 要删除项目的 ID |
+| `itemId` | string | 是 | 要删除的项目的 ID |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `success` | boolean | 是否删除成功 |
-| `metadata` | json | 有关删除的元数据 |
+| `success` | boolean | 删除操作是否成功 |
 
-## 注意
+</div>
+
+---
+
+## 使用说明
+
+将 Webflow CMS 集成到工作流中。可在 Webflow CMS 集合中创建、获取、列出、更新或删除条目，以编程方式管理 Webflow 内容。可在触发器模式下使用，当集合条目发生变更或表单提交时触发工作流。
+
+## 备注
 
 - 类别：`tools`
 - 类型：`webflow`

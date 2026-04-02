@@ -1,0 +1,2119 @@
+---
+title: Datadog
+description: Monitorea infraestructura, aplicaciones y registros con Datadog
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="datadog"
+  color="#632CA6"
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+/>
+
+## Configuración
+
+### Enviar Métricas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_submit_metrics"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "series",
+            "type": "code",
+            "title": "Datos de Métricas (JSON)",
+            "placeholder": "Describa las métricas que desea enviar...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar métricas (<code>datadog_submit_metrics</code>)</div>
+
+Envía métricas personalizadas a Datadog. Úsalo para el seguimiento del rendimiento de aplicaciones, métricas de negocio o datos de monitoreo personalizados.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `series` | string | Sí | Array JSON de series de métricas a enviar. Cada serie debe incluir el nombre de la métrica, el tipo \(gauge/rate/count\), los puntos \(pares timestamp/valor\) y etiquetas opcionales. |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si las métricas fueron enviadas correctamente |
+
+</div>
+
+---
+
+### Consultar series temporales
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar series temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear tiempo de inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar tiempos de inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar tiempo de inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_query_timeseries"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta",
+            "placeholder": "avg:system.cpu.user{*}",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "Desde (marca de tiempo Unix)",
+            "placeholder": "p. ej., 1701360000",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Hasta (marca de tiempo Unix)",
+            "placeholder": "p. ej., 1701446400",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de aplicación",
+            "placeholder": "Ingresa tu clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consultar Series Temporales (<code>datadog_query_timeseries</code>)</div>
+
+Consulta datos de series temporales de métricas desde Datadog. Útil para analizar tendencias, generar informes o recuperar valores de métricas.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Consulta de métricas de Datadog \(p. ej., "avg:system.cpu.user\{*\}"\) |
+| `from` | number | Sí | Tiempo de inicio como marca de tiempo Unix en segundos |
+| `to` | number | Sí | Tiempo de fin como marca de tiempo Unix en segundos |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `series` | array | Array de datos de series temporales con nombre de métrica, etiquetas y puntos de datos |
+
+</div>
+
+---
+
+### Crear Evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_event"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título del Evento",
+            "placeholder": "Despliegue completado",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto del Evento",
+            "placeholder": "Describa el evento...",
+            "required": true
+        },
+        {
+            "id": "alertType",
+            "type": "dropdown",
+            "title": "Tipo de Alerta",
+            "options": [
+                {
+                    "label": "Info",
+                    "id": "info"
+                },
+                {
+                    "label": "Éxito",
+                    "id": "success"
+                },
+                {
+                    "label": "Advertencia",
+                    "id": "warning"
+                },
+                {
+                    "label": "Error",
+                    "id": "error"
+                }
+            ]
+        },
+        {
+            "id": "priority",
+            "type": "dropdown",
+            "title": "Prioridad",
+            "options": [
+                {
+                    "label": "Normal",
+                    "id": "normal"
+                },
+                {
+                    "label": "Baja",
+                    "id": "low"
+                }
+            ]
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "env:production, service:api"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Evento (<code>datadog_create_event</code>)</div>
+
+Publica un evento en el flujo de eventos de Datadog. Úsalo para notificaciones de despliegue, alertas o cualquier ocurrencia significativa.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | Título del evento |
+| `text` | string | Sí | Cuerpo/descripción del evento. Admite markdown. |
+| `alertType` | string | No | Tipo de alerta: error, warning, info, success, user_update, recommendation o snapshot |
+| `priority` | string | No | Prioridad del evento: normal o low |
+| `host` | string | No | Nombre del host a asociar con este evento |
+| `tags` | string | No | Lista de etiquetas separadas por comas \(p. ej., "env:production,service:api"\) |
+| `aggregationKey` | string | No | Clave para agrupar eventos entre sí |
+| `sourceTypeName` | string | No | Nombre del tipo de fuente del evento |
+| `dateHappened` | number | No | Marca de tiempo Unix cuando ocurrió el evento \(por defecto: ahora\) |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(por defecto: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del evento |
+| `title` | string | Título del evento |
+| `text` | string | Texto del evento |
+| `date_happened` | number | Marca de tiempo Unix cuando ocurrió el evento |
+| `priority` | string | Prioridad del evento |
+| `alert_type` | string | Tipo de alerta |
+| `host` | string | Host asociado |
+| `tags` | array | Etiquetas del evento |
+
+</div>
+
+---
+
+### Crear Monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre del Monitor",
+            "placeholder": "Alerta de Uso Elevado de CPU",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de Monitor",
+            "required": true,
+            "options": [
+                {
+                    "label": "Alerta de Métrica",
+                    "id": "metric alert"
+                },
+                {
+                    "label": "Verificación de Servicio",
+                    "id": "service check"
+                },
+                {
+                    "label": "Alerta de Evento",
+                    "id": "event alert"
+                },
+                {
+                    "label": "Alerta de Log",
+                    "id": "log alert"
+                },
+                {
+                    "label": "Alerta de Consulta",
+                    "id": "query alert"
+                },
+                {
+                    "label": "Compuesto",
+                    "id": "composite"
+                },
+                {
+                    "label": "Alerta de SLO",
+                    "id": "slo alert"
+                }
+            ]
+        },
+        {
+            "id": "monitorQuery",
+            "type": "long-input",
+            "title": "Consulta del Monitor",
+            "placeholder": "avg(last_5m):avg:system.cpu.idle{*} < 20",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "Mensaje de Notificación",
+            "placeholder": "¡Alerta! El uso de CPU es elevado. @slack-alerts"
+        },
+        {
+            "id": "monitorTags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "team:backend, priority:high"
+        },
+        {
+            "id": "monitorPriority",
+            "type": "short-input",
+            "title": "Prioridad (1-5)",
+            "placeholder": "3"
+        },
+        {
+            "id": "options",
+            "type": "code",
+            "title": "Opciones (JSON)",
+            "placeholder": "{\"notify_no_data\": true, \"thresholds\": {\"critical\": 90}}",
+            "language": "json"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Monitor (<code>datadog_create_monitor</code>)</div>
+
+Crea un nuevo monitor/alerta en Datadog. Los monitores pueden rastrear métricas, verificaciones de servicio, eventos y más.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | Sí | Nombre del monitor |
+| `type` | string | Sí | Tipo de monitor: metric alert, service check, event alert, process alert, log alert, query alert, composite, synthetics alert, slo alert |
+| `query` | string | Sí | Consulta del monitor \(p. ej., "avg\(last_5m\):avg:system.cpu.idle\{*\} &lt; 20"\) |
+| `message` | string | No | Mensaje a incluir con las notificaciones. Puede incluir @-menciones y markdown. |
+| `tags` | string | No | Lista de etiquetas separadas por comas |
+| `priority` | number | No | Prioridad del monitor \(1-5, donde 1 es la más alta\) |
+| `options` | string | No | Cadena JSON de opciones del monitor \(thresholds, notify_no_data, renotify_interval, etc.\) |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del monitor |
+| `name` | string | Nombre del monitor |
+| `type` | string | Tipo de monitor |
+| `query` | string | Consulta del monitor |
+| `message` | string | Mensaje de notificación |
+| `tags` | array | Etiquetas del monitor |
+| `priority` | number | Prioridad del monitor |
+| `overall_state` | string | Estado actual del monitor |
+| `created` | string | Marca de tiempo de creación |
+
+</div>
+
+---
+
+### Obtener Monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_get_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "monitorId",
+            "type": "short-input",
+            "title": "ID de Monitor",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Monitor (<code>datadog_get_monitor</code>)</div>
+
+Recupera los detalles de un monitor específico por ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | string | Sí | El ID del monitor a recuperar |
+| `groupStates` | string | No | Estados de grupo separados por comas a incluir: alert, warn, no data, ok |
+| `withDowntimes` | boolean | No | Incluir datos de tiempo de inactividad con el monitor |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del monitor |
+| `name` | string | Nombre del monitor |
+| `type` | string | Tipo de monitor |
+| `query` | string | Consulta del monitor |
+| `message` | string | Mensaje de notificación |
+| `tags` | array | Etiquetas del monitor |
+| `priority` | number | Prioridad del monitor |
+| `overall_state` | string | Estado actual del monitor |
+| `created` | string | Marca de tiempo de creación |
+
+</div>
+
+---
+
+### Listar Monitores
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_list_monitors"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "listMonitorName",
+            "type": "short-input",
+            "title": "Filtrar por Nombre",
+            "placeholder": "CPU"
+        },
+        {
+            "id": "listMonitorTags",
+            "type": "short-input",
+            "title": "Filtrar por Etiquetas",
+            "placeholder": "env:production"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar monitores (<code>datadog_list_monitors</code>)</div>
+
+Lista todos los monitores en Datadog con filtrado opcional por nombre, etiquetas o estado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `groupStates` | string | No | Estados de grupo separados por comas para filtrar: alert, warn, no data, ok |
+| `name` | string | No | Filtrar monitores por nombre \(coincidencia parcial\) |
+| `tags` | string | No | Lista de etiquetas separadas por comas para filtrar |
+| `monitorTags` | string | No | Lista de etiquetas de monitor separadas por comas para filtrar |
+| `withDowntimes` | boolean | No | Incluir datos de tiempo de inactividad con los monitores |
+| `page` | number | No | Número de página para paginación \(indexado desde 0\) |
+| `pageSize` | number | No | Número de monitores por página \(máx. 1000\) |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del monitor |
+| `name` | string | Nombre del monitor |
+| `type` | string | Tipo de monitor |
+| `query` | string | Consulta del monitor |
+| `overall_state` | string | Estado actual |
+
+</div>
+
+---
+
+### Silenciar monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar series temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear tiempo de inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar tiempos de inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar tiempo de inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_mute_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "muteMonitorId",
+            "type": "short-input",
+            "title": "ID del monitor",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "scope",
+            "type": "short-input",
+            "title": "Alcance",
+            "placeholder": "host:myhost (opcional)"
+        },
+        {
+            "id": "end",
+            "type": "short-input",
+            "title": "Hora de finalización (Unix Timestamp)",
+            "placeholder": "Dejar vacío para indefinido"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Silenciar Monitor (<code>datadog_mute_monitor</code>)</div>
+
+Silencia un monitor para suprimir notificaciones temporalmente.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | string | Sí | El ID del monitor a silenciar |
+| `scope` | string | No | Ámbito a silenciar \(p. ej., "host:myhost"\). Si no se especifica, silencia todos los ámbitos. |
+| `end` | number | No | Marca de tiempo Unix en que debe finalizar el silenciamiento. Si no se especifica, silencia indefinidamente. |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Consultar Logs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_query_logs"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "logQuery",
+            "type": "long-input",
+            "title": "Consulta de Búsqueda",
+            "placeholder": "service:web-app status:error",
+            "required": true
+        },
+        {
+            "id": "logFrom",
+            "type": "short-input",
+            "title": "Desde",
+            "placeholder": "now-1h",
+            "required": true
+        },
+        {
+            "id": "logTo",
+            "type": "short-input",
+            "title": "Hasta",
+            "placeholder": "now",
+            "required": true
+        },
+        {
+            "id": "logLimit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "50"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consultar Logs (<code>datadog_query_logs</code>)</div>
+
+Busca y recupera logs de Datadog. Útil para solución de problemas, análisis o monitoreo.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Consulta de búsqueda de logs \(p. ej., "service:web-app status:error"\) |
+| `from` | string | Sí | Tiempo de inicio en formato ISO-8601 o relativo \(p. ej., "now-1h"\) |
+| `to` | string | Sí | Tiempo de fin en formato ISO-8601 o relativo \(p. ej., "now"\) |
+| `limit` | number | No | Número máximo de logs a devolver \(predeterminado: 50, máx: 1000\) |
+| `sort` | string | No | Orden de clasificación: timestamp \(más antiguos primero\) o -timestamp \(más recientes primero\) |
+| `indexes` | string | No | Lista de índices de logs separados por comas para buscar |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID del log |
+| `timestamp` | string | Timestamp del log |
+| `host` | string | Nombre del host |
+| `service` | string | Nombre del servicio |
+| `message` | string | Mensaje del log |
+
+</div>
+
+---
+
+### Enviar Logs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_send_logs"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "logs",
+            "type": "code",
+            "title": "Logs (JSON)",
+            "placeholder": "Describa los logs que desea enviar...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Logs (<code>datadog_send_logs</code>)</div>
+
+Envía entradas de log a Datadog para registro centralizado y análisis.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `logs` | string | Sí | Array JSON de entradas de log. Cada entrada debe contener message y opcionalmente ddsource, ddtags, hostname, service. |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Crear Tiempo de Inactividad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_downtime"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "downtimeScope",
+            "type": "short-input",
+            "title": "Alcance",
+            "placeholder": "host:myhost or env:production or *",
+            "required": true
+        },
+        {
+            "id": "downtimeMessage",
+            "type": "long-input",
+            "title": "Mensaje",
+            "placeholder": "Mantenimiento programado"
+        },
+        {
+            "id": "downtimeStart",
+            "type": "short-input",
+            "title": "Hora de Inicio (Timestamp Unix)",
+            "placeholder": "Dejar vacío para ahora"
+        },
+        {
+            "id": "downtimeEnd",
+            "type": "short-input",
+            "title": "Hora de Fin (Timestamp Unix)",
+            "placeholder": "p. ej., 1701450000"
+        },
+        {
+            "id": "downtimeMonitorId",
+            "type": "short-input",
+            "title": "ID de Monitor (opcional)",
+            "placeholder": "12345678"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tiempo de inactividad (<code>datadog_create_downtime</code>)</div>
+
+Programa un tiempo de inactividad para suprimir las notificaciones de los monitores durante las ventanas de mantenimiento.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `scope` | string | Sí | Ámbito al que aplicar el tiempo de inactividad \(p. ej., "host:myhost", "env:production", o "*" para todos\) |
+| `message` | string | No | Mensaje a mostrar durante el tiempo de inactividad |
+| `start` | number | No | Marca de tiempo Unix para el inicio del tiempo de inactividad \(por defecto, ahora\) |
+| `end` | number | No | Marca de tiempo Unix para el fin del tiempo de inactividad |
+| `timezone` | string | No | Zona horaria para el tiempo de inactividad \(p. ej., "America/New_York"\) |
+| `monitorId` | string | No | ID de monitor específico a silenciar |
+| `monitorTags` | string | No | Etiquetas de monitor separadas por comas a coincidir \(p. ej., "team:backend,priority:high"\) |
+| `muteFirstRecoveryNotification` | boolean | No | Silenciar la primera notificación de recuperación |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del tiempo de inactividad |
+| `scope` | array | Ámbito del tiempo de inactividad |
+| `message` | string | Mensaje del tiempo de inactividad |
+| `start` | number | Hora de inicio \(marca de tiempo Unix\) |
+| `end` | number | Hora de fin \(marca de tiempo Unix\) |
+
+</div>
+
+---
+
+### Listar Tiempos de Inactividad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_list_downtimes"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese su clave API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "currentOnly",
+            "type": "switch",
+            "title": "Solo Actuales"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Tiempos de Inactividad (<code>datadog_list_downtimes</code>)</div>
+
+Lista todos los tiempos de inactividad programados en Datadog.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `currentOnly` | boolean | No | Retorna solo los tiempos de inactividad activos actualmente |
+| `monitorId` | string | No | Filtrar por ID de monitor |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID del tiempo de inactividad |
+| `scope` | array | Alcance del tiempo de inactividad |
+| `message` | string | Mensaje del tiempo de inactividad |
+| `start` | number | Hora de inicio \(marca de tiempo Unix\) |
+| `end` | number | Hora de fin \(marca de tiempo Unix\) |
+
+</div>
+
+---
+
+### Cancelar Tiempo de Inactividad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+      <g fill='currentColor'>
+        <path d='M57.705 33.717l1.575 20.1L31.4 58.82 29 38.72l3.983-.556c.648.278 1.112.37 1.853.556 1.204.278 2.594.648 4.63-.463.463-.278 1.482-1.112 1.853-1.667zm-43.073 23.9c-.463-.74-1.297-1.575-2.594-2.594-1.853-1.482-1.204-4.076-.093-5.65 1.4-2.686 8.707-6.206 8.337-10.56-.185-1.575-.37-3.613-1.853-5.095-.093.556 0 1.112 0 1.112s-.648-.74-.926-1.853c-.278-.37-.556-.556-.834-1.112-.185.648-.185 1.297-.185 1.297s-.463-1.204-.556-2.13c-.278.463-.37 1.297-.37 1.297s-.648-1.853-.463-2.87c-.278-.834-1.204-2.594-.926-6.484 1.575 1.112 5.095.834 6.484-1.204.463-.648.74-2.5-.185-6.114-.648-2.316-2.223-5.743-2.87-7.04l-.093.093c.37 1.02 1.02 3.242 1.297 4.354.74 3.242 1.02 4.354.648 5.836-.278 1.297-1.02 2.13-2.964 3.057-1.853.926-4.446-1.4-4.54-1.482-1.853-1.482-3.242-3.9-3.427-5.002-.185-1.297.74-2.038 1.204-3.057-.648.185-1.4.556-1.4.556s.834-.926 1.945-1.667a9.43 9.43 0 0 0 1.204-.834H10.28s1.112-.648 2.316-1.02H10.93l4.446-1.945c1.4-.556 2.686-.37 3.427.648 1.02 1.4 2.038 2.13 4.168 2.686 1.297-.556 1.76-.926 3.427-1.4 1.482-1.667 2.686-1.853 2.686-1.853s-.834.74-.926 1.575c.834-.648 1.76-1.204 1.76-1.204s-.37.463-.648 1.112l.093.093c1.02-.556 2.13-1.02 2.13-1.02s-.37.37-.74.926c.74 0 2.223 0 2.78.093 3.427.093 4.168-3.613 5.465-4.168 1.667-.556 2.408-.926 5.187 1.853 2.408 2.408 4.26 6.577 3.335 7.503-.74.74-2.316-.278-4.076-2.408-.926-1.112-1.575-2.5-1.945-4.168-.185-1.4-1.204-2.223-1.204-2.223s.648 1.4.648 2.594c0 .648.093 3.057 1.112 4.446-.093.185-.185 1.02-.278 1.112-1.204-1.482-3.9-2.5-4.26-2.87 1.482 1.204 4.817 3.9 6.114 6.484 1.204 2.5.463 4.724 1.112 5.28.185.185 2.594 3.15 3.057 4.724.834 2.686.093 5.465-1.02 7.132l-2.964.463a3.92 3.92 0 0 1-1.112-.371c.185-.37.648-1.297.648-1.482l-.185-.278c-.926 1.297-2.5 2.594-3.798 3.335-1.667.926-3.613.834-4.9.37-3.613-1.112-7.04-3.52-7.78-4.168 0 0 0 .463.093.648a28.07 28.07 0 0 0 5.002 4.168l-4.26.463 2.038 15.747c-.926.093-1.02.185-2.038.37-.834-3.057-2.5-5.002-4.354-6.206-1.575-1.02-3.798-1.297-5.928-.834l-.093.185c1.482-.185 3.242.093 5.002 1.204s3.15 3.983 3.705 5.65c.648 2.223 1.112 4.54-.648 7.04-1.297 1.76-5.002 2.78-7.966.648.834 1.297 1.853 2.316 3.335 2.5 2.13.278 4.168-.093 5.65-1.482 1.204-1.204 1.853-3.798 1.667-6.577l1.945-.278.648 4.9L62.06 56.7l-2.78-25.195-1.575.278L54.556 0 1.942 6.114l6.484 52.428z' />
+        <path d='M39.665 30.06c1.4 1.02 2.594 1.667 3.798 1.575.74-.093 1.482-1.297 1.945-2.408.37-.74.37-1.575-.185-1.853-.278-.093-1.4-.093-2.223 0-1.575.185-3.15.74-3.52 1.02-.556.37-.278 1.297.185 1.667m.37-10.84v.093l.093.185c.37.74.74 1.482 1.482 1.853.185 0 .37-.093.556-.093.648 0 1.02.093 1.297.185v-.556c-.093-.926.185-2.594-1.667-3.52-.74-.37-1.667-.185-2.038.185h.185c.463.185.185.37.093.556-.093.37-.185.463 0 1.112' />
+        <path d='M31.698 19.407c.463-.37-2.13-.926-4.168.37-1.482 1.02-1.482 3.15-.093 4.354a1.27 1.27 0 0 1 .37.278c.37-.185.926-.37 1.4-.556.926-.278 1.667-.463 2.316-.556.278-.37.648-.926.556-1.945-.093-1.4-1.204-1.112-.37-1.945m15.098 22.5l-4.446 7.4-5.187-1.575-4.54 6.947.185 2.223 24.825-4.54-1.482-15.47-4.076 8.522z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Enviar Métricas",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Consultar Series Temporales",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Crear Evento",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Crear Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Obtener Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "Listar Monitores",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Silenciar Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Consultar Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Enviar Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Crear Tiempo de Inactividad",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "Listar Tiempos de Inactividad",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancelar Tiempo de Inactividad",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_cancel_downtime"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Datadog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Sitio de Datadog",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "downtimeId",
+            "type": "short-input",
+            "title": "ID de Tiempo de Inactividad",
+            "placeholder": "abc123",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Clave de Aplicación",
+            "placeholder": "Ingrese su clave de aplicación de Datadog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar Tiempo de Inactividad (<code>datadog_cancel_downtime</code>)</div>
+
+Cancela un tiempo de inactividad programado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `downtimeId` | string | Sí | El ID del tiempo de inactividad a cancelar |
+| `apiKey` | string | Sí | Clave de API de Datadog |
+| `applicationKey` | string | Sí | Clave de aplicación de Datadog |
+| `site` | string | No | Sitio/región de Datadog \(predeterminado: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+## Instrucciones de Uso
+
+Integre la monitorización de Datadog en flujos de trabajo. Envíe métricas, gestione monitores, consulte logs, cree eventos, gestione tiempos de inactividad y más.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `datadog`

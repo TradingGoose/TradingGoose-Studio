@@ -1,214 +1,800 @@
 ---
 title: Telegram
-description: Envía mensajes a través de Telegram o activa flujos de trabajo
-  desde eventos de Telegram
+description: Interactuar con Telegram
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="telegram"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      xmlns='http://www.w3.org/2000/svg'
-      viewBox='0 0 24 24'
-      
-      
-      fill='none'
-    >
-      <circle cx='12' cy='12' r='10' fill='#0088CC' />
-      <path
-        d='M16.7 8.4c.1-.6-.4-1.1-1-.8l-9.8 4.3c-.4.2-.4.8.1.9l2.1.7c.4.1.8.1 1.1-.2l4.5-3.1c.1-.1.3.1.2.2l-3.2 3.5c-.3.3-.2.8.2 1l3.6 2.3c.4.2.9-.1 1-.5l1.2-7.8Z'
-        fill='white'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Telegram](https://telegram.org) es una plataforma de mensajería segura basada en la nube que permite una comunicación rápida y confiable en diferentes dispositivos y plataformas. Con más de 700 millones de usuarios activos mensuales, Telegram se ha establecido como uno de los servicios de mensajería líderes en el mundo, conocido por su seguridad, velocidad y potentes capacidades de API.
+## Configuración
 
-La API de Bot de Telegram proporciona un marco robusto para crear soluciones de mensajería automatizadas e integrar funciones de comunicación en aplicaciones. Con soporte para contenido multimedia, teclados en línea y comandos personalizados, los bots de Telegram pueden facilitar patrones de interacción sofisticados y flujos de trabajo automatizados.
+### Enviar Mensaje
 
-Aprende cómo crear un disparador de webhook en TradingGoose que inicia flujos de trabajo sin problemas a partir de mensajes de Telegram. Este tutorial te guía a través de la configuración de un webhook, su configuración con la API de bot de Telegram y la activación de acciones automatizadas en tiempo real. ¡Perfecto para agilizar tareas directamente desde tu chat!
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_message"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Ingrese su token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Ingrese el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Ingrese el mensaje a enviar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/9oKcJtQ0_IM"
-  title="Usa Telegram con TradingGoose"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Mensaje (<code>telegram_message</code>)</div>
 
-Aprende cómo usar la herramienta de Telegram en TradingGoose para automatizar sin problemas la entrega de mensajes a cualquier grupo de Telegram. Este tutorial te guía a través de la integración de la herramienta en tu flujo de trabajo, la configuración de mensajería grupal y la activación de actualizaciones automatizadas en tiempo real. ¡Perfecto para mejorar la comunicación directamente desde tu espacio de trabajo!
+Envía mensajes a canales o usuarios de Telegram a través de la API del Bot de Telegram. Permite la comunicación directa y el envío de notificaciones con seguimiento de mensajes y confirmación del chat.
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/AG55LpUreGI"
-  title="Usa Telegram con TradingGoose"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-Características principales de Telegram:
-
-- Comunicación segura: Cifrado de extremo a extremo y almacenamiento seguro en la nube para mensajes y contenido multimedia
-- Plataforma de bots: Potente API de bots para crear soluciones de mensajería automatizada y experiencias interactivas
-- Soporte para contenido multimedia: Envía y recibe mensajes con formato de texto, imágenes, archivos y elementos interactivos
-- Alcance global: Conéctate con usuarios de todo el mundo con soporte para múltiples idiomas y plataformas
-
-En TradingGoose, la integración con Telegram permite a tus agentes aprovechar estas potentes capacidades de mensajería como parte de sus flujos de trabajo. Esto crea oportunidades para notificaciones automatizadas, alertas y conversaciones interactivas a través de la plataforma de mensajería segura de Telegram. La integración permite a los agentes enviar mensajes de forma programática a individuos o canales, facilitando la comunicación oportuna y actualizaciones. Al conectar TradingGoose con Telegram, puedes crear agentes inteligentes que interactúen con los usuarios a través de una plataforma de mensajería segura y ampliamente adoptada, perfecta para entregar notificaciones, actualizaciones y comunicaciones interactivas.
-{/* MANUAL-CONTENT-END */}
-
-## Instrucciones de uso
-
-Integra Telegram en el flujo de trabajo. Puede enviar mensajes. Se puede usar en modo de activación para iniciar un flujo de trabajo cuando se envía un mensaje a un chat.
-
-## Herramientas
-
-### `telegram_message`
-
-Envía mensajes a canales o usuarios de Telegram a través de la API de Bot de Telegram. Permite la comunicación directa y notificaciones con seguimiento de mensajes y confirmación de chat.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu Token de API del Bot de Telegram |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
 | `text` | string | Sí | Texto del mensaje a enviar |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
 | `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del chat |
+| `is_bot` | boolean | Si el chat es un bot o no |
+| `first_name` | string | Nombre de usuario del chat \(si está disponible\) |
 
-## Notas
+</div>
 
-- Categoría: `tools`
-- Tipo: `telegram`
+---
 
-#### Entrada
+### Enviar Foto
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_photo"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Ingrese su token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Ingrese el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "photo",
+            "type": "short-input",
+            "title": "Foto",
+            "layout": "full",
+            "placeholder": "Ingrese la URL de la foto o el file_id",
+            "description": "Foto a enviar. Proporcione un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Ingrese una descripción opcional",
+            "description": "Descripción del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar foto (<code>telegram_send_photo</code>)</div>
+
+Envía fotos a canales o usuarios de Telegram a través de la API de Telegram Bot.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de API de Telegram Bot |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `photo` | string | Sí | Foto a enviar. Proporciona un file_id o una URL HTTP |
+| `caption` | string | No | Pie de foto \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del chat |
+| `is_bot` | boolean | Si el chat es un bot o no |
+| `first_name` | string | Nombre de usuario del chat \(si está disponible\) |
+
+</div>
+
+---
+
+### Enviar video
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_video"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Ingresa tu token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Ingresa el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "video",
+            "type": "short-input",
+            "title": "Video",
+            "layout": "full",
+            "placeholder": "Ingresa la URL del video o file_id",
+            "description": "Video a enviar. Proporciona un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Ingresa una descripción opcional",
+            "description": "Descripción del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Video (<code>telegram_send_video</code>)</div>
+
+Envía videos a canales o usuarios de Telegram a través de la API de Telegram Bot.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de la API de Telegram Bot |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `video` | string | Sí | Video a enviar. Proporciona un file_id o una URL HTTP |
+| `caption` | string | No | Título del video \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del remitente |
+| `is_bot` | boolean | Si el chat es un bot o no |
+| `first_name` | string | Remitente |
+
+</div>
+
+---
+
+### Enviar Audio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_audio"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Ingresa tu token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Ingresa el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "audio",
+            "type": "short-input",
+            "title": "Audio",
+            "layout": "full",
+            "placeholder": "Ingresa la URL del audio o file_id",
+            "description": "Archivo de audio a enviar. Proporciona un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Ingresa una descripción opcional",
+            "description": "Descripción del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Audio (<code>telegram_send_audio</code>)</div>
+
+Envía archivos de audio a canales o usuarios de Telegram a través de la API de Telegram Bot.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de API del Bot de Telegram |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `audio` | string | Sí | Archivo de audio a enviar. Proporciona un file_id o URL HTTP |
+| `caption` | string | No | Título del audio \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del remitente |
+| `is_bot` | boolean | Si el chat es un bot o no |
+| `first_name` | string | Remitente |
+
+</div>
+
+---
+
+### Enviar Animación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar vídeo",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_animation"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce tu token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "animation",
+            "type": "short-input",
+            "title": "Animación",
+            "layout": "full",
+            "placeholder": "Introduce la URL de la animación o el file_id",
+            "description": "Animación (GIF) a enviar. Proporciona un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Pie de foto",
+            "layout": "full",
+            "placeholder": "Introduce un pie de foto opcional",
+            "description": "Pie de foto del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Animación (<code>telegram_send_animation</code>)</div>
+
+Envía animaciones (GIFs) a canales o usuarios de Telegram a través de la API de Bots de Telegram.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Token de la API de tu Bot de Telegram |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `animation` | string | Sí | Animación a enviar. Proporciona un file_id o una URL HTTP |
+| `caption` | string | No | Título de la animación \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del remitente |
+| `is_bot` | boolean | Indica si el chat es un bot o no |
+| `first_name` | string | Remitente |
+
+</div>
+
+---
+
+### Enviar Documento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar vídeo",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_document"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce tu token del bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Documento",
+            "layout": "full",
+            "placeholder": "Subir archivo de documento",
+            "description": "Archivo de documento a enviar (PDF, ZIP, DOC, etc.). Tamaño máximo: 50 MB"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Documento",
+            "layout": "full",
+            "placeholder": "Referenciar documento de bloques anteriores",
+            "description": "Referencia un archivo de documento de un bloque anterior"
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Pie de foto",
+            "layout": "full",
+            "placeholder": "Introduce un pie de foto opcional",
+            "description": "Pie de foto del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Documento (<code>telegram_send_document</code>)</div>
+
+Envía documentos (PDF, ZIP, DOC, etc.) a canales o usuarios de Telegram a través de la API del Bot de Telegram.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu Token de API del Bot de Telegram |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `files` | file[] | No | Archivo de documento a enviar \(PDF, ZIP, DOC, etc.\). Tamaño máximo: 50MB |
+| `caption` | string | No | Título del documento \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `message_id` | number | Identificador único del mensaje de Telegram |
+| `id` | number | ID del remitente |
+| `is_bot` | boolean | Si el chat es un bot o no |
+| `first_name` | string | Remitente |
+
+</div>
+
+---
+
+### Eliminar Mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Enviar mensaje",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Enviar foto",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Enviar video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Enviar audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Enviar animación",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Enviar documento",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Eliminar mensaje",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_delete_message"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Ingresa tu token de bot de Telegram",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Ingresa el ID del chat de Telegram",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "ID del mensaje",
+            "layout": "full",
+            "placeholder": "Ingresa el ID del mensaje a eliminar",
+            "description": "El identificador único del mensaje que deseas eliminar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar Mensaje (<code>telegram_delete_message</code>)</div>
+
+Elimina mensajes en canales o chats de Telegram a través de la API de Telegram Bot. Requiere el ID del mensaje que se desea eliminar.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Token de la API de Telegram Bot |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
 | `messageId` | string | Sí | ID del mensaje a eliminar |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
 | `message` | string | Mensaje de éxito o error |
-| `data` | object | Resultado de la operación de eliminación |
+| `ok` | boolean | Estado de éxito de la respuesta de la API |
 
-### `telegram_send_photo`
+</div>
 
-Envía fotos a canales o usuarios de Telegram a través de la API de Bot de Telegram.
+---
 
-#### Entrada
+## Instrucciones de Uso
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
-| `photo` | string | Sí | Foto a enviar. Proporciona un file_id o URL HTTP |
-| `caption` | string | No | Pie de foto (opcional) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram incluyendo foto(s) opcional(es) |
-
-### `telegram_send_video`
-
-Envía videos a canales o usuarios de Telegram a través de la API de Bot de Telegram.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
-| `video` | string | Sí | Video a enviar. Proporciona un file_id o URL HTTP |
-| `caption` | string | No | Pie de video (opcional) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram incluyendo medios opcionales |
-
-### `telegram_send_audio`
-
-Envía archivos de audio a canales o usuarios de Telegram a través de la API de Bot de Telegram.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
-| `audio` | string | Sí | Archivo de audio para enviar. Proporciona un file_id o URL HTTP |
-| `caption` | string | No | Leyenda del audio \(opcional\) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram incluyendo información de voz/audio |
-
-### `telegram_send_animation`
-
-Envía animaciones (GIFs) a canales o usuarios de Telegram a través de la API de Bot de Telegram.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
-| `animation` | string | Sí | Animación para enviar. Proporciona un file_id o URL HTTP |
-| `caption` | string | No | Leyenda de la animación \(opcional\) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram incluyendo medios opcionales |
-
-### `telegram_send_document`
-
-Envía documentos (PDF, ZIP, DOC, etc.) a canales o usuarios de Telegram a través de la API de Bot de Telegram.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `botToken` | string | Sí | Tu token de API de Bot de Telegram |
-| `chatId` | string | Sí | ID del chat de Telegram objetivo |
-| `files` | file[] | No | Archivo de documento para enviar \(PDF, ZIP, DOC, etc.\). Tamaño máximo: 50MB |
-| `caption` | string | No | Leyenda del documento \(opcional\) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `message` | string | Mensaje de éxito o error |
-| `data` | object | Datos del mensaje de Telegram incluyendo documento |
+Integra Telegram en el flujo de trabajo. Permite enviar y eliminar mensajes. Puede utilizarse en modo de activación para iniciar un flujo de trabajo cuando se envía un mensaje a un chat.
 
 ## Notas
 

@@ -1,13 +1,15 @@
 ---
 title: GitHub
-description: 通过 GitHub 交互或从 GitHub 事件触发工作流
+description: 与 GitHub 交互或从 GitHub 事件触发工作流
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="github"
-  color="#181C1E"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
       <path
@@ -17,112 +19,469 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[GitHub](https://github.com/) 是全球领先的软件开发和版本控制平台，基于 Git 提供服务。它为开发者提供了一个协作环境，可以托管和审查代码、管理项目并共同构建软件。
+## 配置
 
-使用 GitHub，您可以：
+### 获取 PR 详情
 
-- **托管代码库**：在公共或私有代码库中存储代码，并进行版本控制
-- **协作开发**：使用拉取请求（Pull Request）提议更改、审查代码并合并贡献
-- **跟踪问题**：创建、分配和管理问题，以组织工作和跟踪错误
-- **自动化工作流**：使用 GitHub Actions 自动构建、测试和部署代码
-- **管理项目**：通过项目板、里程碑和任务跟踪来组织工作
-- **文档管理**：使用 GitHub Pages 和 wikis 创建和维护文档
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "获取 PR 详情",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "创建 PR 评论",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "获取仓库信息",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "获取最新提交",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_pr"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub Token",
+            "layout": "full",
+            "placeholder": "请输入 GitHub Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "拉取请求编号",
+            "layout": "half",
+            "placeholder": "例如：123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-在 TradingGoose 中，GitHub 集成使您的代理可以直接与 GitHub 仓库和工作流交互。这支持强大的自动化场景，例如代码审查协助、拉取请求管理、问题跟踪和仓库探索。您的代理可以获取仓库数据、分析代码更改、在拉取请求上发布评论以及以编程方式执行其他 GitHub 操作。此集成弥合了您的 AI 工作流与开发流程之间的差距，实现了代理与开发团队之间的无缝协作。
-{/* MANUAL-CONTENT-END */}
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 PR 详情（<code>github_pr</code>）</div>
 
-## 使用说明
+获取 PR 详情，包括差异对比及变更文件
 
-将 Github 集成到工作流程中。可以获取 PR 详情、创建 PR 评论、获取存储库信息以及获取最新提交。需要使用 github token API 密钥。可以在触发模式下使用，当创建 PR、对 PR 进行评论或推送提交时触发工作流程。
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-## 工具
-
-### `github_pr`
-
-获取 PR 详情，包括差异和更改的文件
-
-#### 输入
-
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | 是 | 仓库所有者 |
 | `repo` | string | 是 | 仓库名称 |
-| `pullNumber` | number | 是 | 拉取请求编号 |
+| `pullNumber` | number | 是 | Pull Request 编号 |
 | `apiKey` | string | 是 | GitHub API 令牌 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `content` | string | 可读的 PR 摘要 |
-| `metadata` | object | 包括文件更改的详细 PR 元数据 |
+| `content` | string | 人类可读的 PR 摘要 |
+| `number` | number | Pull Request 编号 |
+| `title` | string | PR 标题 |
+| `state` | string | PR 状态 \(open/closed/merged\) |
+| `html_url` | string | GitHub 网页 URL |
+| `diff_url` | string | 原始 Diff URL |
+| `created_at` | string | 创建时间戳 |
+| `updated_at` | string | 最后更新时间戳 |
+| `filename` | string | 文件路径 |
+| `additions` | number | 新增行数 |
+| `deletions` | number | 删除行数 |
+| `changes` | number | 变更总计 |
+| `patch` | string | 文件 Diff 补丁 |
+| `blob_url` | string | GitHub Blob URL |
+| `raw_url` | string | 原始文件 URL |
 
-### `github_comment`
+</div>
+
+---
+
+### 创建 PR 评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "获取 PR 详情",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "创建 PR 评论",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "获取仓库信息",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "获取最新提交",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_comment"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "请输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "评论内容",
+            "layout": "full",
+            "placeholder": "请输入评论内容",
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "Pull Request 编号",
+            "layout": "half",
+            "placeholder": "例如：123",
+            "required": true
+        },
+        {
+            "id": "commentType",
+            "type": "dropdown",
+            "title": "评论类型",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "通用 PR 评论",
+                    "id": "pr_comment"
+                },
+                {
+                    "label": "文件级评论",
+                    "id": "file_comment"
+                }
+            ]
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件路径",
+            "layout": "half",
+            "placeholder": "例如：src/main.ts"
+        },
+        {
+            "id": "line",
+            "type": "short-input",
+            "title": "行号",
+            "layout": "half",
+            "placeholder": "例如：42"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建 PR 评论 (<code>github_comment</code>)</div>
 
 在 GitHub PR 上创建评论
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | 是 | 仓库所有者 |
 | `repo` | string | 是 | 仓库名称 |
 | `body` | string | 是 | 评论内容 |
-| `pullNumber` | number | 是 | 拉取请求编号 |
+| `pullNumber` | number | 是 | Pull Request 编号 |
 | `path` | string | 否 | 审查评论的文件路径 |
 | `position` | number | 否 | 审查评论的行号 |
 | `commentType` | string | 否 | 评论类型 \(pr_comment 或 file_comment\) |
 | `line` | number | 否 | 审查评论的行号 |
-| `side` | string | 否 | 差异的侧面 \(LEFT 或 RIGHT\) |
-| `commitId` | string | 否 | 要评论的提交的 SHA |
+| `side` | string | 否 | diff 的侧边 \(LEFT 或 RIGHT\) |
+| `commitId` | string | 否 | 要评论的提交 SHA |
 | `apiKey` | string | 是 | GitHub API 令牌 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `content` | string | 人类可读的评论确认 |
-| `metadata` | object | 评论元数据 |
+| `content` | string | 人类可读的评论确认信息 |
 
-### `github_repo_info`
+</div>
 
-检索全面的 GitHub 仓库元数据，包括星标、分叉、问题和主要语言。支持公共和私有仓库，并可选择进行身份验证。
+---
 
-#### 输入
+### 获取仓库信息
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "获取 PR 详情",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "创建 PR 评论",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "获取仓库信息",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "获取最新提交",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_repo_info"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取仓库信息（<code>github_repo_info</code>）</div>
+
+检索全面的 GitHub 仓库元数据，包括 Star 数、Fork 数、Issue 数及主要编程语言。支持公共仓库和私有仓库，可选使用身份验证。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `owner` | string | 是 | 仓库所有者 \(用户或组织\) |
+| `owner` | string | 是 | 仓库所有者（用户或组织）|
 | `repo` | string | 是 | 仓库名称 |
 | `apiKey` | string | 是 | GitHub 个人访问令牌 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
 | `content` | string | 人类可读的仓库摘要 |
-| `metadata` | object | 仓库元数据 |
+| `name` | string | 仓库名称 |
+| `description` | string | 仓库描述 |
+| `stars` | number | Star 数量 |
+| `forks` | number | Fork 数量 |
+| `openIssues` | number | 未解决的 Issue 数量 |
 
-### `github_latest_commit`
+</div>
 
-检索 GitHub 仓库的最新提交
+---
 
-#### 输入
+### 获取最新提交
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "获取 PR 详情",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "创建 PR 评论",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "获取仓库信息",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "获取最新提交",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_latest_commit"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "请输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "分支名称",
+            "layout": "half",
+            "placeholder": "例如：main（留空则使用默认分支）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取最新提交 (<code>github_latest_commit</code>)</div>
+
+从 GitHub 仓库检索最新提交
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `owner` | string | 是 | 仓库所有者 \(用户或组织\) |
+| `owner` | string | 是 | 仓库所有者（用户或组织）|
 | `repo` | string | 是 | 仓库名称 |
-| `branch` | string | 否 | 分支名称 \(默认为仓库的默认分支\) |
+| `branch` | string | 否 | 分支名称（默认为仓库的默认分支）|
 | `apiKey` | string | 是 | GitHub API 令牌 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `content` | string | 人类可读的提交摘要 |
-| `metadata` | object | 提交元数据 |
+| `content` | string | 易于阅读的提交摘要 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 GitHub 集成到工作流中。可获取 PR 详情、创建 PR 评论、获取仓库信息及获取最新提交。可在触发模式下使用，当 PR 被创建、被评论或有提交推送时触发工作流。
 
 ## 注意事项
 

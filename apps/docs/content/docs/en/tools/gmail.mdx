@@ -4,108 +4,247 @@ description: Send Gmail or trigger workflows from Gmail events
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="gmail"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      xmlns='http://www.w3.org/2000/svg'
-      viewBox='0 0 48 48'
-      
-      
-      
-    >
-      <path fill='#4caf50' d='M45,16.2l-5,2.75l-5,4.75L35,40h7c1.657,0,3-1.343,3-3V16.2z' />
-      <path fill='#1e88e5' d='M3,16.2l3.614,1.71L13,23.7V40H6c-1.657,0-3-1.343-3-3V16.2z' />
-      <polygon
-        fill='#e53935'
-        points='35,11.2 24,19.45 13,11.2 12,17 13,23.7 24,31.95 35,23.7 36,17'
-      />
-      <path
-        fill='#c62828'
-        d='M3,12.298V16.2l10,7.5V11.2L9.876,8.859C9.132,8.301,8.228,8,7.298,8h0C4.924,8,3,9.924,3,12.298z'
-      />
-      <path
-        fill='#fbc02d'
-        d='M45,12.298V16.2l-10,7.5V11.2l3.124-2.341C38.868,8.301,39.772,8,40.702,8h0 C43.076,8,45,9.924,45,12.298z'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Gmail](https://gmail.com) is Google's popular email service that provides a robust platform for sending, receiving, and managing email communications. With over 1.8 billion active users worldwide, Gmail offers a feature-rich experience with powerful search capabilities, organizational tools, and integration options.
+## Configuration
 
-With Gmail, you can:
+### Send Email
 
-- **Send and receive emails**: Communicate with contacts through a clean, intuitive interface
-- **Organize messages**: Use labels, folders, and filters to keep your inbox organized
-- **Search efficiently**: Find specific messages quickly with Google's powerful search technology
-- **Automate workflows**: Create filters and rules to automatically process incoming emails
-- **Access from anywhere**: Use Gmail across devices with synchronized content and settings
-- **Integrate with other services**: Connect with Google Calendar, Drive, and other productivity tools
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_gmail"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_gmail"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_gmail"
+                },
+                {
+                    "label": "Search Email",
+                    "id": "search_gmail"
+                }
+            ],
+            "defaultValue": "send_gmail"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail Account",
+            "layout": "full",
+            "placeholder": "Select Gmail account",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To",
+            "layout": "full",
+            "placeholder": "Recipient email address",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Subject",
+            "layout": "full",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Body",
+            "layout": "full",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Attachments",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Attachments",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "CC recipients (comma-separated)"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "layout": "full",
+            "placeholder": "BCC recipients (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-In TradingGoose, the Gmail integration enables your agents to send, read, and search emails programmatically. This allows for powerful automation scenarios such as sending notifications, processing incoming messages, extracting information from emails, and managing communication workflows. Your agents can compose and send personalized emails, search for specific messages using Gmail's query syntax, and extract content from emails to use in other parts of your workflow. Coming soon, agents will also be able to listen for new emails in real-time, enabling responsive workflows that can trigger actions based on incoming messages. This integration bridges the gap between your AI workflows and email communications, enabling seamless interaction with one of the world's most widely used communication platforms.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate Gmail into the workflow. Can send, read, and search emails. Can be used in trigger mode to trigger a workflow when a new email is received.
-
-
-
-## Tools
-
-### `gmail_send`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Email (<code>gmail_send</code>)</div>
 
 Send emails using Gmail
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `to` | string | Yes | Recipient email address |
-| `subject` | string | Yes | Email subject |
+| `subject` | string | No | Email subject |
 | `body` | string | Yes | Email body content |
+| `contentType` | string | No | Content type for the email body \(text or html\) |
+| `threadId` | string | No | Thread ID to reply to \(for threading\) |
+| `replyToMessageId` | string | No | Gmail message ID to reply to - use the "id" field from Gmail Read results \(not the RFC "messageId"\) |
 | `cc` | string | No | CC recipients \(comma-separated\) |
 | `bcc` | string | No | BCC recipients \(comma-separated\) |
 | `attachments` | file[] | No | Files to attach to the email |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
-| `metadata` | object | Email metadata |
+| `id` | string | Gmail message ID |
+| `threadId` | string | Gmail thread ID |
+| `items` | string | items output |
 
-### `gmail_draft`
+</div>
 
-Draft emails using Gmail
 
-#### Input
 
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-| `to` | string | Yes | Recipient email address |
-| `subject` | string | Yes | Email subject |
-| `body` | string | Yes | Email body content |
-| `cc` | string | No | CC recipients \(comma-separated\) |
-| `bcc` | string | No | BCC recipients \(comma-separated\) |
-| `attachments` | file[] | No | Files to attach to the email draft |
+---
 
-#### Output
+### Read Email
 
-| Parameter | Type | Description |
-| --------- | ---- | ----------- |
-| `content` | string | Success message |
-| `metadata` | object | Draft metadata |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_gmail"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_gmail"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_gmail"
+                },
+                {
+                    "label": "Search Email",
+                    "id": "search_gmail"
+                }
+            ],
+            "defaultValue": "read_gmail"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail Account",
+            "layout": "full",
+            "placeholder": "Select Gmail account",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "Label",
+            "layout": "full",
+            "placeholder": "Select Gmail label/folder",
+            "provider": "google-email"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "Label/Folder",
+            "layout": "full",
+            "placeholder": "Enter Gmail label name (e.g., INBOX, SENT, or custom label)"
+        },
+        {
+            "id": "unreadOnly",
+            "type": "switch",
+            "title": "Unread Only",
+            "layout": "full"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Include Attachments",
+            "layout": "full"
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "Message ID",
+            "layout": "full",
+            "placeholder": "Enter message ID to read (optional)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "full",
+            "placeholder": "Maximum number of results (default: 10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-### `gmail_read`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Email (<code>gmail_read</code>)</div>
 
 Read emails from Gmail
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -115,31 +254,249 @@ Read emails from Gmail
 | `maxResults` | number | No | Maximum number of messages to retrieve \(default: 1, max: 10\) |
 | `includeAttachments` | boolean | No | Download and include email attachments |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Text content of the email |
 | `metadata` | json | Metadata of the email |
-| `attachments` | file[] | Attachments of the email |
 
-### `gmail_search`
+</div>
+
+
+
+---
+
+### Draft Email
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_gmail"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_gmail"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_gmail"
+                },
+                {
+                    "label": "Search Email",
+                    "id": "search_gmail"
+                }
+            ],
+            "defaultValue": "draft_gmail"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail Account",
+            "layout": "full",
+            "placeholder": "Select Gmail account",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To",
+            "layout": "full",
+            "placeholder": "Recipient email address",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Subject",
+            "layout": "full",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Body",
+            "layout": "full",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Attachments",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Attachments",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "CC recipients (comma-separated)"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "layout": "full",
+            "placeholder": "BCC recipients (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Draft Email (<code>gmail_draft</code>)</div>
+
+Draft emails using Gmail
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Yes | Recipient email address |
+| `subject` | string | No | Email subject |
+| `body` | string | Yes | Email body content |
+| `contentType` | string | No | Content type for the email body \(text or html\) |
+| `threadId` | string | No | Thread ID to reply to \(for threading\) |
+| `replyToMessageId` | string | No | Gmail message ID to reply to - use the "id" field from Gmail Read results \(not the RFC "messageId"\) |
+| `cc` | string | No | CC recipients \(comma-separated\) |
+| `bcc` | string | No | BCC recipients \(comma-separated\) |
+| `attachments` | file[] | No | Files to attach to the email draft |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Success message |
+| `id` | string | Gmail message ID |
+| `threadId` | string | Gmail thread ID |
+| `items` | string | items output |
+
+</div>
+
+
+
+---
+
+### Search Email
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_gmail"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_gmail"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_gmail"
+                },
+                {
+                    "label": "Search Email",
+                    "id": "search_gmail"
+                }
+            ],
+            "defaultValue": "search_gmail"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail Account",
+            "layout": "full",
+            "placeholder": "Select Gmail account",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Search Query",
+            "layout": "full",
+            "placeholder": "Enter search terms",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "full",
+            "placeholder": "Maximum number of results (default: 10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Email (<code>gmail_search</code>)</div>
 
 Search emails in Gmail
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `query` | string | Yes | Search query for emails |
 | `maxResults` | number | No | Maximum number of results to return |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Search results summary |
-| `metadata` | object | Search metadata |
+| `id` | string | Gmail message ID |
+| `threadId` | string | Gmail thread ID |
+| `subject` | string | Email subject |
+| `from` | string | Sender email address |
+| `date` | string | Email date |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Gmail into the workflow. Can send, read, and search emails. Can be used in trigger mode to trigger a workflow when a new email is received.
 
 
 

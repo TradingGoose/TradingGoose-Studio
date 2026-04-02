@@ -1,11 +1,10 @@
 ---
-title: Editor de flujos de trabajo
-description: Interfaz de lienzo para construir y editar flujos de trabajo
+title: Editor de Flujos de Trabajo
+description: Interfaz de lienzo para construir y editar flujos de trabajo.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-El Editor de flujos de trabajo es la interfaz visual principal para construir flujos de trabajo de IA en TradingGoose. Proporciona un lienzo donde puedes arrastrar, soltar y conectar bloques para crear potentes canales de automatización.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Descripción general
 
@@ -13,29 +12,92 @@ El Editor de flujos de trabajo es la interfaz visual principal para construir fl
 |----------|-------|
 | **Clave** | `editor_workflow` |
 | **Categoría** | Editor |
-| **Icono** | Workflow |
+
+El Editor de Flujos de Trabajo es el lienzo principal para construir flujos de trabajo de IA. Renderiza un grafo completo de React Flow donde puedes colocar bloques, trazar conexiones entre ellos y configurar cada paso de tu pipeline de automatización. El widget se ejecuta dentro de su propia conexión de socket y almacén de flujo de trabajo, por lo que múltiples editores pueden operar de forma independiente en el mismo espacio de trabajo.
 
 ## Características
 
-- **Lienzo visual**: Interfaz intuitiva de arrastrar y soltar para el diseño de flujos de trabajo
-- **Colocación de bloques**: Añade bloques desde la biblioteca de bloques al lienzo
-- **Gestión de conexiones**: Dibuja conexiones entre las salidas y entradas de los bloques
-- **Zoom y desplazamiento**: Navega por flujos de trabajo grandes con controles de zoom y desplazamiento
-- **Configuración de bloques**: Haz clic en los bloques para configurar sus ajustes
-- **Validación en tiempo real**: Retroalimentación instantánea sobre la compatibilidad de conexiones
+- **Lienzo React Flow** con desplazamiento, zoom y selección de nodos integrados
+- **Barra de herramientas de bloques** en el encabezado con un menú desplegable con búsqueda que lista bloques, herramientas y disparadores agrupados por categoría; arrastra un bloque desde la barra de herramientas al lienzo para añadirlo
+- **Bloques de bucle y paralelos** disponibles como elementos especiales de la barra de herramientas para lógica de control de flujo
+- **Controles flotantes** para acciones rápidas en el lienzo (habilitados por defecto en la configuración del widget)
+- **Alternador de controles de entrenamiento** que permite activar o desactivar las superposiciones del modo de entrenamiento por widget
+- **Controles de diferencias** para revisar los cambios de versión respecto a un estado anterior del flujo de trabajo
+- **Lista de disparadores** que muestra todos los disparadores asociados al flujo de trabajo
+- **Posicionamiento según el viewport** -- el widget rastrea su propio rectángulo delimitador para que los nuevos bloques se coloquen en el centro visible del lienzo, incluso cuando el widget está integrado en un panel pequeño
+- **Validación de subflujos anidados** con resaltado de errores en tiempo real cuando una referencia de subflujo no es válida
+- **Diálogo de advertencia de disparadores** que se activa cuando se añade un disparador duplicado o se alcanza otra restricción de disparadores
 
 ## Uso
 
-El Editor de flujos de trabajo es típicamente el widget principal en tu espacio de trabajo, proporcionando el entorno visual donde diseñas y modificas tus flujos de trabajo de IA.
+### Agregar el widget
 
-### Operaciones básicas
+Abra el selector de widgets en cualquier panel del espacio de trabajo y seleccione **Editor de flujos de trabajo**. El widget carga el flujo de trabajo activo del espacio de trabajo actual. Si aún no existe ningún flujo de trabajo, muestra un mensaje de marcador de posición.
 
-1. **Añadir bloques**: Arrastra bloques desde la barra lateral o usa el menú contextual
-2. **Conectar bloques**: Haz clic y arrastra desde un puerto de salida a un puerto de entrada
-3. **Configurar bloques**: Haz clic en un bloque para abrir su panel de configuración
-4. **Eliminar elementos**: Selecciona y presiona Eliminar, o usa el menú contextual
-5. **Deshacer/Rehacer**: Usa Ctrl+Z / Ctrl+Shift+Z para navegar por el historial
+### Disposición del encabezado
+
+El encabezado está dividido en tres secciones:
+
+- **Izquierda**: la barra de herramientas de bloques -- un menú desplegable para explorar y buscar bloques, herramientas y disparadores disponibles, y agregarlos al lienzo
+- **Centro**: un menú desplegable selector de flujos de trabajo que permite cambiar entre flujos de trabajo en el espacio de trabajo
+- **Derecha**: la barra de control con acciones de ejecución, guardado y nivel de flujo de trabajo
+
+### Interacciones clave
+
+1. **Agregar un bloque** -- abra el menú desplegable de la barra de herramientas, busque o explore y haga clic en un bloque para colocarlo en el centro del viewport
+2. **Conectar bloques** -- arrastre desde un controlador de salida hasta un controlador de entrada para crear una conexión
+3. **Seleccionar y configurar** -- haga clic en un nodo para seleccionarlo; su configuración aparece en el widget Copilot o Variables asociado
+4. **Eliminar** -- seleccione un nodo o conexión y presione Suprimir
+5. **Deshacer / Rehacer** -- atajos de teclado estándar
+
+### Sincronización de color de par
+
+Cuando se le asigna un color de par, el editor sincroniza su flujo de trabajo activo con otros widgets que comparten el mismo color. Al cambiar el flujo de trabajo en el selector del encabezado, la selección se transmite a todos los widgets emparejados. Cuando el color de par es `gray` (desvinculado), el widget gestiona su propia selección de forma independiente mediante parámetros del widget.
 
 <Callout>
-Este widget admite el mecanismo **pairColor** para sincronización con otros widgets de flujo de trabajo como Consola, Chat y Variables.
+Empareje este widget con **Console**, **Chat**, **Variables** o **Copilot** usando colores de par coincidentes para construir un espacio de trabajo completo de desarrollo de flujos de trabajo.
 </Callout>
+
+## Configuración
+
+La interfaz de canvas está controlada por `WorkflowCanvasUIConfig`:
+
+| Opción | Predeterminado | Descripción |
+|--------|---------|-------------|
+| `floatingControls` | `true` | Mostrar botones de acción flotantes en el canvas |
+| `trainingControls` | `true` | Habilitar superposiciones de control en modo entrenamiento |
+| `forceTrainingControls` | `false` | Mostrar siempre los controles de entrenamiento independientemente del ajuste del usuario |
+| `diffControls` | `true` | Mostrar controles de revisión de diferencias |
+| `triggerList` | `true` | Mostrar el panel de lista de disparadores |
+| `controlBar` | `false` | Mostrar la barra de control heredada (desactivada por defecto en el widget) |
+
+Estos valores predeterminados se establecen a nivel de widget y se combinan con cualquier configuración de nivel de diseño.
+
+## Relacionado
+
+<Cards>
+  <Card title="Resumen de Bloques" href="/blocks">
+    Explora todos los bloques de flujo de trabajo disponibles.
+  </Card>
+  <Card title="Resumen de Herramientas" href="/tools">
+    Explora todas las herramientas de flujo de trabajo disponibles.
+  </Card>
+  <Card title="Resumen de Disparadores" href="/triggers">
+    Explora todos los disparadores de flujo de trabajo disponibles.
+  </Card>
+  <Card title="Lista de Flujos de Trabajo" href="/widgets/list-workflow">
+    Navega y gestiona los archivos de flujo de trabajo.
+  </Card>
+  <Card title="Consola de Flujo de Trabajo" href="/widgets/workflow-console">
+    Visualiza los registros de ejecución y la salida en tiempo real.
+  </Card>
+  <Card title="Chat de Flujo de Trabajo" href="/widgets/workflow-chat">
+    Interactúa con un flujo de trabajo en ejecución.
+  </Card>
+  <Card title="Copilot" href="/widgets/copilot">
+    Asistente de IA para flujos de trabajo, MCP, habilidades, herramientas personalizadas y más.
+  </Card>
+  <Card title="Variables de Flujo de Trabajo" href="/widgets/workflow-variables">
+    Inspecciona y edita el estado de las variables.
+  </Card>
+</Cards>

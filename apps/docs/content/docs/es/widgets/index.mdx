@@ -1,34 +1,71 @@
 ---
 title: Widgets
+description: Componentes de interfaz del panel que puedes organizar en los
+  paneles del espacio de trabajo.
 ---
 
 import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Callout } from 'fumadocs-ui/components/callout'
 
-Los widgets son componentes visuales que puedes incorporar y personalizar en tus flujos de trabajo.
+Los widgets son los componentes de interfaz del panel que conforman tu espacio de trabajo. Cada widget ocupa un panel en el diseño del espacio de trabajo y proporciona una interfaz específica para una tarea concreta: editar un flujo de trabajo, monitorizar la ejecución, visualizar datos de mercado en gráficos o gestionar los recursos del espacio de trabajo. Puedes reorganizar, redimensionar e intercambiar widgets libremente para construir un diseño que se adapte a tus necesidades.
 
-<Callout>
-  Esta sección está en construcción. ¡Más contenido próximamente!
-</Callout>
-
-## Descripción general
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-## Características
-
-- **Característica 1**: Descripción provisional para la característica 1
-- **Característica 2**: Descripción provisional para la característica 2
-- **Característica 3**: Descripción provisional para la característica 3
-
-## Primeros pasos
-
-Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-
-## Próximos pasos
+## Copilot
 
 <Cards>
-  <Card title="Próximamente" href="/widgets">
-    Más documentación sobre widgets será añadida aquí
+  <Card title="Copilot" href="/widgets/copilot">
+    Asistente de IA para todo el espacio de trabajo que gestiona flujos de trabajo, servidores MCP, habilidades, herramientas personalizadas, bases de conocimiento y más.
+  </Card>
+</Cards>
+
+## Flujo de trabajo
+
+Widgets para construir, ejecutar e interactuar con flujos de trabajo.
+
+<Cards>
+  <Card title="Editor de flujos de trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para construir y editar flujos de trabajo conectando bloques.
+  </Card>
+  <Card title="Lista de flujos de trabajo" href="/widgets/list-workflow">
+    Árbol de carpetas con arrastrar y soltar para explorar y organizar flujos de trabajo.
+  </Card>
+  <Card title="Chat de flujo de trabajo" href="/widgets/workflow-chat">
+    Interfaz de chat para interactuar con los bloques del flujo de trabajo durante la ejecución.
+  </Card>
+  <Card title="Consola de flujo de trabajo" href="/widgets/workflow-console">
+    Consola de ejecución en tiempo real con registros y salida en streaming.
+  </Card>
+  <Card title="Variables de flujo de trabajo" href="/widgets/workflow-variables">
+    Inspecciona y edita las variables del flujo de trabajo seleccionado.
+  </Card>
+</Cards>
+
+## Trading
+
+Widgets para análisis técnico, gráficos y monitorización del mercado.
+
+<Cards>
+  <Card title="Editor de indicadores" href="/widgets/editor-indicator">
+    Editor de código para escribir y probar indicadores PineTS.
+  </Card>
+  <Card title="Gráfico de datos" href="/widgets/data-chart">
+    Gráfico de velas interactivo para visualizar datos de mercado OHLCV.
+  </Card>
+  <Card title="Watchlist" href="/widgets/watchlist">
+    Listas de seguimiento de símbolos con columnas de datos de mercado en tiempo real.
+  </Card>
+</Cards>
+
+## Extensibilidad
+
+Widgets para gestionar servidores MCP, habilidades y herramientas personalizadas.
+
+<Cards>
+  <Card title="Editor de habilidades" href="/widgets/editor-skill">
+    Editor para crear y actualizar habilidades reutilizables del espacio de trabajo.
+  </Card>
+  <Card title="Editor MCP" href="/widgets/editor-mcp">
+    Inspecciona, edita, prueba y actualiza un servidor MCP conectado.
+  </Card>
+  <Card title="Editor de herramientas personalizadas" href="/widgets/editor-custom-tool">
+    Editor para crear herramientas personalizadas con parámetros definidos por el usuario.
   </Card>
 </Cards>

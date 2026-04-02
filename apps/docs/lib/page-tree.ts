@@ -63,7 +63,7 @@ export function getFolderSlug(folder: PageTree.Folder): string | undefined {
   )
 }
 
-export const supportedLanguages = ['en', 'es', 'fr', 'de', 'ja', 'zh'] as const
+export const supportedLanguages = ['en', 'es', 'zh'] as const
 
 export function humanizeSlug(value: string) {
   return value

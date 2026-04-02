@@ -5,81 +5,87 @@ title: 简介
 import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Image } from '@/components/ui/image'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-TradingGoose 是一个用于构建 AI 应用程序的可视化工作流构建器，允许您以可视化方式创建 AI 代理工作流。通过在画布上连接模块，无需编写代码即可创建强大的 AI 代理、自动化工作流和数据处理管道。
+<ShowcaseCard>
+  <img src="/static/introduction/hero-light.png" alt="TradingGoose Studio" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/hero-dark.png" alt="TradingGoose Studio" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
 
-<div className="flex justify-center">
-  <Image
-    src="/static/introduction.png"
-    alt="TradingGoose 可视化工作流画布"
-    width={700}
-    height={450}
-    className="my-6"
-  />
-</div>
+TradingGoose Studio 是一个面向技术性 LLM 交易的 AI 工作流平台。它将技术分析与大型语言模型相结合，为您的交易决策提供全方位支持——涵盖数据分析、市场研究、图表绘制、持仓监控及工作流自动化。
 
-## 您可以构建的内容
+通过连接各类模块，在可视化画布上构建工作流——包括 AI 智能体、交易操作、技术指标、API 集成等。大多数工作流无需编写代码，同时完整支持 PineTS 脚本，用于自定义指标与策略开发。
 
-**AI 助手与聊天机器人**
-创建能够搜索网络、访问日历、发送电子邮件以及与您的业务工具交互的智能代理。
+## 可构建的功能
 
-**业务流程自动化**
-自动化重复性任务，例如数据录入、报告生成、客户支持回复和内容创建。
+**交易自动化**
+连接券商（Alpaca、Tradier、Robinhood），执行订单，监控持仓，并基于 AI 分析与技术指标自动运行交易策略。
 
-**数据处理与分析**
-从文档中提取洞察，分析数据集，生成报告，并在系统之间同步数据。
+**技术分析与图表**
+使用 PineTS 编写自定义指标，通过交互式K线图可视化 OHLCV 数据，管理带有实时行情的自选股列表，并在指标条件触发时自动启动工作流。
 
-**API 集成工作流**
-将多个服务连接到统一的端点，编排复杂的业务逻辑，并处理事件驱动的自动化。
+**AI 驱动的研究**
+构建研究智能体，分析市场数据、扫描新闻资讯、处理金融文档，并使用来自 OpenAI、Anthropic、Google 等平台的模型生成研究报告。
 
-## 工作原理
+**数据处理与集成**
+连接 120+ 项服务——包括数据库、通信工具、CRM 系统及各类 API。通过条件判断、循环、并行执行与错误处理，编排复杂的数据管道。
 
-**可视化画布**
-通过拖放模块来构建工作流。使用简单的点选连接将 AI 模型、数据库、API 和业务工具连接起来。
+## 平台概览
 
-**智能模块**
-从处理模块（AI 代理、API、函数）、逻辑模块（条件、循环、路由器）和输出模块（响应、评估器）中进行选择。
+<ShowcaseCard>
+  <img src="/static/introduction/overview-light.png" alt="TradingGoose 平台概览" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/overview-dark.png" alt="TradingGoose 平台概览" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
+
+**可视化工作流画布**
+通过拖放模块构建工作流，以点击连接的方式集成 AI 模型、交易服务、数据库与 API。
+
+**交易基础设施**
+内置券商集成（Alpaca、Tradier、Robinhood）和市场数据提供商（Alpha Vantage、Finnhub、Yahoo Finance），支持实盘与模拟交易。
+
+**PineTS 脚本**
+使用 PineTS 编写自定义指标——这是一个兼容 Pine Script 的 JavaScript/TypeScript 运行时。通过 `trigger()` API 将指标信号连接至工作流自动化。
+
+**可扩展性**
+通过 MCP 服务器、自定义工具、可复用技能和知识库扩展平台功能。AI Copilot 帮助您在整个工作区中构建和管理所有内容。
 
 **多种触发方式**
-通过聊天界面、REST API、webhooks、计划任务或来自 Slack 和 GitHub 等服务的外部事件启动工作流。
-
-**团队协作**
-与团队成员同时在同一工作流上工作，支持实时编辑和权限管理。
+通过聊天界面、REST API、Webhook、定时任务、指标信号，或来自 Slack、GitHub 等服务的外部事件启动工作流。
 
 ## 内置集成
 
-TradingGoose 开箱即用地连接到 80 多种服务：
+TradingGoose 连接 120+ 个服务：
 
-- **AI 模型**：OpenAI、Anthropic、Google、Groq、Cerebras、本地 Ollama 模型
-- **通信**：Gmail、Slack、Teams、Telegram、WhatsApp  
-- **生产力**：Notion、Google Sheets、Airtable、Monday.com
-- **开发**：GitHub、Jira、Linear、浏览器自动化
-- **搜索与网络**：Google Search、Perplexity、Firecrawl、Exa AI
-- **数据库**：PostgreSQL、MySQL、Supabase、Pinecone、Qdrant
+- **交易**：Alpaca、Tradier、Robinhood、Kalshi、Polymarket
+- **市场数据**：Alpha Vantage、Finnhub、Yahoo Finance
+- **AI 模型**：OpenAI、Anthropic、Google、Groq、Cerebras、DeepSeek、Ollama（本地）
+- **通讯**：Gmail、Slack、Teams、Telegram、WhatsApp、Discord
+- **生产力**：Notion、Google Sheets、Airtable、Jira、Linear
+- **开发**：GitHub、GitLab、浏览器自动化（Stagehand）
+- **搜索与网络**：Google Search、Perplexity、Tavily、Exa、Firecrawl
+- **数据库**：PostgreSQL、MySQL、MongoDB、Supabase、Pinecone、Qdrant
 
-需要定制功能？使用我们的 [MCP 集成](/mcp) 连接任何外部服务。
+需要自定义功能？使用 [MCP 集成](/utilities/mcp) 连接任意外部服务，或构建[自定义工具](/utilities/custom-tools)。
 
 ## 部署选项
 
-**云托管**：在 [tradinggoose.ai](https://tradinggoose.ai) 上立即开始，享受托管基础设施、自动扩展和内置监控。
+**云托管**：即将推出——提供托管基础设施，支持自动扩缩容与内置监控。
 
-**自托管**：使用 Docker 在您自己的基础设施上部署，通过 Ollama 支持本地 AI 模型，确保数据完全隐私。
+**自托管**：使用 Docker 在您自己的基础设施上部署，并通过 Ollama 支持本地 AI 模型，确保数据完全私密。
 
-## 下一步
-
-准备好构建您的第一个 AI 工作流了吗？
+## 后续步骤
 
 <Cards>
-  <Card title="快速入门" href="/getting-started">
-    在 10 分钟内创建您的第一个工作流
+  <Card title="指标" href="/indicators">
+    编写用于技术分析的自定义 PineTS 指标
   </Card>
-  <Card title="工作流模块" href="/blocks">
-    了解构建模块
+  <Card title="模块" href="/blocks">
+    探索所有可用的工作流模块
   </Card>
   <Card title="工具与集成" href="/tools">
-    探索 60 多种内置集成
+    浏览 120+ 个内置集成
   </Card>
-  <Card title="团队权限" href="/permissions/roles-and-permissions">
-    设置工作区角色和权限
+  <Card title="实用工具" href="/utilities">
+    MCP、技能、自定义工具与 Copilot
   </Card>
 </Cards>

@@ -1,0 +1,79 @@
+---
+title: Editor de Herramientas Personalizadas
+description: Editar herramientas personalizadas del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción General
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_custom_tool` |
+| **Categoría** | Editor |
+
+El Editor de Herramientas Personalizadas permite definir y modificar herramientas personalizadas que los agentes pueden invocar durante los flujos de trabajo. Cada herramienta consta de dos partes: un esquema JSON que declara el nombre, la descripción y los parámetros de la herramienta, y un cuerpo de función JavaScript que se ejecuta cuando la herramienta es invocada. Utilice el widget [Lista de Herramientas Personalizadas](/utilities/custom-tools) para explorar y crear herramientas; el editor es el espacio de trabajo principal para desarrollar su lógica.
+
+## Funcionalidades
+
+- **Diseño de dos secciones** alternado mediante las pestañas **Config** y **Code** en la barra de encabezado.
+- La **sección Config** proporciona un editor Monaco JSON para el formato de esquema de llamada a funciones de OpenAI. El esquema debe incluir `type: "function"`, una `function.name`, `function.description`, y `function.parameters` con `type`, `properties` y `required`. La validación en tiempo real resalta los errores mientras escribe.
+- La **sección Code** proporciona un editor Monaco JavaScript para el cuerpo de la función de la herramienta. El código se ejecuta dentro de un contexto `async function(params, environmentVariables)`. Referencie los parámetros de entrada con la sintaxis `<paramName>` y las variables de entorno con la sintaxis `{{VAR_NAME}}`.
+- El **asistente de IA** en ambas secciones permite describir lo que desea en lenguaje natural y genera de forma continua el esquema JSON o el código JavaScript directamente en el editor.
+- El **autocompletado de parámetros del esquema** en el editor de código sugiere automáticamente nombres de parámetros derivados del esquema JSON mientras escribe.
+- El **menú desplegable de variables de entorno** se activa con el patrón `{{`, permitiendo insertar secretos del espacio de trabajo.
+- El **menú desplegable de etiquetas** se activa con el patrón de etiqueta, permitiendo referenciar variables del flujo de trabajo.
+- El **botón Guardar** valida el esquema, verifica la existencia de nombres de herramientas duplicados y persiste tanto el esquema como el código. Si la validación falla, el editor cambia a la sección Config y muestra el error.
+- El **selector de herramientas** en la barra de encabezado permite cambiar entre herramientas personalizadas. Cuando se vincula mediante un enlace de color, se sincroniza con el widget Lista de Herramientas Personalizadas.
+
+## Uso
+
+1. Agregue el widget a un espacio de trabajo desde el selector de widgets.
+2. Seleccione una herramienta personalizada existente desde el menú desplegable del encabezado, o cree una desde el widget [Custom Tool List](/utilities/custom-tools).
+3. En la pestaña **Config**, escriba o genere el esquema JSON que define el nombre, la descripción y los parámetros de la herramienta.
+4. Cambie a la pestaña **Code** y escriba el cuerpo de la función JavaScript. Use los nombres de parámetros del esquema directamente -- el editor de código los autocompletará.
+5. Haga clic en **Save** para guardar la herramienta. El editor valida el esquema primero y muestra los errores directamente en línea.
+
+### Formato del Esquema
+
+El esquema JSON debe seguir el formato de llamada a funciones de OpenAI:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "myToolName",
+    "description": "What the tool does.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "paramName": {
+          "type": "string",
+          "description": "What this parameter is for."
+        }
+      },
+      "required": ["paramName"]
+    }
+  }
+}
+```
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigne el mismo color a un Custom Tool Editor y a un widget [Custom Tool List](/utilities/custom-tools) para que al seleccionar una herramienta en la lista se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+La herramienta seleccionada se almacena en los parámetros del widget como `customToolId` y se sincroniza a través del almacén de pares de colores cuando está vinculada. La sección activa (Config o Code) se sincroniza entre las pestañas del encabezado y el cuerpo del editor mediante eventos personalizados.
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de Herramientas Personalizadas" href="/utilities/custom-tools">
+    Aprenda qué son las herramientas personalizadas, cómo las invocan los agentes y las mejores prácticas.
+  </Card>
+  <Card title="Editor de Flujos de Trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para construir y editar flujos de trabajo.
+  </Card>
+</Cards>

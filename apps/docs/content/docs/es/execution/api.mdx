@@ -1,29 +1,26 @@
 ---
-title: API externa
+title: API Externa
 ---
 
-import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { CodeBlock } from 'fumadocs-ui/components/codeblock'
-import { Video } from '@/components/ui/video'
 
 TradingGoose proporciona una API externa completa para consultar registros de ejecución de flujos de trabajo y configurar webhooks para notificaciones en tiempo real cuando los flujos de trabajo se completan.
 
 ## Autenticación
 
-Todas las solicitudes a la API requieren una clave de API pasada en el encabezado `x-api-key`:
+Todas las solicitudes a la API requieren una clave de API enviada en el encabezado `x-api-key`:
 
 ```bash
 curl -H "x-api-key: YOUR_API_KEY" \
   https://tradinggoose.ai/api/v1/logs?workspaceId=YOUR_WORKSPACE_ID
 ```
 
-Puedes generar claves de API desde la configuración de usuario en el panel de control de TradingGoose.
+Puedes generar claves de API desde la configuración de usuario en el panel de TradingGoose.
 
-## API de registros
+## API de Registros
 
-Todas las respuestas de la API incluyen información sobre tus límites de ejecución de flujos de trabajo y su uso:
+Todas las respuestas de la API incluyen información sobre los límites de ejecución de flujos de trabajo y el uso actual:
 
 ```json
 "limits": {
@@ -48,11 +45,11 @@ Todas las respuestas de la API incluyen información sobre tus límites de ejecu
 }
 ```
 
-**Nota:** Los límites de tasa en el cuerpo de la respuesta son para ejecuciones de flujos de trabajo. Los límites de tasa para llamar a este endpoint de la API están en los encabezados de respuesta (`X-RateLimit-*`).
+**Nota:** Los límites de frecuencia en el cuerpo de la respuesta corresponden a las ejecuciones de flujos de trabajo. Los límites de frecuencia para llamar a este endpoint de la API se encuentran en los encabezados de respuesta (`X-RateLimit-*`).
 
-### Consultar registros
+### Consultar Registros
 
-Consulta los registros de ejecución de flujos de trabajo con amplias opciones de filtrado.
+Consulta registros de ejecución de flujos de trabajo con amplias opciones de filtrado.
 
 <Tabs items={['Request', 'Response']}>
   <Tab value="Request">
@@ -61,16 +58,16 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
     GET /api/v1/logs
     ```
 
-    **Parámetros requeridos:**
-    - `workspaceId` - Tu ID de espacio de trabajo
+    **Parámetros Requeridos:**
+    - `workspaceId` - ID de tu espacio de trabajo
 
-    **Filtros opcionales:**
+    **Filtros Opcionales:**
     - `workflowIds` - IDs de flujos de trabajo separados por comas
     - `folderIds` - IDs de carpetas separados por comas
-    - `triggers` - Tipos de disparadores separados por comas: `api`, `webhook`, `schedule`, `manual`, `chat`
+    - `triggers` - Tipos de disparador separados por comas: `api`, `webhook`, `schedule`, `manual`, `chat`
     - `level` - Filtrar por nivel: `info`, `error`
-    - `startDate` - Marca de tiempo ISO para el inicio del rango de fechas
-    - `endDate` - Marca de tiempo ISO para el fin del rango de fechas
+    - `startDate` - Marca de tiempo ISO para inicio del rango de fechas
+    - `endDate` - Marca de tiempo ISO para fin del rango de fechas
     - `executionId` - Coincidencia exacta de ID de ejecución
     - `minDurationMs` - Duración mínima de ejecución en milisegundos
     - `maxDurationMs` - Duración máxima de ejecución en milisegundos
@@ -80,13 +77,13 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
 
     **Paginación:**
     - `limit` - Resultados por página (predeterminado: 100)
-    - `cursor` - Cursor para la siguiente página
+    - `cursor` - Cursor para la página siguiente
     - `order` - Orden de clasificación: `desc`, `asc` (predeterminado: desc)
 
-    **Nivel de detalle:**
-    - `details` - Nivel de detalle de la respuesta: `basic`, `full` (predeterminado: básico)
-    - `includeTraceSpans` - Incluir intervalos de seguimiento (predeterminado: falso)
-    - `includeFinalOutput` - Incluir salida final (predeterminado: falso)
+    **Nivel de Detalle:**
+    - `details` - Nivel de detalle de la respuesta: `basic`, `full` (predeterminado: basic)
+    - `includeTraceSpans` - Incluir tramos de traza (predeterminado: false)
+    - `includeFinalOutput` - Incluir salida final (predeterminado: false)
   </Tab>
   <Tab value="Response">
 
@@ -135,9 +132,9 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
   </Tab>
 </Tabs>
 
-### Obtener detalles del registro
+### Obtener Detalles del Log
 
-Recupera información detallada sobre una entrada de registro específica.
+Recupera información detallada sobre una entrada de log específica.
 
 <Tabs items={['Request', 'Response']}>
   <Tab value="Request">
@@ -216,9 +213,9 @@ Recupera información detallada sobre una entrada de registro específica.
   </Tab>
 </Tabs>
 
-### Obtener detalles de ejecución
+### Obtener Detalles de Ejecución
 
-Recupera detalles de ejecución incluyendo la instantánea del estado del flujo de trabajo.
+Recupera los detalles de ejecución, incluida la instantánea del estado del flujo de trabajo.
 
 <Tabs items={['Request', 'Response']}>
   <Tab value="Request">
@@ -253,32 +250,28 @@ Recupera detalles de ejecución incluyendo la instantánea del estado del flujo 
   </Tab>
 </Tabs>
 
-## Suscripciones a webhooks
+## Suscripciones a Webhooks
 
-Recibe notificaciones en tiempo real cuando se completan las ejecuciones de flujos de trabajo. Los webhooks se configuran a través de la interfaz de usuario de TradingGoose en el editor de flujos de trabajo.
+Recibe notificaciones en tiempo real cuando las ejecuciones de flujos de trabajo finalicen. Los webhooks se configuran a través de la interfaz de TradingGoose en el editor de flujos de trabajo.
 
 ### Configuración
 
-Los webhooks pueden configurarse para cada flujo de trabajo a través de la interfaz de usuario del editor de flujos de trabajo. Haz clic en el icono de webhook en la barra de control para configurar tus suscripciones a webhooks.
+Los webhooks pueden configurarse para cada flujo de trabajo a través de la interfaz del editor. Haz clic en el ícono de webhook en la barra de control para abrir el panel de configuración de webhooks, donde puedes agregar, editar y gestionar tus suscripciones.
 
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="configure-webhook.mp4" width={700} height={450} />
-</div>
-
-**Opciones de configuración disponibles:**
-- `url`: URL del punto final de tu webhook
+**Opciones de Configuración Disponibles:**
+- `url`: URL del endpoint de tu webhook
 - `secret`: Secreto opcional para verificación de firma HMAC
-- `includeFinalOutput`: Incluir la salida final del flujo de trabajo en la carga útil
-- `includeTraceSpans`: Incluir intervalos de seguimiento de ejecución detallados
-- `includeRateLimits`: Incluir información del límite de tasa del propietario del flujo de trabajo
-- `includeUsageData`: Incluir datos de uso y facturación del propietario del flujo de trabajo
-- `levelFilter`: Array de niveles de registro a recibir (`info`, `error`)
-- `triggerFilter`: Array de tipos de disparadores a recibir (`api`, `webhook`, `schedule`, `manual`, `chat`)
+- `includeFinalOutput`: Incluye la salida final del flujo de trabajo en el payload
+- `includeTraceSpans`: Incluye trazas de ejecución detalladas
+- `includeRateLimits`: Incluye información de límite de tasa del propietario del flujo de trabajo
+- `includeUsageData`: Incluye datos de uso y facturación del propietario del flujo de trabajo
+- `levelFilter`: Array de niveles de log a recibir (`info`, `error`)
+- `triggerFilter`: Array de tipos de disparador a recibir (`api`, `webhook`, `schedule`, `manual`, `chat`)
 - `active`: Habilitar/deshabilitar la suscripción al webhook
 
-### Carga útil del webhook
+### Payload del Webhook
 
-Cuando se completa la ejecución de un flujo de trabajo, TradingGoose envía una solicitud POST a tu URL de webhook:
+Cuando una ejecución de flujo de trabajo finaliza, TradingGoose envía una solicitud POST a la URL de tu webhook:
 
 ```json
 {
@@ -327,19 +320,19 @@ Cuando se completa la ejecución de un flujo de trabajo, TradingGoose envía una
 }
 ```
 
-### Cabeceras de webhook
+### Encabezados del Webhook
 
-Cada solicitud de webhook incluye estas cabeceras:
+Cada solicitud de webhook incluye estos encabezados:
 
 - `tradinggoose-event`: Tipo de evento (siempre `workflow.execution.completed`)
 - `tradinggoose-timestamp`: Marca de tiempo Unix en milisegundos
-- `tradinggoose-delivery-id`: ID único de entrega para idempotencia
+- `tradinggoose-delivery-id`: ID de entrega único para idempotencia
 - `tradinggoose-signature`: Firma HMAC-SHA256 para verificación (si se configura un secreto)
 - `Idempotency-Key`: Igual que el ID de entrega para detección de duplicados
 
-### Verificación de firma
+### Verificación de Firma
 
-Si configuras un secreto de webhook, verifica la firma para asegurar que el webhook proviene de TradingGoose:
+Si configura un secreto de webhook, verifique la firma para asegurarse de que el webhook proviene de TradingGoose:
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
@@ -410,47 +403,47 @@ Si configuras un secreto de webhook, verifica la firma para asegurar que el webh
   </Tab>
 </Tabs>
 
-### Política de reintentos
+### Política de Reintentos
 
-Las entregas de webhook fallidas se reintentan con retroceso exponencial y fluctuación:
+Las entregas de webhook fallidas se reintentan con retroceso exponencial y jitter:
 
-- Máximo de intentos: 5
-- Retrasos de reintento: 5 segundos, 15 segundos, 1 minuto, 3 minutos, 10 minutos
-- Fluctuación: Hasta un 10% de retraso adicional para prevenir el efecto de manada
-- Solo las respuestas HTTP 5xx y 429 activan reintentos
-- Las entregas agotan el tiempo de espera después de 30 segundos
+- Intentos máximos: 5
+- Demoras de reintento: 5 segundos, 15 segundos, 1 minuto, 3 minutos, 10 minutos
+- Jitter: Hasta un 10% de demora adicional para prevenir el efecto thundering herd
+- Solo las respuestas HTTP 5xx y 429 desencadenan reintentos
+- Las entregas expiran después de 30 segundos
 
 <Callout type="info">
-  Las entregas de webhook se procesan de forma asíncrona y no afectan al rendimiento de ejecución del flujo de trabajo.
+  Las entregas de webhook se procesan de forma asíncrona y no afectan el rendimiento de ejecución del flujo de trabajo.
 </Callout>
 
-## Mejores prácticas
+## Buenas Prácticas
 
-1. **Estrategia de sondeo**: Al sondear registros, utiliza paginación basada en cursor con `order=asc` y `startDate` para obtener nuevos registros de manera eficiente.
+1. **Estrategia de Sondeo**: Al sondear registros, utilice paginación basada en cursor con `order=asc` y `startDate` para obtener nuevos registros de manera eficiente.
 
-2. **Seguridad de webhook**: Siempre configura un secreto de webhook y verifica las firmas para asegurar que las solicitudes provienen de TradingGoose.
+2. **Seguridad de Webhook**: Configure siempre un secreto de webhook y verifique las firmas para garantizar que las solicitudes provienen de TradingGoose.
 
-3. **Idempotencia**: Utiliza la cabecera `Idempotency-Key` para detectar y manejar entregas duplicadas de webhook.
+3. **Idempotencia**: Utilice el encabezado `Idempotency-Key` para detectar y gestionar entregas de webhook duplicadas.
 
-4. **Privacidad**: Por defecto, `finalOutput` y `traceSpans` están excluidos de las respuestas. Habilítalos solo si necesitas los datos y comprendes las implicaciones de privacidad.
+4. **Privacidad**: De forma predeterminada, `finalOutput` y `traceSpans` se excluyen de las respuestas. Habilite estos campos solo si necesita los datos y comprende las implicaciones de privacidad.
 
-5. **Limitación de tasa**: Implementa retroceso exponencial cuando recibas respuestas 429. Consulta la cabecera `Retry-After` para conocer el tiempo de espera recomendado.
+5. **Limitación de Tasa**: Implemente retroceso exponencial cuando reciba respuestas 429. Consulte el encabezado `Retry-After` para conocer el tiempo de espera recomendado.
 
-## Limitación de tasa
+## Limitación de Tasa
 
-La API implementa limitación de tasa para garantizar un uso justo:
+La API implementa limitación de tasa para garantizar un uso equitativo:
 
 - **Plan gratuito**: 10 solicitudes por minuto
 - **Plan Pro**: 30 solicitudes por minuto
-- **Plan Team**: 60 solicitudes por minuto
-- **Plan Enterprise**: Límites personalizados
+- **Plan Equipo**: 60 solicitudes por minuto
+- **Plan Empresarial**: Límites personalizados
 
-La información del límite de tasa se incluye en los encabezados de respuesta:
+La información sobre límites de velocidad se incluye en los encabezados de respuesta:
 - `X-RateLimit-Limit`: Máximo de solicitudes por ventana
 - `X-RateLimit-Remaining`: Solicitudes restantes en la ventana actual
 - `X-RateLimit-Reset`: Marca de tiempo ISO cuando se reinicia la ventana
 
-## Ejemplo: Sondeo para nuevos registros
+## Ejemplo: Sondeo de nuevos registros
 
 ```javascript
 let cursor = null;

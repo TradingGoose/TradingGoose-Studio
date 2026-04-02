@@ -1,13 +1,15 @@
 ---
 title: ArXiv
-description: Busca y recupera artículos académicos de ArXiv
+description: Buscar y recuperar artículos académicos de ArXiv
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="arxiv"
-  color="#E0E0E0"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"  id='logomark' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17.732 24.269'>
       <g id='tiny'>
@@ -30,80 +32,387 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[ArXiv](https://arxiv.org/) es un repositorio gratuito de acceso abierto de artículos científicos en campos como física, matemáticas, informática, biología cuantitativa, finanzas cuantitativas, estadística, ingeniería eléctrica, ciencias de sistemas y economía. ArXiv proporciona una amplia colección de preprints y artículos publicados, convirtiéndolo en un recurso primario para investigadores y profesionales de todo el mundo.
+## Configuración
 
-Con ArXiv, puedes:
+### Buscar Artículos
 
-- **Buscar artículos académicos**: Encuentra investigaciones por palabras clave, nombres de autores, títulos, categorías y más
-- **Recuperar metadatos de artículos**: Accede a resúmenes, listas de autores, fechas de publicación y otra información bibliográfica
-- **Descargar PDFs completos**: Obtén el texto completo de la mayoría de los artículos para un estudio en profundidad
-- **Explorar contribuciones de autores**: Visualiza todos los artículos de un autor específico
-- **Mantenerte actualizado**: Descubre las últimas publicaciones y temas tendencia en tu campo
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    iconSvg={`<svg className="block-icon"  id='logomark' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17.732 24.269'>
+      <g id='tiny'>
+        <path
+          d='M573.549,280.916l2.266,2.738,6.674-7.84c.353-.47.52-.717.353-1.117a1.218,1.218,0,0,0-1.061-.748h0a.953.953,0,0,0-.712.262Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+        <path
+          d='M579.525,282.225l-10.606-10.174a1.413,1.413,0,0,0-.834-.5,1.09,1.09,0,0,0-1.027.66c-.167.4-.047.681.319,1.206l8.44,10.242h0l-6.282,7.716a1.336,1.336,0,0,0-.323,1.3,1.114,1.114,0,0,0,1.04.69A.992.992,0,0,0,571,293l8.519-7.92A1.924,1.924,0,0,0,579.525,282.225Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#b31b1b'
+        />
+        <path
+          d='M584.32,293.912l-8.525-10.275,0,0L573.53,280.9l-1.389,1.254a2.063,2.063,0,0,0,0,2.965l10.812,10.419a.925.925,0,0,0,.742.282,1.039,1.039,0,0,0,.953-.667A1.261,1.261,0,0,0,584.32,293.912Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Buscar Artículos",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Obtener Detalles del Artículo",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Obtener Artículos del Autor",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_search"
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "Consulta de Búsqueda",
+            "layout": "full",
+            "placeholder": "Ingrese términos de búsqueda (p. ej., \"aprendizaje automático\", \"física cuántica\")...",
+            "required": true
+        },
+        {
+            "id": "searchField",
+            "type": "dropdown",
+            "title": "Campo de Búsqueda",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Todos los Campos",
+                    "id": "all"
+                },
+                {
+                    "label": "Título",
+                    "id": "ti"
+                },
+                {
+                    "label": "Autor",
+                    "id": "au"
+                },
+                {
+                    "label": "Resumen",
+                    "id": "abs"
+                },
+                {
+                    "label": "Comentario",
+                    "id": "co"
+                },
+                {
+                    "label": "Referencia de Revista",
+                    "id": "jr"
+                },
+                {
+                    "label": "Categoría",
+                    "id": "cat"
+                },
+                {
+                    "label": "Número de Reporte",
+                    "id": "rn"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de Resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "Ordenar Por",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Relevancia",
+                    "id": "relevance"
+                },
+                {
+                    "label": "Fecha de Última Actualización",
+                    "id": "lastUpdatedDate"
+                },
+                {
+                    "label": "Fecha de Envío",
+                    "id": "submittedDate"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Orden",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descendente",
+                    "id": "descending"
+                },
+                {
+                    "label": "Ascendente",
+                    "id": "ascending"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-En TradingGoose, la integración con ArXiv permite a tus agentes buscar, recuperar y analizar artículos científicos de ArXiv de forma programática. Esto te permite automatizar revisiones de literatura, crear asistentes de investigación o incorporar conocimiento científico actualizado en tus flujos de trabajo con agentes. Utiliza ArXiv como una fuente dinámica de datos para investigación, descubrimiento y extracción de conocimiento dentro de tus proyectos de TradingGoose.
-{/* MANUAL-CONTENT-END */}
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar artículos (<code>arxiv_search</code>)</div>
 
-## Instrucciones de uso
+Buscar artículos académicos en ArXiv por palabras clave, autores, títulos u otros campos.
 
-Integra ArXiv en el flujo de trabajo. Puede buscar artículos, obtener detalles de artículos y obtener artículos de autores. No requiere OAuth ni una clave API.
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-## Herramientas
-
-### `arxiv_search`
-
-Busca artículos académicos en ArXiv por palabras clave, autores, títulos u otros campos.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
 | `searchQuery` | string | Sí | La consulta de búsqueda a ejecutar |
-| `searchField` | string | No | Campo en el que buscar: all (todos), ti (título), au (autor), abs (resumen), co (comentario), jr (revista), cat (categoría), rn (número de informe) |
-| `maxResults` | number | No | Número máximo de resultados a devolver (predeterminado: 10, máximo: 2000) |
-| `sortBy` | string | No | Ordenar por: relevance (relevancia), lastUpdatedDate (fecha de última actualización), submittedDate (fecha de envío) (predeterminado: relevance) |
-| `sortOrder` | string | No | Orden de clasificación: ascending (ascendente), descending (descendente) (predeterminado: descending) |
+| `searchField` | string | No | Campo en el que buscar: all, ti \(título\), au \(autor\), abs \(resumen\), co \(comentario\), jr \(revista\), cat \(categoría\), rn \(número de informe\) |
+| `maxResults` | number | No | Número máximo de resultados a devolver \(predeterminado: 10, máx.: 2000\) |
+| `sortBy` | string | No | Ordenar por: relevance, lastUpdatedDate, submittedDate \(predeterminado: relevance\) |
+| `sortOrder` | string | No | Orden de clasificación: ascending, descending \(predeterminado: descending\) |
 
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `papers` | json | Array de artículos que coinciden con la consulta de búsqueda |
-
-### `arxiv_get_paper`
-
-Obtén información detallada sobre un artículo específico de ArXiv mediante su ID.
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
-| `paperId` | string | Sí | ID del artículo de ArXiv (p. ej., "1706.03762") |
-
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `paper` | json | Información detallada sobre el artículo de ArXiv solicitado |
+| `id` | string | salida de id |
+| `title` | string | salida de title |
+| `summary` | string | salida de summary |
+| `authors` | string | salida de authors |
+| `published` | string | salida de published |
+| `updated` | string | salida de updated |
+| `link` | string | salida de link |
+| `pdfLink` | string | salida de pdfLink |
+| `categories` | string | salida de categories |
+| `primaryCategory` | string | salida de primaryCategory |
+| `comment` | string | salida de comment |
+| `journalRef` | string | salida de journalRef |
 
-### `arxiv_get_author_papers`
+</div>
+
+---
+
+### Obtener detalles del artículo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    iconSvg={`<svg className="block-icon"  id='logomark' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17.732 24.269'>
+      <g id='tiny'>
+        <path
+          d='M573.549,280.916l2.266,2.738,6.674-7.84c.353-.47.52-.717.353-1.117a1.218,1.218,0,0,0-1.061-.748h0a.953.953,0,0,0-.712.262Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+        <path
+          d='M579.525,282.225l-10.606-10.174a1.413,1.413,0,0,0-.834-.5,1.09,1.09,0,0,0-1.027.66c-.167.4-.047.681.319,1.206l8.44,10.242h0l-6.282,7.716a1.336,1.336,0,0,0-.323,1.3,1.114,1.114,0,0,0,1.04.69A.992.992,0,0,0,571,293l8.519-7.92A1.924,1.924,0,0,0,579.525,282.225Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#b31b1b'
+        />
+        <path
+          d='M584.32,293.912l-8.525-10.275,0,0L573.53,280.9l-1.389,1.254a2.063,2.063,0,0,0,0,2.965l10.812,10.419a.925.925,0,0,0,.742.282,1.039,1.039,0,0,0,.953-.667A1.261,1.261,0,0,0,584.32,293.912Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Buscar artículos",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Obtener detalles del artículo",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Obtener artículos del autor",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_paper"
+        },
+        {
+            "id": "paperId",
+            "type": "short-input",
+            "title": "ID del artículo",
+            "layout": "full",
+            "placeholder": "Ingrese el ID del artículo de ArXiv (p. ej., 1706.03762, cs.AI/0001001)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener detalles del artículo (<code>arxiv_get_paper</code>)</div>
+
+Obtenga información detallada sobre un artículo específico de ArXiv mediante su ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `paperId` | string | Sí | ID del artículo de ArXiv \(p. ej., "1706.03762"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | salida de id |
+| `title` | string | salida de title |
+| `summary` | string | salida de summary |
+| `authors` | string | salida de authors |
+| `published` | string | salida de published |
+| `updated` | string | salida de updated |
+| `link` | string | salida de link |
+| `pdfLink` | string | salida de pdfLink |
+| `categories` | string | salida de categories |
+| `primaryCategory` | string | salida de primaryCategory |
+| `comment` | string | salida de comment |
+| `journalRef` | string | salida de journalRef |
+
+</div>
+
+---
+
+### Obtener Artículos del Autor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    iconSvg={`<svg className="block-icon"  id='logomark' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17.732 24.269'>
+      <g id='tiny'>
+        <path
+          d='M573.549,280.916l2.266,2.738,6.674-7.84c.353-.47.52-.717.353-1.117a1.218,1.218,0,0,0-1.061-.748h0a.953.953,0,0,0-.712.262Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+        <path
+          d='M579.525,282.225l-10.606-10.174a1.413,1.413,0,0,0-.834-.5,1.09,1.09,0,0,0-1.027.66c-.167.4-.047.681.319,1.206l8.44,10.242h0l-6.282,7.716a1.336,1.336,0,0,0-.323,1.3,1.114,1.114,0,0,0,1.04.69A.992.992,0,0,0,571,293l8.519-7.92A1.924,1.924,0,0,0,579.525,282.225Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#b31b1b'
+        />
+        <path
+          d='M584.32,293.912l-8.525-10.275,0,0L573.53,280.9l-1.389,1.254a2.063,2.063,0,0,0,0,2.965l10.812,10.419a.925.925,0,0,0,.742.282,1.039,1.039,0,0,0,.953-.667A1.261,1.261,0,0,0,584.32,293.912Z'
+          transform='translate(-566.984 -271.548)'
+          fill='#bdb9b4'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Buscar Artículos",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Obtener Detalles del Artículo",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Obtener Artículos del Autor",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_author_papers"
+        },
+        {
+            "id": "authorName",
+            "type": "short-input",
+            "title": "Nombre del Autor",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del autor (p. ej., \"John Smith\")...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de Resultados",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Artículos del Autor (<code>arxiv_get_author_papers</code>)</div>
 
 Busca artículos de un autor específico en ArXiv.
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
 | `authorName` | string | Sí | Nombre del autor a buscar |
-| `maxResults` | number | No | Número máximo de resultados a devolver (predeterminado: 10, máximo: 2000) |
+| `maxResults` | number | No | Número máximo de resultados a retornar \(predeterminado: 10, máx: 2000\) |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `authorPapers` | json | Array de artículos escritos por el autor especificado |
+| `id` | string | salida de id |
+| `title` | string | salida de title |
+| `summary` | string | salida de summary |
+| `authors` | string | salida de authors |
+| `published` | string | salida de published |
+| `updated` | string | salida de updated |
+| `link` | string | salida de link |
+| `pdfLink` | string | salida de pdfLink |
+| `categories` | string | salida de categories |
+| `primaryCategory` | string | salida de primaryCategory |
+| `comment` | string | salida de comment |
+| `journalRef` | string | salida de journalRef |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra ArXiv en el flujo de trabajo. Permite buscar artículos, obtener detalles de artículos y consultar publicaciones por autor. No requiere OAuth ni clave de API.
 
 ## Notas
 
-- Categoría: `tools`
-- Tipo: `arxiv`
+- Category: `tools`
+- Type: `arxiv`

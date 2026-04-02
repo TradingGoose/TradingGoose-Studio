@@ -5,19 +5,22 @@ title: Function
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 The Function block lets you execute custom JavaScript or TypeScript code in your workflows. Use it to transform data, perform calculations, or implement custom logic that isn't available in other blocks.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/function.png"
-    alt="Function Block with Code Editor"
-    width={500}
-    height={350}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Function"
+    type="function"
+    color="#FF402F"
+    hideHeader
+    subBlocks={[
+      { "id": "code", "type": "code", "layout": "full" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Overview
 

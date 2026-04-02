@@ -1,0 +1,304 @@
+---
+title: Apify
+description: 运行 Apify Actor 并获取结果
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="apify"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+/>
+
+## 配置
+
+### 运行 Actor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "运行 Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "运行 Actor（异步）",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_sync"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API 令牌",
+            "placeholder": "请输入您的 Apify API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "例如：janedoe/my-actor 或 Actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor 输入",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "超时时间",
+            "placeholder": "Actor 超时时间（秒）"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "构建版本",
+            "placeholder": "Actor 构建版本（例如：\"latest\"、\"beta\" 或构建标签）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行 Actor (<code>apify_run_actor_sync</code>)</div>
+
+同步运行 APIFY actor 并获取结果（最长 5 分钟）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | 来自 console.apify.com/account#/integrations 的 APIFY API 令牌 |
+| `actorId` | string | 是 | Actor ID 或 用户名/actor名称 \(例如："janedoe/my-actor" 或 actor ID\) |
+| `input` | string | 否 | JSON 字符串格式的 Actor 输入。请参阅 actor 文档了解必填字段。 |
+| `timeout` | number | 否 | 超时时间（秒）\(默认：actor 默认值\) |
+| `build` | string | 否 | 要运行的 Actor 构建版本 \(例如："latest"、"beta" 或构建标签/编号\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | Actor 运行是否成功 |
+| `runId` | string | APIFY 运行 ID |
+| `status` | string | 运行状态 \(SUCCEEDED、FAILED 等\) |
+
+</div>
+
+---
+
+### 异步运行 Actor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "运行 Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "异步运行 Actor",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_async"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API 令牌",
+            "placeholder": "请输入您的 Apify API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "例如：janedoe/my-actor 或 actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor 输入",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "超时时间",
+            "placeholder": "Actor 超时时间（秒）"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "构建版本",
+            "placeholder": "Actor 构建版本（例如：\"latest\"、\"beta\" 或构建标签）"
+        },
+        {
+            "id": "waitForFinish",
+            "type": "short-input",
+            "title": "等待完成",
+            "placeholder": "初始等待时间（秒，范围 0-60）"
+        },
+        {
+            "id": "itemLimit",
+            "type": "short-input",
+            "title": "数据条数限制",
+            "placeholder": "最大获取数据集条数（1-250000）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行 Actor（异步）(<code>apify_run_actor_async</code>)</div>
+
+以异步方式运行 APIFY Actor，并通过轮询处理长时间运行的任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | 来自 console.apify.com/account#/integrations 的 APIFY API 令牌 |
+| `actorId` | string | 是 | Actor ID 或用户名/actor-name \(例如："janedoe/my-actor" 或 Actor ID\) |
+| `input` | string | 否 | JSON 字符串格式的 Actor 输入 |
+| `waitForFinish` | number | 否 | 轮询开始前的初始等待时间（秒，范围 0-60） |
+| `itemLimit` | number | 否 | 最大数据集获取条目数 \(1-250000，默认 100\) |
+| `timeout` | number | 否 | 超时时间（秒，默认：Actor 默认值） |
+| `build` | string | 否 | 要运行的 Actor 构建版本 \(例如："latest"、"beta" 或构建标签/编号\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | Actor 运行是否成功 |
+| `runId` | string | APIFY 运行 ID |
+| `status` | string | 运行状态 \(SUCCEEDED、FAILED 等\) |
+| `datasetId` | string | 包含结果的数据集 ID |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Apify 集成到您的工作流中。使用自定义输入运行任意 Apify Actor 并获取结果。支持同步与异步两种执行模式，并自动获取数据集。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`apify`

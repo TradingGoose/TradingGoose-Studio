@@ -1,0 +1,222 @@
+---
+title: Acción de Trading
+description: Coloca órdenes de compra/venta a través de Alpaca, Tradier o Robinhood.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_action"
+  color="#ff766e"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 30 43'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M25.8333 6.33333H15M15 6.33333H9.58333C7.57211 6.33333 5.64326 7.13229 4.22111 8.55444C2.79896 9.97659 2 11.9054 2 13.9167C2 15.9279 2.79896 17.8567 4.22111 19.2789C5.64326 20.701 7.57211 21.5 9.58333 21.5H15M15 6.33333V2M15 6.33333V21.5M15 21.5H20.4167C21.4125 21.5 22.3986 21.6961 23.3187 22.0772C24.2387 22.4583 25.0747 23.0169 25.7789 23.7211C26.4831 24.4253 27.0417 25.2613 27.4228 26.1813C27.8039 27.1014 28 28.0875 28 29.0833C28 30.0792 27.8039 31.0653 27.4228 31.9853C27.0417 32.9054 26.4831 33.7414 25.7789 34.4456C25.0747 35.1497 24.2387 35.7083 23.3187 36.0894C22.3986 36.4705 21.4125 36.6667 20.4167 36.6667H15M15 21.5V36.6667M15 36.6667H2M15 36.6667V41'
+        stroke='currentColor'
+        strokeWidth='2.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Acción de Trading"
+    type="trading_action"
+    color="#ff766e"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 30 43'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M25.8333 6.33333H15M15 6.33333H9.58333C7.57211 6.33333 5.64326 7.13229 4.22111 8.55444C2.79896 9.97659 2 11.9054 2 13.9167C2 15.9279 2.79896 17.8567 4.22111 19.2789C5.64326 20.701 7.57211 21.5 9.58333 21.5H15M15 6.33333V2M15 6.33333V21.5M15 21.5H20.4167C21.4125 21.5 22.3986 21.6961 23.3187 22.0772C24.2387 22.4583 25.0747 23.0169 25.7789 23.7211C26.4831 24.4253 27.0417 25.2613 27.4228 26.1813C27.8039 27.1014 28 28.0875 28 29.0833C28 30.0792 27.8039 31.0653 27.4228 31.9853C27.0417 32.9054 26.4831 33.7414 25.7789 34.4456C25.0747 35.1497 24.2387 35.7083 23.3187 36.0894C22.3986 36.4705 21.4125 36.6667 20.4167 36.6667H15M15 21.5V36.6667M15 36.6667H2M15 36.6667V41'
+        stroke='currentColor'
+        strokeWidth='2.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Bróker",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "Entorno",
+            "layout": "half",
+            "placeholder": "Seleccionar entorno",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Trading en Vivo",
+                    "id": "live"
+                }
+            ]
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Acción",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "label": "Comprar",
+                    "id": "buy"
+                },
+                {
+                    "label": "Vender",
+                    "id": "sell"
+                }
+            ]
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listado",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "Tipo de Orden",
+            "layout": "half",
+            "required": true
+        },
+        {
+            "id": "limitPrice",
+            "type": "short-input",
+            "title": "Precio Límite",
+            "layout": "half",
+            "placeholder": "Requerido para órdenes límite/stop-límite y débito/crédito/even",
+            "condition": {
+                "field": "orderType",
+                "value": [
+                    "limit",
+                    "stop_limit",
+                    "debit",
+                    "credit",
+                    "even"
+                ]
+            }
+        },
+        {
+            "id": "stopPrice",
+            "type": "short-input",
+            "title": "Precio Stop",
+            "layout": "half",
+            "placeholder": "Requerido para órdenes stop/stop-límite",
+            "condition": {
+                "field": "orderType",
+                "value": [
+                    "stop",
+                    "stop_limit"
+                ]
+            }
+        },
+        {
+            "id": "trailPrice",
+            "type": "short-input",
+            "title": "Precio de Seguimiento",
+            "layout": "half",
+            "placeholder": "Desplazamiento del precio stop dinámico (usar precio o porcentaje)",
+            "condition": {
+                "field": "orderType",
+                "value": "trailing_stop"
+            }
+        },
+        {
+            "id": "trailPercent",
+            "type": "short-input",
+            "title": "Porcentaje de Seguimiento",
+            "layout": "half",
+            "placeholder": "Desplazamiento porcentual del stop dinámico (usar porcentaje o precio)",
+            "condition": {
+                "field": "orderType",
+                "value": "trailing_stop"
+            }
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "Vigencia de la Orden",
+            "layout": "half",
+            "placeholder": "Los valores predeterminados varían según el proveedor",
+            "options": [
+                {
+                    "label": "Día",
+                    "id": "day"
+                },
+                {
+                    "label": "Válida Hasta Cancelar",
+                    "id": "gtc"
+                },
+                {
+                    "label": "Válida por el Día (GFD)",
+                    "id": "gfd"
+                },
+                {
+                    "label": "Inmediata o Cancelar",
+                    "id": "ioc"
+                },
+                {
+                    "label": "Ejecutar o Cancelar",
+                    "id": "fok"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_place_order`
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | string | Estado de envío de la orden |
+| `provider` | string | Proveedor utilizado |
+| `order` | json | Payload de la orden y respuesta sin procesar |
+
+## Instrucciones de uso
+
+Bloque de acción de trading unificado que admite múltiples brokerages con autenticación OAuth o mediante clave API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_action`

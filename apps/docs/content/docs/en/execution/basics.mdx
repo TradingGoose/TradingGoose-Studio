@@ -4,9 +4,6 @@ title: Basics
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
 
 Understanding how workflows execute in TradingGoose is key to building efficient and reliable automations. The execution engine automatically handles dependencies, concurrency, and data flow to ensure your workflows run smoothly and predictably.
 
@@ -18,40 +15,19 @@ TradingGoose's execution engine processes workflows intelligently by analyzing d
 
 Multiple blocks run concurrently when they don't depend on each other. This parallel execution dramatically improves performance without requiring manual configuration.
 
-<Image
-  src="/static/execution/concurrency.png"
-  alt="Multiple blocks running concurrently after the Start block"
-  width={800}
-  height={500}
-/>
-
-In this example, both the Customer Support and Deep Researcher agent blocks execute simultaneously after the Start block, maximizing efficiency.
+For example, if a Start block connects to both a Customer Support agent and a Deep Researcher agent, both agent blocks execute simultaneously, maximizing efficiency.
 
 ### Automatic Output Combination
 
 When blocks have multiple dependencies, the execution engine automatically waits for all dependencies to complete, then provides their combined outputs to the next block. No manual combining required.
 
-<Image
-  src="/static/execution/combination.png"
-  alt="Function block automatically receiving outputs from multiple previous blocks"
-  width={800}
-  height={500}
-/>
-
-The Function block receives outputs from both agent blocks as soon as they complete, allowing you to process the combined results.
+For example, a Function block connected to two upstream agent blocks will wait for both to finish, then receive their combined outputs for processing.
 
 ### Smart Routing
 
 Workflows can branch in multiple directions using routing blocks. The execution engine supports both deterministic routing (with Condition blocks) and AI-powered routing (with Router blocks).
 
-<Image
-  src="/static/execution/routing.png"
-  alt="Workflow showing both conditional and router-based branching"
-  width={800}
-  height={500}
-/>
-
-This workflow demonstrates how execution can follow different paths based on conditions or AI decisions, with each path executing independently.
+For example, a workflow might branch after an initial block into a Condition block (which evaluates a logical expression) and a Router block (which uses AI to choose a path). Each resulting branch executes independently.
 
 ## Block Types
 
@@ -67,11 +43,11 @@ TradingGoose provides different types of blocks that serve specific purposes in 
   </Card>
   
   <Card title="Control Flow" href="/blocks">
-    **Router blocks** use AI to choose paths, **Condition blocks** branch based on logic, and **Loop/Parallel blocks** handle iterations and concurrency.
+    **Router blocks** use AI to choose paths, **Condition blocks** branch based on logic, **Loop blocks** iterate over items or counts, and **Parallel blocks** handle concurrent iterations.
   </Card>
   
-  <Card title="Output & Response" href="/blocks">
-    **Response blocks** format final outputs for APIs and chat interfaces, returning structured results from your workflows.
+  <Card title="Utility Blocks" href="/blocks">
+    **Response blocks** format final outputs for APIs and chat interfaces. **Variables blocks** manage workflow-scoped data. **Wait blocks** pause execution for a duration. **Evaluator blocks** assess and score outputs.
   </Card>
 </Cards>
 

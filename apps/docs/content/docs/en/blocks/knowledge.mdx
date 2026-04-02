@@ -1,0 +1,189 @@
+---
+title: Knowledge
+description: Search, create, and manage documents in your knowledge bases using vector similarity
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="knowledge"
+  color="#00B0B0"
+  icon={true}
+  iconSvg={``}
+/>
+
+The Knowledge block connects your workflow to a knowledge base, enabling retrieval-augmented generation (RAG) by performing vector similarity searches, uploading new chunks, and creating documents -- all at runtime.
+
+## Overview
+
+<Steps>
+  <Step>
+    <strong>Search</strong>: Run a semantic similarity query against your knowledge base and retrieve the most relevant chunks
+  </Step>
+  <Step>
+    <strong>Upload Chunk</strong>: Append a new text chunk to an existing document so it becomes searchable in future queries
+  </Step>
+  <Step>
+    <strong>Create Document</strong>: Add a brand-new document (with optional tags) to the knowledge base
+  </Step>
+</Steps>
+
+## Operations
+
+<Tabs items={['Search', 'Upload Chunk', 'Create Document']}>
+  <Tab>
+    Performs a vector similarity search and returns the top matching chunks.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **Knowledge Base** | Yes | The knowledge base to search |
+    | **Search Query** | No | Natural-language query. Optional when using tag filters alone. |
+    | **Number of Results** | No | How many chunks to return (default: 10) |
+    | **Tag Filters** | No | Narrow results to documents that match specific tags |
+
+    The search query is optional -- you can filter purely by tags to retrieve all chunks under a certain category.
+  </Tab>
+  <Tab>
+    Appends a text chunk to an existing document inside the knowledge base. The chunk is automatically embedded and becomes available for future searches.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **Knowledge Base** | Yes | Target knowledge base |
+    | **Document** | Yes | The document to add the chunk to |
+    | **Chunk Content** | Yes | The text content to upload |
+  </Tab>
+  <Tab>
+    Creates a new document in the knowledge base. The content is chunked, embedded, and indexed.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **Knowledge Base** | Yes | Target knowledge base |
+    | **Document Name** | Yes | Name for the new document |
+    | **Document Content** | Yes | Full text content |
+    | **Document Tags** | No | Tags for categorization and filtering |
+  </Tab>
+</Tabs>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Knowledge"
+    type="knowledge"
+    color="#00B0B0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                { "label": "Search", "id": "search" },
+                { "label": "Upload Chunk", "id": "upload_chunk" },
+                { "label": "Create Document", "id": "create_document" }
+            ]
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "Knowledge Base",
+            "layout": "full",
+            "placeholder": "Select knowledge base",
+            "required": true,
+            "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] }
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Search Query",
+            "layout": "full",
+            "placeholder": "Enter your search query (optional when using tag filters)",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "topK",
+            "type": "short-input",
+            "title": "Number of Results",
+            "layout": "full",
+            "placeholder": "Enter number of results (default: 10)",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "tagFilters",
+            "type": "knowledge-tag-filters",
+            "title": "Tag Filters",
+            "layout": "full",
+            "placeholder": "Add tag filters",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "documentId",
+            "type": "document-selector",
+            "title": "Document",
+            "layout": "full",
+            "placeholder": "Select document",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Chunk Content",
+            "layout": "full",
+            "placeholder": "Enter the chunk content to upload",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Document Name",
+            "layout": "full",
+            "placeholder": "Enter document name",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Document Content",
+            "layout": "full",
+            "placeholder": "Enter the document content",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "documentTags",
+            "type": "document-tag-entry",
+            "title": "Document Tags",
+            "layout": "full",
+            "condition": { "field": "operation", "value": "create_document" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `results` | json | Array of matching chunks (search) or confirmation data (write operations) |
+| `query` | string | The query that was used |
+| `totalResults` | number | Count of results returned |
+
+## Best Practices
+
+- **Use tag filters to scope searches** -- tags let you partition a knowledge base by topic, customer, or category without creating separate bases.
+- **Keep chunks focused** -- shorter, topically coherent chunks produce better similarity matches than long, multi-topic text.
+- **Pair with an Agent block** -- pipe the search results into an Agent's context to build a RAG pipeline.
+
+<Callout type="info">
+  The search query field is optional. When you only need documents that match certain tags, leave the query empty and use tag filters instead.
+</Callout>

@@ -1,0 +1,3379 @@
+---
+title: GitLab
+description: Interactúa con proyectos, incidencias, solicitudes de fusión y
+  pipelines de GitLab
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="gitlab"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+### Listar Proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Solicitudes de Fusión",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Solicitud de Fusión",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Solicitud de Fusión",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Solicitud de Fusión",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Solicitud de Fusión",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_list_projects"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingresa tu Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por Página",
+            "placeholder": "Número de resultados por página (predeterminado: 20, máx: 100)",
+            "max": 100
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de Página",
+            "placeholder": "Número de página (predeterminado: 1)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Proyectos (<code>gitlab_list_projects</code>)</div>
+
+Listar los proyectos de GitLab accesibles para el usuario autenticado
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `owned` | boolean | No | Limitar a proyectos del usuario actual |
+| `membership` | boolean | No | Limitar a proyectos de los que el usuario actual es miembro |
+| `search` | string | No | Buscar proyectos por nombre |
+| `visibility` | string | No | Filtrar por visibilidad \(public, internal, private\) |
+| `orderBy` | string | No | Ordenar por campo \(id, name, path, created_at, updated_at, last_activity_at\) |
+| `sort` | string | No | Dirección de ordenamiento \(asc, desc\) |
+| `perPage` | number | No | Número de resultados por página \(predeterminado 20, máximo 100\) |
+| `page` | number | No | Número de página para la paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `projects` | array | Lista de proyectos de GitLab |
+
+</div>
+
+---
+
+### Obtener Proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_get_project"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de Proyecto",
+            "placeholder": "Ingrese el ID o ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Proyecto (<code>gitlab_get_project</code>)</div>
+
+Obtener los detalles de un proyecto específico de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL \(p. ej., "namespace/project"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Issues
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_list_issues"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de Proyecto",
+            "placeholder": "Ingrese el ID o la ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingrese las etiquetas (separadas por comas)"
+        },
+        {
+            "id": "issueState",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Todos",
+                    "id": "all"
+                },
+                {
+                    "label": "Abierto",
+                    "id": "opened"
+                },
+                {
+                    "label": "Cerrado",
+                    "id": "closed"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por Página",
+            "placeholder": "Número de resultados por página (predeterminado: 20, máx: 100)",
+            "max": 100
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de Página",
+            "placeholder": "Número de página (predeterminado: 1)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Issues (<code>gitlab_list_issues</code>)</div>
+
+Listar issues en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `state` | string | No | Filtrar por estado \(opened, closed, all\) |
+| `labels` | string | No | Lista de nombres de etiquetas separados por comas |
+| `assigneeId` | number | No | Filtrar por ID de usuario asignado |
+| `milestoneTitle` | string | No | Filtrar por título de milestone |
+| `search` | string | No | Buscar issues por título y descripción |
+| `orderBy` | string | No | Ordenar por campo \(created_at, updated_at\) |
+| `sort` | string | No | Dirección de orden \(asc, desc\) |
+| `perPage` | number | No | Número de resultados por página \(predeterminado 20, máx. 100\) |
+| `page` | number | No | Número de página para paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | array | Lista de issues de GitLab |
+
+</div>
+
+---
+
+### Obtener Issue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_get_issue"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingresa tu Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de Proyecto",
+            "placeholder": "Ingresa el ID o ruta del proyecto (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "Número de Issue",
+            "placeholder": "Ingresa el número de issue (ej.: 1 para el issue #1)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Issue (<code>gitlab_get_issue</code>)</div>
+
+Obtener detalles de un issue específico de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `issueIid` | number | Sí | Número de issue dentro del proyecto \(el # que se muestra en la interfaz de GitLab\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Crear Issue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_create_issue"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o la ruta del proyecto (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Ingrese el título",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Ingrese la descripción (se admite Markdown)"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingrese las etiquetas (separadas por comas)"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "IDs de Asignados",
+            "placeholder": "Ingrese los IDs de usuario de los asignados (separados por comas)"
+        },
+        {
+            "id": "milestoneId",
+            "type": "short-input",
+            "title": "ID del Hito",
+            "placeholder": "Ingrese el ID del hito"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Issue (<code>gitlab_create_issue</code>)</div>
+
+Crear un nuevo issue en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `title` | string | Sí | Título del issue |
+| `description` | string | No | Descripción del issue \(compatible con Markdown\) |
+| `labels` | string | No | Lista de nombres de etiquetas separados por comas |
+| `assigneeIds` | array | No | Array de IDs de usuarios a asignar |
+| `milestoneId` | number | No | ID del hito a asignar |
+| `dueDate` | string | No | Fecha de vencimiento en formato YYYY-MM-DD |
+| `confidential` | boolean | No | Si el issue es confidencial |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Actualizar Issue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario al Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario al MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_update_issue"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID del proyecto o la ruta (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "Número de Issue",
+            "placeholder": "Ingrese el número de issue (p. ej., 1 para el issue #1)",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Ingrese la descripción (compatible con Markdown)"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingrese las etiquetas (separadas por comas)"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "IDs de Asignados",
+            "placeholder": "Ingrese los IDs de usuario de los asignados (separados por comas)"
+        },
+        {
+            "id": "milestoneId",
+            "type": "short-input",
+            "title": "ID del Hito",
+            "placeholder": "Ingrese el ID del hito"
+        },
+        {
+            "id": "stateEvent",
+            "type": "dropdown",
+            "title": "Evento de Estado",
+            "options": [
+                {
+                    "label": "Cerrar",
+                    "id": "close"
+                },
+                {
+                    "label": "Reabrir",
+                    "id": "reopen"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Issue (<code>gitlab_update_issue</code>)</div>
+
+Actualizar un issue existente en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `issueIid` | number | Sí | ID interno del issue \(IID\) |
+| `title` | string | No | Nuevo título del issue |
+| `description` | string | No | Nueva descripción del issue \(Markdown compatible\) |
+| `stateEvent` | string | No | Evento de estado \(cerrar o reabrir\) |
+| `labels` | string | No | Lista de nombres de etiquetas separadas por comas |
+| `assigneeIds` | array | No | Array de IDs de usuario a asignar |
+| `milestoneId` | number | No | ID del hito a asignar |
+| `dueDate` | string | No | Fecha de vencimiento en formato YYYY-MM-DD |
+| `confidential` | boolean | No | Si el issue es confidencial |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Eliminar Issue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_delete_issue"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID del proyecto o la ruta (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "Número de Issue",
+            "placeholder": "Ingrese el número del issue (p. ej., 1 para el issue #1)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar Issue (<code>gitlab_delete_issue</code>)</div>
+
+Eliminar un issue de un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `issueIid` | number | Sí | ID interno del issue \(IID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Agregar Comentario a Issue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_create_issue_note"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o la ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "Número de Issue",
+            "placeholder": "Ingrese el número de issue (p. ej., 1 para el issue #1)",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Comentario",
+            "placeholder": "Ingrese el texto del comentario (compatible con Markdown)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar comentario a issue (<code>gitlab_create_issue_note</code>)</div>
+
+Agrega un comentario a un issue de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `issueIid` | number | Sí | ID interno del issue \(IID\) |
+| `body` | string | Sí | Cuerpo del comentario \(compatible con Markdown\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Merge Requests
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar comentario a issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_list_merge_requests"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Ingrese su Token de acceso personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "placeholder": "Ingrese el ID del proyecto o la ruta (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingrese etiquetas (separadas por coma)"
+        },
+        {
+            "id": "mrState",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Todos",
+                    "id": "all"
+                },
+                {
+                    "label": "Abierto",
+                    "id": "opened"
+                },
+                {
+                    "label": "Cerrado",
+                    "id": "closed"
+                },
+                {
+                    "label": "Fusionado",
+                    "id": "merged"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "Número de resultados por página (predeterminado: 20, máx.: 100)",
+            "max": 100
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "Número de página (predeterminado: 1)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Merge Requests (<code>gitlab_list_merge_requests</code>)</div>
+
+Listar merge requests en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `state` | string | No | Filtrar por estado \(opened, closed, merged, all\) |
+| `labels` | string | No | Lista de nombres de etiquetas separados por comas |
+| `sourceBranch` | string | No | Filtrar por rama de origen |
+| `targetBranch` | string | No | Filtrar por rama de destino |
+| `orderBy` | string | No | Ordenar por campo \(created_at, updated_at\) |
+| `sort` | string | No | Dirección de ordenamiento \(asc, desc\) |
+| `perPage` | number | No | Número de resultados por página \(predeterminado 20, máx. 100\) |
+| `page` | number | No | Número de página para paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `mergeRequests` | array | Lista de merge requests de GitLab |
+
+</div>
+
+---
+
+### Obtener Merge Request
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_get_merge_request"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o ruta del proyecto (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "Número de MR",
+            "placeholder": "Ingrese el número de MR (ej.: 1 para !1)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Merge Request (<code>gitlab_get_merge_request</code>)</div>
+
+Obtener los detalles de un merge request específico de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | --------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `mergeRequestIid` | number | Sí | ID interno del merge request \(IID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Crear Merge Request
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario al Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario al MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_create_merge_request"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o la ruta del proyecto (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Ingrese el título",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Ingrese la descripción (compatible con Markdown)"
+        },
+        {
+            "id": "sourceBranch",
+            "type": "short-input",
+            "title": "Rama de Origen",
+            "placeholder": "Ingrese el nombre de la rama de origen",
+            "required": true
+        },
+        {
+            "id": "targetBranch",
+            "type": "short-input",
+            "title": "Rama de Destino",
+            "placeholder": "Ingrese el nombre de la rama de destino (ej.: main)",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingrese las etiquetas (separadas por comas)"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "IDs de Asignados",
+            "placeholder": "Ingrese los IDs de usuario de los asignados (separados por comas)"
+        },
+        {
+            "id": "removeSourceBranch",
+            "type": "switch",
+            "title": "Eliminar Rama de Origen"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Merge Request (<code>gitlab_create_merge_request</code>)</div>
+
+Crear una nueva merge request en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `sourceBranch` | string | Sí | Nombre de la rama de origen |
+| `targetBranch` | string | Sí | Nombre de la rama de destino |
+| `title` | string | Sí | Título de la merge request |
+| `description` | string | No | Descripción de la merge request \(compatible con Markdown\) |
+| `labels` | string | No | Lista de nombres de etiquetas separados por comas |
+| `assigneeIds` | array | No | Array de IDs de usuario para asignar |
+| `milestoneId` | number | No | ID del hito a asignar |
+| `removeSourceBranch` | boolean | No | Eliminar la rama de origen tras el merge |
+| `squash` | boolean | No | Aplastar commits al hacer merge |
+| `draft` | boolean | No | Marcar como borrador \(trabajo en progreso\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Actualizar Merge Request
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario a Incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_update_merge_request"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingresa tu Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingresa el ID o ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "Número de MR",
+            "placeholder": "Ingresa el número de MR (p. ej., 1 para !1)",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Ingresa la descripción (compatible con Markdown)"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Ingresa las etiquetas (separadas por comas)"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "IDs de Asignados",
+            "placeholder": "Ingresa los IDs de usuario de los asignados (separados por comas)"
+        },
+        {
+            "id": "stateEvent",
+            "type": "dropdown",
+            "title": "Evento de Estado",
+            "options": [
+                {
+                    "label": "Cerrar",
+                    "id": "close"
+                },
+                {
+                    "label": "Reabrir",
+                    "id": "reopen"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Merge Request (<code>gitlab_update_merge_request</code>)</div>
+
+Actualizar una merge request existente en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `mergeRequestIid` | number | Sí | ID interno de la merge request \(IID\) |
+| `title` | string | No | Nuevo título de la merge request |
+| `description` | string | No | Nueva descripción de la merge request |
+| `stateEvent` | string | No | Evento de estado \(close o reopen\) |
+| `labels` | string | No | Lista de nombres de etiquetas separados por comas |
+| `assigneeIds` | array | No | Array de IDs de usuario a asignar |
+| `milestoneId` | number | No | ID del hito a asignar |
+| `targetBranch` | string | No | Nueva rama de destino |
+| `removeSourceBranch` | boolean | No | Eliminar la rama de origen tras el merge |
+| `squash` | boolean | No | Combinar commits al hacer merge |
+| `draft` | boolean | No | Marcar como borrador \(trabajo en progreso\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Fusionar Merge Request
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario a Incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_merge_merge_request"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Introduce tu Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Introduce el ID o ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "Número de MR",
+            "placeholder": "Introduce el número de MR (p. ej., 1 para !1)",
+            "required": true
+        },
+        {
+            "id": "removeSourceBranch",
+            "type": "switch",
+            "title": "Eliminar Rama de Origen"
+        },
+        {
+            "id": "squash",
+            "type": "switch",
+            "title": "Combinar Commits"
+        },
+        {
+            "id": "mergeCommitMessage",
+            "type": "long-input",
+            "title": "Mensaje del Commit de Merge",
+            "placeholder": "Introduce un mensaje de commit de merge personalizado (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Fusionar Merge Request (<code>gitlab_merge_merge_request</code>)</div>
+
+Fusiona un merge request en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `mergeRequestIid` | number | Sí | ID interno del merge request \(IID\) |
+| `mergeCommitMessage` | string | No | Mensaje de commit de fusión personalizado |
+| `squashCommitMessage` | string | No | Mensaje de commit de squash personalizado |
+| `squash` | boolean | No | Combinar commits mediante squash antes de fusionar |
+| `shouldRemoveSourceBranch` | boolean | No | Eliminar rama de origen tras la fusión |
+| `mergeWhenPipelineSucceeds` | boolean | No | Fusionar cuando el pipeline sea exitoso |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Agregar Comentario a MR
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_create_merge_request_note"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID del proyecto o la ruta (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "Número de MR",
+            "placeholder": "Ingrese el número de MR (ej.: 1 para !1)",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Comentario",
+            "placeholder": "Ingrese el texto del comentario (compatible con Markdown)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar comentario a MR (<code>gitlab_create_merge_request_note</code>)</div>
+
+Agregar un comentario a una solicitud de fusión de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `mergeRequestIid` | number | Sí | ID interno de la solicitud de fusión \(IID\) |
+| `body` | string | Sí | Cuerpo del comentario \(compatible con Markdown\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar pipelines
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar comentario a incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar solicitudes de fusión",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener solicitud de fusión",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear solicitud de fusión",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar solicitud de fusión",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar solicitud de fusión",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_list_pipelines"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Ingrese su token de acceso personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "placeholder": "Ingrese el ID del proyecto o la ruta (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "pipelineStatus",
+            "type": "dropdown",
+            "title": "Estado del pipeline",
+            "options": [
+                {
+                    "label": "En ejecución",
+                    "id": "running"
+                },
+                {
+                    "label": "Pendiente",
+                    "id": "pending"
+                },
+                {
+                    "label": "Exitoso",
+                    "id": "success"
+                },
+                {
+                    "label": "Fallido",
+                    "id": "failed"
+                },
+                {
+                    "label": "Cancelado",
+                    "id": "canceled"
+                },
+                {
+                    "label": "Omitido",
+                    "id": "skipped"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "Número de resultados por página (predeterminado: 20, máx.: 100)",
+            "max": 100
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "Número de página (predeterminado: 1)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Pipelines (<code>gitlab_list_pipelines</code>)</div>
+
+Listar pipelines en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `ref` | string | No | Filtrar por ref \(rama o etiqueta\) |
+| `status` | string | No | Filtrar por estado \(created, waiting_for_resource, preparing, pending, running, success, failed, canceled, skipped, manual, scheduled\) |
+| `orderBy` | string | No | Ordenar por campo \(id, status, ref, updated_at, user_id\) |
+| `sort` | string | No | Dirección de ordenamiento \(asc, desc\) |
+| `perPage` | number | No | Número de resultados por página \(predeterminado 20, máximo 100\) |
+| `page` | number | No | Número de página para paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `pipelines` | array | Lista de pipelines de GitLab |
+
+</div>
+
+---
+
+### Obtener Pipeline
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_get_pipeline"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de Proyecto",
+            "placeholder": "Ingrese el ID o ruta del proyecto (ej.: usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "pipelineId",
+            "type": "short-input",
+            "title": "ID de Pipeline",
+            "placeholder": "Ingrese el ID del pipeline",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Pipeline (<code>gitlab_get_pipeline</code>)</div>
+
+Obtener detalles de un pipeline específico de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `pipelineId` | number | Sí | ID del pipeline |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Crear Pipeline
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Incidencias",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Incidencia",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Incidencia",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Incidencia",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Incidencia",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario a Incidencia",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_create_pipeline"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o la ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Rama/Etiqueta",
+            "placeholder": "Ingrese el nombre de la rama o etiqueta",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Pipeline (<code>gitlab_create_pipeline</code>)</div>
+
+Disparar un nuevo pipeline en un proyecto de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `ref` | string | Sí | Rama o etiqueta sobre la que ejecutar el pipeline |
+| `variables` | array | No | Array de variables para el pipeline \(cada una con key, value y variable_type opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Reintentar Pipeline
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Añadir Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Añadir Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_retry_pipeline"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de Proyecto",
+            "placeholder": "Ingrese el ID o ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "pipelineId",
+            "type": "short-input",
+            "title": "ID de Pipeline",
+            "placeholder": "Ingrese el ID del pipeline",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Reintentar Pipeline (<code>gitlab_retry_pipeline</code>)</div>
+
+Reintentar un pipeline fallido de GitLab
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `pipelineId` | number | Sí | ID del pipeline |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Cancelar Pipeline
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z'
+        fill='#FC6D26'
+      />
+      <path d='M12 22.13L16.05 9.67H7.95L12 22.13z' fill='#E24329' />
+      <path d='M12 22.13L7.95 9.67H1.69L12 22.13z' fill='#FC6D26' />
+      <path d='M1.69 9.67L.47 13.45a.84.84 0 0 0 .3.94L12 22.13 1.69 9.67z' fill='#FCA326' />
+      <path
+        d='M1.69 9.67H7.95L5.51 2.16A.42.42 0 0 0 4.93 2a.42.42 0 0 0-.11.18L1.69 9.67z'
+        fill='#E24329'
+      />
+      <path d='M12 22.13L16.05 9.67H22.31L12 22.13z' fill='#FC6D26' />
+      <path d='M22.31 9.67L23.53 13.45a.84.84 0 0 1-.3.94L12 22.13 22.31 9.67z' fill='#FCA326' />
+      <path
+        d='M22.31 9.67H16.05l2.44-7.51A.42.42 0 0 1 19.07 2a.42.42 0 0 1 .11.18l3.13 7.49z'
+        fill='#E24329'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Proyectos",
+                    "id": "gitlab_list_projects"
+                },
+                {
+                    "label": "Obtener Proyecto",
+                    "id": "gitlab_get_project"
+                },
+                {
+                    "label": "Listar Issues",
+                    "id": "gitlab_list_issues"
+                },
+                {
+                    "label": "Obtener Issue",
+                    "id": "gitlab_get_issue"
+                },
+                {
+                    "label": "Crear Issue",
+                    "id": "gitlab_create_issue"
+                },
+                {
+                    "label": "Actualizar Issue",
+                    "id": "gitlab_update_issue"
+                },
+                {
+                    "label": "Eliminar Issue",
+                    "id": "gitlab_delete_issue"
+                },
+                {
+                    "label": "Agregar Comentario a Issue",
+                    "id": "gitlab_create_issue_note"
+                },
+                {
+                    "label": "Listar Merge Requests",
+                    "id": "gitlab_list_merge_requests"
+                },
+                {
+                    "label": "Obtener Merge Request",
+                    "id": "gitlab_get_merge_request"
+                },
+                {
+                    "label": "Crear Merge Request",
+                    "id": "gitlab_create_merge_request"
+                },
+                {
+                    "label": "Actualizar Merge Request",
+                    "id": "gitlab_update_merge_request"
+                },
+                {
+                    "label": "Fusionar Merge Request",
+                    "id": "gitlab_merge_merge_request"
+                },
+                {
+                    "label": "Agregar Comentario a MR",
+                    "id": "gitlab_create_merge_request_note"
+                },
+                {
+                    "label": "Listar Pipelines",
+                    "id": "gitlab_list_pipelines"
+                },
+                {
+                    "label": "Obtener Pipeline",
+                    "id": "gitlab_get_pipeline"
+                },
+                {
+                    "label": "Crear Pipeline",
+                    "id": "gitlab_create_pipeline"
+                },
+                {
+                    "label": "Reintentar Pipeline",
+                    "id": "gitlab_retry_pipeline"
+                },
+                {
+                    "label": "Cancelar Pipeline",
+                    "id": "gitlab_cancel_pipeline"
+                }
+            ],
+            "defaultValue": "gitlab_cancel_pipeline"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de Acceso Personal",
+            "placeholder": "Ingrese su Token de Acceso Personal de GitLab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del Proyecto",
+            "placeholder": "Ingrese el ID o ruta del proyecto (p. ej., usuario/proyecto)",
+            "required": true
+        },
+        {
+            "id": "pipelineId",
+            "type": "short-input",
+            "title": "ID del Pipeline",
+            "placeholder": "Ingrese el ID del pipeline",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar Pipeline (<code>gitlab_cancel_pipeline</code>)</div>
+
+Cancelar un pipeline de GitLab en ejecución
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto o ruta codificada en URL |
+| `pipelineId` | number | Sí | ID del pipeline |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra GitLab en el flujo de trabajo. Permite gestionar proyectos, issues, merge requests, pipelines y agregar comentarios. Soporta todas las operaciones principales de GitLab DevOps.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `gitlab`

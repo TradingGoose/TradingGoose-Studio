@@ -1,0 +1,171 @@
+---
+title: 数据结构
+description: 指标脚本的数组、映射、矩阵和字符串操作
+---
+
+PineTS 支持四种数据结构命名空间，用于指标内部的复杂数据处理。
+
+## 数组（52 个方法）
+
+数组是元素的有序集合。通过创建、操作和查询数组，实现高级指标逻辑。
+
+### 创建
+
+```javascript
+const a = array.from(1, 2, 3, 4, 5);
+const b = array.new_float(10, 0.0);    // 10 elements, all 0.0
+const c = array.new_int(5, 0);
+const d = array.new_bool(3, false);
+const e = array.new_string(2, '');
+```
+
+### 访问与修改
+
+| 函数 | 描述 |
+|----------|-------------|
+| `array.get(arr, index)` | 获取指定索引处的元素 |
+| `array.set(arr, index, value)` | 设置指定索引处的元素 |
+| `array.first(arr)` | 获取第一个元素 |
+| `array.last(arr)` | 获取最后一个元素 |
+| `array.push(arr, value)` | 追加到末尾 |
+| `array.pop(arr)` | 移除并返回最后一个元素 |
+| `array.unshift(arr, value)` | 插入到开头 |
+| `array.shift(arr)` | 移除并返回第一个元素 |
+| `array.insert(arr, index, value)` | 在指定索引处插入 |
+| `array.remove(arr, index)` | 移除指定索引处的元素 |
+| `array.clear(arr)` | 移除所有元素 |
+
+### 大小与转换
+
+| 函数 | 描述 |
+|----------|-------------|
+| `array.size(arr)` | 元素数量 |
+| `array.slice(arr, start, end)` | 提取子数组 |
+| `array.concat(arr1, arr2)` | 拼接数组 |
+| `array.copy(arr)` | 浅拷贝 |
+| `array.fill(arr, value, start?, end?)` | 填充指定值 |
+| `array.reverse(arr)` | 原地反转 |
+| `array.sort(arr, order?)` | 原地排序 |
+| `array.sort_indices(arr, order?)` | 返回排序后的索引 |
+| `array.join(arr, separator)` | 连接为字符串 |
+
+### 搜索
+
+| 函数 | 描述 |
+|----------|-------------|
+| `array.indexof(arr, value)` | 值的第一个索引 |
+| `array.lastindexof(arr, value)` | 值的最后一个索引 |
+| `array.includes(arr, value)` | 检查是否包含该值 |
+| `array.binary_search(arr, value)` | 二分查找（已排序数组）|
+| `array.every(arr, fn)` | 若所有元素满足谓词则为真 |
+| `array.some(arr, fn)` | 若任意元素满足谓词则为真 |
+
+### 统计函数
+
+| 函数 | 描述 |
+|----------|-------------|
+| `array.sum(arr)` | 求和 |
+| `array.avg(arr)` | 平均值 |
+| `array.min(arr)` | 最小值 |
+| `array.max(arr)` | 最大值 |
+| `array.median(arr)` | 中位数 |
+| `array.mode(arr)` | 众数 |
+| `array.stdev(arr)` | 标准差 |
+| `array.variance(arr)` | 方差 |
+| `array.covariance(arr1, arr2)` | 协方差 |
+| `array.range(arr)` | 极差（最大值 - 最小值）|
+| `array.percentrank(arr, value)` | 百分位排名 |
+
+---
+
+## 映射（11 个方法）
+
+用于关联数据的键值字典：
+
+```javascript
+const m = map.new();
+map.put(m, 'ema', ta.ema(close, 20));
+map.put(m, 'sma', ta.sma(close, 20));
+
+const emaValue = map.get(m, 'ema');
+const hasKey = map.contains(m, 'ema');     // true
+const allKeys = map.keys(m);               // ['ema', 'sma']
+```
+
+| 函数 | 描述 |
+|----------|-------------|
+| `map.new()` | 创建空映射 |
+| `map.get(m, key)` | 获取值 |
+| `map.put(m, key, value)` | 设置值 |
+| `map.put_all(m, other)` | 从另一个映射复制所有内容 |
+| `map.contains(m, key)` | 检查键是否存在 |
+| `map.remove(m, key)` | 删除键 |
+| `map.keys(m)` | 所有键 |
+| `map.values(m)` | 所有值 |
+| `map.size(m)` | 元素数量 |
+| `map.clear(m)` | 清除所有内容 |
+| `map.copy(m)` | 复制副本 |
+
+---
+
+## 矩阵（50 个方法）
+
+用于高级数学运算的二维数据结构：
+
+```javascript
+const m = matrix.new(3, 3, 0);  // 3x3 matrix of zeros
+matrix.set(m, 0, 0, 1);
+matrix.set(m, 1, 1, 1);
+matrix.set(m, 2, 2, 1);         // Identity matrix
+```
+
+### 核心操作
+
+| 类别 | 函数 |
+|----------|-----------|
+| **访问** | `get`, `set`, `row`, `col` |
+| **尺寸** | `rows`, `columns`, `elements_count` |
+| **修改** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
+| **变换** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **算术运算** | `mult`, `pow`, `diff` |
+| **线性代数** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
+| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **布尔检验** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
+
+---
+
+## 字符串（19 个方法）
+
+用于标签、格式化和文本处理的字符串操作：
+
+| 函数 | 描述 |
+|----------|-------------|
+| `str.length(s)` | 字符串长度 |
+| `str.contains(s, substr)` | 检查是否包含子字符串 |
+| `str.startswith(s, prefix)` | 检查前缀 |
+| `str.endswith(s, suffix)` | 检查后缀 |
+| `str.pos(s, substr)` | 查找子字符串位置 |
+| `str.match(s, pattern)` | 正则表达式匹配 |
+| `str.substring(s, start, end)` | 提取子字符串 |
+| `str.split(s, delimiter)` | 拆分为数组 |
+| `str.replace(s, old, new)` | 替换首次出现 |
+| `str.replace_all(s, old, new)` | 替换所有出现 |
+| `str.lower(s)` | 转为小写 |
+| `str.upper(s)` | 转为大写 |
+| `str.trim(s)` | 去除空白字符 |
+| `str.repeat(s, count)` | 重复字符串 |
+| `str.format(fmt, ...)` | 格式化字符串 |
+| `str.tonumber(s)` | 解析为数字 |
+| `str.tostring(value)` | 转换为字符串 |
+
+---
+
+## 日志（3 个方法）
+
+用于开发阶段调试指标的日志记录：
+
+```javascript
+log.info('RSI value: ' + str.tostring(rsi));
+log.warning('Volume spike detected');
+log.error('Invalid input configuration');
+```

@@ -1,0 +1,112 @@
+---
+title: Disparador de Indicador
+description: Activar flujo de trabajo desde eventos del monitor de indicadores
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="indicator"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activar flujo de trabajo desde eventos del monitor de indicadores
+
+<Callout type="info">
+  Este es un disparador **basado en sondeo**. TradingGoose verifica automáticamente la existencia de nuevos datos en intervalos regulares.
+</Callout>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Payload del Evento"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Entrada de texto principal del flujo de trabajo."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Clave de evento pasada a trigger(...)."
+      },
+      {
+          "name": "time",
+          "type": "number",
+          "description": "Tiempo de barra en segundos Unix."
+      },
+      {
+          "name": "signal",
+          "type": "string",
+          "description": "Señal: long, short, flat."
+      },
+      {
+          "name": "listingBase",
+          "type": "string",
+          "description": "Valor base del listing de la serie de mercado."
+      },
+      {
+          "name": "listingQuote",
+          "type": "string",
+          "description": "Valor de cotización del listing de la serie de mercado."
+      },
+      {
+          "name": "marketSeries",
+          "type": "json",
+          "description": "Datos históricos de la serie de mercado."
+      },
+      {
+          "name": "listing",
+          "type": "json",
+          "description": "Información del listing."
+      },
+      {
+          "name": "indicator",
+          "type": "object",
+          "description": "indicator",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre del indicador."
+              },
+              {
+                  "name": "settings",
+                  "type": "object",
+                  "description": "settings",
+                  "children": [
+                      {
+                          "name": "options",
+                          "type": "object",
+                          "description": "Opciones resueltas del indicador."
+                      },
+                      {
+                          "name": "interval",
+                          "type": "string",
+                          "description": "Intervalo de ejecución."
+                      }
+                  ]
+              },
+              {
+                  "name": "output",
+                  "type": "object",
+                  "description": "output",
+                  "children": [
+                      {
+                          "name": "series",
+                          "type": "array",
+                          "description": "Salida de serie normalizada."
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>

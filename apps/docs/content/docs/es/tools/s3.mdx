@@ -4,179 +4,549 @@ description: Subir, descargar, listar y gestionar archivos S3
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="s3"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-    
-    
-    preserveAspectRatio='xMidYMid'
-    viewBox='0 0 256 310'
-    
-    xmlns='http://www.w3.org/2000/svg'
-  >
-    <path d='m20.624 53.686-20.624 10.314v181.02l20.624 10.254.124-.149v-201.297z' fill='#8c3123' />
-    <path d='m131 229-110.376 26.274v-201.588l110.376 25.701z' fill='#e05243' />
-    <path d='m81.178 187.866 46.818 5.96.294-.678.263-76.77-.557-.6-46.818 5.874z' fill='#8c3123' />
-    <path
-      d='m127.996 229.295 107.371 26.035.169-.269-.003-201.195-.17-.18-107.367 25.996z'
-      fill='#8c3123'
-    />
-    <path d='m174.827 187.866-46.831 5.96v-78.048l46.831 5.874z' fill='#e05243' />
-    <path d='m174.827 89.631-46.831 8.535-46.818-8.535 46.759-12.256z' fill='#5e1f18' />
-    <path d='m174.827 219.801-46.831-8.591-46.818 8.591 46.761 13.053z' fill='#f2b0a9' />
-    <path
-      d='m81.178 89.631 46.818-11.586.379-.117v-77.615l-.379-.313-46.818 23.413z'
-      fill='#8c3123'
-    />
-    <path d='m174.827 89.631-46.831-11.586v-78.045l46.831 23.413z' fill='#e05243' />
-    <path
-      d='m127.996 309.428-46.823-23.405v-66.217l46.823 11.582.689.783-.187 75.906z'
-      fill='#8c3123'
-    />
-    <g fill='#e05243'>
-      <path d='m127.996 309.428 46.827-23.405v-66.217l-46.827 11.582z' />
-      <path d='m235.367 53.686 20.633 10.314v181.02l-20.633 10.31z' />
-    </g>
-  </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Amazon S3](https://aws.amazon.com/s3/) es un servicio de almacenamiento en la nube altamente escalable, seguro y duradero proporcionado por Amazon Web Services. Está diseñado para almacenar y recuperar cualquier cantidad de datos desde cualquier lugar en la web, lo que lo convierte en una de las soluciones de almacenamiento en la nube más utilizadas por empresas de todos los tamaños.
+## Configuración
 
-Con Amazon S3, puedes:
+### Descargar archivo
 
-- **Almacenar datos ilimitados**: Subir archivos de cualquier tamaño y tipo con capacidad de almacenamiento prácticamente ilimitada
-- **Acceder desde cualquier lugar**: Recuperar tus archivos desde cualquier parte del mundo con acceso de baja latencia
-- **Garantizar la durabilidad de los datos**: Beneficiarte de una durabilidad del 99,999999999% (11 nueves) con replicación automática de datos
-- **Controlar el acceso**: Gestionar permisos y controles de acceso con políticas de seguridad detalladas
-- **Escalar automáticamente**: Manejar cargas de trabajo variables sin intervención manual ni planificación de capacidad
-- **Integrar sin problemas**: Conectar fácilmente con otros servicios de AWS y aplicaciones de terceros
-- **Optimizar costos**: Elegir entre múltiples clases de almacenamiento para optimizar costos según los patrones de acceso
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descargar archivo",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Subir archivo",
+                    "id": "put_object"
+                },
+                {
+                    "label": "Listar objetos",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Eliminar objeto",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copiar objeto",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "get_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso",
+            "layout": "full",
+            "placeholder": "Ingrese su ID de clave de acceso de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de acceso secreta de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "s3Uri",
+            "type": "short-input",
+            "title": "URL del objeto S3",
+            "layout": "full",
+            "placeholder": "p. ej., https://bucket-name.s3.region.amazonaws.com/path/to/file",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-En TradingGoose, la integración con S3 permite a tus agentes recuperar y acceder a archivos almacenados en tus buckets de Amazon S3 utilizando URLs prefirmadas seguras. Esto permite potentes escenarios de automatización como procesamiento de documentos, análisis de datos almacenados, recuperación de archivos de configuración y acceso a contenido multimedia como parte de tus flujos de trabajo. Tus agentes pueden obtener archivos de S3 de forma segura sin exponer tus credenciales de AWS, facilitando la incorporación de activos almacenados en la nube a tus procesos de automatización. Esta integración cierra la brecha entre tu almacenamiento en la nube y los flujos de trabajo de IA, permitiendo un acceso fluido a tus datos almacenados mientras mantiene las mejores prácticas de seguridad a través de los robustos mecanismos de autenticación de AWS.
-{/* MANUAL-CONTENT-END */}
+---
+
+### Subir Archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descargar archivo",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Subir archivo",
+                    "id": "put_object"
+                },
+                {
+                    "label": "Listar objetos",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Eliminar objeto",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copiar objeto",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "put_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso",
+            "layout": "full",
+            "placeholder": "Ingrese su ID de clave de acceso de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de acceso secreta de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "layout": "full",
+            "placeholder": "p. ej., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "Nombre del bucket",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del bucket S3",
+            "required": true
+        },
+        {
+            "id": "objectKey",
+            "type": "short-input",
+            "title": "Clave/Ruta del objeto",
+            "layout": "full",
+            "placeholder": "p. ej., miarchivo.pdf o documentos/informe.pdf",
+            "required": true
+        },
+        {
+            "id": "uploadFile",
+            "type": "file-upload",
+            "title": "Archivo a subir",
+            "layout": "full",
+            "placeholder": "Suba un archivo"
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "Referencia de archivo",
+            "layout": "full",
+            "placeholder": "Referencie un archivo de bloques anteriores"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido de texto",
+            "layout": "full",
+            "placeholder": "O ingrese el contenido de texto a subir"
+        },
+        {
+            "id": "contentType",
+            "type": "short-input",
+            "title": "Tipo de contenido",
+            "layout": "full",
+            "placeholder": "p. ej., text/plain, application/json (detectado automáticamente si no se especifica)"
+        },
+        {
+            "id": "acl",
+            "type": "dropdown",
+            "title": "Control de acceso",
+            "layout": "full",
+            "placeholder": "Seleccione ACL (predeterminado: privado)",
+            "options": [
+                {
+                    "label": "Privado",
+                    "id": "private"
+                },
+                {
+                    "label": "Lectura pública",
+                    "id": "public-read"
+                },
+                {
+                    "label": "Lectura/escritura pública",
+                    "id": "public-read-write"
+                },
+                {
+                    "label": "Lectura autenticada",
+                    "id": "authenticated-read"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Listar Objetos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descargar archivo",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Subir archivo",
+                    "id": "put_object"
+                },
+                {
+                    "label": "Listar objetos",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Eliminar objeto",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copiar objeto",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "list_objects"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso",
+            "layout": "full",
+            "placeholder": "Ingrese su ID de clave de acceso de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de acceso secreta de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "layout": "full",
+            "placeholder": "Ej.: us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "Nombre del bucket",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del bucket de S3",
+            "required": true
+        },
+        {
+            "id": "prefix",
+            "type": "short-input",
+            "title": "Prefijo/Carpeta",
+            "layout": "full",
+            "placeholder": "Filtrar por prefijo (Ej.: carpeta/ o dejar vacío para todos)"
+        },
+        {
+            "id": "maxKeys",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "Número máximo de objetos a devolver (predeterminado: 1000)"
+        },
+        {
+            "id": "continuationToken",
+            "type": "short-input",
+            "title": "Token de continuación",
+            "layout": "full",
+            "placeholder": "Token para paginación (de la respuesta anterior)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Eliminar Objeto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descargar archivo",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Subir archivo",
+                    "id": "put_object"
+                },
+                {
+                    "label": "Listar objetos",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Eliminar objeto",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copiar objeto",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "delete_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso",
+            "layout": "full",
+            "placeholder": "Ingrese su ID de clave de acceso de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de acceso secreta de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "layout": "full",
+            "placeholder": "Ej.: us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "Nombre del bucket",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del bucket de S3",
+            "required": true
+        },
+        {
+            "id": "objectKey",
+            "type": "short-input",
+            "title": "Clave/Ruta del objeto",
+            "layout": "full",
+            "placeholder": "Ej.: miarchivo.pdf o documentos/informe.pdf",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Copiar Objeto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descargar archivo",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Subir archivo",
+                    "id": "put_object"
+                },
+                {
+                    "label": "Listar objetos",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Eliminar objeto",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copiar objeto",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "copy_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso",
+            "layout": "full",
+            "placeholder": "Ingrese su ID de clave de acceso de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de acceso secreta de AWS",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "layout": "full",
+            "placeholder": "p. ej., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "sourceBucket",
+            "type": "short-input",
+            "title": "Bucket de origen",
+            "layout": "full",
+            "placeholder": "Nombre del bucket de origen",
+            "required": true
+        },
+        {
+            "id": "sourceKey",
+            "type": "short-input",
+            "title": "Clave de objeto de origen",
+            "layout": "full",
+            "placeholder": "p. ej., archivo-antiguo.pdf o carpeta/archivo.pdf",
+            "required": true
+        },
+        {
+            "id": "destinationBucket",
+            "type": "short-input",
+            "title": "Bucket de destino",
+            "layout": "full",
+            "placeholder": "Nombre del bucket de destino (puede ser el mismo que el de origen)",
+            "required": true
+        },
+        {
+            "id": "destinationKey",
+            "type": "short-input",
+            "title": "Clave de objeto de destino",
+            "layout": "full",
+            "placeholder": "p. ej., archivo-nuevo.pdf o respaldo/archivo.pdf",
+            "required": true
+        },
+        {
+            "id": "copyAcl",
+            "type": "dropdown",
+            "title": "Control de acceso",
+            "layout": "full",
+            "placeholder": "Seleccione ACL para el objeto copiado (predeterminado: privado)",
+            "options": [
+                {
+                    "label": "Privado",
+                    "id": "private"
+                },
+                {
+                    "label": "Lectura pública",
+                    "id": "public-read"
+                },
+                {
+                    "label": "Lectura/escritura pública",
+                    "id": "public-read-write"
+                },
+                {
+                    "label": "Lectura autenticada",
+                    "id": "authenticated-read"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
 
 ## Instrucciones de uso
 
-Integra S3 en el flujo de trabajo. Sube archivos, descarga objetos, lista contenidos de buckets, elimina objetos y copia objetos entre buckets. Requiere clave de acceso AWS y clave de acceso secreta.
-
-## Herramientas
-
-### `s3_put_object`
-
-Subir un archivo a un bucket de AWS S3
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | -------- | ----------- |
-| `accessKeyId` | string | Sí | Tu ID de clave de acceso AWS |
-| `secretAccessKey` | string | Sí | Tu clave de acceso secreta AWS |
-| `region` | string | Sí | Región AWS (ej., us-east-1) |
-| `bucketName` | string | Sí | Nombre del bucket S3 |
-| `objectKey` | string | Sí | Clave/ruta del objeto en S3 (ej., carpeta/archivo.ext) |
-| `file` | file | No | Archivo para subir |
-| `content` | string | No | Contenido de texto para subir (alternativa al archivo) |
-| `contentType` | string | No | Cabecera Content-Type (autodetectada del archivo si no se proporciona) |
-| `acl` | string | No | Lista de control de acceso (ej., private, public-read) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `url` | string | URL del objeto S3 subido |
-| `metadata` | object | Metadatos de subida incluyendo ETag y ubicación |
-
-### `s3_get_object`
-
-Recuperar un objeto de un bucket AWS S3
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | -------- | ----------- |
-| `accessKeyId` | string | Sí | Tu ID de clave de acceso AWS |
-| `secretAccessKey` | string | Sí | Tu clave de acceso secreta AWS |
-| `s3Uri` | string | Sí | URL del objeto S3 |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `url` | string | URL prefirmada para descargar el objeto S3 |
-| `metadata` | object | Metadatos del archivo incluyendo tipo, tamaño, nombre y fecha de última modificación |
-
-### `s3_list_objects`
-
-Listar objetos en un bucket de AWS S3
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ---------- | ----------- |
-| `accessKeyId` | string | Sí | Tu ID de clave de acceso de AWS |
-| `secretAccessKey` | string | Sí | Tu clave de acceso secreta de AWS |
-| `region` | string | Sí | Región de AWS (p. ej., us-east-1) |
-| `bucketName` | string | Sí | Nombre del bucket S3 |
-| `prefix` | string | No | Prefijo para filtrar objetos (p. ej., carpeta/) |
-| `maxKeys` | number | No | Número máximo de objetos a devolver (predeterminado: 1000) |
-| `continuationToken` | string | No | Token para paginación |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `objects` | array | Lista de objetos S3 |
-
-### `s3_delete_object`
-
-Eliminar un objeto de un bucket de AWS S3
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ---------- | ----------- |
-| `accessKeyId` | string | Sí | Tu ID de clave de acceso de AWS |
-| `secretAccessKey` | string | Sí | Tu clave de acceso secreta de AWS |
-| `region` | string | Sí | Región de AWS (p. ej., us-east-1) |
-| `bucketName` | string | Sí | Nombre del bucket S3 |
-| `objectKey` | string | Sí | Clave/ruta del objeto a eliminar |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `deleted` | boolean | Indica si el objeto fue eliminado correctamente |
-| `metadata` | object | Metadatos de la eliminación |
-
-### `s3_copy_object`
-
-Copiar un objeto dentro de o entre buckets de AWS S3
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ---------- | ----------- |
-| `accessKeyId` | string | Sí | Tu ID de clave de acceso de AWS |
-| `secretAccessKey` | string | Sí | Tu clave de acceso secreta de AWS |
-| `region` | string | Sí | Región de AWS (p. ej., us-east-1) |
-| `sourceBucket` | string | Sí | Nombre del bucket de origen |
-| `sourceKey` | string | Sí | Clave/ruta del objeto de origen |
-| `destinationBucket` | string | Sí | Nombre del bucket de destino |
-| `destinationKey` | string | Sí | Clave/ruta del objeto de destino |
-| `acl` | string | No | Lista de control de acceso para el objeto copiado (p. ej., private, public-read) |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `url` | string | URL del objeto S3 copiado |
-| `metadata` | object | Metadatos de la operación de copia |
+Integre S3 en el flujo de trabajo. Cargue archivos, descargue objetos, liste el contenido de los buckets, elimine objetos y copie objetos entre buckets. Requiere clave de acceso de AWS y clave de acceso secreta.
 
 ## Notas
 
-- Categoría: `tools`
-- Tipo: `s3`
+- Category: `tools`
+- Type: `s3`

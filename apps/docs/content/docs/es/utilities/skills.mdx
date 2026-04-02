@@ -1,0 +1,80 @@
+---
+title: Habilidades
+description: Conjuntos de instrucciones reutilizables con alcance a un espacio
+  de trabajo que los bloques de Agente cargan en tiempo de ejecución
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+Las habilidades son conjuntos de instrucciones reutilizables que definen comportamientos especializados para los bloques de Agente. Cree una habilidad una vez y adjúntela a cualquier agente en cualquier flujo de trabajo dentro del mismo espacio de trabajo.
+
+## Definición de Habilidad
+
+Cada habilidad se almacena como un `SkillDefinition` con cuatro campos visibles para el usuario:
+
+| Campo | Reglas | Propósito |
+|---|---|---|
+| **name** | Kebab-case, 1-64 caracteres (ej. `market-analyst`) | Identificador único dentro del espacio de trabajo |
+| **description** | 1-1024 caracteres | Indica a los agentes y compañeros de equipo qué hace la habilidad |
+| **content** | 1-50 000 caracteres | El prompt completo: instrucciones, contexto, reglas y ejemplos |
+| **id** | Autogenerado | Referencia inmutable utilizada por la API y el store |
+
+Cada habilidad también incluye `workspaceId`, `userId`, `createdAt` y una marca de tiempo opcional `updatedAt`.
+
+## Creación y Edición de Habilidades
+
+<Steps>
+  <Step>
+    Abra el widget [Editor de Habilidades](/widgets/editor-skill) en su espacio de trabajo.
+  </Step>
+  <Step>
+    Ingrese un **name** (kebab-case), una **description** breve y el **content** completo -- las instrucciones que su agente debe seguir.
+  </Step>
+  <Step>
+    **Guarde** la habilidad. La API valida todos los campos y rechaza duplicados dentro del mismo espacio de trabajo.
+  </Step>
+</Steps>
+
+Para actualizar una habilidad existente, selecciónela en el Editor de Habilidades, modifique cualquier campo y guarde. Todos los flujos de trabajo que referencien dicha habilidad adoptarán el nuevo contenido en su próxima ejecución.
+
+Para eliminar una habilidad, utilice la acción de eliminación en el Editor de Habilidades. La eliminación requiere el permiso `admin` o `write` sobre el espacio de trabajo.
+
+## Uso de Skills en Bloques de Agente
+
+El bloque de Agente expone una entrada **Skills** (tipo `skill-input`). En el momento de la configuración, se seleccionan una o más skills del espacio de trabajo. En tiempo de ejecución, el agente recibe el contenido de cada skill seleccionada como instrucciones adicionales junto con sus prompts de sistema y de usuario.
+
+<Callout type="info">
+  Las skills tienen alcance de espacio de trabajo. Todos los miembros del equipo con acceso al espacio de trabajo pueden explorar, utilizar y (con permisos de escritura) editar o eliminar skills.
+</Callout>
+
+## Cómo Funcionan las Skills en Tiempo de Ejecución
+
+1. El ejecutor del flujo de trabajo lee la entrada `skills` del agente -- un array de referencias a skills seleccionadas.
+2. El almacén de skills (`useSkillsStore`) resuelve cada referencia en el espacio de trabajo activo utilizando `getSkill(id, workspaceId)`.
+3. El contenido de las skills resueltas se fusiona en el contexto del prompt del agente antes de la llamada al LLM.
+
+El almacén mantiene las skills indexadas por espacio de trabajo (`skillsByWorkspace`), de modo que al cambiar de espacio de trabajo se carga instantáneamente el conjunto correcto.
+
+## Permisos
+
+| Acción | Permiso Requerido |
+|---|---|
+| Listar / leer skills | Cualquier acceso al espacio de trabajo |
+| Crear / actualizar / eliminar | `admin` o `write` |
+
+## Buenas Prácticas
+
+- **Una skill por rol** -- mantén cada skill enfocada en un único perfil o tipo de tarea.
+- **Incluye ejemplos** en el contenido para anclar el comportamiento del agente.
+- **Itera en el lugar** -- editar una skill actualiza todos los flujos de trabajo que la referencian, sin necesidad de reconfigurar conexiones.
+- **Usa nombres descriptivos** -- el nombre en kebab-case (p. ej. `code-reviewer`, `financial-analyst`) también sirve como identificador legible en la interfaz de usuario.
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de Skills" href="/widgets/editor-skill">
+    Widget para crear, editar y eliminar skills.
+  </Card>
+</Cards>

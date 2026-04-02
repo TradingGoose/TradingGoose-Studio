@@ -1,0 +1,66 @@
+---
+title: Disparador Genérico
+description: Recibe webhooks de cualquier servicio o API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Recibe webhooks de cualquier servicio o API
+
+<Callout type="info">
+  Este es un disparador **basado en webhooks**. Configura la URL del webhook en tu servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "requireAuth",
+            "type": "switch",
+            "title": "Requerir autenticación",
+            "description": "Requerir autenticación para todas las solicitudes de webhook"
+        },
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Token de autenticación",
+            "placeholder": "Ingrese un token de autenticación",
+            "description": "Token utilizado para autenticar solicitudes de webhook mediante Bearer token o encabezado personalizado",
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Nombre del encabezado secreto (opcional)",
+            "placeholder": "X-Secret-Key",
+            "description": "Nombre del encabezado HTTP personalizado para el token de autenticación. Si está en blanco, utiliza \"Authorization: Bearer TOKEN\""
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "Formato de entrada",
+            "description": "Define el esquema de entrada JSON esperado para este webhook (opcional). Use el tipo \"files\" para cargas de archivos."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+El disparador pasa el payload completo del evento a su flujo de trabajo. Acceda a los campos utilizando la sintaxis `<trigger.fieldName>`.

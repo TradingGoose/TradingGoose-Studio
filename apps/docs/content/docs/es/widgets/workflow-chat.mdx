@@ -1,48 +1,65 @@
 ---
-title: Chat de Workflow
-description: Interfaz de chat para interactuar con bloques de flujo de trabajo
+title: Chat de Flujo de Trabajo
+description: Interfaz de chat para interactuar con los bloques del flujo de trabajo.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-El widget Chat de Workflow proporciona una interfaz de chat interactiva para comunicarte con tus bloques de flujo de trabajo. Permite interacciones conversacionales con tus flujos de trabajo de IA.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Descripción general
 
 | Propiedad | Valor |
-|-----------|-------|
+|----------|-------|
 | **Clave** | `workflow_chat` |
 | **Categoría** | Utilidad |
-| **Icono** | MessageCircle |
 
-## Funciones
+El widget Workflow Chat proporciona una interfaz conversacional para interactuar con los bloques del flujo de trabajo. Se conecta al flujo de trabajo activo a través de un socket en vivo, transmite respuestas en tiempo real y permite seleccionar qué salidas de bloque aparecen en la conversación. Úselo para probar disparadores basados en chat, comunicarse con agentes de IA dentro de un flujo de trabajo o inspeccionar respuestas durante el desarrollo.
 
-- **Chat interactivo**: Envía mensajes y recibe respuestas de tu flujo de trabajo
-- **Selección de salida**: Elige qué salidas del flujo mostrar en el chat
-- **Carga de archivos**: Adjunta archivos a tus mensajes para su procesamiento
-- **Transmisión en tiempo real**: Ve las respuestas a medida que se generan
-- **Historial de mensajes**: Consulta y recorre el historial de conversación
+## Funcionalidades
+
+- **Conexión por socket en vivo** -- cada instancia de chat abre su propio socket al flujo de trabajo, de modo que los mensajes y respuestas se transmiten en tiempo real
+- **Selector de salidas** -- un menú desplegable de selección múltiple en el encabezado permite elegir qué salidas de bloque del flujo de trabajo se incluyen en la respuesta del chat; las selecciones se deduplicан y se persisten por flujo de trabajo
+- **Limpiar chat** -- un botón en el encabezado borra el historial de conversación actual del flujo de trabajo activo; el botón se deshabilita cuando no hay mensajes
+- **Selector de flujo de trabajo** -- un menú desplegable en el centro del encabezado permite cambiar entre flujos de trabajo del espacio de trabajo; cuando el widget está emparejado (color de par no gris), el menú refleja la selección compartida y los cambios manuales se ignoran
+- **Resolución automática del flujo de trabajo** -- el widget resuelve el flujo de trabajo activo a partir de los parámetros del widget, el canal de color de par o el registro de flujos de trabajo, y persiste la selección entre sesiones
 
 ## Uso
 
-El widget Chat de Workflow es útil para:
+### Agregar el widget
 
-- Probar flujos de trabajo que tienen disparadores basados en chat
-- Interactuar con agentes de IA en tu flujo de trabajo
-- Depurar respuestas del flujo de trabajo
-- Demostrar las capacidades del flujo de trabajo
+Abra el selector de widgets y seleccione **Workflow Chat**. El widget requiere un espacio de trabajo activo; si no hay ninguno seleccionado, muestra un mensaje para elegir uno. Una vez cargado el espacio de trabajo, se conecta automáticamente al primer flujo de trabajo disponible.
 
-### Enviar mensajes
+### Diseño del encabezado
 
-1. Escribe tu mensaje en el campo de entrada
-2. Opcionalmente adjunta archivos usando el botón de carga
-3. Presiona Enter o haz clic en Enviar para enviarlo
-4. Observa la respuesta en streaming en tiempo real
+- **Izquierda** -- menú desplegable de selector de salida para elegir qué salidas de bloque se incorporan al chat
+- **Centro** -- menú desplegable de flujo de trabajo para cambiar el flujo de trabajo de destino
+- **Derecha** -- botón para limpiar el chat (icono de papelera) para reiniciar la conversación
 
-### Selección de salida
+### Interacciones clave
 
-Puedes seleccionar qué salidas de bloques mostrar en la respuesta del chat. Esto es útil cuando tu flujo de trabajo tiene múltiples bloques de salida y quieres enfocarte en resultados específicos.
+1. Escribe un mensaje en el campo de entrada en la parte inferior y presiona Enter para enviar
+2. Las respuestas se transmiten al área de conversación a medida que se ejecuta el flujo de trabajo
+3. Usa el selector de salida para filtrar las respuestas a bloques específicos
+4. Haz clic en el botón de limpiar para iniciar una conversación nueva
+
+### Sincronización de color de par
+
+Cuando se le asigna un color de par, el widget comparte su flujo de trabajo activo con otros widgets en el mismo canal de color -- típicamente el Editor de flujo de trabajo. Cambiar el flujo de trabajo en el editor actualiza automáticamente este widget de chat. Cuando el color de par es `gray`, el widget gestiona su propia selección de flujo de trabajo de forma independiente.
 
 <Callout>
-Este widget admite el mecanismo **pairColor**. Emparéjalo con un Editor de Workflow para chatear con el workflow que estás editando.
+Empareja este widget con el **Editor de flujo de trabajo** usando un color de par coincidente para que el chat siempre apunte al flujo de trabajo que estás editando.
 </Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de flujo de trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para construir y editar flujos de trabajo.
+  </Card>
+  <Card title="Descripción general de disparadores" href="/triggers">
+    Explora todos los disparadores de flujo de trabajo disponibles.
+  </Card>
+  <Card title="Consola de flujo de trabajo" href="/widgets/workflow-console">
+    Visualiza los registros de ejecución y la salida en tiempo real.
+  </Card>
+</Cards>

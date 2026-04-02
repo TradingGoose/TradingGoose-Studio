@@ -1,73 +1,66 @@
 ---
-title: Programación
+title: Disparador de Programación
+description: Activa flujos de trabajo automáticamente en un horario recurrente
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
 
-El bloque de Programación activa automáticamente flujos de trabajo de forma recurrente en intervalos o momentos específicos.
+<BlockInfoCard
+  type="schedule"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
 
-<div className="flex justify-center">
-  <Image
-    src="/static/schedule.png"
-    alt="Bloque de programación"
-    width={500}
-    height={400}
-    className="my-6"
+El disparador de programación ejecuta automáticamente flujos de trabajo en un horario recurrente a intervalos o tiempos especificados.
+
+<Callout type="info">
+  Este es un disparador **basado en sondeo**. TradingGoose ejecuta el flujo de trabajo automáticamente en el intervalo configurado.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Disparador de Programación"
+    type="schedule"
+    hideHeader
+    subBlocks={[
+      { "id": "scheduleConfig", "title": "Programación", "type": "dropdown", "layout": "full", "placeholder": "Seleccionar intervalo de programación", "options": [{ "label": "Cada 5 minutos", "id": "5m" }, { "label": "Cada 15 minutos", "id": "15m" }, { "label": "Cada 30 minutos", "id": "30m" }, { "label": "Cada hora", "id": "1h" }, { "label": "Cada día", "id": "1d" }, { "label": "Personalizado (Cron)", "id": "cron" }] }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
-## Opciones de programación
+## Opciones de Programación
 
-Configura cuándo se ejecuta tu flujo de trabajo utilizando las opciones desplegables:
-
-<Tabs items={['Intervalos simples', 'Expresiones cron']}>
+<Tabs items={['Intervalos Simples', 'Expresiones Cron']}>
   <Tab>
-    <ul className="list-disc space-y-1 pl-6">
-      <li><strong>Cada pocos minutos</strong>: intervalos de 5, 15, 30 minutos</li>
-      <li><strong>Por hora</strong>: Cada hora o cada pocas horas</li>
-      <li><strong>Diariamente</strong>: Una o varias veces al día</li>
-      <li><strong>Semanalmente</strong>: Días específicos de la semana</li>
-      <li><strong>Mensualmente</strong>: Días específicos del mes</li>
-    </ul>
+    - **Cada pocos minutos**: intervalos de 5, 15, 30 minutos
+    - **Por hora**: Cada hora o cada pocas horas
+    - **Diario**: Una o varias veces al día
+    - **Semanal**: Días específicos de la semana
+    - **Mensual**: Días específicos del mes
   </Tab>
   <Tab>
-    <p>Usa expresiones cron para programación avanzada:</p>
-    <div className="text-sm space-y-1">
-      <div><code>0 9 * * 1-5</code> - Cada día laborable a las 9 AM</div>
-      <div><code>*/15 * * * *</code> - Cada 15 minutos</div>
-      <div><code>0 0 1 * *</code> - Primer día de cada mes</div>
-    </div>
+    Use expresiones cron para una programación avanzada:
+
+    - `0 9 * * 1-5` — Cada día laborable a las 9 AM
+    - `*/15 * * * *` — Cada 15 minutos
+    - `0 0 1 * *` — Primer día de cada mes
   </Tab>
 </Tabs>
 
-## Configuración de programaciones
+## Comportamiento
 
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="configure-schedule.mp4" width={700} height={450} />
-</div>
-
-Cuando un flujo de trabajo está programado:
-- La programación se vuelve **activa** y muestra el próximo tiempo de ejecución
-- Haz clic en el botón **"Programado"** para desactivar la programación
-- Las programaciones se desactivan automáticamente después de **3 fallos consecutivos**
-
-## Programaciones desactivadas
-
-<div className="flex justify-center">
-  <Image
-    src="/static/schedule-disabled.png"
-    alt="Programación desactivada"
-    width={500}
-    height={350}
-    className="my-6"
-  />
-</div>
-
-Las programaciones desactivadas muestran cuándo estuvieron activas por última vez y pueden ser reactivadas en cualquier momento.
+- La programación se vuelve **activa** y muestra la próxima hora de ejecución
+- Haga clic en el botón **"Programado"** para desactivar la programación
+- Las programaciones se desactivan automáticamente tras **3 fallos consecutivos**
+- Las programaciones desactivadas muestran cuándo estuvieron activas por última vez y pueden reactivarse en cualquier momento
 
 <Callout>
-Los bloques de programación no pueden recibir conexiones entrantes y funcionan exclusivamente como disparadores de flujos de trabajo.
+Los bloques de programación no pueden recibir conexiones entrantes y funcionan como disparadores de flujo de trabajo puros. No se producen salidas — el flujo de trabajo comienza con un contexto vacío.
 </Callout>

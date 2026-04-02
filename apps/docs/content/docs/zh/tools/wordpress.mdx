@@ -1,0 +1,5571 @@
+---
+title: WordPress
+description: 管理 WordPress 内容
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="wordpress"
+  color="#21759B"
+  icon={true}
+  iconSvg={``}
+/>
+
+## 配置
+
+### 创建文章
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_create_post"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "文章或页面标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "文章或页面内容（HTML 或纯文本）"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "文章或页面摘要"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "别名",
+            "placeholder": "URL 别名（可选）"
+        },
+        {
+            "id": "categories",
+            "type": "short-input",
+            "title": "分类",
+            "placeholder": "以逗号分隔的分类 ID"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "以逗号分隔的标签 ID"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "特色图片 ID",
+            "placeholder": "特色图片的媒体 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文章（<code>wordpress_create_post</code>）</div>
+
+在 WordPress.com 中创建一篇新的博客文章。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `title` | string | 是 | 文章标题 |
+| `content` | string | 否 | 文章内容 \(HTML 或纯文本\) |
+| `status` | string | 否 | 文章状态：publish、draft、pending、private 或 future |
+| `excerpt` | string | 否 | 文章摘要 |
+| `categories` | string | 否 | 以逗号分隔的分类 ID |
+| `tags` | string | 否 | 以逗号分隔的标签 ID |
+| `featuredMedia` | number | 否 | 特色图片媒体 ID |
+| `slug` | string | 否 | 文章的 URL 别名（slug）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 文章 ID |
+| `date` | string | 文章创建日期 |
+| `modified` | string | 文章修改日期 |
+| `slug` | string | 文章别名（slug）|
+| `status` | string | 文章状态 |
+| `type` | string | 文章类型 |
+| `link` | string | 文章 URL |
+| `title` | object | 文章标题对象 |
+| `content` | object | 文章内容对象 |
+| `excerpt` | object | 文章摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `categories` | array | 分类 ID |
+
+</div>
+
+---
+
+### 更新文章
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_update_post"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "文章 ID",
+            "placeholder": "输入文章 ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "文章或页面标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "文章或页面内容（HTML 或纯文本）"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "文章或页面摘要"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug",
+            "placeholder": "URL Slug（可选）"
+        },
+        {
+            "id": "categories",
+            "type": "short-input",
+            "title": "分类",
+            "placeholder": "以逗号分隔的分类 ID"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "以逗号分隔的标签 ID"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "特色图片 ID",
+            "placeholder": "特色图片的媒体 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新文章（<code>wordpress_update_post</code>）</div>
+
+更新 WordPress.com 上的现有博客文章
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `postId` | number | 是 | 要更新的文章 ID |
+| `title` | string | 否 | 文章标题 |
+| `content` | string | 否 | 文章内容 \(HTML 或纯文本\) |
+| `status` | string | 否 | 文章状态：publish（发布）、draft（草稿）、pending（待审）、private（私密）或 future（定时发布）|
+| `excerpt` | string | 否 | 文章摘要 |
+| `categories` | string | 否 | 以逗号分隔的分类 ID |
+| `tags` | string | 否 | 以逗号分隔的标签 ID |
+| `featuredMedia` | number | 否 | 特色图片媒体 ID |
+| `slug` | string | 否 | 文章 URL 别名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 文章 ID |
+| `date` | string | 文章创建日期 |
+| `modified` | string | 文章修改日期 |
+| `slug` | string | 文章别名 |
+| `status` | string | 文章状态 |
+| `type` | string | 文章类型 |
+| `link` | string | 文章 URL |
+| `title` | object | 文章标题对象 |
+| `content` | object | 文章内容对象 |
+| `excerpt` | object | 文章摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `categories` | array | 分类 ID 列表 |
+
+</div>
+
+---
+
+### 删除文章
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_delete_post"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "文章 ID",
+            "placeholder": "输入文章 ID"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "强制删除"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文章 (<code>wordpress_delete_post</code>)</div>
+
+从 WordPress.com 删除一篇博客文章
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `postId` | number | 是 | 要删除的文章 ID |
+| `force` | boolean | 否 | 绕过回收站并永久强制删除 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 文章是否已被删除 |
+| `id` | number | 文章 ID |
+| `date` | string | 文章创建日期 |
+| `modified` | string | 文章修改日期 |
+| `slug` | string | 文章别名（slug） |
+| `status` | string | 文章状态 |
+| `type` | string | 文章类型 |
+| `link` | string | 文章 URL |
+| `title` | object | 文章标题对象 |
+| `content` | object | 文章内容对象 |
+| `excerpt` | object | 文章摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `categories` | array | 分类 ID 列表 |
+
+</div>
+
+---
+
+### 获取文章
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_get_post"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "文章 ID",
+            "placeholder": "输入文章 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取文章 (<code>wordpress_get_post</code>)</div>
+
+通过 ID 从 WordPress.com 获取单篇博客文章
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `postId` | number | 是 | 要获取的文章 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 文章 ID |
+| `date` | string | 文章创建日期 |
+| `modified` | string | 文章修改日期 |
+| `slug` | string | 文章别名（Slug） |
+| `status` | string | 文章状态 |
+| `type` | string | 文章类型 |
+| `link` | string | 文章 URL |
+| `title` | object | 文章标题对象 |
+| `content` | object | 文章内容对象 |
+| `excerpt` | object | 文章摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `categories` | array | 分类 ID 列表 |
+
+</div>
+
+---
+
+### 文章列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_posts"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索筛选",
+            "placeholder": "用于筛选结果的搜索词"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "排序依据",
+            "options": [
+                {
+                    "label": "日期",
+                    "id": "date"
+                },
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "标题",
+                    "id": "title"
+                },
+                {
+                    "label": "别名",
+                    "id": "slug"
+                },
+                {
+                    "label": "修改时间",
+                    "id": "modified"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        },
+        {
+            "id": "listStatus",
+            "type": "dropdown",
+            "title": "状态筛选",
+            "options": [
+                {
+                    "label": "已发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审核",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出文章 (<code>wordpress_list_posts</code>)</div>
+
+从 WordPress.com 列出博客文章，支持可选筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每页文章数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `status` | string | 否 | 文章状态筛选：publish、draft、pending、private |
+| `author` | number | 否 | 按作者 ID 筛选 |
+| `categories` | string | 否 | 以逗号分隔的分类 ID 列表，用于筛选 |
+| `tags` | string | 否 | 以逗号分隔的标签 ID 列表，用于筛选 |
+| `search` | string | 否 | 用于筛选文章的搜索词 |
+| `orderBy` | string | 否 | 排序字段：date、id、title、slug、modified |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 文章 ID |
+| `date` | string | 文章创建日期 |
+| `modified` | string | 文章修改日期 |
+| `slug` | string | 文章别名（Slug）|
+| `status` | string | 文章状态 |
+| `type` | string | 文章类型 |
+| `link` | string | 文章 URL |
+| `title` | object | 文章标题对象 |
+| `content` | object | 文章内容对象 |
+| `excerpt` | object | 文章摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `categories` | array | 分类 ID 列表 |
+
+</div>
+
+---
+
+### 创建页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_create_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "文章或页面标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "文章或页面内容（HTML 或纯文本）"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "文章或页面摘要"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "别名",
+            "placeholder": "URL 别名（可选）"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "特色图片 ID",
+            "placeholder": "特色图片的媒体 ID"
+        },
+        {
+            "id": "parent",
+            "type": "short-input",
+            "title": "父页面 ID",
+            "placeholder": "父页面 ID（用于层级结构）"
+        },
+        {
+            "id": "menuOrder",
+            "type": "short-input",
+            "title": "菜单排序",
+            "placeholder": "菜单中的排列顺序（数字）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建页面（<code>wordpress_create_page</code>）</div>
+
+在 WordPress.com 中创建新页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `title` | string | 是 | 页面标题 |
+| `content` | string | 否 | 页面内容 \(HTML 或纯文本\) |
+| `status` | string | 否 | 页面状态：publish、draft、pending、private |
+| `excerpt` | string | 否 | 页面摘要 |
+| `parent` | number | 否 | 层级页面的父页面 ID |
+| `menuOrder` | number | 否 | 页面菜单中的排列顺序 |
+| `featuredMedia` | number | 否 | 特色图片媒体 ID |
+| `slug` | string | 否 | 页面的 URL 别名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 页面 ID |
+| `date` | string | 页面创建日期 |
+| `modified` | string | 页面修改日期 |
+| `slug` | string | 页面别名 |
+| `status` | string | 页面状态 |
+| `type` | string | 内容类型 |
+| `link` | string | 页面 URL |
+| `title` | object | 页面标题对象 |
+| `content` | object | 页面内容对象 |
+| `excerpt` | object | 页面摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `parent` | number | 父页面 ID |
+
+</div>
+
+---
+
+### 更新页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_update_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "文章或页面标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "文章或页面内容（HTML 或纯文本）"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "文章或页面摘要"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "别名",
+            "placeholder": "URL 别名（可选）"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "特色图片 ID",
+            "placeholder": "特色图片的媒体 ID"
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "placeholder": "请输入页面 ID"
+        },
+        {
+            "id": "parent",
+            "type": "short-input",
+            "title": "父页面 ID",
+            "placeholder": "父页面 ID（用于层级结构）"
+        },
+        {
+            "id": "menuOrder",
+            "type": "short-input",
+            "title": "菜单顺序",
+            "placeholder": "菜单中的排列顺序（数字）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新页面（<code>wordpress_update_page</code>）</div>
+
+更新 WordPress.com 中的现有页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `pageId` | number | 是 | 要更新的页面 ID |
+| `title` | string | 否 | 页面标题 |
+| `content` | string | 否 | 页面内容 \(HTML 或纯文本\) |
+| `status` | string | 否 | 页面状态：publish、draft、pending、private |
+| `excerpt` | string | 否 | 页面摘要 |
+| `parent` | number | 否 | 层级页面的父页面 ID |
+| `menuOrder` | number | 否 | 页面菜单中的排列顺序 |
+| `featuredMedia` | number | 否 | 特色图片媒体 ID |
+| `slug` | string | 否 | 页面的 URL 别名（slug）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 页面 ID |
+| `date` | string | 页面创建日期 |
+| `modified` | string | 页面修改日期 |
+| `slug` | string | 页面别名（slug）|
+| `status` | string | 页面状态 |
+| `type` | string | 内容类型 |
+| `link` | string | 页面 URL |
+| `title` | object | 页面标题对象 |
+| `content` | object | 页面内容对象 |
+| `excerpt` | object | 页面摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `parent` | number | 父页面 ID |
+
+</div>
+
+---
+
+### 删除页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_delete_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "placeholder": "输入页面 ID"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "强制删除"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除页面（<code>wordpress_delete_page</code>）</div>
+
+从 WordPress.com 删除一个页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `pageId` | number | 是 | 要删除的页面 ID |
+| `force` | boolean | 否 | 绕过回收站并永久强制删除 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 页面是否已被删除 |
+| `id` | number | 页面 ID |
+| `date` | string | 页面创建日期 |
+| `modified` | string | 页面修改日期 |
+| `slug` | string | 页面别名（slug） |
+| `status` | string | 页面状态 |
+| `type` | string | 内容类型 |
+| `link` | string | 页面 URL |
+| `title` | object | 页面标题对象 |
+| `content` | object | 页面内容对象 |
+| `excerpt` | object | 页面摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `parent` | number | 父页面 ID |
+
+</div>
+
+---
+
+### 获取页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_get_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "placeholder": "输入页面 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取页面 (<code>wordpress_get_page</code>)</div>
+
+通过 ID 从 WordPress.com 获取单个页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `pageId` | number | 是 | 要检索的页面 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 页面 ID |
+| `date` | string | 页面创建日期 |
+| `modified` | string | 页面修改日期 |
+| `slug` | string | 页面别名 |
+| `status` | string | 页面状态 |
+| `type` | string | 内容类型 |
+| `link` | string | 页面 URL |
+| `title` | object | 页面标题对象 |
+| `content` | object | 页面内容对象 |
+| `excerpt` | object | 页面摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `parent` | number | 父页面 ID |
+
+</div>
+
+---
+
+### 页面列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_pages"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索过滤器",
+            "placeholder": "用于过滤结果的搜索词"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "排序依据",
+            "options": [
+                {
+                    "label": "日期",
+                    "id": "date"
+                },
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "标题",
+                    "id": "title"
+                },
+                {
+                    "label": "别名",
+                    "id": "slug"
+                },
+                {
+                    "label": "修改时间",
+                    "id": "modified"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        },
+        {
+            "id": "listStatus",
+            "type": "dropdown",
+            "title": "状态过滤器",
+            "options": [
+                {
+                    "label": "已发布",
+                    "id": "publish"
+                },
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "待审核",
+                    "id": "pending"
+                },
+                {
+                    "label": "私密",
+                    "id": "private"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出页面（<code>wordpress_list_pages</code>）</div>
+
+从 WordPress.com 列出页面，支持可选过滤条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的页面数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `status` | string | 否 | 页面状态过滤：publish、draft、pending、private |
+| `parent` | number | 否 | 按父页面 ID 筛选 |
+| `search` | string | 否 | 用于过滤页面的搜索词 |
+| `orderBy` | string | 否 | 排序字段：date、id、title、slug、modified、menu_order |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 页面 ID |
+| `date` | string | 页面创建日期 |
+| `modified` | string | 页面修改日期 |
+| `slug` | string | 页面别名（slug） |
+| `status` | string | 页面状态 |
+| `type` | string | 内容类型 |
+| `link` | string | 页面 URL |
+| `title` | object | 页面标题对象 |
+| `content` | object | 页面内容对象 |
+| `excerpt` | object | 页面摘要对象 |
+| `author` | number | 作者 ID |
+| `featured_media` | number | 特色媒体 ID |
+| `parent` | number | 父页面 ID |
+
+</div>
+
+---
+
+### 上传媒体
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_upload_media"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "上传文件",
+            "placeholder": "上传媒体文件至 WordPress"
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "文件引用",
+            "placeholder": "引用前一模块的文件（例如：{{block_name.file}}）"
+        },
+        {
+            "id": "filename",
+            "type": "short-input",
+            "title": "文件名覆盖",
+            "placeholder": "可选：覆盖文件名（例如：image.jpg）"
+        },
+        {
+            "id": "mediaTitle",
+            "type": "short-input",
+            "title": "媒体标题",
+            "placeholder": "媒体的标题"
+        },
+        {
+            "id": "caption",
+            "type": "short-input",
+            "title": "说明文字",
+            "placeholder": "媒体说明文字"
+        },
+        {
+            "id": "altText",
+            "type": "short-input",
+            "title": "替代文本",
+            "placeholder": "用于无障碍访问的替代文本"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传媒体文件（<code>wordpress_upload_media</code>）</div>
+
+向 WordPress.com 上传媒体文件（图片、视频、文档）。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `file` | file | 否 | 要上传的文件 \(UserFile 对象\) |
+| `filename` | string | 否 | 可选的文件名覆盖 \(例如：image.jpg\) |
+| `title` | string | 否 | 媒体标题 |
+| `caption` | string | 否 | 媒体说明文字 |
+| `altText` | string | 否 | 无障碍替代文本 |
+| `description` | string | 否 | 媒体描述 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 媒体 ID |
+| `date` | string | 上传日期 |
+| `slug` | string | 媒体别名（slug） |
+| `type` | string | 内容类型 |
+| `link` | string | 媒体页面 URL |
+| `title` | object | 媒体标题对象 |
+| `caption` | object | 媒体说明文字对象 |
+| `alt_text` | string | 替代文本 |
+| `media_type` | string | 媒体类型 \(图片、视频等\) |
+| `mime_type` | string | MIME 类型 |
+| `source_url` | string | 媒体文件的直接 URL |
+
+</div>
+
+---
+
+### 获取媒体文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_get_media"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "mediaId",
+            "type": "short-input",
+            "title": "媒体 ID",
+            "placeholder": "输入媒体 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取媒体（<code>wordpress_get_media</code>）</div>
+
+通过 ID 从 WordPress.com 获取单个媒体项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `mediaId` | number | 是 | 要检索的媒体项目的 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 媒体 ID |
+| `date` | string | 上传日期 |
+| `slug` | string | 媒体别名（slug）|
+| `type` | string | 内容类型 |
+| `link` | string | 媒体页面 URL |
+| `title` | object | 媒体标题对象 |
+| `caption` | object | 媒体说明对象 |
+| `alt_text` | string | 替代文本 |
+| `media_type` | string | 媒体类型 \(图片、视频等\) |
+| `mime_type` | string | MIME 类型 |
+| `source_url` | string | 媒体文件的直接 URL |
+
+</div>
+
+---
+
+### 媒体列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_media"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "mediaType",
+            "type": "dropdown",
+            "title": "媒体类型",
+            "options": [
+                {
+                    "label": "图片",
+                    "id": "image"
+                },
+                {
+                    "label": "视频",
+                    "id": "video"
+                },
+                {
+                    "label": "音频",
+                    "id": "audio"
+                },
+                {
+                    "label": "应用程序",
+                    "id": "application"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索筛选",
+            "placeholder": "用于筛选结果的搜索词"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "排序依据",
+            "options": [
+                {
+                    "label": "日期",
+                    "id": "date"
+                },
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "标题",
+                    "id": "title"
+                },
+                {
+                    "label": "Slug",
+                    "id": "slug"
+                },
+                {
+                    "label": "修改时间",
+                    "id": "modified"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出媒体 (<code>wordpress_list_media</code>)</div>
+
+列出 WordPress.com 媒体库中的媒体项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的媒体项目数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `search` | string | 否 | 用于筛选媒体的搜索词 |
+| `mediaType` | string | 否 | 按媒体类型筛选：image、video、audio、application |
+| `mimeType` | string | 否 | 按特定 MIME 类型筛选 \(例如：image/jpeg\) |
+| `orderBy` | string | 否 | 排序字段：date、id、title、slug |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 媒体 ID |
+| `date` | string | 上传日期 |
+| `slug` | string | 媒体别名（slug） |
+| `type` | string | 内容类型 |
+| `link` | string | 媒体页面 URL |
+| `title` | object | 媒体标题对象 |
+| `caption` | object | 媒体描述对象 |
+| `alt_text` | string | 替代文本（Alt text） |
+| `media_type` | string | 媒体类型 \(image、video 等\) |
+| `mime_type` | string | MIME 类型 |
+| `source_url` | string | 媒体文件的直接 URL |
+
+</div>
+
+---
+
+### 删除媒体
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_delete_media"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "mediaId",
+            "type": "short-input",
+            "title": "媒体 ID",
+            "placeholder": "输入媒体 ID"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "强制删除"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除媒体（<code>wordpress_delete_media</code>）</div>
+
+从 WordPress.com 删除一个媒体项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `mediaId` | number | 是 | 要删除的媒体项目 ID |
+| `force` | boolean | 否 | 强制删除 \(媒体无回收站，删除操作不可恢复\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 媒体是否已被删除 |
+| `id` | number | 媒体 ID |
+| `date` | string | 上传日期 |
+| `slug` | string | 媒体别名（slug） |
+| `type` | string | 内容类型 |
+| `link` | string | 媒体页面 URL |
+| `title` | object | 媒体标题对象 |
+| `caption` | object | 媒体描述对象 |
+| `alt_text` | string | 替代文本（Alt text） |
+| `media_type` | string | 媒体类型 \(图片、视频等\) |
+| `mime_type` | string | MIME 类型 |
+| `source_url` | string | 媒体文件直链 URL |
+
+</div>
+
+---
+
+### 创建评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_create_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "commentPostId",
+            "type": "short-input",
+            "title": "文章 ID",
+            "placeholder": "要评论的文章 ID"
+        },
+        {
+            "id": "commentContent",
+            "type": "long-input",
+            "title": "评论内容",
+            "placeholder": "评论文本"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建评论（<code>wordpress_create_comment</code>）</div>
+
+在 WordPress.com 文章上创建新评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `postId` | number | 是 | 要评论的文章 ID |
+| `content` | string | 是 | 评论内容 |
+| `parent` | number | 否 | 回复的父评论 ID |
+| `authorName` | string | 否 | 评论作者显示名称 |
+| `authorEmail` | string | 否 | 评论作者邮箱 |
+| `authorUrl` | string | 否 | 评论作者 URL |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 评论 ID |
+| `post` | number | 文章 ID |
+| `parent` | number | 父评论 ID |
+| `author` | number | 作者用户 ID |
+| `author_name` | string | 作者显示名称 |
+| `author_email` | string | 作者邮箱 |
+| `author_url` | string | 作者 URL |
+| `date` | string | 评论日期 |
+| `content` | object | 评论内容对象 |
+| `link` | string | 评论永久链接 |
+
+</div>
+
+---
+
+### 列出评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_comments"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索过滤器",
+            "placeholder": "用于过滤结果的搜索词"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "排序依据",
+            "options": [
+                {
+                    "label": "日期",
+                    "id": "date"
+                },
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "标题",
+                    "id": "title"
+                },
+                {
+                    "label": "别名",
+                    "id": "slug"
+                },
+                {
+                    "label": "修改时间",
+                    "id": "modified"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出评论 (<code>wordpress_list_comments</code>)</div>
+
+从 WordPress.com 列出评论，支持可选筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的评论数量 \(默认值：10，最大值：100\) |
+| `page` | number | 否 | 分页页码 |
+| `postId` | number | 否 | 按文章 ID 筛选 |
+| `status` | string | 否 | 按评论状态筛选：approved（已批准）、hold（待审）、spam（垃圾）、trash（回收站）|
+| `search` | string | 否 | 用于筛选评论的搜索词 |
+| `orderBy` | string | 否 | 排序字段：date（日期）、id（ID）、parent（父级）|
+| `order` | string | 否 | 排序方向：asc（升序）或 desc（降序）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 评论 ID |
+| `post` | number | 文章 ID |
+| `parent` | number | 父级评论 ID |
+| `author` | number | 作者用户 ID |
+| `author_name` | string | 作者显示名称 |
+| `author_email` | string | 作者邮箱 |
+| `author_url` | string | 作者 URL |
+| `date` | string | 评论日期 |
+| `content` | object | 评论内容对象 |
+| `link` | string | 评论永久链接 |
+
+</div>
+
+---
+
+### 更新评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_update_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "commentContent",
+            "type": "long-input",
+            "title": "评论内容",
+            "placeholder": "评论文本"
+        },
+        {
+            "id": "commentId",
+            "type": "short-input",
+            "title": "评论 ID",
+            "placeholder": "输入评论 ID"
+        },
+        {
+            "id": "commentStatus",
+            "type": "dropdown",
+            "title": "评论状态",
+            "options": [
+                {
+                    "label": "已批准",
+                    "id": "approved"
+                },
+                {
+                    "label": "待审",
+                    "id": "hold"
+                },
+                {
+                    "label": "垃圾评论",
+                    "id": "spam"
+                },
+                {
+                    "label": "回收站",
+                    "id": "trash"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新评论 (<code>wordpress_update_comment</code>)</div>
+
+更新 WordPress.com 中的评论（内容或状态）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `commentId` | number | 是 | 要更新的评论 ID |
+| `content` | string | 否 | 更新后的评论内容 |
+| `status` | string | 否 | 评论状态：approved（已批准）、hold（待审）、spam（垃圾）、trash（回收站）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 评论 ID |
+| `post` | number | 文章 ID |
+| `parent` | number | 父评论 ID |
+| `author` | number | 作者用户 ID |
+| `author_name` | string | 作者显示名称 |
+| `author_email` | string | 作者邮箱 |
+| `author_url` | string | 作者 URL |
+| `date` | string | 评论日期 |
+| `content` | object | 评论内容对象 |
+| `link` | string | 评论固定链接 |
+
+</div>
+
+---
+
+### 删除评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_delete_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中找到。",
+            "required": true
+        },
+        {
+            "id": "commentId",
+            "type": "short-input",
+            "title": "评论 ID",
+            "placeholder": "输入评论 ID"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "强制删除"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除评论（<code>wordpress_delete_comment</code>）</div>
+
+从 WordPress.com 删除一条评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `commentId` | number | 是 | 要删除的评论 ID |
+| `force` | boolean | 否 | 绕过回收站并永久强制删除 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 评论是否已被删除 |
+| `id` | number | 评论 ID |
+| `post` | number | 文章 ID |
+| `parent` | number | 父评论 ID |
+| `author` | number | 作者用户 ID |
+| `author_name` | string | 作者显示名称 |
+| `author_email` | string | 作者电子邮件 |
+| `author_url` | string | 作者 URL |
+| `date` | string | 评论日期 |
+| `content` | object | 评论内容对象 |
+| `link` | string | 评论永久链接 |
+
+</div>
+
+---
+
+### 创建分类
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_create_category"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中找到。",
+            "required": true
+        },
+        {
+            "id": "categoryName",
+            "type": "short-input",
+            "title": "分类名称",
+            "placeholder": "分类名称"
+        },
+        {
+            "id": "categoryDescription",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "分类描述"
+        },
+        {
+            "id": "categoryParent",
+            "type": "short-input",
+            "title": "父分类 ID",
+            "placeholder": "父分类 ID"
+        },
+        {
+            "id": "categorySlug",
+            "type": "short-input",
+            "title": "分类别名",
+            "placeholder": "URL 别名（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建分类目录（<code>wordpress_create_category</code>）</div>
+
+在 WordPress.com 中创建新的分类目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `name` | string | 是 | 分类目录名称 |
+| `description` | string | 否 | 分类目录描述 |
+| `parent` | number | 否 | 层级分类目录的父分类 ID |
+| `slug` | string | 否 | 分类目录的 URL 别名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 分类目录 ID |
+| `count` | number | 该分类目录下的文章数量 |
+| `description` | string | 分类目录描述 |
+| `link` | string | 分类目录归档 URL |
+| `name` | string | 分类目录名称 |
+| `slug` | string | 分类目录别名 |
+| `taxonomy` | string | 分类法名称 |
+
+</div>
+
+---
+
+### 列出分类目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "文章列表",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "页面列表",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "媒体列表",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "评论列表",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "分类列表",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "标签列表",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_categories"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索筛选",
+            "placeholder": "用于筛选结果的搜索词"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出分类 (<code>wordpress_list_categories</code>)</div>
+
+从 WordPress.com 列出分类
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的分类数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `search` | string | 否 | 用于筛选分类的搜索词 |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 分类 ID |
+| `count` | number | 该分类下的文章数量 |
+| `description` | string | 分类描述 |
+| `link` | string | 分类归档 URL |
+| `name` | string | 分类名称 |
+| `slug` | string | 分类别名（slug） |
+| `taxonomy` | string | 分类法名称 |
+
+</div>
+
+---
+
+### 创建标签
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_create_tag"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "tagName",
+            "type": "short-input",
+            "title": "标签名称",
+            "placeholder": "标签名称"
+        },
+        {
+            "id": "tagDescription",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "标签描述"
+        },
+        {
+            "id": "tagSlug",
+            "type": "short-input",
+            "title": "标签别名",
+            "placeholder": "URL 别名（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建标签 (<code>wordpress_create_tag</code>)</div>
+
+在 WordPress.com 中创建新标签
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `name` | string | 是 | 标签名称 |
+| `description` | string | 否 | 标签描述 |
+| `slug` | string | 否 | 标签的 URL 别名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 标签 ID |
+| `count` | number | 使用该标签的文章数量 |
+| `description` | string | 标签描述 |
+| `link` | string | 标签归档页 URL |
+| `name` | string | 标签名称 |
+| `slug` | string | 标签别名 |
+
+</div>
+
+---
+
+### 标签列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_tags"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索筛选",
+            "placeholder": "用于过滤结果的搜索词"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出标签 (<code>wordpress_list_tags</code>)</div>
+
+从 WordPress.com 列出标签
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的标签数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `search` | string | 否 | 用于筛选标签的搜索词 |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 标签 ID |
+| `count` | number | 使用该标签的文章数量 |
+| `description` | string | 标签描述 |
+| `link` | string | 标签归档 URL |
+| `name` | string | 标签名称 |
+| `slug` | string | 标签别名 |
+
+</div>
+
+---
+
+### 获取当前用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25.925 25.925'>
+      <g fill='currentColor'>
+        <path d='M1.843,12.962c0,4.401,2.557,8.205,6.267,10.008L2.805,8.437C2.189,9.819,1.843,11.35,1.843,12.962z M20.469,12.4c0-1.374-0.493-2.326-0.917-3.066c-0.563-0.917-1.092-1.691-1.092-2.608c0-1.021,0.775-1.973,1.867-1.973c0.049,0,0.096,0.006,0.145,0.008c-1.979-1.813-4.615-2.919-7.509-2.919c-3.885,0-7.303,1.993-9.291,5.013c0.261,0.008,0.507,0.013,0.716,0.013c1.163,0,2.963-0.142,2.963-0.142c0.599-0.035,0.67,0.846,0.071,0.917c0,0-0.603,0.07-1.272,0.105l4.049,12.045l2.434-7.298l-1.732-4.747c-0.599-0.035-1.167-0.105-1.167-0.105c-0.6-0.036-0.529-0.953,0.07-0.917c0,0,1.836,0.142,2.928,0.142c1.163,0,2.964-0.142,2.964-0.142c0.6-0.035,0.67,0.846,0.071,0.917c0,0-0.604,0.07-1.272,0.105l4.018,11.953l1.11-3.706C20.187,14.55,20.469,13.353,20.469,12.4z M13.158,13.935l-3.337,9.694c0.997,0.293,2.05,0.453,3.142,0.453c1.294,0,2.537-0.224,3.693-0.63c-0.029-0.048-0.057-0.099-0.08-0.153L13.158,13.935z M22.72,7.627c0.049,0.354,0.075,0.734,0.075,1.144c0,1.128-0.212,2.396-0.846,3.982l-3.396,9.82c3.306-1.928,5.529-5.509,5.529-9.611C24.082,11.028,23.588,9.21,22.72,7.627z' />
+        <path d='M0,12.962c0,7.147,5.815,12.963,12.962,12.963c7.149,0,12.963-5.816,12.963-12.963S20.111,0,12.963,0S0,5.814,0,12.962z M0.594,12.962c0-6.819,5.548-12.368,12.368-12.368s12.369,5.549,12.369,12.368S19.782,25.33,12.963,25.33S0.594,19.781,0.594,12.962z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_get_current_user"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取当前用户（<code>wordpress_get_current_user</code>）</div>
+
+获取当前已认证的 WordPress.com 用户的相关信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 用户 ID |
+| `username` | string | 用户名 |
+| `name` | string | 显示名称 |
+| `first_name` | string | 名字 |
+| `last_name` | string | 姓氏 |
+| `email` | string | 电子邮件地址 |
+| `url` | string | 用户网站 URL |
+| `description` | string | 用户简介 |
+| `link` | string | 作者归档 URL |
+| `slug` | string | 用户别名（Slug）|
+| `roles` | array | 用户角色 |
+
+</div>
+
+---
+
+### 列出用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25.925 25.925'>
+      <g fill='currentColor'>
+        <path d='M1.843,12.962c0,4.401,2.557,8.205,6.267,10.008L2.805,8.437C2.189,9.819,1.843,11.35,1.843,12.962z M20.469,12.4c0-1.374-0.493-2.326-0.917-3.066c-0.563-0.917-1.092-1.691-1.092-2.608c0-1.021,0.775-1.973,1.867-1.973c0.049,0,0.096,0.006,0.145,0.008c-1.979-1.813-4.615-2.919-7.509-2.919c-3.885,0-7.303,1.993-9.291,5.013c0.261,0.008,0.507,0.013,0.716,0.013c1.163,0,2.963-0.142,2.963-0.142c0.599-0.035,0.67,0.846,0.071,0.917c0,0-0.603,0.07-1.272,0.105l4.049,12.045l2.434-7.298l-1.732-4.747c-0.599-0.035-1.167-0.105-1.167-0.105c-0.6-0.036-0.529-0.953,0.07-0.917c0,0,1.836,0.142,2.928,0.142c1.163,0,2.964-0.142,2.964-0.142c0.6-0.035,0.67,0.846,0.071,0.917c0,0-0.604,0.07-1.272,0.105l4.018,11.953l1.11-3.706C20.187,14.55,20.469,13.353,20.469,12.4z M13.158,13.935l-3.337,9.694c0.997,0.293,2.05,0.453,3.142,0.453c1.294,0,2.537-0.224,3.693-0.63c-0.029-0.048-0.057-0.099-0.08-0.153L13.158,13.935z M22.72,7.627c0.049,0.354,0.075,0.734,0.075,1.144c0,1.128-0.212,2.396-0.846,3.982l-3.396,9.82c3.306-1.928,5.529-5.509,5.529-9.611C24.082,11.028,23.588,9.21,22.72,7.627z' />
+        <path d='M0,12.962c0,7.147,5.815,12.963,12.962,12.963c7.149,0,12.963-5.816,12.963-12.963S20.111,0,12.963,0S0,5.814,0,12.962z M0.594,12.962c0-6.819,5.548-12.368,12.368-12.368s12.369,5.549,12.369,12.368S19.782,25.33,12.963,25.33S0.594,19.781,0.594,12.962z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_list_users"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账号",
+            "placeholder": "选择 WordPress 账号",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "roles",
+            "type": "short-input",
+            "title": "用户角色",
+            "placeholder": "以逗号分隔的角色名称（例如：administrator, editor）"
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最大 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "搜索筛选",
+            "placeholder": "用于筛选结果的搜索词"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "降序",
+                    "id": "desc"
+                },
+                {
+                    "label": "升序",
+                    "id": "asc"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出用户（<code>wordpress_list_users</code>）</div>
+
+列出 WordPress.com 中的用户（需要管理员权限）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `perPage` | number | 否 | 每次请求返回的用户数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `search` | string | 否 | 用于筛选用户的搜索词 |
+| `roles` | string | 否 | 以逗号分隔的角色名称，用于按角色筛选 |
+| `order` | string | 否 | 排序方向：asc 或 desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | number | 用户 ID |
+| `username` | string | 用户名 |
+| `name` | string | 显示名称 |
+| `first_name` | string | 名 |
+| `last_name` | string | 姓 |
+| `email` | string | 电子邮件地址 |
+| `url` | string | 用户网站 URL |
+| `description` | string | 用户简介 |
+| `link` | string | 作者归档页 URL |
+| `slug` | string | 用户别名（slug） |
+| `roles` | array | 用户角色 |
+
+</div>
+
+---
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25.925 25.925'>
+      <g fill='currentColor'>
+        <path d='M1.843,12.962c0,4.401,2.557,8.205,6.267,10.008L2.805,8.437C2.189,9.819,1.843,11.35,1.843,12.962z M20.469,12.4c0-1.374-0.493-2.326-0.917-3.066c-0.563-0.917-1.092-1.691-1.092-2.608c0-1.021,0.775-1.973,1.867-1.973c0.049,0,0.096,0.006,0.145,0.008c-1.979-1.813-4.615-2.919-7.509-2.919c-3.885,0-7.303,1.993-9.291,5.013c0.261,0.008,0.507,0.013,0.716,0.013c1.163,0,2.963-0.142,2.963-0.142c0.599-0.035,0.67,0.846,0.071,0.917c0,0-0.603,0.07-1.272,0.105l4.049,12.045l2.434-7.298l-1.732-4.747c-0.599-0.035-1.167-0.105-1.167-0.105c-0.6-0.036-0.529-0.953,0.07-0.917c0,0,1.836,0.142,2.928,0.142c1.163,0,2.964-0.142,2.964-0.142c0.6-0.035,0.67,0.846,0.071,0.917c0,0-0.604,0.07-1.272,0.105l4.018,11.953l1.11-3.706C20.187,14.55,20.469,13.353,20.469,12.4z M13.158,13.935l-3.337,9.694c0.997,0.293,2.05,0.453,3.142,0.453c1.294,0,2.537-0.224,3.693-0.63c-0.029-0.048-0.057-0.099-0.08-0.153L13.158,13.935z M22.72,7.627c0.049,0.354,0.075,0.734,0.075,1.144c0,1.128-0.212,2.396-0.846,3.982l-3.396,9.82c3.306-1.928,5.529-5.509,5.529-9.611C24.082,11.028,23.588,9.21,22.72,7.627z' />
+        <path d='M0,12.962c0,7.147,5.815,12.963,12.962,12.963c7.149,0,12.963-5.816,12.963-12.963S20.111,0,12.963,0S0,5.814,0,12.962z M0.594,12.962c0-6.819,5.548-12.368,12.368-12.368s12.369,5.549,12.369,12.368S19.782,25.33,12.963,25.33S0.594,19.781,0.594,12.962z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_get_user"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在"设置 → 常规"中查找。",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "输入用户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户 (<code>wordpress_get_user</code>)</div>
+
+通过 ID 从 WordPress.com 获取指定用户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `userId` | number | 是 | 要检索的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 用户 ID |
+| `username` | string | 用户名 |
+| `name` | string | 显示名称 |
+| `first_name` | string | 名字 |
+| `last_name` | string | 姓氏 |
+| `email` | string | 电子邮件地址 |
+| `url` | string | 用户网站 URL |
+| `description` | string | 用户简介 |
+| `link` | string | 作者归档 URL |
+| `slug` | string | 用户别名 |
+| `roles` | array | 用户角色 |
+
+</div>
+
+---
+
+### 搜索内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25.925 25.925'>
+      <g fill='currentColor'>
+        <path d='M1.843,12.962c0,4.401,2.557,8.205,6.267,10.008L2.805,8.437C2.189,9.819,1.843,11.35,1.843,12.962z M20.469,12.4c0-1.374-0.493-2.326-0.917-3.066c-0.563-0.917-1.092-1.691-1.092-2.608c0-1.021,0.775-1.973,1.867-1.973c0.049,0,0.096,0.006,0.145,0.008c-1.979-1.813-4.615-2.919-7.509-2.919c-3.885,0-7.303,1.993-9.291,5.013c0.261,0.008,0.507,0.013,0.716,0.013c1.163,0,2.963-0.142,2.963-0.142c0.599-0.035,0.67,0.846,0.071,0.917c0,0-0.603,0.07-1.272,0.105l4.049,12.045l2.434-7.298l-1.732-4.747c-0.599-0.035-1.167-0.105-1.167-0.105c-0.6-0.036-0.529-0.953,0.07-0.917c0,0,1.836,0.142,2.928,0.142c1.163,0,2.964-0.142,2.964-0.142c0.6-0.035,0.67,0.846,0.071,0.917c0,0-0.604,0.07-1.272,0.105l4.018,11.953l1.11-3.706C20.187,14.55,20.469,13.353,20.469,12.4z M13.158,13.935l-3.337,9.694c0.997,0.293,2.05,0.453,3.142,0.453c1.294,0,2.537-0.224,3.693-0.63c-0.029-0.048-0.057-0.099-0.08-0.153L13.158,13.935z M22.72,7.627c0.049,0.354,0.075,0.734,0.075,1.144c0,1.128-0.212,2.396-0.846,3.982l-3.396,9.82c3.306-1.928,5.529-5.509,5.529-9.611C24.082,11.028,23.588,9.21,22.72,7.627z' />
+        <path d='M0,12.962c0,7.147,5.815,12.963,12.962,12.963c7.149,0,12.963-5.816,12.963-12.963S20.111,0,12.963,0S0,5.814,0,12.962z M0.594,12.962c0-6.819,5.548-12.368,12.368-12.368s12.369,5.549,12.369,12.368S19.782,25.33,12.963,25.33S0.594,19.781,0.594,12.962z' />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "创建文章",
+                    "id": "wordpress_create_post"
+                },
+                {
+                    "label": "更新文章",
+                    "id": "wordpress_update_post"
+                },
+                {
+                    "label": "删除文章",
+                    "id": "wordpress_delete_post"
+                },
+                {
+                    "label": "获取文章",
+                    "id": "wordpress_get_post"
+                },
+                {
+                    "label": "列出文章",
+                    "id": "wordpress_list_posts"
+                },
+                {
+                    "label": "创建页面",
+                    "id": "wordpress_create_page"
+                },
+                {
+                    "label": "更新页面",
+                    "id": "wordpress_update_page"
+                },
+                {
+                    "label": "删除页面",
+                    "id": "wordpress_delete_page"
+                },
+                {
+                    "label": "获取页面",
+                    "id": "wordpress_get_page"
+                },
+                {
+                    "label": "列出页面",
+                    "id": "wordpress_list_pages"
+                },
+                {
+                    "label": "上传媒体",
+                    "id": "wordpress_upload_media"
+                },
+                {
+                    "label": "获取媒体",
+                    "id": "wordpress_get_media"
+                },
+                {
+                    "label": "列出媒体",
+                    "id": "wordpress_list_media"
+                },
+                {
+                    "label": "删除媒体",
+                    "id": "wordpress_delete_media"
+                },
+                {
+                    "label": "创建评论",
+                    "id": "wordpress_create_comment"
+                },
+                {
+                    "label": "列出评论",
+                    "id": "wordpress_list_comments"
+                },
+                {
+                    "label": "更新评论",
+                    "id": "wordpress_update_comment"
+                },
+                {
+                    "label": "删除评论",
+                    "id": "wordpress_delete_comment"
+                },
+                {
+                    "label": "创建分类",
+                    "id": "wordpress_create_category"
+                },
+                {
+                    "label": "列出分类",
+                    "id": "wordpress_list_categories"
+                },
+                {
+                    "label": "创建标签",
+                    "id": "wordpress_create_tag"
+                },
+                {
+                    "label": "列出标签",
+                    "id": "wordpress_list_tags"
+                },
+                {
+                    "label": "获取当前用户",
+                    "id": "wordpress_get_current_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "wordpress_list_users"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "wordpress_get_user"
+                },
+                {
+                    "label": "搜索内容",
+                    "id": "wordpress_search_content"
+                }
+            ],
+            "defaultValue": "wordpress_search_content"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "WordPress 账户",
+            "placeholder": "选择 WordPress 账户",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "站点 ID 或域名",
+            "placeholder": "例如：12345678 或 yoursite.wordpress.com",
+            "description": "您的 WordPress.com 站点 ID 或域名。可在设置 → 常规中查找。",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "searchType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "options": [
+                {
+                    "label": "文章",
+                    "id": "post"
+                },
+                {
+                    "label": "页面",
+                    "id": "page"
+                },
+                {
+                    "label": "附件",
+                    "id": "attachment"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "10（最多 100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索内容（<code>wordpress_search_content</code>）</div>
+
+在 WordPress.com 中跨所有内容类型进行搜索（文章、页面、媒体）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 是 | WordPress.com 站点 ID 或域名 \(例如：12345678 或 mysite.wordpress.com\) |
+| `query` | string | 是 | 搜索查询 |
+| `perPage` | number | 否 | 每次请求返回的结果数量 \(默认：10，最大：100\) |
+| `page` | number | 否 | 分页页码 |
+| `type` | string | 否 | 按内容类型筛选：post、page、attachment |
+| `subtype` | string | 否 | 按文章类型别名筛选 \(例如：post、page\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | 内容 ID |
+| `title` | string | 内容标题 |
+| `url` | string | 内容 URL |
+| `type` | string | 内容类型 \(post、page、attachment\) |
+
+</div>
+
+---
+
+## 使用说明
+
+与 WordPress 集成，用于创建、更新和管理文章、页面、媒体、评论、分类、标签及用户。支持通过 OAuth 连接 WordPress.com 站点，以及使用应用密码身份验证连接自托管 WordPress 站点。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`wordpress`

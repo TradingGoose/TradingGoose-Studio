@@ -1,39 +1,43 @@
 ---
-title: Bloque de flujo de trabajo
-description: Ejecuta otro flujo de trabajo dentro del flujo actual
+title: Bloque de Flujo de Trabajo
+description: Ejecutar otro flujo de trabajo dentro del flujo actual
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-## Qué hace
+## Qué Hace
 
-<div className='flex justify-center my-6'>
-  <Image
-    src='/static/blocks/workflow.png'
-    alt='Configuración del bloque de flujo de trabajo'
-    width={400}
-    height={280}
-    className='rounded-xl border border-border shadow-sm'
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow"
+    color="#705335"
+    hideHeader
+    subBlocks={[
+      { "id": "workflowId", "title": "Seleccionar Flujo de Trabajo", "type": "dropdown", "required": true },
+      { "id": "input", "title": "Variable de Entrada (Opcional)", "type": "short-input", "placeholder": "Selecciona una variable para pasar al flujo de trabajo hijo", "description": "Esta variable estará disponible como start.input en el flujo de trabajo hijo" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
-Coloca un bloque de Flujo de trabajo cuando quieras llamar a un flujo de trabajo secundario como parte de un flujo más grande. El bloque ejecuta la última versión implementada de ese flujo de trabajo, espera a que termine y luego continúa con el principal.
+Añade un bloque de Flujo de Trabajo cuando desees invocar un flujo de trabajo hijo como parte de un flujo mayor. El bloque ejecuta la última versión desplegada de ese flujo de trabajo, espera a que finalice y luego continúa con el flujo principal.
 
-## Cómo configurarlo
+## Configuración
 
-1. **Elige un flujo de trabajo** del menú desplegable (las auto-referencias están bloqueadas para evitar bucles).
-2. **Asigna entradas**: Si el flujo de trabajo secundario tiene un disparador de Formulario de entrada, verás cada campo y podrás conectar variables del principal. Los valores asignados son los que recibe el secundario.
-3. **Salidas**: Después de que el secundario finaliza, el bloque expone:
-   - `result` – la respuesta final del flujo de trabajo secundario
+1. **Selecciona un flujo de trabajo** en el menú desplegable (las autorreferencias están bloqueadas para evitar bucles).
+2. **Mapea las entradas**: Si el flujo de trabajo hijo tiene un disparador de Formulario de Entrada, verás cada campo y podrás conectar variables del flujo principal. Los valores mapeados son los que recibe el flujo hijo.
+3. **Salidas**: Una vez que el flujo hijo finaliza, el bloque expone:
+   - `result` – la respuesta final del flujo de trabajo hijo
    - `success` – si se ejecutó sin errores
    - `error` – mensaje cuando la ejecución falla
 
-## Notas de ejecución
+## Notas de Ejecución
 
-- Los flujos de trabajo secundarios se ejecutan en el mismo contexto de espacio de trabajo, por lo que las variables de entorno y herramientas se mantienen.
-- El bloque utiliza el versionado de implementación: cualquier ejecución de API, programación, webhook, manual o chat llama a la instantánea implementada. Vuelve a implementar el secundario cuando lo cambies.
-- Si el secundario falla, el bloque genera un error a menos que lo gestiones posteriormente.
+- Los flujos de trabajo hijo se ejecutan en el mismo contexto del espacio de trabajo, por lo que las variables de entorno y las herramientas se transfieren.
+- El bloque utiliza versionado de despliegue: cualquier ejecución mediante API, programación, webhook, manual o chat invoca el snapshot desplegado. Vuelve a desplegar el flujo hijo cuando lo modifiques.
+- Si el flujo hijo falla, el bloque genera un error a menos que lo gestiones en etapas posteriores.
 
 <Callout>
 Mantén los flujos de trabajo secundarios enfocados. Los flujos pequeños y reutilizables facilitan su combinación sin crear anidamientos profundos.

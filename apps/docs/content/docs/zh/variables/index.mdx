@@ -1,19 +1,31 @@
 ---
-title: Variables
-description: Working with workflow and environment variables.
+title: 变量
+description: 使用工作流与环境变量。
 ---
+
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-    ## Overview
+TradingGoose 支持两套互补的变量系统。**环境变量**用于存储配置值和密钥（API 密钥、令牌、数据库 URL），这些值独立于工作流定义之外，在执行时解析。**工作流变量**作为单个工作流内部的全局数据存储，允许任意模块在运行期间读写共享状态。
 
-    This page introduces the variables section.
+两者共同覆盖了外部配置与内部数据流的需求。环境变量确保密钥安全，并可在工作流之间移植；而工作流变量则允许各模块在无需直接连接的情况下相互传递数据。
 
-    <Cards>
-      <Card title="Environment Variables" href="/environment-variables" >
-        Jump into the detailed guides for Environment Variables.
-      </Card>
-      
-      <Card title="Workflow Variables" href="/workflow-variables" >
-        Jump into the detailed guides for Workflow Variables .
-      </Card>
-    </Cards>
+## 变量类型
+
+<Cards>
+  <Card title="环境变量" href="/variables/environment-variables">
+    在个人或工作区级别管理 API 密钥、令牌及其他敏感信息。使用双花括号语法引用，并在工作流运行时解析。
+  </Card>
+  <Card title="工作流变量" href="/variables/workflow-variables">
+    作用域限定于单个工作流的全局键值存储。可从任意模块创建、读取和更新变量，以在工作流中共享状态。
+  </Card>
+</Cards>
+
+## 快速对比
+
+| | 环境变量 | 工作流变量 |
+|---|---|---|
+| **作用域** | 个人或工作区范围 | 单个工作流 |
+| **生命周期** | 跨所有运行持久保留 | 跨运行持久保留（除非重置）|
+| **典型用途** | API 密钥、令牌、配置 | 模块间数据传递、状态管理 |
+| **访问语法** | `{{VARIABLE_NAME}}` | `<variable_name>`（通过下拉菜单）|
+| **可编辑者** | 设置页面（受权限限制）| 编辑器中的变量面板 |

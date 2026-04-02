@@ -1,0 +1,199 @@
+---
+title: Calendly 触发器
+description: 当有人在 Calendly 上安排新事件时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="calendly"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+当有人在 Calendly 上安排新事件时触发工作流
+
+<Callout type="info">
+  这是一个**基于 Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以将事件发送至 TradingGoose。
+</Callout>
+
+## 事件
+
+### Calendly 受邀者已创建
+
+当有人在 Calendly 上安排新事件时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Created"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "请输入您的 Calendly 个人访问令牌",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Webhook 订阅的组织 URI。请通过 \"获取当前用户\" 操作获取此信息。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器会将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### Calendly 受邀者已取消
+
+当有人取消 Calendly 上已安排的事件时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Canceled"
+    type="calendly_invitee_canceled"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "请输入您的 Calendly 个人访问令牌",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Webhook 订阅的组织 URI。请通过 \"获取当前用户\" 操作获取此信息。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器会将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### Calendly Webhook
+
+由任意 Calendly Webhook 事件触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Webhook"
+    type="calendly_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "请输入您的 Calendly 个人访问令牌",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Webhook 订阅的组织 URI。请通过 \"获取当前用户\" 操作获取此信息。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件类型（invitee.created、invitee.canceled 或 routing_form_submission.created）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook 事件创建时间戳"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "创建此 Webhook 的 Calendly 用户 URI"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "完整事件负载（结构因事件类型而异）"
+      }
+  ]}
+/>
+
+---
+
+### Calendly 路由表单已提交
+
+当有人提交 Calendly 路由表单时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Routing Form Submitted"
+    type="calendly_routing_form_submitted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "请输入您的 Calendly 个人访问令牌",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "用于 Webhook 订阅的组织 URI。可通过\"获取当前用户\"操作获取。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---

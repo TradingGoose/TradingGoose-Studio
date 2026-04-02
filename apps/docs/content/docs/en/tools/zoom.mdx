@@ -1,0 +1,1432 @@
+---
+title: Zoom
+description: Create and manage Zoom meetings and recordings
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="zoom"
+  color="#2D8CFF"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Create Meeting
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_create_meeting"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "User ID",
+            "placeholder": "me (or user ID/email)",
+            "required": true
+        },
+        {
+            "id": "topic",
+            "type": "short-input",
+            "title": "Topic",
+            "placeholder": "Meeting topic",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Meeting Type",
+            "options": [
+                {
+                    "label": "Scheduled",
+                    "id": "2"
+                },
+                {
+                    "label": "Instant",
+                    "id": "1"
+                },
+                {
+                    "label": "Recurring (no fixed time)",
+                    "id": "3"
+                },
+                {
+                    "label": "Recurring (fixed time)",
+                    "id": "8"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "Start Time",
+            "placeholder": "2025-06-03T10:00:00Z"
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "Duration (minutes)",
+            "placeholder": "30"
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "Timezone",
+            "placeholder": "America/Los_Angeles"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Meeting password"
+        },
+        {
+            "id": "agenda",
+            "type": "long-input",
+            "title": "Agenda",
+            "placeholder": "Meeting agenda"
+        },
+        {
+            "id": "hostVideo",
+            "type": "switch",
+            "title": "Host Video"
+        },
+        {
+            "id": "participantVideo",
+            "type": "switch",
+            "title": "Participant Video"
+        },
+        {
+            "id": "joinBeforeHost",
+            "type": "switch",
+            "title": "Join Before Host"
+        },
+        {
+            "id": "muteUponEntry",
+            "type": "switch",
+            "title": "Mute Upon Entry"
+        },
+        {
+            "id": "waitingRoom",
+            "type": "switch",
+            "title": "Waiting Room"
+        },
+        {
+            "id": "autoRecording",
+            "type": "dropdown",
+            "title": "Auto Recording",
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Local",
+                    "id": "local"
+                },
+                {
+                    "label": "Cloud",
+                    "id": "cloud"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Meeting (<code>zoom_create_meeting</code>)</div>
+
+Create a new Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | The user ID or email address. Use "me" for the authenticated user. |
+| `topic` | string | Yes | Meeting topic |
+| `type` | number | No | Meeting type: 1=instant, 2=scheduled, 3=recurring no fixed time, 8=recurring fixed time |
+| `startTime` | string | No | Meeting start time in ISO 8601 format \(e.g., 2025-06-03T10:00:00Z\) |
+| `duration` | number | No | Meeting duration in minutes |
+| `timezone` | string | No | Timezone for the meeting \(e.g., America/Los_Angeles\) |
+| `password` | string | No | Meeting password |
+| `agenda` | string | No | Meeting agenda |
+| `hostVideo` | boolean | No | Start with host video on |
+| `participantVideo` | boolean | No | Start with participant video on |
+| `joinBeforeHost` | boolean | No | Allow participants to join before host |
+| `muteUponEntry` | boolean | No | Mute participants upon entry |
+| `waitingRoom` | boolean | No | Enable waiting room |
+| `autoRecording` | string | No | Auto recording setting: local, cloud, or none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Meeting ID |
+| `uuid` | string | Meeting UUID |
+| `host_id` | string | Host user ID |
+| `host_email` | string | Host email |
+| `topic` | string | Meeting topic |
+| `type` | number | Meeting type |
+| `status` | string | Meeting status |
+| `start_time` | string | Start time |
+| `duration` | number | Duration in minutes |
+| `timezone` | string | Timezone |
+| `agenda` | string | Meeting agenda |
+| `created_at` | string | Creation timestamp |
+| `start_url` | string | Host start URL |
+| `join_url` | string | Participant join URL |
+| `password` | string | Meeting password |
+
+</div>
+
+
+
+---
+
+### List Meetings
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_list_meetings"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "User ID",
+            "placeholder": "me (or user ID/email)",
+            "required": true
+        },
+        {
+            "id": "listType",
+            "type": "dropdown",
+            "title": "Meeting Type Filter",
+            "options": [
+                {
+                    "label": "Scheduled",
+                    "id": "scheduled"
+                },
+                {
+                    "label": "Live",
+                    "id": "live"
+                },
+                {
+                    "label": "Upcoming",
+                    "id": "upcoming"
+                },
+                {
+                    "label": "Upcoming Meetings",
+                    "id": "upcoming_meetings"
+                },
+                {
+                    "label": "Previous Meetings",
+                    "id": "previous_meetings"
+                }
+            ]
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "Number of results (max 300)"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "Page Token",
+            "placeholder": "Token for next page"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Meetings (<code>zoom_list_meetings</code>)</div>
+
+List all meetings for a Zoom user
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | The user ID or email address. Use "me" for the authenticated user. |
+| `type` | string | No | Meeting type filter: scheduled, live, upcoming, upcoming_meetings, or previous_meetings |
+| `pageSize` | number | No | Number of records per page \(max 300\) |
+| `nextPageToken` | string | No | Token for pagination to get next page of results |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `meetings` | array | List of meetings |
+| `pageCount` | number | Total number of pages |
+| `pageNumber` | number | Current page number |
+| `pageSize` | number | Number of records per page |
+| `totalRecords` | number | Total number of records |
+
+</div>
+
+
+
+---
+
+### Get Meeting
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_get_meeting"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        },
+        {
+            "id": "occurrenceId",
+            "type": "short-input",
+            "title": "Occurrence ID",
+            "placeholder": "For recurring meetings"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Meeting (<code>zoom_get_meeting</code>)</div>
+
+Get details of a specific Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID |
+| `occurrenceId` | string | No | Occurrence ID for recurring meetings |
+| `showPreviousOccurrences` | boolean | No | Show previous occurrences for recurring meetings |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Meeting ID |
+| `uuid` | string | Meeting UUID |
+| `host_id` | string | Host user ID |
+| `host_email` | string | Host email |
+| `topic` | string | Meeting topic |
+| `type` | number | Meeting type |
+| `status` | string | Meeting status |
+| `start_time` | string | Start time |
+| `duration` | number | Duration in minutes |
+| `timezone` | string | Timezone |
+| `agenda` | string | Meeting agenda |
+| `created_at` | string | Creation timestamp |
+| `start_url` | string | Host start URL |
+| `join_url` | string | Participant join URL |
+| `password` | string | Meeting password |
+| `settings` | object | Meeting settings |
+| `recurrence` | object | Recurrence settings |
+
+</div>
+
+
+
+---
+
+### Update Meeting
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_update_meeting"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        },
+        {
+            "id": "topicUpdate",
+            "type": "short-input",
+            "title": "Topic",
+            "placeholder": "Meeting topic (optional)"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Meeting Type",
+            "options": [
+                {
+                    "label": "Scheduled",
+                    "id": "2"
+                },
+                {
+                    "label": "Instant",
+                    "id": "1"
+                },
+                {
+                    "label": "Recurring (no fixed time)",
+                    "id": "3"
+                },
+                {
+                    "label": "Recurring (fixed time)",
+                    "id": "8"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "Start Time",
+            "placeholder": "2025-06-03T10:00:00Z"
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "Duration (minutes)",
+            "placeholder": "30"
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "Timezone",
+            "placeholder": "America/Los_Angeles"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Meeting password"
+        },
+        {
+            "id": "agenda",
+            "type": "long-input",
+            "title": "Agenda",
+            "placeholder": "Meeting agenda"
+        },
+        {
+            "id": "hostVideo",
+            "type": "switch",
+            "title": "Host Video"
+        },
+        {
+            "id": "participantVideo",
+            "type": "switch",
+            "title": "Participant Video"
+        },
+        {
+            "id": "joinBeforeHost",
+            "type": "switch",
+            "title": "Join Before Host"
+        },
+        {
+            "id": "muteUponEntry",
+            "type": "switch",
+            "title": "Mute Upon Entry"
+        },
+        {
+            "id": "waitingRoom",
+            "type": "switch",
+            "title": "Waiting Room"
+        },
+        {
+            "id": "autoRecording",
+            "type": "dropdown",
+            "title": "Auto Recording",
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Local",
+                    "id": "local"
+                },
+                {
+                    "label": "Cloud",
+                    "id": "cloud"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Meeting (<code>zoom_update_meeting</code>)</div>
+
+Update an existing Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID to update |
+| `topic` | string | No | Meeting topic |
+| `type` | number | No | Meeting type: 1=instant, 2=scheduled, 3=recurring no fixed time, 8=recurring fixed time |
+| `startTime` | string | No | Meeting start time in ISO 8601 format \(e.g., 2025-06-03T10:00:00Z\) |
+| `duration` | number | No | Meeting duration in minutes |
+| `timezone` | string | No | Timezone for the meeting \(e.g., America/Los_Angeles\) |
+| `password` | string | No | Meeting password |
+| `agenda` | string | No | Meeting agenda |
+| `hostVideo` | boolean | No | Start with host video on |
+| `participantVideo` | boolean | No | Start with participant video on |
+| `joinBeforeHost` | boolean | No | Allow participants to join before host |
+| `muteUponEntry` | boolean | No | Mute participants upon entry |
+| `waitingRoom` | boolean | No | Enable waiting room |
+| `autoRecording` | string | No | Auto recording setting: local, cloud, or none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Delete Meeting
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_delete_meeting"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        },
+        {
+            "id": "occurrenceId",
+            "type": "short-input",
+            "title": "Occurrence ID",
+            "placeholder": "For recurring meetings"
+        },
+        {
+            "id": "cancelMeetingReminder",
+            "type": "switch",
+            "title": "Send Cancellation Email"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Meeting (<code>zoom_delete_meeting</code>)</div>
+
+Delete or cancel a Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID to delete |
+| `occurrenceId` | string | No | Occurrence ID for deleting a specific occurrence of a recurring meeting |
+| `scheduleForReminder` | boolean | No | Send cancellation reminder email to registrants |
+| `cancelMeetingReminder` | boolean | No | Send cancellation email to registrants and alternative hosts |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Meeting Invitation
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_get_meeting_invitation"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Meeting Invitation (<code>zoom_get_meeting_invitation</code>)</div>
+
+Get the meeting invitation text for a Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### List Recordings
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_list_recordings"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "User ID",
+            "placeholder": "me (or user ID/email)",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "Number of results (max 300)"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "Page Token",
+            "placeholder": "Token for next page"
+        },
+        {
+            "id": "fromDate",
+            "type": "datetime-input",
+            "title": "From Date",
+            "placeholder": "yyyy-mm-dd (within last 6 months)"
+        },
+        {
+            "id": "toDate",
+            "type": "datetime-input",
+            "title": "To Date",
+            "placeholder": "yyyy-mm-dd"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Recordings (<code>zoom_list_recordings</code>)</div>
+
+List all cloud recordings for a Zoom user
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | The user ID or email address. Use "me" for the authenticated user. |
+| `from` | string | No | Start date in yyyy-mm-dd format \(within last 6 months\) |
+| `to` | string | No | End date in yyyy-mm-dd format |
+| `pageSize` | number | No | Number of records per page \(max 300\) |
+| `nextPageToken` | string | No | Token for pagination to get next page of results |
+| `trash` | boolean | No | Set to true to list recordings from trash |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `recordings` | array | List of recordings |
+| `from` | string | Start date of query range |
+| `to` | string | End date of query range |
+| `pageSize` | number | Number of records per page |
+| `totalRecords` | number | Total number of records |
+
+</div>
+
+
+
+---
+
+### Get Meeting Recordings
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_get_meeting_recordings"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Meeting Recordings (<code>zoom_get_meeting_recordings</code>)</div>
+
+Get all recordings for a specific Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID or meeting UUID |
+| `includeFolderItems` | boolean | No | Include items within a folder |
+| `ttl` | number | No | Time to live for download URLs in seconds \(max 604800\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `uuid` | string | Meeting UUID |
+| `id` | number | Meeting ID |
+| `topic` | string | Meeting topic |
+| `start_time` | string | Meeting start time |
+| `duration` | number | Meeting duration in minutes |
+| `total_size` | number | Total size of recordings in bytes |
+| `share_url` | string | URL to share recordings |
+
+</div>
+
+
+
+---
+
+### Delete Recording
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_delete_recording"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "Recording ID",
+            "placeholder": "Specific recording file ID (optional)"
+        },
+        {
+            "id": "deleteAction",
+            "type": "dropdown",
+            "title": "Delete Action",
+            "options": [
+                {
+                    "label": "Move to Trash",
+                    "id": "trash"
+                },
+                {
+                    "label": "Permanently Delete",
+                    "id": "delete"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Recording (<code>zoom_delete_recording</code>)</div>
+
+Delete cloud recordings for a Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The meeting ID or meeting UUID |
+| `recordingId` | string | No | Specific recording file ID to delete. If not provided, deletes all recordings. |
+| `action` | string | No | Delete action: "trash" \(move to trash\) or "delete" \(permanently delete\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### List Past Participants
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Meeting",
+                    "id": "zoom_create_meeting"
+                },
+                {
+                    "label": "List Meetings",
+                    "id": "zoom_list_meetings"
+                },
+                {
+                    "label": "Get Meeting",
+                    "id": "zoom_get_meeting"
+                },
+                {
+                    "label": "Update Meeting",
+                    "id": "zoom_update_meeting"
+                },
+                {
+                    "label": "Delete Meeting",
+                    "id": "zoom_delete_meeting"
+                },
+                {
+                    "label": "Get Meeting Invitation",
+                    "id": "zoom_get_meeting_invitation"
+                },
+                {
+                    "label": "List Recordings",
+                    "id": "zoom_list_recordings"
+                },
+                {
+                    "label": "Get Meeting Recordings",
+                    "id": "zoom_get_meeting_recordings"
+                },
+                {
+                    "label": "Delete Recording",
+                    "id": "zoom_delete_recording"
+                },
+                {
+                    "label": "List Past Participants",
+                    "id": "zoom_list_past_participants"
+                }
+            ],
+            "defaultValue": "zoom_list_past_participants"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom Account",
+            "placeholder": "Select Zoom account",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "Meeting ID",
+            "placeholder": "Enter meeting ID",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "Number of results (max 300)"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "Page Token",
+            "placeholder": "Token for next page"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Past Participants (<code>zoom_list_past_participants</code>)</div>
+
+List participants from a past Zoom meeting
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | Yes | The past meeting ID or UUID |
+| `pageSize` | number | No | Number of records per page \(max 300\) |
+| `nextPageToken` | string | No | Token for pagination to get next page of results |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `participants` | array | List of meeting participants |
+| `pageSize` | number | Number of records per page |
+| `totalRecords` | number | Total number of records |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Zoom into workflows. Create, list, update, and delete Zoom meetings. Get meeting details, invitations, recordings, and participants. Manage cloud recordings programmatically.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `zoom`

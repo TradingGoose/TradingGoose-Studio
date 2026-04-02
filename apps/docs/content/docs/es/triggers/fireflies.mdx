@@ -1,0 +1,67 @@
+---
+title: Disparador de Fireflies
+description: Activar flujo de trabajo cuando una transcripción de reunión de
+  Fireflies está completa
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activa el flujo de trabajo cuando se completa la transcripción de una reunión en Fireflies
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies Transcription Complete"
+    type="fireflies_transcription_complete"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto del Webhook",
+            "placeholder": "Ingrese su secreto de 16-32 caracteres",
+            "description": "Clave secreta para la verificación de firma HMAC (configurada en el panel de Fireflies)",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "meetingId",
+          "type": "string",
+          "description": "El ID de la reunión transcrita"
+      },
+      {
+          "name": "eventType",
+          "type": "string",
+          "description": "El tipo de evento (Transcripción completada)"
+      },
+      {
+          "name": "clientReferenceId",
+          "type": "string",
+          "description": "ID de referencia personalizada si se estableció durante la carga"
+      }
+  ]}
+/>

@@ -4,80 +4,100 @@ description: Interact with Telegram
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="telegram"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      xmlns='http://www.w3.org/2000/svg'
-      viewBox='0 0 24 24'
-      
-      
-      fill='none'
-    >
-      <circle cx='12' cy='12' r='10' fill='#0088CC' />
-      <path
-        d='M16.7 8.4c.1-.6-.4-1.1-1-.8l-9.8 4.3c-.4.2-.4.8.1.9l2.1.7c.4.1.8.1 1.1-.2l4.5-3.1c.1-.1.3.1.2.2l-3.2 3.5c-.3.3-.2.8.2 1l3.6 2.3c.4.2.9-.1 1-.5l1.2-7.8Z'
-        fill='white'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Telegram](https://telegram.org) is a secure, cloud-based messaging platform that enables fast and reliable communication across devices and platforms. With over 700 million monthly active users, Telegram has established itself as one of the world's leading messaging services, known for its security, speed, and powerful API capabilities.
+## Configuration
 
-Telegram's Bot API provides a robust framework for creating automated messaging solutions and integrating communication features into applications. With support for rich media, inline keyboards, and custom commands, Telegram bots can facilitate sophisticated interaction patterns and automated workflows.
+### Send Message
 
-Learn how to create a webhook trigger in TradingGoose that seamlessly initiates workflows from Telegram messages. This tutorial walks you through setting up a webhook, configuring it with Telegram's bot API, and triggering automated actions in real-time. Perfect for streamlining tasks directly from your chat!
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_message"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Message",
+            "layout": "full",
+            "placeholder": "Enter the message to send",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/9oKcJtQ0_IM"
-  title="Use Telegram with TradingGoose"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
-
-Learn how to use the Telegram Tool in TradingGoose to seamlessly automate message delivery to any Telegram group. This tutorial walks you through integrating the tool into your workflow, configuring group messaging, and triggering automated updates in real-time. Perfect for enhancing communication directly from your workspace!
-
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/AG55LpUreGI"
-  title="Use Telegram with TradingGoose"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
-
-Key features of Telegram include:
-
-- Secure Communication: End-to-end encryption and secure cloud storage for messages and media
-- Bot Platform: Powerful bot API for creating automated messaging solutions and interactive experiences
-- Rich Media Support: Send and receive messages with text formatting, images, files, and interactive elements
-- Global Reach: Connect with users worldwide with support for multiple languages and platforms
-
-In TradingGoose, the Telegram integration enables your agents to leverage these powerful messaging capabilities as part of their workflows. This creates opportunities for automated notifications, alerts, and interactive conversations through Telegram's secure messaging platform. The integration allows agents to send messages programmatically to individuals or channels, enabling timely communication and updates. By connecting TradingGoose with Telegram, you can build intelligent agents that engage users through a secure and widely-adopted messaging platform, perfect for delivering notifications, updates, and interactive communications.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate Telegram into the workflow. Can send and delete messages. Can be used in trigger mode to trigger a workflow when a message is sent to a chat.
-
-
-
-## Tools
-
-### `telegram_message`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Message (<code>telegram_message</code>)</div>
 
 Send messages to Telegram channels or users through the Telegram Bot API. Enables direct communication and notifications with message tracking and chat confirmation.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -85,37 +105,113 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
 | `chatId` | string | Yes | Target Telegram chat ID |
 | `text` | string | Yes | Message text to send |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Chat ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Chat username \(if available\) |
 
-### `telegram_delete_message`
+</div>
 
-Delete messages in Telegram channels or chats through the Telegram Bot API. Requires the message ID of the message to delete.
 
-#### Input
 
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-| `botToken` | string | Yes | Your Telegram Bot API Token |
-| `chatId` | string | Yes | Target Telegram chat ID |
-| `messageId` | string | Yes | Message ID to delete |
+---
 
-#### Output
+### Send Photo
 
-| Parameter | Type | Description |
-| --------- | ---- | ----------- |
-| `message` | string | Success or error message |
-| `data` | object | Delete operation result |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_photo"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "photo",
+            "type": "short-input",
+            "title": "Photo",
+            "layout": "full",
+            "placeholder": "Enter photo URL or file_id",
+            "description": "Photo to send. Pass a file_id or HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Caption",
+            "layout": "full",
+            "placeholder": "Enter optional caption",
+            "description": "Media caption (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-### `telegram_send_photo`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Photo (<code>telegram_send_photo</code>)</div>
 
 Send photos to Telegram channels or users through the Telegram Bot API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -124,18 +220,113 @@ Send photos to Telegram channels or users through the Telegram Bot API.
 | `photo` | string | Yes | Photo to send. Pass a file_id or HTTP URL |
 | `caption` | string | No | Photo caption \(optional\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data including optional photo\(s\) |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Chat ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Chat username \(if available\) |
 
-### `telegram_send_video`
+</div>
+
+
+
+---
+
+### Send Video
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_video"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "video",
+            "type": "short-input",
+            "title": "Video",
+            "layout": "full",
+            "placeholder": "Enter video URL or file_id",
+            "description": "Video to send. Pass a file_id or HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Caption",
+            "layout": "full",
+            "placeholder": "Enter optional caption",
+            "description": "Media caption (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Video (<code>telegram_send_video</code>)</div>
 
 Send videos to Telegram channels or users through the Telegram Bot API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -144,18 +335,113 @@ Send videos to Telegram channels or users through the Telegram Bot API.
 | `video` | string | Yes | Video to send. Pass a file_id or HTTP URL |
 | `caption` | string | No | Video caption \(optional\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data including optional media |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Sender ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Sender |
 
-### `telegram_send_audio`
+</div>
+
+
+
+---
+
+### Send Audio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_audio"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "audio",
+            "type": "short-input",
+            "title": "Audio",
+            "layout": "full",
+            "placeholder": "Enter audio URL or file_id",
+            "description": "Audio file to send. Pass a file_id or HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Caption",
+            "layout": "full",
+            "placeholder": "Enter optional caption",
+            "description": "Media caption (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Audio (<code>telegram_send_audio</code>)</div>
 
 Send audio files to Telegram channels or users through the Telegram Bot API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -164,18 +450,113 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
 | `audio` | string | Yes | Audio file to send. Pass a file_id or HTTP URL |
 | `caption` | string | No | Audio caption \(optional\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data including voice/audio information |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Sender ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Sender |
 
-### `telegram_send_animation`
+</div>
+
+
+
+---
+
+### Send Animation
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_animation"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "animation",
+            "type": "short-input",
+            "title": "Animation",
+            "layout": "full",
+            "placeholder": "Enter animation URL or file_id",
+            "description": "Animation (GIF) to send. Pass a file_id or HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Caption",
+            "layout": "full",
+            "placeholder": "Enter optional caption",
+            "description": "Media caption (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Animation (<code>telegram_send_animation</code>)</div>
 
 Send animations (GIFs) to Telegram channels or users through the Telegram Bot API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -184,18 +565,120 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
 | `animation` | string | Yes | Animation to send. Pass a file_id or HTTP URL |
 | `caption` | string | No | Animation caption \(optional\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data including optional media |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Sender ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Sender |
 
-### `telegram_send_document`
+</div>
+
+
+
+---
+
+### Send Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_send_document"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Document",
+            "layout": "full",
+            "placeholder": "Upload document file",
+            "description": "Document file to send (PDF, ZIP, DOC, etc.). Max size: 50MB"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Document",
+            "layout": "full",
+            "placeholder": "Reference document from previous blocks",
+            "description": "Reference a document file from a previous block"
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Caption",
+            "layout": "full",
+            "placeholder": "Enter optional caption",
+            "description": "Media caption (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Document (<code>telegram_send_document</code>)</div>
 
 Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the Telegram Bot API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -204,12 +687,129 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
 | `files` | file[] | No | Document file to send \(PDF, ZIP, DOC, etc.\). Max size: 50MB |
 | `caption` | string | No | Document caption \(optional\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `data` | object | Telegram message data including document |
+| `message_id` | number | Unique Telegram message identifier |
+| `id` | number | Sender ID |
+| `is_bot` | boolean | Whether the chat is a bot or not |
+| `first_name` | string | Sender |
+
+</div>
+
+
+
+---
+
+### Delete Message
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "telegram_message"
+                },
+                {
+                    "label": "Send Photo",
+                    "id": "telegram_send_photo"
+                },
+                {
+                    "label": "Send Video",
+                    "id": "telegram_send_video"
+                },
+                {
+                    "label": "Send Audio",
+                    "id": "telegram_send_audio"
+                },
+                {
+                    "label": "Send Animation",
+                    "id": "telegram_send_animation"
+                },
+                {
+                    "label": "Send Document",
+                    "id": "telegram_send_document"
+                },
+                {
+                    "label": "Delete Message",
+                    "id": "telegram_delete_message"
+                }
+            ],
+            "defaultValue": "telegram_delete_message"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "Enter your Telegram Bot Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "Enter Telegram Chat ID",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "Message ID",
+            "layout": "full",
+            "placeholder": "Enter the message ID to delete",
+            "description": "The unique identifier of the message you want to delete",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Message (<code>telegram_delete_message</code>)</div>
+
+Delete messages in Telegram channels or chats through the Telegram Bot API. Requires the message ID of the message to delete.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Yes | Your Telegram Bot API Token |
+| `chatId` | string | Yes | Target Telegram chat ID |
+| `messageId` | string | Yes | Message ID to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Success or error message |
+| `ok` | boolean | API response success status |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Telegram into the workflow. Can send and delete messages. Can be used in trigger mode to trigger a workflow when a message is sent to a chat.
 
 
 

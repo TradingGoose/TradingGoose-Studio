@@ -1,0 +1,167 @@
+---
+title: Gráficos
+description: Visualiza datos de indicadores con funciones de trazado, formas,
+  rellenos y colores
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+## Funciones de Trazado
+
+| Función | Descripción |
+|----------|-------------|
+| `plot(series, title?, options?)` | Trazar una línea, área, histograma u otro estilo de serie |
+| `plotshape(series, title?, options?)` | Trazar marcadores de forma (flechas, círculos, rombos, etc.) |
+| `plotchar(series, title?, char?, options?)` | Trazar marcadores de caracteres |
+| `plotarrow(series, title?, options?)` | Trazar marcadores de flecha |
+| `plotbar(open, high, low, close, title?, options?)` | Trazar barras OHLC |
+| `plotcandle(open, high, low, close, title?, options?)` | Trazar velas japonesas |
+| `hline(price, title?, options?)` | Dibujar una línea horizontal en un nivel de precio fijo |
+| `fill(plot1, plot2, color?)` | Rellenar el área entre dos trazados |
+| `bgcolor(color, offset?, options?)` | Establecer color de fondo para las barras |
+| `barcolor(color, offset?, options?)` | Establecer color de barra |
+
+## Estilos de Trazado
+
+Usa las constantes `plot.style_*` para controlar cómo se renderizan los datos:
+
+| Estilo | Descripción |
+|-------|-------------|
+| `plot.style_line` | Línea continua (predeterminado) |
+| `plot.style_linebr` | Línea con interrupciones en valores `na` |
+| `plot.style_stepline` | Línea escalonada |
+| `plot.style_stepline_diamond` | Línea escalonada con marcadores de rombo |
+| `plot.style_steplinebr` | Línea escalonada con interrupciones |
+| `plot.style_area` | Área rellena debajo de la línea |
+| `plot.style_areabr` | Área con interrupciones en `na` |
+| `plot.style_histogram` | Barras de histograma verticales |
+| `plot.style_columns` | Gráfico de columnas |
+| `plot.style_circles` | Marcadores de círculo |
+| `plot.style_cross` | Marcadores de cruz |
+
+### Estilos de Línea (para `plot` y `hline`)
+
+| Estilo | Descripción |
+|-------|-------------|
+| `plot.linestyle_solid` | Línea sólida |
+| `plot.linestyle_dashed` | Línea discontinua |
+| `plot.linestyle_dotted` | Línea punteada |
+| `hline.style_solid` | Línea horizontal sólida |
+| `hline.style_dashed` | Línea horizontal discontinua |
+| `hline.style_dotted` | Línea horizontal punteada |
+
+## Ejemplos
+
+### Gráfico de Líneas Básico
+
+```javascript
+indicator('EMA Crossover', { overlay: true });
+
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+
+plot(fast, 'Fast EMA', { color: '#2962FF' });
+plot(slow, 'Slow EMA', { color: '#FF6D00' });
+```
+
+### Histograma
+
+```javascript
+indicator('MACD Histogram');
+
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+plot(hist, 'Histogram', {
+  style: plot.style_histogram,
+  color: hist > 0 ? '#26A69A' : '#EF5350'
+});
+plot(macdLine, 'MACD', { color: '#2962FF' });
+plot(signalLine, 'Signal', { color: '#FF6D00' });
+```
+
+### Gráficos de Relleno entre Curvas
+
+```javascript
+indicator('Bollinger Bands', { overlay: true });
+
+const [mid, upper, lower] = ta.bb(close, 20, 2);
+
+const p1 = plot(upper, 'Upper', { color: '#F23645' });
+plot(mid, 'Middle', { color: '#787B86' });
+const p2 = plot(lower, 'Lower', { color: '#089981' });
+
+fill(p1, p2);
+```
+
+### Marcadores de Forma
+
+```javascript
+// Plot buy/sell arrows at crossover points
+if (ta.crossover(fast, slow)) {
+  plotshape(close, 'Buy', {
+    style: shape.triangleup,
+    location: location.belowbar,
+    color: '#00FF00',
+    size: size.small
+  });
+}
+
+if (ta.crossunder(fast, slow)) {
+  plotshape(close, 'Sell', {
+    style: shape.triangledown,
+    location: location.abovebar,
+    color: '#FF0000',
+    size: size.small
+  });
+}
+```
+
+### Constantes de Forma
+
+| Constante | Descripción |
+|----------|-------------|
+| `shape.triangleup` | Triángulo hacia arriba |
+| `shape.triangledown` | Triángulo hacia abajo |
+| `shape.circle` | Círculo |
+| `shape.cross` | Cruz |
+| `shape.xcross` | Cruz en X |
+| `shape.diamond` | Diamante |
+| `shape.square` | Cuadrado |
+| `shape.arrowup` | Flecha hacia arriba |
+| `shape.arrowdown` | Flecha hacia abajo |
+| `shape.flag` | Bandera |
+| `shape.labelup` | Etiqueta apuntando hacia arriba |
+| `shape.labeldown` | Etiqueta apuntando hacia abajo |
+
+### Constantes de Ubicación
+
+| Constante | Descripción |
+|----------|-------------|
+| `location.abovebar` | Encima de la barra |
+| `location.belowbar` | Debajo de la barra |
+| `location.top` | Parte superior del panel |
+| `location.bottom` | Parte inferior del panel |
+| `location.absolute` | En el valor exacto |
+
+### Constantes de Tamaño
+
+| Constante | Descripción |
+|----------|-------------|
+| `size.tiny` | Diminuto |
+| `size.small` | Pequeño |
+| `size.normal` | Normal |
+| `size.large` | Grande |
+| `size.huge` | Enorme |
+| `size.auto` | Automático |
+
+### Colores de Fondo y de Barras
+
+```javascript
+// Highlight bars based on condition
+bgcolor(ta.crossover(fast, slow) ? '#00FF0020' : na);
+barcolor(close > open ? '#26A69A' : '#EF5350');
+```
+
+<Callout type="info">
+  Los colores pueden especificarse como cadenas hexadecimales (p. ej., `'#FF0000'`) o utilizando el espacio de nombres `color` (p. ej., `color.red`). Añada dos dígitos hexadecimales para la transparencia alfa (p. ej., `'#FF000080'` para una opacidad del 50%).
+</Callout>

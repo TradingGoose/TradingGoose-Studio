@@ -1,0 +1,171 @@
+---
+title: Estructuras de Datos
+description: Operaciones de Array, Map, Matrix y String para scripts de indicadores
+---
+
+PineTS admite cuatro espacios de nombres de estructuras de datos para la manipulación compleja de datos dentro de los indicadores.
+
+## Array (52 métodos)
+
+Los arrays son colecciones ordenadas de elementos. Cree, manipule y consulte arrays para implementar lógica avanzada en indicadores.
+
+### Creación
+
+```javascript
+const a = array.from(1, 2, 3, 4, 5);
+const b = array.new_float(10, 0.0);    // 10 elements, all 0.0
+const c = array.new_int(5, 0);
+const d = array.new_bool(3, false);
+const e = array.new_string(2, '');
+```
+
+### Acceso y Modificación
+
+| Función | Descripción |
+|----------|-------------|
+| `array.get(arr, index)` | Obtener elemento en el índice |
+| `array.set(arr, index, value)` | Establecer elemento en el índice |
+| `array.first(arr)` | Obtener el primer elemento |
+| `array.last(arr)` | Obtener el último elemento |
+| `array.push(arr, value)` | Agregar al final |
+| `array.pop(arr)` | Eliminar y retornar el último |
+| `array.unshift(arr, value)` | Insertar al inicio |
+| `array.shift(arr)` | Eliminar y retornar el primero |
+| `array.insert(arr, index, value)` | Insertar en el índice |
+| `array.remove(arr, index)` | Eliminar en el índice |
+| `array.clear(arr)` | Eliminar todos los elementos |
+
+### Tamaño y Transformación
+
+| Función | Descripción |
+|----------|-------------|
+| `array.size(arr)` | Número de elementos |
+| `array.slice(arr, start, end)` | Extraer sub-array |
+| `array.concat(arr1, arr2)` | Concatenar arrays |
+| `array.copy(arr)` | Copia superficial |
+| `array.fill(arr, value, start?, end?)` | Rellenar con valor |
+| `array.reverse(arr)` | Invertir en lugar |
+| `array.sort(arr, order?)` | Ordenar en lugar |
+| `array.sort_indices(arr, order?)` | Retornar índices ordenados |
+| `array.join(arr, separator)` | Unir en cadena de texto |
+
+### Búsqueda
+
+| Función | Descripción |
+|----------|-------------|
+| `array.indexof(arr, value)` | Primer índice del valor |
+| `array.lastindexof(arr, value)` | Último índice del valor |
+| `array.includes(arr, value)` | Verificar si contiene el valor |
+| `array.binary_search(arr, value)` | Búsqueda binaria (array ordenado) |
+| `array.every(arr, fn)` | Verdadero si todos coinciden con el predicado |
+| `array.some(arr, fn)` | Verdadero si alguno coincide con el predicado |
+
+### Estadísticas
+
+| Función | Descripción |
+|----------|-------------|
+| `array.sum(arr)` | Suma |
+| `array.avg(arr)` | Promedio |
+| `array.min(arr)` | Mínimo |
+| `array.max(arr)` | Máximo |
+| `array.median(arr)` | Mediana |
+| `array.mode(arr)` | Moda |
+| `array.stdev(arr)` | Desviación estándar |
+| `array.variance(arr)` | Varianza |
+| `array.covariance(arr1, arr2)` | Covarianza |
+| `array.range(arr)` | Rango (máx - mín) |
+| `array.percentrank(arr, value)` | Rango percentil |
+
+---
+
+## Mapa (11 métodos)
+
+Diccionarios clave-valor para datos asociativos:
+
+```javascript
+const m = map.new();
+map.put(m, 'ema', ta.ema(close, 20));
+map.put(m, 'sma', ta.sma(close, 20));
+
+const emaValue = map.get(m, 'ema');
+const hasKey = map.contains(m, 'ema');     // true
+const allKeys = map.keys(m);               // ['ema', 'sma']
+```
+
+| Función | Descripción |
+|----------|-------------|
+| `map.new()` | Crear mapa vacío |
+| `map.get(m, key)` | Obtener valor |
+| `map.put(m, key, value)` | Establecer valor |
+| `map.put_all(m, other)` | Copiar todo desde otro mapa |
+| `map.contains(m, key)` | Verificar si existe la clave |
+| `map.remove(m, key)` | Eliminar clave |
+| `map.keys(m)` | Todas las claves |
+| `map.values(m)` | Todos los valores |
+| `map.size(m)` | Número de elementos |
+| `map.clear(m)` | Eliminar todo |
+| `map.copy(m)` | Duplicar |
+
+---
+
+## Matriz (50 métodos)
+
+Estructuras de datos 2D para operaciones matemáticas avanzadas:
+
+```javascript
+const m = matrix.new(3, 3, 0);  // 3x3 matrix of zeros
+matrix.set(m, 0, 0, 1);
+matrix.set(m, 1, 1, 1);
+matrix.set(m, 2, 2, 1);         // Identity matrix
+```
+
+### Operaciones clave
+
+| Categoría | Funciones |
+|----------|-----------|
+| **Acceso** | `get`, `set`, `row`, `col` |
+| **Tamaño** | `rows`, `columns`, `elements_count` |
+| **Modificar** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
+| **Transformar** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **Aritmética** | `mult`, `pow`, `diff` |
+| **Álgebra lineal** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
+| **Estadísticas** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Pruebas booleanas** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
+
+---
+
+## String (19 métodos)
+
+Manipulación de cadenas para etiquetas, formato y procesamiento de texto:
+
+| Función | Descripción |
+|----------|-------------|
+| `str.length(s)` | Longitud de cadena |
+| `str.contains(s, substr)` | Verificar si contiene subcadena |
+| `str.startswith(s, prefix)` | Verificar prefijo |
+| `str.endswith(s, suffix)` | Verificar sufijo |
+| `str.pos(s, substr)` | Encontrar posición de subcadena |
+| `str.match(s, pattern)` | Coincidencia con expresión regular |
+| `str.substring(s, start, end)` | Extraer subcadena |
+| `str.split(s, delimiter)` | Dividir en array |
+| `str.replace(s, old, new)` | Reemplazar primera ocurrencia |
+| `str.replace_all(s, old, new)` | Reemplazar todas las ocurrencias |
+| `str.lower(s)` | Convertir a minúsculas |
+| `str.upper(s)` | Convertir a mayúsculas |
+| `str.trim(s)` | Eliminar espacios en blanco |
+| `str.repeat(s, count)` | Repetir cadena |
+| `str.format(fmt, ...)` | Formatear cadena |
+| `str.tonumber(s)` | Parsear a número |
+| `str.tostring(value)` | Convertir a cadena |
+
+---
+
+## Log (3 métodos)
+
+Registro de eventos para depuración de indicadores durante el desarrollo:
+
+```javascript
+log.info('RSI value: ' + str.tostring(rsi));
+log.warning('Volume spike detected');
+log.error('Invalid input configuration');
+```

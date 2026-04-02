@@ -1,0 +1,115 @@
+---
+title: Circleback 触发器
+description: 当会议记录和待办事项准备就绪时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+当会议记录和待办事项准备就绪时触发工作流
+
+<Callout type="info">
+  这是一个基于 **Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以便将事件发送至 TradingGoose。
+</Callout>
+
+## 事件
+
+### Circleback 会议记录就绪
+
+当会议记录和待办事项准备就绪时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Meeting Notes Ready"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 Webhook 请求是否来源于 Circleback。",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+触发器将完整的事件载荷传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### Circleback Webhook
+
+适用于所有 Circleback 事件的通用 Webhook 触发器
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Webhook"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 Webhook 请求是否来源于 Circleback。",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+触发器将完整的事件载荷传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### Circleback 会议已完成
+
+当会议在 Circleback 中处理完毕并准备就绪时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Meeting Completed"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 Webhook 请求是否来源于 Circleback。",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件载荷传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---

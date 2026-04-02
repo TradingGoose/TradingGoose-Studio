@@ -1,0 +1,83 @@
+{/*
+  TEMPLATE: Built-in Block
+  OUTPUT:   apps/docs/content/docs/en/blocks/{{SLUG}}.mdx
+  SOURCE:   apps/tradinggoose/blocks/blocks/{{SLUG}}.ts
+
+  Uses ShowcaseCard (ripple grid background) to display BlockConfigPreview.
+  No screenshots needed — copy subBlocks JSON from the source .ts file.
+*/}
+---
+title: {{BLOCK_NAME}}
+description: {{SHORT_DESCRIPTION}}
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+{{SHORT_DESCRIPTION_PARAGRAPH}}
+
+## Overview
+
+The {{BLOCK_NAME}} block enables you to:
+
+<Steps>
+  <Step>
+    <strong>{{CAPABILITY_1_TITLE}}</strong>: {{CAPABILITY_1_DESC}}
+  </Step>
+  <Step>
+    <strong>{{CAPABILITY_2_TITLE}}</strong>: {{CAPABILITY_2_DESC}}
+  </Step>
+  <Step>
+    <strong>{{CAPABILITY_3_TITLE}}</strong>: {{CAPABILITY_3_DESC}}
+  </Step>
+</Steps>
+
+## Configuration
+
+{/*
+  Copy subBlocks from the block's .ts source file.
+  Serialize to JSON (strip functions, icons, React components).
+  The ShowcaseCard provides the ripple grid background.
+*/}
+
+<ShowcaseCard caption="{{BLOCK_NAME}} block configuration">
+  <BlockConfigPreview
+    name="{{BLOCK_NAME}}"
+    type="{{BLOCK_TYPE}}"
+    color="{{BG_COLOR}}"
+    subBlocks={[
+      {
+        "id": "{{FIELD_ID}}",
+        "title": "{{FIELD_TITLE}}",
+        "type": "{{FIELD_TYPE}}",
+        "layout": "full",
+        "placeholder": "{{PLACEHOLDER}}"
+      }
+    ]}
+    outputs={[
+      { "key": "{{OUTPUT_KEY}}", "type": "{{TYPE}}", "description": "{{OUTPUT_DESC}}" }
+    ]}
+  />
+</ShowcaseCard>
+
+## How It Works
+
+{/* Explain the block's execution flow */}
+
+## Common Patterns
+
+<Tabs items={['{{PATTERN_1_NAME}}', '{{PATTERN_2_NAME}}']}>
+  <Tab>
+    {{PATTERN_1_DESCRIPTION}}
+  </Tab>
+  <Tab>
+    {{PATTERN_2_DESCRIPTION}}
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+  {{IMPORTANT_NOTE}}
+</Callout>

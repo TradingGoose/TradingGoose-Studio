@@ -7,12 +7,18 @@
     "evaluator",
     "function",
     "guardrails",
+    "human_in_the_loop",
+    "knowledge",
     "loop",
+    "memory",
+    "note",
     "parallel",
     "response",
     "router",
     "variables",
     "wait",
-    "workflow"
+    "webhook_request",
+    "workflow",
+    "workflow_input"
   ]
 }

@@ -1,0 +1,67 @@
+---
+title: 搜索
+description: 搜索网络（每次搜索 $0.01）
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="search"
+  color="#3B82F6"
+  icon={true}
+  iconSvg={``}
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Search"
+    type="search"
+    color="#3B82F6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "请输入您的搜索查询...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `search_tool`
+
+搜索网络。返回最相关的网页结果，包含每条结果的标题、链接、摘要及日期。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 搜索查询 |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `results` | json | 搜索结果 |
+| `query` | string | 搜索查询 |
+| `totalResults` | number | 结果总数 |
+| `source` | string | 搜索来源 \(exa\) |
+| `cost` | json | 费用信息 \($0.01\) |
+
+## 使用说明
+
+使用搜索工具搜索网络。每次查询费用为 $0.01。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`search`

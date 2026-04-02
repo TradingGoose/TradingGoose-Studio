@@ -1,0 +1,343 @@
+---
+title: Disparador de Microsoft Teams
+description: Activa flujos de trabajo desde nuevos mensajes en chats de
+  Microsoft Teams mediante suscripciones de Microsoft Graph
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="microsoft-teams"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activa flujos de trabajo desde nuevos mensajes en chats de Microsoft Teams mediante suscripciones de Microsoft Graph
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Eventos
+
+### Chat de Microsoft Teams
+
+Activa flujos de trabajo desde nuevos mensajes en chats de Microsoft Teams mediante suscripciones de Microsoft Graph
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams Chat"
+    type="microsoftteams_chat_subscription"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Microsoft Teams para acceder a su cuenta.",
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID de chat",
+            "placeholder": "Ingrese el ID de chat",
+            "description": "El ID del chat de Teams a monitorear",
+            "required": true
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir archivos adjuntos",
+            "description": "Obtener contenidos alojados y cargar al almacenamiento"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "message_id",
+          "type": "string",
+          "description": "ID de mensaje"
+      },
+      {
+          "name": "chat_id",
+          "type": "string",
+          "description": "ID de chat"
+      },
+      {
+          "name": "from_name",
+          "type": "string",
+          "description": "Nombre visible del remitente"
+      },
+      {
+          "name": "text",
+          "type": "string",
+          "description": "Cuerpo del mensaje (HTML o texto)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Marca de tiempo del mensaje"
+      },
+      {
+          "name": "attachments",
+          "type": "file[]",
+          "description": "Archivos adjuntos subidos"
+      }
+  ]}
+/>
+
+---
+
+### Canal de Microsoft Teams
+
+Activa flujos de trabajo desde mensajes de canal de Microsoft Teams mediante webhooks salientes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams Channel"
+    type="microsoftteams_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Tipo de Activador",
+            "required": true,
+            "options": [
+                {
+                    "label": "Canal de Microsoft Teams",
+                    "id": "microsoftteams_webhook"
+                },
+                {
+                    "label": "Chat de Microsoft Teams",
+                    "id": "microsoftteams_chat_subscription"
+                }
+            ]
+        },
+        {
+            "id": "hmacSecret",
+            "type": "short-input",
+            "title": "Secreto HMAC",
+            "placeholder": "Ingrese el secreto HMAC de Teams",
+            "description": "El token de seguridad proporcionado por Teams al crear un webhook saliente. Se utiliza para verificar la autenticidad de las solicitudes.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "from",
+          "type": "object",
+          "description": "from",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "ID del remitente"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre del remitente"
+              },
+              {
+                  "name": "aadObjectId",
+                  "type": "string",
+                  "description": "ID de objeto AAD"
+              }
+          ]
+      },
+      {
+          "name": "message",
+          "type": "object",
+          "description": "message",
+          "children": [
+              {
+                  "name": "raw",
+                  "type": "object",
+                  "description": "raw",
+                  "children": [
+                      {
+                          "name": "attachments",
+                          "type": "array",
+                          "description": "Array de archivos adjuntos"
+                      },
+                      {
+                          "name": "channelData",
+                          "type": "object",
+                          "description": "channelData",
+                          "children": [
+                              {
+                                  "name": "team",
+                                  "type": "object",
+                                  "description": "team",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "ID del equipo"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "tenant",
+                                  "type": "object",
+                                  "description": "tenant",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "ID del tenant"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "channel",
+                                  "type": "object",
+                                  "description": "channel",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "ID del canal"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "teamsTeamId",
+                                  "type": "string",
+                                  "description": "ID del equipo de Teams"
+                              },
+                              {
+                                  "name": "teamsChannelId",
+                                  "type": "string",
+                                  "description": "ID del canal de Teams"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "conversation",
+                          "type": "object",
+                          "description": "conversation",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "string",
+                                  "description": "ID compuesto de conversación"
+                              },
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Nombre de la conversación (nullable)"
+                              },
+                              {
+                                  "name": "isGroup",
+                                  "type": "boolean",
+                                  "description": "Es conversación grupal"
+                              },
+                              {
+                                  "name": "tenantId",
+                                  "type": "string",
+                                  "description": "ID del tenant"
+                              },
+                              {
+                                  "name": "aadObjectId",
+                                  "type": "string",
+                                  "description": "ID de objeto AAD (nullable)"
+                              },
+                              {
+                                  "name": "conversationType",
+                                  "type": "string",
+                                  "description": "Tipo de conversación (canal)"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "text",
+                          "type": "string",
+                          "description": "Contenido de texto del mensaje"
+                      },
+                      {
+                          "name": "messageType",
+                          "type": "string",
+                          "description": "Tipo de mensaje"
+                      },
+                      {
+                          "name": "channelId",
+                          "type": "string",
+                          "description": "ID del canal (msteams)"
+                      },
+                      {
+                          "name": "timestamp",
+                          "type": "string",
+                          "description": "Marca de tiempo"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "activity",
+          "type": "object",
+          "description": "Payload de actividad"
+      },
+      {
+          "name": "conversation",
+          "type": "object",
+          "description": "conversation",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "ID compuesto de conversación"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre de la conversación (nullable)"
+              },
+              {
+                  "name": "isGroup",
+                  "type": "boolean",
+                  "description": "Es conversación grupal"
+              },
+              {
+                  "name": "tenantId",
+                  "type": "string",
+                  "description": "ID del tenant"
+              },
+              {
+                  "name": "aadObjectId",
+                  "type": "string",
+                  "description": "ID de objeto AAD (nullable)"
+              },
+              {
+                  "name": "conversationType",
+                  "type": "string",
+                  "description": "Tipo de conversación (canal)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

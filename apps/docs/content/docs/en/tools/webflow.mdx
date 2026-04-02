@@ -4,57 +4,98 @@ description: Manage Webflow CMS collections
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="webflow"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      
-      
-      viewBox='0 0 1080 674'
-      fill='none'
-      xmlns='http://www.w3.org/2000/svg'
-    >
-      <path
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M1080 0L735.386 673.684H411.695L555.916 394.481H549.445C430.464 548.934 252.942 650.61 -0.000488281 673.684V398.344C-0.000488281 398.344 161.813 388.787 256.938 288.776H-0.000488281V0.0053214H288.771V237.515L295.252 237.489L413.254 0.0053214H631.644V236.009L638.126 235.999L760.555 0H1080Z'
-        fill='#146EF5'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Webflow](https://webflow.com/) is a powerful visual web design platform that enables you to build responsive websites without writing code. It combines a visual design interface with a robust CMS (Content Management System) that allows you to create, manage, and publish dynamic content for your websites.
+## Configuration
 
-With Webflow, you can:
+### List Items
 
-- **Design visually**: Create custom websites with a visual editor that generates clean, semantic HTML/CSS code
-- **Manage content dynamically**: Use the CMS to create collections of structured content like blog posts, products, team members, or any custom data
-- **Publish instantly**: Deploy your sites to Webflow's hosting or export the code for custom hosting
-- **Create responsive designs**: Build sites that work seamlessly across desktop, tablet, and mobile devices
-- **Customize collections**: Define custom fields and data structures for your content types
-- **Automate content updates**: Programmatically manage your CMS content through APIs
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "List Items",
+                    "id": "list"
+                },
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Create Item",
+                    "id": "create"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow Account",
+            "layout": "full",
+            "placeholder": "Select Webflow account",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "Collection ID",
+            "layout": "full",
+            "placeholder": "Enter collection ID",
+            "required": true
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "layout": "half",
+            "placeholder": "Pagination offset (optional)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "layout": "half",
+            "placeholder": "Max items to return (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-In TradingGoose, the Webflow integration enables your agents to seamlessly interact with your Webflow CMS collections through API authentication. This allows for powerful automation scenarios such as automatically creating blog posts from AI-generated content, updating product information, managing team member profiles, and retrieving CMS items for dynamic content generation. Your agents can list existing items to browse your content, retrieve specific items by ID, create new entries to add fresh content, update existing items to keep information current, and delete outdated content. This integration bridges the gap between your AI workflows and your Webflow CMS, enabling automated content management, dynamic website updates, and streamlined content workflows that keep your sites fresh and up-to-date without manual intervention.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrates Webflow CMS into the workflow. Can create, get, list, update, or delete items in Webflow CMS collections. Manage your Webflow content programmatically. Can be used in trigger mode to trigger workflows when collection items change or forms are submitted.
-
-
-
-## Tools
-
-### `webflow_list_items`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Items (<code>webflow_list_items</code>)</div>
 
 List all items from a Webflow CMS collection
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -62,54 +103,286 @@ List all items from a Webflow CMS collection
 | `offset` | number | No | Offset for pagination \(optional\) |
 | `limit` | number | No | Maximum number of items to return \(optional, default: 100\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `items` | json | Array of collection items |
-| `metadata` | json | Metadata about the query |
 
-### `webflow_get_item`
+</div>
+
+
+
+---
+
+### Get Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "List Items",
+                    "id": "list"
+                },
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Create Item",
+                    "id": "create"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "get"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow Account",
+            "layout": "full",
+            "placeholder": "Select Webflow account",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "Collection ID",
+            "layout": "full",
+            "placeholder": "Enter collection ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "Item ID",
+            "layout": "full",
+            "placeholder": "ID of the item",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Item (<code>webflow_get_item</code>)</div>
 
 Get a single item from a Webflow CMS collection
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | Yes | ID of the collection |
 | `itemId` | string | Yes | ID of the item to retrieve |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The retrieved item object |
-| `metadata` | json | Metadata about the retrieved item |
 
-### `webflow_create_item`
+</div>
+
+
+
+---
+
+### Create Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "List Items",
+                    "id": "list"
+                },
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Create Item",
+                    "id": "create"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "create"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow Account",
+            "layout": "full",
+            "placeholder": "Select Webflow account",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "Collection ID",
+            "layout": "full",
+            "placeholder": "Enter collection ID",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "Field Data",
+            "layout": "full",
+            "placeholder": "Field data as JSON: `{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Item (<code>webflow_create_item</code>)</div>
 
 Create a new item in a Webflow CMS collection
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | Yes | ID of the collection |
 | `fieldData` | json | Yes | Field data for the new item as a JSON object. Keys should match collection field names. |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The created item object |
-| `metadata` | json | Metadata about the created item |
 
-### `webflow_update_item`
+</div>
+
+
+
+---
+
+### Update Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "List Items",
+                    "id": "list"
+                },
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Create Item",
+                    "id": "create"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow Account",
+            "layout": "full",
+            "placeholder": "Select Webflow account",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "Collection ID",
+            "layout": "full",
+            "placeholder": "Enter collection ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "Item ID",
+            "layout": "full",
+            "placeholder": "ID of the item",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "Field Data",
+            "layout": "full",
+            "placeholder": "Field data as JSON: `{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Item (<code>webflow_update_item</code>)</div>
 
 Update an existing item in a Webflow CMS collection
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -117,30 +390,114 @@ Update an existing item in a Webflow CMS collection
 | `itemId` | string | Yes | ID of the item to update |
 | `fieldData` | json | Yes | Field data to update as a JSON object. Only include fields you want to change. |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The updated item object |
-| `metadata` | json | Metadata about the updated item |
 
-### `webflow_delete_item`
+</div>
+
+
+
+---
+
+### Delete Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "List Items",
+                    "id": "list"
+                },
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Create Item",
+                    "id": "create"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Webflow Account",
+            "layout": "full",
+            "placeholder": "Select Webflow account",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "Collection ID",
+            "layout": "full",
+            "placeholder": "Enter collection ID",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "Item ID",
+            "layout": "full",
+            "placeholder": "ID of the item",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Item (<code>webflow_delete_item</code>)</div>
 
 Delete an item from a Webflow CMS collection
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `collectionId` | string | Yes | ID of the collection |
 | `itemId` | string | Yes | ID of the item to delete |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the deletion was successful |
-| `metadata` | json | Metadata about the deletion |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrates Webflow CMS into the workflow. Can create, get, list, update, or delete items in Webflow CMS collections. Manage your Webflow content programmatically. Can be used in trigger mode to trigger workflows when collection items change or forms are submitted.
 
 
 

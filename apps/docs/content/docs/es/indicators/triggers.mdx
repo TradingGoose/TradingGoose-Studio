@@ -1,0 +1,140 @@
+---
+title: Disparadores de Indicadores
+description: Conecta señales de indicadores a flujos de trabajo de TradingGoose
+  con la API trigger()
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+La función `trigger()` es una extensión de TradingGoose para PineTS que permite a tus indicadores activar ejecuciones de flujos de trabajo cuando se cumplen determinadas condiciones. Esto conecta el análisis técnico con la automatización de flujos de trabajo — un indicador puede detectar una señal e inmediatamente desencadenar una acción, como enviar una notificación, ejecutar una operación o lanzar un flujo de trabajo complejo de múltiples pasos.
+
+## Sintaxis
+
+```javascript
+trigger(event, options)
+```
+
+### Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `event` | `string` | Sí | Identificador del nombre del evento |
+| `options` | `object` | Sí | Configuración del disparador (ver más abajo) |
+
+### Objeto de Opciones
+
+| Propiedad | Tipo | Requerido | Descripción |
+|----------|------|-----------|-------------|
+| `condition` | `any` | Sí | Condición que debe ser verdadera para que el disparador se active |
+| `input` | `string` | Sí | Entrada de texto pasada al flujo de trabajo (p. ej., una descripción de lo ocurrido) |
+| `signal` | `'long' \| 'short' \| 'flat'` | Sí | Dirección de la señal de trading |
+| `position` | `'aboveBar' \| 'belowBar' \| 'inBar'` | No | Posición del marcador en el gráfico (predeterminado: `'aboveBar'`) |
+| `color` | `string` | No | Color del marcador (cadena hexadecimal, p. ej., `'#FF0000'`) |
+
+### Reglas para el Nombre del Evento
+
+- Debe coincidir con el patrón: `/^[a-z][a-z0-9_]{0,63}$/`
+- Comienza con una letra minúscula
+- Solo letras minúsculas, dígitos y guiones bajos
+- Máximo 64 caracteres
+
+## Ejemplo Básico
+
+```javascript
+indicator('RSI Trigger Example');
+
+const rsi = ta.rsi(close, 14);
+plot(rsi, 'RSI');
+hline(70, { linestyle: hline.style_dashed });
+hline(30, { linestyle: hline.style_dashed });
+
+// Fire when RSI crosses above 70 (overbought)
+if (ta.crossover(rsi, 70)) {
+  trigger('rsi_overbought', {
+    condition: ta.crossover(rsi, 70),
+    input: 'RSI crossed above 70 — overbought signal',
+    signal: 'short',
+    position: 'aboveBar',
+    color: '#FF0000'
+  });
+}
+
+// Fire when RSI crosses below 30 (oversold)
+if (ta.crossunder(rsi, 30)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, 30),
+    input: 'RSI crossed below 30 — oversold signal',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## Múltiples Disparadores
+
+Un indicador puede definir múltiples eventos de disparo. Cada evento puede conectarse a un flujo de trabajo diferente:
+
+```javascript
+indicator('Multi-Signal', { overlay: true });
+
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+// EMA crossover trigger
+if (ta.crossover(fast, slow)) {
+  trigger('ema_bullish_cross', {
+    condition: ta.crossover(fast, slow),
+    input: 'Fast EMA crossed above slow EMA',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#26A69A'
+  });
+}
+
+// MACD histogram reversal trigger
+if (hist > 0 && hist[1] <= 0) {
+  trigger('macd_positive_flip', {
+    condition: hist > 0 && hist[1] <= 0,
+    input: 'MACD histogram flipped positive',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#2962FF'
+  });
+}
+```
+
+## Cómo Funciona
+
+1. **Evaluación** — En cada barra, PineTS evalúa el código de tu indicador, incluidas las llamadas a `trigger()`
+2. **Verificación de condición** — La propiedad `condition` se resuelve para la barra actual. Si es falsa, el disparador se omite silenciosamente
+3. **Validación** — Se validan el nombre del evento, la estructura de opciones, la entrada y la señal. Las llamadas inválidas generan advertencias (no errores)
+4. **Captura** — Los disparadores válidos se capturan junto con sus metadatos (evento, entrada, señal, posición, color, tiempo de barra, índice de barra)
+5. **Despacho al flujo de trabajo** — Al ejecutarse en tiempo real, los eventos de disparador capturados se envían a los flujos de trabajo conectados a través del Disparador de Indicador
+
+## Conexión con Flujos de Trabajo
+
+Para usar disparadores de indicador en un flujo de trabajo:
+
+1. Crea un indicador con llamadas a `trigger()`
+2. En el editor de flujos de trabajo, añade un bloque **Disparador de Indicador** como punto de inicio de tu flujo de trabajo
+3. Configúralo para escuchar los eventos de tu indicador
+4. El flujo de trabajo recibe el texto `input` y `signal` del disparador como datos de entrada del flujo de trabajo
+
+## Advertencias de Validación
+
+Las llamadas de disparador inválidas generan advertencias (no errores) para que tu indicador continúe ejecutándose:
+
+| Código de Advertencia | Causa |
+|-------------|-------|
+| `indicator_trigger_invalid_event` | El nombre del evento no coincide con el patrón requerido |
+| `indicator_trigger_invalid_options` | El parámetro de opciones no es un objeto |
+| `indicator_trigger_condition_unresolved` | No se pudo resolver el valor de la condición |
+| `indicator_trigger_invalid_input` | La entrada falta o no es una cadena de texto |
+| `indicator_trigger_invalid_signal` | La señal no es `'long'`, `'short'` ni `'flat'` |
+| `indicator_trigger_invalid_time` | El tiempo de apertura de la barra no está disponible |
+
+<Callout type="info">
+  La API `trigger()` es una extensión específica de TradingGoose. No existe en Pine Script estándar ni en PineTS. Los indicadores con llamadas a `trigger()` funcionan con normalidad en todos los entornos — el disparador simplemente no tiene efecto fuera de TradingGoose.
+</Callout>

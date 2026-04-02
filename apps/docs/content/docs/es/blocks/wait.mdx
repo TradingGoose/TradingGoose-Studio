@@ -1,33 +1,37 @@
 ---
-title: Espera
+title: Esperar
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-El bloque Espera pausa tu flujo de trabajo durante un tiempo específico antes de continuar con el siguiente bloque. Úsalo para añadir retrasos entre acciones, respetar límites de frecuencia de API o espaciar operaciones.
+El bloque Esperar pausa tu flujo de trabajo durante un tiempo determinado antes de continuar con el siguiente bloque. Úsalo para agregar retrasos entre acciones, respetar los límites de tasa de las API o espaciar operaciones.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/wait.png"
-    alt="Bloque de Espera"
-    width={500}
-    height={350}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Esperar"
+    type="wait"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+      { "id": "timeValue", "title": "Tiempo de espera", "type": "short-input", "layout": "half", "description": "Máximo: 600 segundos o 10 minutos", "placeholder": "10", "required": true },
+      { "id": "timeUnit", "title": "Unidad", "type": "dropdown", "layout": "half", "options": [{ "label": "Segundos", "id": "seconds" }, { "label": "Minutos", "id": "minutes" }], "required": true }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Descripción general
 
-El bloque Espera te permite:
+El bloque Esperar te permite:
 
 <Steps>
   <Step>
-    <strong>Añadir retrasos de tiempo</strong>: Pausar la ejecución entre pasos del flujo de trabajo
+    <strong>Agregar retrasos de tiempo</strong>: Pausar la ejecución entre los pasos del flujo de trabajo
   </Step>
   <Step>
-    <strong>Respetar límites de frecuencia</strong>: Espaciar llamadas a API para mantenerse dentro de los límites
+    <strong>Respetar los límites de tasa</strong>: Espaciar las llamadas a la API para mantenerse dentro de los límites
   </Step>
   <Step>
     <strong>Programar secuencias</strong>: Crear flujos de trabajo temporizados con retrasos entre acciones
@@ -36,9 +40,9 @@ El bloque Espera te permite:
 
 ## Configuración
 
-### Cantidad de espera
+### Tiempo de espera
 
-Introduce la duración para pausar la ejecución:
+Ingresa la duración para pausar la ejecución:
 - **Entrada**: Número positivo
 - **Máximo**: 600 segundos (10 minutos) o 10 minutos
 
@@ -49,51 +53,51 @@ Elige la unidad de tiempo:
 - **Minutos**: Para pausas más largas
 
 <Callout type="info">
-  Los bloques de espera pueden cancelarse deteniendo el flujo de trabajo. El tiempo máximo de espera es de 10 minutos.
+  Los bloques Esperar pueden cancelarse deteniendo el flujo de trabajo. El tiempo máximo de espera es de 10 minutos.
 </Callout>
 
 ## Salidas
 
 - **`<wait.waitDuration>`**: La duración de la espera en milisegundos
-- **`<wait.status>`**: Estado de la espera ('waiting', 'completed', o 'cancelled')
+- **`<wait.status>`**: Estado de la espera ('waiting', 'completed' o 'cancelled')
 
-## Ejemplos de casos de uso
+## Casos de uso de ejemplo
 
-### Limitación de frecuencia de API
+### Limitación de tasa de API
 
 <div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Mantenerse dentro de los límites de frecuencia de API</h4>
+  <h4 className="font-medium">Escenario: Mantenerse dentro de los límites de tasa de la API</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>El bloque API realiza la primera solicitud</li>
-    <li>El bloque Espera pausa durante 2 segundos</li>
-    <li>El bloque API realiza la segunda solicitud</li>
-    <li>El proceso continúa sin alcanzar los límites de frecuencia</li>
+    <li>El bloque de API realiza la primera solicitud</li>
+    <li>El bloque Esperar hace una pausa de 2 segundos</li>
+    <li>El bloque de API realiza la segunda solicitud</li>
+    <li>El proceso continúa sin alcanzar los límites de tasa</li>
   </ol>
 </div>
 
-### Notificaciones temporizadas
+### Notificaciones programadas
 
 <div className="mb-4 rounded-md border p-4">
   <h4 className="font-medium">Escenario: Enviar mensajes de seguimiento</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>La función envía el correo electrónico inicial</li>
-    <li>El bloque Espera pausa durante 5 minutos</li>
+    <li>El bloque de espera pausa durante 5 minutos</li>
     <li>La función envía el correo electrónico de seguimiento</li>
   </ol>
 </div>
 
-### Retrasos de procesamiento
+### Retrasos en el procesamiento
 
 <div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Espera para sistema externo</h4>
+  <h4 className="font-medium">Escenario: Esperar a un sistema externo</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>El bloque API activa un trabajo en el sistema externo</li>
+    <li>El bloque de API activa un trabajo en el sistema externo</li>
     <li>El bloque de espera pausa durante 30 segundos</li>
-    <li>El bloque API verifica el estado de finalización del trabajo</li>
+    <li>El bloque de API comprueba el estado de finalización del trabajo</li>
   </ol>
 </div>
 
 ## Mejores prácticas
 
-- **Mantén esperas razonables**: Usa Espera para retrasos de hasta 10 minutos. Para retrasos más largos, considera flujos de trabajo programados
-- **Monitorea el tiempo de ejecución**: Recuerda que las esperas extienden la duración total del flujo de trabajo
+- **Mantén las esperas razonables**: Utiliza Wait para retrasos de hasta 10 minutos. Para retrasos más prolongados, considera los flujos de trabajo programados
+- **Monitoriza el tiempo de ejecución**: Ten en cuenta que las esperas aumentan la duración total del flujo de trabajo

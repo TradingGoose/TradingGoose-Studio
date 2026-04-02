@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { StructuredData } from '@/components/structured-data'
+import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
@@ -64,26 +65,6 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
 
       {/* Social icons */}
       <div className='flex items-center gap-4 py-6'>
-        <Link
-          href='https://x.com/simdotai'
-          target='_blank'
-          rel='noopener noreferrer'
-          aria-label='X (Twitter)'
-        >
-          <div
-            className='h-5 w-5 bg-gray-400 transition-colors hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400'
-            style={{
-              maskImage:
-                "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E')",
-              maskRepeat: 'no-repeat',
-              maskPosition: 'center center',
-              WebkitMaskImage:
-                "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E')",
-              WebkitMaskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'center center',
-            }}
-          />
-        </Link>
         <Link
           href='https://github.com/TradingGoose/TradingGoose-Studio'
           target='_blank'
@@ -171,6 +152,7 @@ ${page.data.content || ''}`}
           <DocsDescription>{page.data.description}</DocsDescription>
         </div>
         <DocsBody>
+          <AccordionHashSync />
           <MDX
             components={{
               ...defaultMdxComponents,

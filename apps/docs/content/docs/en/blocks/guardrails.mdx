@@ -5,20 +5,32 @@ title: Guardrails
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 The Guardrails block validates and protects your AI workflows by checking content against multiple validation types. Ensure data quality, prevent hallucinations, detect PII, and enforce format requirements before content moves through your workflow.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/guardrails.png"
-    alt="Guardrails Block"
-    width={500}
-    height={350}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Guardrails"
+    type="guardrails"
+    color="#3D642D"
+    hideHeader
+    subBlocks={[
+      { "id": "input", "title": "Content to Validate", "type": "long-input", "layout": "full", "placeholder": "Enter content to validate", "required": true },
+      { "id": "validationType", "title": "Validation Type", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "Valid JSON", "id": "json" }, { "label": "Regex Match", "id": "regex" }, { "label": "Hallucination Check", "id": "hallucination" }, { "label": "PII Detection", "id": "pii" }], "defaultValue": "json" },
+      { "id": "regex", "title": "Regex Pattern", "type": "short-input", "layout": "full", "placeholder": "e.g., ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "required": true },
+      { "id": "knowledgeBaseId", "title": "Knowledge Base", "type": "knowledge-base-selector", "layout": "full", "placeholder": "Select knowledge base", "required": true },
+      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
+      { "id": "threshold", "title": "Confidence", "type": "slider", "layout": "half" },
+      { "id": "topK", "title": "Number of Chunks to Retrieve", "type": "slider", "layout": "full" },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
+      { "id": "piiEntityTypes", "title": "PII Types to Detect", "type": "grouped-checkbox-list", "layout": "full", "options": [{ "label": "Person name", "id": "PERSON" }, { "label": "Email address", "id": "EMAIL_ADDRESS" }, { "label": "Phone number", "id": "PHONE_NUMBER" }, { "label": "Location", "id": "LOCATION" }, { "label": "Credit card number", "id": "CREDIT_CARD" }] },
+      { "id": "piiMode", "title": "Action", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "Block Request", "id": "block" }, { "label": "Mask PII", "id": "mask" }], "defaultValue": "block" },
+      { "id": "piiLanguage", "title": "Language", "type": "dropdown", "layout": "full", "options": [{ "label": "English", "id": "en" }, { "label": "Spanish", "id": "es" }, { "label": "Italian", "id": "it" }, { "label": "Polish", "id": "pl" }, { "label": "Finnish", "id": "fi" }], "defaultValue": "en" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Overview
 
@@ -105,10 +117,6 @@ Uses Retrieval-Augmented Generation (RAG) with LLM scoring to detect when AI-gen
 ### PII Detection
 
 Detects personally identifiable information using Microsoft Presidio. Supports 40+ entity types across multiple countries and languages.
-
-<div className="mx-auto w-3/5 overflow-hidden rounded-lg">
-  <Video src="guardrails.mp4" width={500} height={350} />
-</div>
 
 **How It Works:**
 1. Scans content for PII entities using pattern matching and NLP
@@ -216,10 +224,6 @@ Additional outputs by type:
     <li>If PII detected → Reject submission or mask sensitive data</li>
     <li>If no PII → Process normally</li>
   </ol>
-</div>
-
-<div className="mx-auto w-3/5 overflow-hidden rounded-lg">
-  <Video src="guardrails-example.mp4" width={500} height={350} />
 </div>
 
 ### Validate Email Format

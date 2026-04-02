@@ -1,0 +1,1140 @@
+---
+title: HubSpot 触发器
+description: 当 HubSpot 中创建新公司时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="hubspot"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+当 HubSpot 中创建新公司时触发工作流
+
+<Callout type="info">
+  这是一个**基于 Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以将事件发送至 TradingGoose。
+</Callout>
+
+## 事件
+
+### HubSpot 公司创建
+
+当 HubSpot 中创建新公司时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司创建"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 会话删除
+
+当 HubSpot 中的会话被删除时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Deletion"
+    type="hubspot_conversation_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 会话属性变更
+
+当 HubSpot 中会话的任意属性更新时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Property Changed"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：status、assignedTo",
+            "description": "可选：筛选仅在特定属性变更时触发。留空则在任意属性变更时触发。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 工单已创建
+
+当 HubSpot 中创建新工单时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Created"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的身份验证选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的身份验证选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于识别您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 交易已创建
+
+当 HubSpot 中创建新交易时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Created"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的身份验证选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的身份验证选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于识别您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### HubSpot 公司属性变更
+
+当 HubSpot 中某公司的任意属性更新时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Property Changed"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：name、domain、industry",
+            "description": "可选：设置仅在特定属性变更时触发。留空则在任意属性变更时触发。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### HubSpot 联系人删除
+
+当 HubSpot 中某联系人被删除时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Deleted"
+    type="hubspot_contact_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 联系人隐私删除
+
+当 HubSpot 中因隐私合规（GDPR、CCPA 等）而删除联系人时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Privacy Deleted"
+    type="hubspot_contact_privacy_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 工单删除
+
+当 HubSpot 中的工单被删除时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Deleted"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 对话隐私删除
+
+当 HubSpot 中因隐私合规（GDPR、CCPA 等）需要删除对话时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Privacy Deletion"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 对话新消息
+
+当 HubSpot 中的对话收到新消息时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation New Message"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 标签页中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出模式
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### HubSpot 公司已删除
+
+当 HubSpot 中的公司被删除时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Deleted"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出模式
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。
+
+---
+
+### HubSpot 工单属性已变更
+
+当 HubSpot 中工单的任意属性更新时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Property Changed"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "请输入您的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "请输入您的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "请输入您的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：hs_pipeline_stage、hs_ticket_priority",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 联系人属性变更
+
+当 HubSpot 中的联系人属性发生更新时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Property Changed"
+    type="hubspot_contact_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "请输入您的 HubSpot 应用 Client ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "请输入您的 HubSpot 应用 Client Secret",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "请输入您的 HubSpot App ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：email、firstname、lifecyclestage",
+            "description": "可选：仅在指定属性发生变更时触发。留空则在任意属性变更时触发。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 会话创建
+
+当 HubSpot 中创建新会话时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Creation"
+    type="hubspot_conversation_creation"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "请输入您的 HubSpot 应用 Client ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "请输入您的 HubSpot 应用 Client Secret",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "请输入您的 HubSpot App ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "请输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，可在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 交易属性变更
+
+当 HubSpot 中某个交易的任意属性更新时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Property Changed"
+    type="hubspot_deal_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于调用 HubSpot API，在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：dealstage、amount、closedate",
+            "description": "可选：筛选仅在特定属性变更时触发。留空则在任意属性变更时触发。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递给您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 交易删除
+
+当 HubSpot 中某个交易被删除时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Deleted"
+    type="hubspot_deal_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中找到，用于标识您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于调用 HubSpot API，在 HubSpot 应用设置中找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---
+
+### HubSpot 联系人已创建
+
+当 HubSpot 中创建新联系人时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Created"
+    type="hubspot_contact_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入您的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下可找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入您的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡下可找到",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入您的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中可找到，用于识别您的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入您的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用，在 HubSpot 应用设置中可找到。",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+触发器将完整的事件负载传递至您的工作流。使用 `<trigger.fieldName>` 语法访问字段。
+
+---

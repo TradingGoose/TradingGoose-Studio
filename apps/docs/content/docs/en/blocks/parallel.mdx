@@ -5,7 +5,8 @@ title: Parallel
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 The Parallel block is a container block in TradingGoose that allows you to execute multiple instances of blocks concurrently for faster workflow processing.
 
@@ -14,6 +15,23 @@ The Parallel block supports two types of concurrent execution:
 <Callout type="info">
   Parallel blocks are container nodes that execute their contents multiple times simultaneously, unlike loops which execute sequentially.
 </Callout>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Parallel AI"
+    type="parallel"
+    color="#7C3AED"
+    hideHeader
+    subBlocks={[
+      { "id": "objective", "title": "Search Objective", "type": "long-input", "layout": "full", "placeholder": "When was the United Nations established? Prefer UN's websites.", "required": true },
+      { "id": "search_queries", "title": "Search Queries", "type": "long-input", "layout": "full", "placeholder": "Enter search queries separated by commas (e.g., \"Founding year UN\", \"Year of founding United Nations\")" },
+      { "id": "processor", "title": "Processor", "type": "dropdown", "layout": "full", "options": [{ "label": "Base", "id": "base" }, { "label": "Pro", "id": "pro" }] },
+      { "id": "max_results", "title": "Max Results", "type": "short-input", "layout": "half", "placeholder": "5" },
+      { "id": "max_chars_per_result", "title": "Max Chars", "type": "short-input", "layout": "half", "placeholder": "1500" },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your Parallel AI API key", "password": true, "required": true }
+    ]}
+  />
+</ShowcaseCard>
 
 ## Overview
 
@@ -42,17 +60,7 @@ Choose between two types of parallel execution:
 
 <Tabs items={['Count-based', 'Collection-based']}>
   <Tab>
-    **Count-based Parallel** - Execute a fixed number of parallel instances:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/parallel-1.png"
-        alt="Count-based parallel execution"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
+    **Count-based Parallel** - Execute a fixed number of parallel instances.
     
     Use this when you need to run the same operation multiple times concurrently.
     
@@ -66,17 +74,7 @@ Choose between two types of parallel execution:
     ```
   </Tab>
   <Tab>
-    **Collection-based Parallel** - Distribute a collection across parallel instances:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/parallel-2.png"
-        alt="Collection-based parallel execution"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
+    **Collection-based Parallel** - Distribute a collection across parallel instances.
     
     Each instance processes one item from the collection simultaneously.
     

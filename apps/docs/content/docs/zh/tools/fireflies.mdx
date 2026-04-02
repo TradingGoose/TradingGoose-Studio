@@ -1,0 +1,2857 @@
+---
+title: 萤火虫
+description: 与 Fireflies.ai 会议转录和录音进行交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+/>
+
+## 配置
+
+### 列出转录记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加到实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建片段",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出片段",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_list_transcripts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "keyword",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "在标题或转录内容中搜索"
+        },
+        {
+            "id": "fromDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "placeholder": "例如：2024-01-01T00:00:00Z"
+        },
+        {
+            "id": "toDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "placeholder": "例如：2024-12-31T23:59:59Z"
+        },
+        {
+            "id": "hostEmail",
+            "type": "short-input",
+            "title": "主持人邮箱",
+            "placeholder": "按主持人邮箱筛选"
+        },
+        {
+            "id": "participants",
+            "type": "short-input",
+            "title": "参与者",
+            "placeholder": "逗号分隔的参与者邮箱"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制数量",
+            "placeholder": "最多 50 条（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出转录记录（<code>fireflies_list_transcripts</code>）</div>
+
+从 Fireflies.ai 列出会议转录记录，支持可选过滤条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `keyword` | string | 否 | 在会议标题或转录内容中搜索的关键词 |
+| `fromDate` | string | 否 | 筛选此日期之后的转录记录 \(ISO 8601 格式\) |
+| `toDate` | string | 否 | 筛选此日期之前的转录记录 \(ISO 8601 格式\) |
+| `hostEmail` | string | 否 | 按会议主持人邮箱筛选 |
+| `participants` | string | 否 | 按参与者邮箱筛选 \(逗号分隔\) |
+| `limit` | number | 否 | 返回的最大转录记录数 \(最多 50 条\) |
+| `skip` | number | 否 | 分页时跳过的转录记录数 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `transcripts` | array | 转录记录列表 |
+
+</div>
+
+---
+
+### 获取转录记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建 Bite",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出 Bites",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_get_transcript"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录记录 ID",
+            "placeholder": "请输入转录记录 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取转录记录（<code>fireflies_get_transcript</code>）</div>
+
+获取单条转录记录的完整详情，包括摘要、待办事项和分析数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `transcriptId` | string | 是 | 要检索的转录记录 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 转录记录 ID |
+| `title` | string | 会议标题 |
+| `date` | number | 会议时间戳 |
+| `duration` | number | 会议时长（秒） |
+| `transcript_url` | string | 查看转录记录的 URL |
+| `audio_url` | string | 音频录音的 URL |
+| `host_email` | string | 主持人电子邮件地址 |
+| `participants` | array | 参会者邮箱列表 |
+| `speakers` | array | 发言人列表 |
+| `sentences` | array | 转录句子 |
+| `summary` | object | 会议摘要及待办事项 |
+
+</div>
+
+---
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至直播会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建 Bite",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出 Bites",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_get_user"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "留空则使用当前用户"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户 (<code>fireflies_get_user</code>)</div>
+
+从 Fireflies.ai 获取用户信息。若未指定 ID，则返回当前用户。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `userId` | string | 否 | 要检索的用户 ID \(可选，默认为 API 密钥所有者\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `user_id` | string | 用户 ID |
+| `name` | string | 用户名 |
+| `email` | string | 用户邮箱 |
+| `integrations` | array | 已连接的集成 |
+| `is_admin` | boolean | 是否为管理员 |
+| `minutes_consumed` | number | 已转录的总分钟数 |
+| `num_transcripts` | number | 转录文件数量 |
+| `recent_transcript` | string | 最新转录文件 ID |
+
+</div>
+
+---
+
+### 列出用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录文件",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录文件",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录文件",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人加入实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建 Bite",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出 Bites",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_list_users"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出用户 (<code>fireflies_list_users</code>)</div>
+
+列出您 Fireflies.ai 团队中的所有用户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的模块输出。
+
+</div>
+
+---
+
+### 上传音频
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建片段",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出片段",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_upload_audio"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件"
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用前序模块中的音频/视频"
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "description": "音频文件的公共 HTTPS URL（支持 MP3、MP4、WAV、M4A、OGG 格式）"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "会议标题"
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "语言",
+            "placeholder": "例如：es、de、fr（默认：英语）"
+        },
+        {
+            "id": "attendees",
+            "type": "long-input",
+            "title": "参会人员",
+            "placeholder": "[{\"displayName\": \"John\", \"email\": \"john@example.com\"}]",
+            "description": "参会人员的 JSON 数组"
+        },
+        {
+            "id": "clientReferenceId",
+            "type": "short-input",
+            "title": "参考 ID",
+            "placeholder": "自定义追踪 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传音频（<code>fireflies_upload_audio</code>）</div>
+
+将音频文件 URL 上传至 Fireflies.ai 进行转录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `audioFile` | file | 否 | 上传用于转录的音频/视频文件 |
+| `audioUrl` | string | 否 | 音频/视频文件的公开 HTTPS URL \(MP3、MP4、WAV、M4A、OGG\) |
+| `title` | string | 否 | 会议/转录标题 |
+| `webhook` | string | 否 | 转录完成后的通知 Webhook URL |
+| `language` | string | 否 | 转录语言代码 \(例如："es" 表示西班牙语，"de" 表示德语\) |
+| `attendees` | string | 否 | JSON 格式的与会者信息：\[\{"displayName": "姓名", "email": "email@example.com"\}\] |
+| `clientReferenceId` | string | 否 | 用于追踪的自定义参考 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 上传是否成功 |
+| `title` | string | 已上传会议的标题 |
+
+</div>
+
+---
+
+### 删除转录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至直播会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建精华片段",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出精华片段",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_delete_transcript"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录 ID",
+            "placeholder": "请输入转录 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除转录文本（<code>fireflies_delete_transcript</code>）</div>
+
+从 Fireflies.ai 删除转录文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `transcriptId` | string | 是 | 要删除的转录文本 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的模块输出。
+
+</div>
+
+---
+
+### 将机器人添加至实时会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录文本",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录文本",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录文本",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建 Bite",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出 Bite",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_add_to_live_meeting"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "会议标题"
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "语言",
+            "placeholder": "例如：es、de、fr（默认：英语）"
+        },
+        {
+            "id": "meetingLink",
+            "type": "short-input",
+            "title": "会议链接",
+            "placeholder": "https://zoom.us/j/... 或 https://meet.google.com/...",
+            "description": "Zoom、Google Meet 或 Microsoft Teams 会议的 URL",
+            "required": true
+        },
+        {
+            "id": "meetingPassword",
+            "type": "short-input",
+            "title": "会议密码",
+            "placeholder": "可选的会议密码",
+            "password": true
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "时长（分钟）",
+            "placeholder": "60（15–120 分钟）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">将机器人添加至实时会议（<code>fireflies_add_to_live_meeting</code>）</div>
+
+将 Fireflies.ai 机器人添加至正在进行的会议，以进行录制和转录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `meetingLink` | string | 是 | 有效的会议 URL \(Zoom、Google Meet、Microsoft Teams 等\) |
+| `title` | string | 否 | 会议标题 \(最多 256 个字符\) |
+| `meetingPassword` | string | 否 | 会议密码（如需）\(最多 32 个字符\) |
+| `duration` | number | 否 | 会议时长（分钟）\(15-120，默认值：60\) |
+| `language` | string | 否 | 转录语言代码 \(例如，"en"、"es"、"de"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的模块输出。
+
+</div>
+
+---
+
+### 创建 Bite
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建 Bite",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出 Bites",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_create_bite"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录记录 ID",
+            "placeholder": "请输入转录记录 ID"
+        },
+        {
+            "id": "startTime",
+            "type": "short-input",
+            "title": "开始时间（秒）",
+            "placeholder": "例如：30",
+            "required": true
+        },
+        {
+            "id": "endTime",
+            "type": "short-input",
+            "title": "结束时间（秒）",
+            "placeholder": "例如：90",
+            "required": true
+        },
+        {
+            "id": "biteName",
+            "type": "short-input",
+            "title": "Bite 名称",
+            "placeholder": "为此精华片段命名"
+        },
+        {
+            "id": "biteSummary",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "精华片段的简要描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建片段 (<code>fireflies_create_bite</code>)</div>
+
+从转录文本的特定时间范围内创建音频片段/精彩片段
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `transcriptId` | string | 是 | 用于创建片段的转录文本 ID |
+| `startTime` | number | 是 | 片段开始时间（秒） |
+| `endTime` | number | 是 | 片段结束时间（秒） |
+| `name` | string | 否 | 片段名称 \(最多 256 个字符\) |
+| `mediaType` | string | 否 | 媒体类型："video" 或 "audio" |
+| `summary` | string | 否 | 片段摘要 \(最多 500 个字符\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 片段 ID |
+| `name` | string | 片段名称 |
+
+</div>
+
+---
+
+### 片段列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "转录列表",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "用户列表",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建片段",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "片段列表",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "联系人列表",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_list_bites"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录 ID",
+            "placeholder": "请输入转录 ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制数量",
+            "placeholder": "最多 50 条（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出片段 (<code>fireflies_list_bites</code>)</div>
+
+列出 Fireflies.ai 中的音频片段/精彩集锦
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `transcriptId` | string | 否 | 筛选特定转录记录的片段 |
+| `mine` | boolean | 否 | 仅返回 API 密钥所有者拥有的片段 \(默认值：true\) |
+| `limit` | number | 否 | 返回片段的最大数量 \(最多 50\) |
+| `skip` | number | 否 | 分页时跳过的片段数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+---
+
+### 列出联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='-6 -6 68 68'>
+      <defs>
+        <linearGradient
+          id='fireflies_g1'
+          gradientUnits='userSpaceOnUse'
+          x1='144.6644'
+          y1='-133.7781'
+          x2='54.3811'
+          y2='-38.9195'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g2'
+          gradientUnits='userSpaceOnUse'
+          x1='145.1664'
+          y1='-133.3084'
+          x2='54.8831'
+          y2='-38.4499'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#FF3C82' />
+          <stop offset='0.103' stopColor='#F53E88' />
+          <stop offset='0.274' stopColor='#DC4598' />
+          <stop offset='0.492' stopColor='#B251B2' />
+          <stop offset='0.745' stopColor='#7961D7' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g3'
+          gradientUnits='userSpaceOnUse'
+          x1='144.7625'
+          y1='-123.2011'
+          x2='114.171'
+          y2='-12.3403'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g4'
+          gradientUnits='userSpaceOnUse'
+          x1='134.8237'
+          y1='-132.3271'
+          x2='25.3098'
+          y2='-98.9636'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.113' stopColor='#DE2D7A' />
+          <stop offset='0.3' stopColor='#C5388F' />
+          <stop offset='0.54' stopColor='#9B4AB0' />
+          <stop offset='0.818' stopColor='#6262DE' />
+          <stop offset='0.994' stopColor='#3B73FF' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g5'
+          gradientUnits='userSpaceOnUse'
+          x1='82.2078'
+          y1='-52.7908'
+          x2='112.8836'
+          y2='-123.0805'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g6'
+          gradientUnits='userSpaceOnUse'
+          x1='107.6542'
+          y1='-78.5296'
+          x2='138.33'
+          y2='-148.8194'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g7'
+          gradientUnits='userSpaceOnUse'
+          x1='70.8311'
+          y1='-99.3209'
+          x2='140.3046'
+          y2='-145.474'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+        <linearGradient
+          id='fireflies_g8'
+          gradientUnits='userSpaceOnUse'
+          x1='297.6904'
+          y1='-1360.8851'
+          x2='309.5946'
+          y2='-1454.8754'
+          gradientTransform='matrix(0.8571 0 0 -0.8571 -79.2389 -68.1736)'
+        >
+          <stop offset='0' stopColor='#E82A73' />
+          <stop offset='0.114' stopColor='#DE286E' />
+          <stop offset='0.303' stopColor='#C52361' />
+          <stop offset='0.544' stopColor='#9B1A4D' />
+          <stop offset='0.825' stopColor='#620F30' />
+          <stop offset='0.994' stopColor='#3D081E' />
+        </linearGradient>
+      </defs>
+      <g>
+        <path fill='url(#fireflies_g1)' d='M18.4,0H0v18.3h18.4V0z' />
+        <path fill='url(#fireflies_g2)' d='M40.2,22.1H21.8v18.3h18.4V22.1z' />
+        <path
+          fill='url(#fireflies_g3)'
+          d='M40.2,0H21.8v18.3H56v-2.6c0-4.2-1.7-8.1-4.6-11.1C48.4,1.7,44.4,0,40.2,0L40.2,0z'
+        />
+        <path
+          fill='url(#fireflies_g4)'
+          d='M0,22.1v18.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1H0z'
+        />
+        <path fill='url(#fireflies_g5)' opacity='0.18' d='M0,0l18.4,18.3H0V0z' />
+        <path fill='url(#fireflies_g6)' opacity='0.18' d='M21.8,22.1l18.4,18.3H21.8V22.1z' />
+        <path
+          fill='url(#fireflies_g7)'
+          opacity='0.18'
+          d='M0,40.3c0,4.2,1.7,8.1,4.6,11.1c3,2.9,7,4.6,11.2,4.6h2.6V22.1L0,40.3z'
+        />
+        <path
+          fill='url(#fireflies_g8)'
+          opacity='0.18'
+          d='M40.2,0c4.2,0,8.2,1.7,11.2,4.6c3,2.9,4.6,6.9,4.6,11.1v2.6H21.8L40.2,0z'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出转录记录",
+                    "id": "fireflies_list_transcripts"
+                },
+                {
+                    "label": "获取转录记录",
+                    "id": "fireflies_get_transcript"
+                },
+                {
+                    "label": "获取用户",
+                    "id": "fireflies_get_user"
+                },
+                {
+                    "label": "列出用户",
+                    "id": "fireflies_list_users"
+                },
+                {
+                    "label": "上传音频",
+                    "id": "fireflies_upload_audio"
+                },
+                {
+                    "label": "删除转录记录",
+                    "id": "fireflies_delete_transcript"
+                },
+                {
+                    "label": "将机器人添加至实时会议",
+                    "id": "fireflies_add_to_live_meeting"
+                },
+                {
+                    "label": "创建片段",
+                    "id": "fireflies_create_bite"
+                },
+                {
+                    "label": "列出片段",
+                    "id": "fireflies_list_bites"
+                },
+                {
+                    "label": "列出联系人",
+                    "id": "fireflies_list_contacts"
+                }
+            ],
+            "defaultValue": "fireflies_list_contacts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出联系人（<code>fireflies_list_contacts</code>）</div>
+
+列出您在 Fireflies.ai 会议中的所有联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+---
+
+## 使用说明
+
+将 Fireflies.ai 集成到工作流中。管理会议转录、将机器人添加至实时会议、创建声音片段等。还可在转录完成时触发工作流。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`fireflies`

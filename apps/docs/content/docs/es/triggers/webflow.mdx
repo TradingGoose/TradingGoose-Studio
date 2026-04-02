@@ -1,0 +1,411 @@
+---
+title: Disparador de Webflow
+description: Activa el flujo de trabajo cuando se crea un nuevo elemento en una
+  colección de Webflow CMS (requiere credenciales de Webflow)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="webflow"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activa el flujo de trabajo cuando se crea un nuevo elemento en una colección de Webflow CMS (requiere credenciales de Webflow)
+
+<Callout type="info">
+  Este es un disparador **basado en webhooks**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Eventos
+
+### Elemento de Colección Creado
+
+Activa el flujo de trabajo cuando se crea un nuevo elemento en una colección de Webflow CMS (requiere credenciales de Webflow)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Created"
+    type="webflow_collection_item_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Tipo de Disparador",
+            "required": true,
+            "options": [
+                {
+                    "label": "Elemento de Colección Creado",
+                    "id": "webflow_collection_item_created"
+                },
+                {
+                    "label": "Elemento de Colección Modificado",
+                    "id": "webflow_collection_item_changed"
+                },
+                {
+                    "label": "Elemento de Colección Eliminado",
+                    "id": "webflow_collection_item_deleted"
+                }
+            ]
+        },
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Webflow para acceder a su cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Seleccionar un sitio",
+            "description": "El sitio de Webflow a monitorear",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Seleccionar una colección (opcional)",
+            "description": "Opcionalmente, filtre para monitorear solo una colección específica"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se creó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento creado"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "ID de configuración regional del CMS"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última publicación"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del elemento"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento está archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "Los datos de campo del elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Envío de formulario
+
+Activa el flujo de trabajo cuando se envía un formulario en un sitio de Webflow (requiere credenciales de Webflow)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Form Submission"
+    type="webflow_form_submission"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Webflow para acceder a tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Selecciona un sitio",
+            "description": "El sitio de Webflow a monitorizar",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID de formulario",
+            "placeholder": "form-123abc (opcional)",
+            "description": "El ID del formulario específico a monitorizar (opcional - dejar vacío para todos los formularios)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde se envió el formulario"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "El ID del formulario"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "El nombre del formulario"
+      },
+      {
+          "name": "id",
+          "type": "string",
+          "description": "El ID único del envío del formulario"
+      },
+      {
+          "name": "submittedAt",
+          "type": "string",
+          "description": "Marca de tiempo del envío del formulario"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "Los datos de campo del envío del formulario (las claves son los nombres de los campos)"
+      },
+      {
+          "name": "schema",
+          "type": "object",
+          "description": "Información del esquema del formulario"
+      },
+      {
+          "name": "formElementId",
+          "type": "string",
+          "description": "El ID del elemento de formulario"
+      }
+  ]}
+/>
+
+---
+
+### Elemento de Colección Modificado
+
+Activar flujo de trabajo cuando se actualiza un elemento en una colección de Webflow CMS (requiere credenciales de Webflow)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Changed"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Webflow para acceder a tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Seleccionar un sitio",
+            "description": "El sitio de Webflow a monitorear",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Seleccionar una colección (opcional)",
+            "description": "Opcionalmente, filtra para monitorear solo una colección específica"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se modificó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento modificado"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "ID de configuración regional del CMS"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última publicación"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del elemento"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento está archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "Los datos de campo actualizados del elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Elemento de Colección Eliminado
+
+Activar flujo de trabajo cuando se elimina un elemento de una colección de Webflow CMS (requiere credenciales de Webflow)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Deleted"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Webflow para acceder a tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Seleccionar un sitio",
+            "description": "El sitio de Webflow a monitorear",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Seleccionar una colección (opcional)",
+            "description": "Opcionalmente, filtra para monitorear solo una colección específica"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se eliminó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento eliminado"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "Marca de tiempo de cuándo se eliminó el elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

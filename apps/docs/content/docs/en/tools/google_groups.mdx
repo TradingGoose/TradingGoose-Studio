@@ -1,0 +1,1279 @@
+---
+title: Google Groups
+description: Manage Google Workspace Groups and their members
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_groups"
+  color="#E8F0FE"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### List Groups
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "list_groups"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "Customer ID",
+            "placeholder": "my_customer (default)"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Filter by domain (e.g., example.com)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Search Query",
+            "placeholder": "Filter query (e.g., email:admin*)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "placeholder": "Maximum results (1-200)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Groups (<code>google_groups_list_groups</code>)</div>
+
+List all groups in a Google Workspace domain
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `customer` | string | No | Customer ID or "my_customer" for the authenticated user\'s domain |
+| `domain` | string | No | Domain name to filter groups by |
+| `maxResults` | number | No | Maximum number of results to return \(1-200\) |
+| `pageToken` | string | No | Token for pagination |
+| `query` | string | No | Search query to filter groups \(e.g., "email:admin*"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `groups` | json | Array of group objects |
+
+</div>
+
+
+
+---
+
+### Get Group
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "get_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Group (<code>google_groups_get_group</code>)</div>
+
+Get details of a specific Google Group by email or group ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Create Group
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "create_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Group Email",
+            "placeholder": "newgroup@example.com",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Group Name",
+            "placeholder": "Display name for the group",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Optional description for the group"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Group (<code>google_groups_create_group</code>)</div>
+
+Create a new Google Group in the domain
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Yes | Email address for the new group \(e.g., team@yourdomain.com\) |
+| `name` | string | Yes | Display name for the group |
+| `description` | string | No | Description of the group |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Update Group
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "update_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Optional description for the group"
+        },
+        {
+            "id": "newName",
+            "type": "short-input",
+            "title": "New Name",
+            "placeholder": "New display name"
+        },
+        {
+            "id": "newEmail",
+            "type": "short-input",
+            "title": "New Email",
+            "placeholder": "New email address"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Group (<code>google_groups_update_group</code>)</div>
+
+Update an existing Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `name` | string | No | New display name for the group |
+| `description` | string | No | New description for the group |
+| `email` | string | No | New email address for the group |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Delete Group
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "delete_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Group (<code>google_groups_delete_group</code>)</div>
+
+Delete a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### List Members
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "list_members"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "placeholder": "Maximum results (1-200)"
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "roles",
+            "type": "short-input",
+            "title": "Filter by Roles",
+            "placeholder": "OWNER,MANAGER,MEMBER"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Members (<code>google_groups_list_members</code>)</div>
+
+List all members of a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `maxResults` | number | No | Maximum number of results to return \(1-200\) |
+| `pageToken` | string | No | Token for pagination |
+| `roles` | string | No | Filter by roles \(comma-separated: OWNER, MANAGER, MEMBER\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `members` | json | Array of member objects |
+
+</div>
+
+
+
+---
+
+### Get Member
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "get_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "Member Email or ID",
+            "placeholder": "user@example.com or member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Member (<code>google_groups_get_member</code>)</div>
+
+Get details of a specific member in a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `memberKey` | string | Yes | Member email address or unique member ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Add Member
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "add_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "memberEmail",
+            "type": "short-input",
+            "title": "Member Email",
+            "placeholder": "user@example.com",
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Member Role"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add Member (<code>google_groups_add_member</code>)</div>
+
+Add a new member to a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `email` | string | Yes | Email address of the member to add |
+| `role` | string | No | Role for the member \(MEMBER, MANAGER, or OWNER\). Defaults to MEMBER. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Update Member Role
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "update_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "Member Email or ID",
+            "placeholder": "user@example.com or member ID",
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Member Role"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Member Role (<code>google_groups_update_member</code>)</div>
+
+Update a member
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `memberKey` | string | Yes | Member email address or unique member ID |
+| `role` | string | Yes | New role for the member \(MEMBER, MANAGER, or OWNER\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Remove Member
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "remove_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "Member Email or ID",
+            "placeholder": "user@example.com or member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Remove Member (<code>google_groups_remove_member</code>)</div>
+
+Remove a member from a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `memberKey` | string | Yes | Email address or unique ID of the member to remove |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Check Membership
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "has_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Groups Account",
+            "placeholder": "Select Google Workspace account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "Group Email or ID",
+            "placeholder": "group@example.com or group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "Member Email or ID",
+            "placeholder": "user@example.com or member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Check Membership (<code>google_groups_has_member</code>)</div>
+
+Check if a user is a member of a Google Group
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | string | Yes | Group email address or unique group ID |
+| `memberKey` | string | Yes | Member email address or unique member ID to check |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Connect to Google Workspace to create, update, and manage groups and their members using the Admin SDK Directory API.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `google_groups`

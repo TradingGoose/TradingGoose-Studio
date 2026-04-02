@@ -1,0 +1,56 @@
+---
+title: "Skill Editor"
+description: "Edit workspace skills."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `editor_skill` |
+| **Category** | Editor |
+
+The Skill Editor lets you modify the name, description, and instruction content of a workspace skill. Skills are reusable instruction sets that the agent can load at runtime to gain specialized behavior. Use the [Skill List](/utilities/skills) widget to browse and create skills; the editor is where you author their content.
+
+## Features
+
+- **Name field** accepts a kebab-case identifier (e.g. `market-research`). This is the key the agent uses when loading the skill. The editor validates uniqueness across the workspace on save.
+- **Description field** provides a short summary of what the skill helps the agent do.
+- **Instructions textarea** is a free-form text area (up to 50,000 characters) where you write the full skill instructions in plain text or markdown. The textarea uses a monospace font for comfortable editing.
+- **Save button** in the header bar persists all changes. Validation runs on save: name must be non-empty kebab-case, description and content must be non-empty, and the name must be unique within the workspace.
+- **Skill selector** in the header bar switches between skills. When paired via a color link, the selector syncs with the Skill List widget.
+
+## Usage
+
+1. Add the widget to a workspace from the widget picker.
+2. Select a skill from the header dropdown, or create one from the [Skill List](/utilities/skills) widget.
+3. Edit the **Name**, **Description**, and **Instructions** fields.
+4. Click the **Save** button to persist your changes.
+
+### Validation Rules
+
+- **Name** must be kebab-case (lowercase letters, numbers, and hyphens). Example: `market-research`.
+- **Name** must be unique -- you cannot have two skills with the same name in one workspace.
+- **Description** and **Instructions** are both required and cannot be empty.
+
+<Callout>
+This widget supports the **pairColor** mechanism. Assign the same color to a Skill Editor and a [Skill List](/utilities/skills) widget so that selecting a skill in the list automatically opens it in the editor.
+</Callout>
+
+## Configuration
+
+The selected skill is stored in widget params as `skillId` and synced through the pair-color store when linked.
+
+## Related
+
+<Cards>
+  <Card title="Skills Guide" href="/utilities/skills">
+    Learn what skills are, how the agent loads them, and best practices.
+  </Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+</Cards>

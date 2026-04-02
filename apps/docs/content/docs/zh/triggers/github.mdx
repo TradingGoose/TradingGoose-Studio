@@ -1,0 +1,5722 @@
+---
+title: GitHub 触发器
+description: 当 GitHub 仓库中的 Pull Request 成功合并时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="github"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+当 GitHub 仓库中的 Pull Request 成功合并时触发工作流
+
+<Callout type="info">
+  这是一个基于 **Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以将事件发送至 TradingGoose。
+</Callout>
+
+## 事件
+
+### GitHub PR 合并
+
+当 GitHub 仓库中的 Pull Request 成功合并时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Merged"
+    type="github_pr_merged"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 Webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：pull_request）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（opened、closed、synchronize、reopened、edited 等）"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "Pull Request 编号"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull Request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull Request 节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull Request 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull Request 标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull Request 描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull Request 状态（open、closed）"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "PR 是否已合并"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "PR 合并时间戳"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "PR 是否为草稿"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull Request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull Request Diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull Request Patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "源分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "源分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "源仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "源仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "目标分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "目标分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "目标仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "目标仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "新增行数"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "删除行数"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "变更文件数"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "已分配用户数组"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "请求的审查者数组"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull Request 创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull Request 最后更新时间戳"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Pull Request 关闭时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "未关闭 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR 审查
+
+当 GitHub 仓库中的拉取请求审查被提交、编辑或驳回时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Reviewed"
+    type="github_pr_reviewed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "用于验证 Webhook 请求来源于 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在投递 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：pull_request_review）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（submitted、edited、dismissed）"
+      },
+      {
+          "name": "review",
+          "type": "object",
+          "description": "review",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "审查 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "审查节点 ID"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "审查者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "审查者用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "审查者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "审查者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "审查者主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "审查评论内容"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "审查状态（approved、changes_requested、commented、dismissed）"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "审查 HTML URL"
+              },
+              {
+                  "name": "submitted_at",
+                  "type": "string",
+                  "description": "审查提交时间戳"
+              },
+              {
+                  "name": "commit_id",
+                  "type": "string",
+                  "description": "被审查的提交 SHA"
+              },
+              {
+                  "name": "author_association",
+                  "type": "string",
+                  "description": "作者关联关系（OWNER、MEMBER、COLLABORATOR、CONTRIBUTOR 等）"
+              }
+          ]
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "拉取请求 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "拉取请求节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "拉取请求编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "拉取请求标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "拉取请求描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "拉取请求状态（open、closed）"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "PR 是否已合并"
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "PR 是否为草稿"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "拉取请求 HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "拉取请求差异 URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "拉取请求补丁 URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "PR 作者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "PR 作者用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "PR 作者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "PR 作者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "PR 作者主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "源分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "源分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "源仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "源仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "目标分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "目标分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "目标仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "目标仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "拉取请求创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "拉取请求最后更新时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（所有者/仓库）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Actions 工作流运行
+
+当 GitHub Actions 工作流运行被请求、正在进行或已完成时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Actions Workflow Run"
+    type="github_workflow_run"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 webhook 请求来源于 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在发送 webhook 时验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：workflow_run）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（requested、in_progress、completed）"
+      },
+      {
+          "name": "workflow_run",
+          "type": "object",
+          "description": "workflow_run",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "工作流运行 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "工作流运行节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "工作流名称"
+              },
+              {
+                  "name": "workflow_id",
+                  "type": "number",
+                  "description": "工作流 ID"
+              },
+              {
+                  "name": "run_number",
+                  "type": "number",
+                  "description": "该工作流的运行编号"
+              },
+              {
+                  "name": "run_attempt",
+                  "type": "number",
+                  "description": "本次运行的尝试次数"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "触发工作流的事件（push、pull_request 等）"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "当前状态（queued、in_progress、completed）"
+              },
+              {
+                  "name": "conclusion",
+                  "type": "string",
+                  "description": "结论（success、failure、cancelled、skipped、timed_out、action_required）"
+              },
+              {
+                  "name": "head_branch",
+                  "type": "string",
+                  "description": "分支名称"
+              },
+              {
+                  "name": "head_sha",
+                  "type": "string",
+                  "description": "触发工作流的提交 SHA"
+              },
+              {
+                  "name": "path",
+                  "type": "string",
+                  "description": "工作流文件路径"
+              },
+              {
+                  "name": "display_title",
+                  "type": "string",
+                  "description": "运行的显示标题"
+              },
+              {
+                  "name": "run_started_at",
+                  "type": "string",
+                  "description": "运行开始的时间戳"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "工作流运行创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "工作流运行最后更新时间戳"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "工作流运行 HTML URL"
+              },
+              {
+                  "name": "check_suite_id",
+                  "type": "number",
+                  "description": "关联的检查套件 ID"
+              },
+              {
+                  "name": "check_suite_node_id",
+                  "type": "string",
+                  "description": "关联的检查套件节点 ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "工作流运行 API URL"
+              },
+              {
+                  "name": "actor",
+                  "type": "object",
+                  "description": "actor",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "triggering_actor",
+                  "type": "object",
+                  "description": "triggering_actor",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "repository",
+                  "type": "object",
+                  "description": "repository",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "仓库 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "仓库节点 ID"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "仓库名称"
+                      },
+                      {
+                          "name": "full_name",
+                          "type": "string",
+                          "description": "仓库全名"
+                      },
+                      {
+                          "name": "private",
+                          "type": "boolean",
+                          "description": "仓库是否为私有"
+                      }
+                  ]
+              },
+              {
+                  "name": "head_repository",
+                  "type": "object",
+                  "description": "head_repository",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "头部仓库 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "头部仓库节点 ID"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "头部仓库名称"
+                      },
+                      {
+                          "name": "full_name",
+                          "type": "string",
+                          "description": "头部仓库全名"
+                      },
+                      {
+                          "name": "private",
+                          "type": "boolean",
+                          "description": "仓库是否为私有"
+                      }
+                  ]
+              },
+              {
+                  "name": "head_commit",
+                  "type": "object",
+                  "description": "head_commit",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "提交 SHA"
+                      },
+                      {
+                          "name": "tree_id",
+                          "type": "string",
+                          "description": "树 ID"
+                      },
+                      {
+                          "name": "message",
+                          "type": "string",
+                          "description": "提交消息"
+                      },
+                      {
+                          "name": "timestamp",
+                          "type": "string",
+                          "description": "提交时间戳"
+                      },
+                      {
+                          "name": "author",
+                          "type": "object",
+                          "description": "author",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "作者姓名"
+                              },
+                              {
+                                  "name": "email",
+                                  "type": "string",
+                                  "description": "作者邮箱"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "committer",
+                          "type": "object",
+                          "description": "committer",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "提交者姓名"
+                              },
+                              {
+                                  "name": "email",
+                                  "type": "string",
+                                  "description": "提交者邮箱"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "pull_requests",
+                  "type": "array",
+                  "description": "关联的 Pull Request 数组"
+              },
+              {
+                  "name": "referenced_workflows",
+                  "type": "array",
+                  "description": "引用的工作流运行数组"
+              }
+          ]
+      },
+      {
+          "name": "workflow",
+          "type": "object",
+          "description": "workflow",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "工作流 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "工作流节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "工作流名称"
+              },
+              {
+                  "name": "path",
+                  "type": "string",
+                  "description": "工作流文件路径"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "工作流状态（active、deleted、disabled_fork 等）"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "工作流创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "工作流最后更新时间戳"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "工作流 API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "工作流 HTML URL"
+              },
+              {
+                  "name": "badge_url",
+                  "type": "string",
+                  "description": "工作流徽章 URL"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（所有者/仓库）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue 评论
+
+当评论被添加到 Issue（非 Pull Request）时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Comment"
+    type="github_issue_comment"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 有效载荷时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 Webhook 推送源自 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出 Schema
+
+<SchemaTree
+  title="事件有效载荷"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：issue_comment）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（created、edited、deleted）"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue 标题"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue 状态（open、closed）"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "comment",
+          "type": "object",
+          "description": "comment",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "评论 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "评论节点 ID"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "评论内容"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "评论 HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "评论创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "评论最后更新时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库完整名称（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Watch 数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "未关闭 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Release 发布
+
+当 GitHub 仓库中发布新版本时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Release 发布"
+    type="github_release_published"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 Webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：release）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（published、unpublished、created、edited、deleted、prereleased、released）"
+      },
+      {
+          "name": "release",
+          "type": "object",
+          "description": "release",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Release ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Release 节点 ID"
+              },
+              {
+                  "name": "tag_name",
+                  "type": "string",
+                  "description": "Release 对应的 Git 标签名称"
+              },
+              {
+                  "name": "target_commitish",
+                  "type": "string",
+                  "description": "目标分支或 Commit SHA"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Release 名称/标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Markdown 格式的 Release 说明/发行注记"
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "是否为草稿 Release"
+              },
+              {
+                  "name": "prerelease",
+                  "type": "boolean",
+                  "description": "是否为预发布版本"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Release 创建时间戳"
+              },
+              {
+                  "name": "published_at",
+                  "type": "string",
+                  "description": "Release 发布时间戳"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Release API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Release HTML URL"
+              },
+              {
+                  "name": "assets_url",
+                  "type": "string",
+                  "description": "Release 资产 API URL"
+              },
+              {
+                  "name": "upload_url",
+                  "type": "string",
+                  "description": "上传 Release 资产的 URL"
+              },
+              {
+                  "name": "tarball_url",
+                  "type": "string",
+                  "description": "源代码 tarball 下载 URL"
+              },
+              {
+                  "name": "zipball_url",
+                  "type": "string",
+                  "description": "源代码 zipball 下载 URL"
+              },
+              {
+                  "name": "discussion_url",
+                  "type": "string",
+                  "description": "讨论 URL（如有）"
+              },
+              {
+                  "name": "author",
+                  "type": "object",
+                  "description": "author",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "Gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "用户 API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "followers_url",
+                          "type": "string",
+                          "description": "粉丝 API URL"
+                      },
+                      {
+                          "name": "following_url",
+                          "type": "string",
+                          "description": "关注 API URL"
+                      },
+                      {
+                          "name": "gists_url",
+                          "type": "string",
+                          "description": "Gists API URL"
+                      },
+                      {
+                          "name": "starred_url",
+                          "type": "string",
+                          "description": "已加星标仓库 API URL"
+                      },
+                      {
+                          "name": "subscriptions_url",
+                          "type": "string",
+                          "description": "订阅 API URL"
+                      },
+                      {
+                          "name": "organizations_url",
+                          "type": "string",
+                          "description": "组织 API URL"
+                      },
+                      {
+                          "name": "repos_url",
+                          "type": "string",
+                          "description": "仓库 API URL"
+                      },
+                      {
+                          "name": "events_url",
+                          "type": "string",
+                          "description": "事件 API URL"
+                      },
+                      {
+                          "name": "received_events_url",
+                          "type": "string",
+                          "description": "接收事件 API URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "是否为站点管理员"
+                      }
+                  ]
+              },
+              {
+                  "name": "assets",
+                  "type": "array",
+                  "description": "包含下载 URL 的 Release 资产对象数组"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "archive_url",
+                  "type": "string",
+                  "description": "归档 API URL"
+              },
+              {
+                  "name": "assignees_url",
+                  "type": "string",
+                  "description": "指派人 API URL"
+              },
+              {
+                  "name": "blobs_url",
+                  "type": "string",
+                  "description": "Blob API URL"
+              },
+              {
+                  "name": "branches_url",
+                  "type": "string",
+                  "description": "分支 API URL"
+              },
+              {
+                  "name": "collaborators_url",
+                  "type": "string",
+                  "description": "协作者 API URL"
+              },
+              {
+                  "name": "comments_url",
+                  "type": "string",
+                  "description": "评论 API URL"
+              },
+              {
+                  "name": "commits_url",
+                  "type": "string",
+                  "description": "提交 API URL"
+              },
+              {
+                  "name": "compare_url",
+                  "type": "string",
+                  "description": "比较 API URL"
+              },
+              {
+                  "name": "contents_url",
+                  "type": "string",
+                  "description": "内容 API URL"
+              },
+              {
+                  "name": "contributors_url",
+                  "type": "string",
+                  "description": "贡献者 API URL"
+              },
+              {
+                  "name": "deployments_url",
+                  "type": "string",
+                  "description": "部署 API URL"
+              },
+              {
+                  "name": "downloads_url",
+                  "type": "string",
+                  "description": "下载 API URL"
+              },
+              {
+                  "name": "events_url",
+                  "type": "string",
+                  "description": "事件 API URL"
+              },
+              {
+                  "name": "forks_url",
+                  "type": "string",
+                  "description": "Fork API URL"
+              },
+              {
+                  "name": "git_commits_url",
+                  "type": "string",
+                  "description": "Git 提交 API URL"
+              },
+              {
+                  "name": "git_refs_url",
+                  "type": "string",
+                  "description": "Git 引用 API URL"
+              },
+              {
+                  "name": "git_tags_url",
+                  "type": "string",
+                  "description": "Git 标签 API URL"
+              },
+              {
+                  "name": "hooks_url",
+                  "type": "string",
+                  "description": "Hooks API URL"
+              },
+              {
+                  "name": "issue_comment_url",
+                  "type": "string",
+                  "description": "Issue 评论 API URL"
+              },
+              {
+                  "name": "issue_events_url",
+                  "type": "string",
+                  "description": "Issue 事件 API URL"
+              },
+              {
+                  "name": "issues_url",
+                  "type": "string",
+                  "description": "Issues API URL"
+              },
+              {
+                  "name": "keys_url",
+                  "type": "string",
+                  "description": "密钥 API URL"
+              },
+              {
+                  "name": "labels_url",
+                  "type": "string",
+                  "description": "标签 API URL"
+              },
+              {
+                  "name": "languages_url",
+                  "type": "string",
+                  "description": "编程语言 API URL"
+              },
+              {
+                  "name": "merges_url",
+                  "type": "string",
+                  "description": "合并 API URL"
+              },
+              {
+                  "name": "milestones_url",
+                  "type": "string",
+                  "description": "里程碑 API URL"
+              },
+              {
+                  "name": "notifications_url",
+                  "type": "string",
+                  "description": "通知 API URL"
+              },
+              {
+                  "name": "pulls_url",
+                  "type": "string",
+                  "description": "Pull Request API URL"
+              },
+              {
+                  "name": "releases_url",
+                  "type": "string",
+                  "description": "Release API URL"
+              },
+              {
+                  "name": "stargazers_url",
+                  "type": "string",
+                  "description": "加星标者 API URL"
+              },
+              {
+                  "name": "statuses_url",
+                  "type": "string",
+                  "description": "状态 API URL"
+              },
+              {
+                  "name": "subscribers_url",
+                  "type": "string",
+                  "description": "订阅者 API URL"
+              },
+              {
+                  "name": "subscription_url",
+                  "type": "string",
+                  "description": "订阅 API URL"
+              },
+              {
+                  "name": "tags_url",
+                  "type": "string",
+                  "description": "标签 API URL"
+              },
+              {
+                  "name": "teams_url",
+                  "type": "string",
+                  "description": "团队 API URL"
+              },
+              {
+                  "name": "trees_url",
+                  "type": "string",
+                  "description": "目录树 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "has_issues",
+                  "type": "boolean",
+                  "description": "是否启用 Issues"
+              },
+              {
+                  "name": "has_projects",
+                  "type": "boolean",
+                  "description": "是否启用 Projects"
+              },
+              {
+                  "name": "has_downloads",
+                  "type": "boolean",
+                  "description": "是否启用下载"
+              },
+              {
+                  "name": "has_wiki",
+                  "type": "boolean",
+                  "description": "是否启用 Wiki"
+              },
+              {
+                  "name": "has_pages",
+                  "type": "boolean",
+                  "description": "是否启用 GitHub Pages"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "mirror_url",
+                  "type": "string",
+                  "description": "镜像仓库的镜像 URL"
+              },
+              {
+                  "name": "archived",
+                  "type": "boolean",
+                  "description": "仓库是否已归档"
+              },
+              {
+                  "name": "disabled",
+                  "type": "boolean",
+                  "description": "仓库是否已禁用"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "开放 Issue 数量"
+              },
+              {
+                  "name": "license",
+                  "type": "object",
+                  "description": "license",
+                  "children": [
+                      {
+                          "name": "key",
+                          "type": "string",
+                          "description": "许可证键名"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "许可证名称"
+                      },
+                      {
+                          "name": "spdx_id",
+                          "type": "string",
+                          "description": "SPDX 许可证标识符"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "许可证 API URL"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "许可证节点 ID"
+                      }
+                  ]
+              },
+              {
+                  "name": "allow_forking",
+                  "type": "boolean",
+                  "description": "是否允许 Fork"
+              },
+              {
+                  "name": "is_template",
+                  "type": "boolean",
+                  "description": "仓库是否为模板仓库"
+              },
+              {
+                  "name": "topics",
+                  "type": "array",
+                  "description": "仓库主题数组"
+              },
+              {
+                  "name": "visibility",
+                  "type": "string",
+                  "description": "仓库可见性（public、private、internal）"
+              },
+              {
+                  "name": "forks",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues",
+                  "type": "number",
+                  "description": "开放 Issue 数量"
+              },
+              {
+                  "name": "watchers",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "仓库创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "仓库最后更新时间戳"
+              },
+              {
+                  "name": "pushed_at",
+                  "type": "string",
+                  "description": "仓库最后推送时间戳"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "所有者 Gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "所有者 API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      },
+                      {
+                          "name": "followers_url",
+                          "type": "string",
+                          "description": "粉丝 API URL"
+                      },
+                      {
+                          "name": "following_url",
+                          "type": "string",
+                          "description": "关注 API URL"
+                      },
+                      {
+                          "name": "gists_url",
+                          "type": "string",
+                          "description": "Gists API URL"
+                      },
+                      {
+                          "name": "starred_url",
+                          "type": "string",
+                          "description": "已加星标仓库 API URL"
+                      },
+                      {
+                          "name": "subscriptions_url",
+                          "type": "string",
+                          "description": "订阅 API URL"
+                      },
+                      {
+                          "name": "organizations_url",
+                          "type": "string",
+                          "description": "组织 API URL"
+                      },
+                      {
+                          "name": "repos_url",
+                          "type": "string",
+                          "description": "仓库 API URL"
+                      },
+                      {
+                          "name": "events_url",
+                          "type": "string",
+                          "description": "事件 API URL"
+                      },
+                      {
+                          "name": "received_events_url",
+                          "type": "string",
+                          "description": "接收事件 API URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "所有者是否为站点管理员"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "gravatar_id",
+                  "type": "string",
+                  "description": "Gravatar ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "用户 API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "followers_url",
+                  "type": "string",
+                  "description": "粉丝 API URL"
+              },
+              {
+                  "name": "following_url",
+                  "type": "string",
+                  "description": "关注 API URL"
+              },
+              {
+                  "name": "gists_url",
+                  "type": "string",
+                  "description": "Gists API URL"
+              },
+              {
+                  "name": "starred_url",
+                  "type": "string",
+                  "description": "已加星标仓库 API URL"
+              },
+              {
+                  "name": "subscriptions_url",
+                  "type": "string",
+                  "description": "订阅 API URL"
+              },
+              {
+                  "name": "organizations_url",
+                  "type": "string",
+                  "description": "组织 API URL"
+              },
+              {
+                  "name": "repos_url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "events_url",
+                  "type": "string",
+                  "description": "事件 API URL"
+              },
+              {
+                  "name": "received_events_url",
+                  "type": "string",
+                  "description": "接收事件 API URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              },
+              {
+                  "name": "site_admin",
+                  "type": "boolean",
+                  "description": "是否为站点管理员"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR 已关闭
+
+当 GitHub 仓库中的拉取请求未经合并即被关闭时（例如被放弃），触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Closed"
+    type="github_pr_closed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如 pull_request）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（opened、closed、synchronize、reopened、edited 等）"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "拉取请求编号"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "拉取请求 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "拉取请求节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "拉取请求编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "拉取请求标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "拉取请求描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "拉取请求状态（open、closed）"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "PR 是否已合并"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "PR 合并时间戳"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "PR 是否为草稿"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "拉取请求 HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "拉取请求 diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "拉取请求 patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "源分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "源分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "源仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "源仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "目标分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "目标分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "目标仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "目标仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "新增行数"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "删除行数"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "变更文件数"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "已分配用户数组"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "请求审阅者数组"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "拉取请求创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "拉取请求最后更新时间戳"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "拉取请求关闭时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "未解决 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue 已开启
+
+当 GitHub 仓库中有新 Issue 被开启时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Opened"
+    type="github_issue_opened"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "触发器类型",
+            "required": true,
+            "options": [
+                {
+                    "label": "Issue 已开启",
+                    "id": "github_issue_opened"
+                },
+                {
+                    "label": "Issue 已关闭",
+                    "id": "github_issue_closed"
+                },
+                {
+                    "label": "Issue 评论",
+                    "id": "github_issue_comment"
+                },
+                {
+                    "label": "PR 已开启",
+                    "id": "github_pr_opened"
+                },
+                {
+                    "label": "PR 已关闭",
+                    "id": "github_pr_closed"
+                },
+                {
+                    "label": "PR 已合并",
+                    "id": "github_pr_merged"
+                },
+                {
+                    "label": "PR 评论",
+                    "id": "github_pr_comment"
+                },
+                {
+                    "label": "PR 已审查",
+                    "id": "github_pr_reviewed"
+                },
+                {
+                    "label": "代码推送",
+                    "id": "github_push"
+                },
+                {
+                    "label": "Release 已发布",
+                    "id": "github_release_published"
+                },
+                {
+                    "label": "Actions 工作流运行",
+                    "id": "github_workflow_run"
+                }
+            ]
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 载荷时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 Webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：issues、pull_request、push）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（opened、closed、reopened、edited 等）"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "Issue 对象",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue 节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue 标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue 正文/描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue 状态（open、closed）"
+              },
+              {
+                  "name": "state_reason",
+                  "type": "string",
+                  "description": "状态原因（completed、not_planned、reopened）"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "用户对象",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "已分配用户数组"
+              },
+              {
+                  "name": "milestone",
+                  "type": "object",
+                  "description": "已分配的里程碑对象（如有）"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue 创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue 最后更新时间戳"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Issue 关闭时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "仓库对象",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Watch 数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "开放 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "所有者对象",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "发送者对象",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Webhook
+
+通过 GitHub 事件（如推送、拉取请求、Issues 等）触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Webhook"
+    type="github_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 载荷时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 Webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "ref",
+          "type": "string",
+          "description": "Git 引用（例如：refs/heads/fix/telegram-wh）"
+      },
+      {
+          "name": "before",
+          "type": "string",
+          "description": "推送前的提交 SHA"
+      },
+      {
+          "name": "after",
+          "type": "string",
+          "description": "推送后的提交 SHA"
+      },
+      {
+          "name": "created",
+          "type": "boolean",
+          "description": "本次推送是否创建了该引用"
+      },
+      {
+          "name": "deleted",
+          "type": "boolean",
+          "description": "本次推送是否删除了该引用"
+      },
+      {
+          "name": "forced",
+          "type": "boolean",
+          "description": "本次推送是否为强制推送"
+      },
+      {
+          "name": "base_ref",
+          "type": "string",
+          "description": "推送的基础引用"
+      },
+      {
+          "name": "compare",
+          "type": "string",
+          "description": "用于比较变更的 URL"
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "仓库",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（所有者/仓库名）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "created_at",
+                  "type": "number",
+                  "description": "仓库创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "仓库最后更新时间"
+              },
+              {
+                  "name": "pushed_at",
+                  "type": "number",
+                  "description": "仓库最后推送时间戳"
+              },
+              {
+                  "name": "git_url",
+                  "type": "string",
+                  "description": "仓库 Git URL"
+              },
+              {
+                  "name": "ssh_url",
+                  "type": "string",
+                  "description": "仓库 SSH URL"
+              },
+              {
+                  "name": "clone_url",
+                  "type": "string",
+                  "description": "仓库克隆 URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "archived",
+                  "type": "boolean",
+                  "description": "仓库是否已归档"
+              },
+              {
+                  "name": "disabled",
+                  "type": "boolean",
+                  "description": "仓库是否已禁用"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "未关闭 Issue 数量"
+              },
+              {
+                  "name": "topics",
+                  "type": "array",
+                  "description": "仓库话题标签"
+              },
+              {
+                  "name": "visibility",
+                  "type": "string",
+                  "description": "仓库可见性（public、private）"
+              },
+              {
+                  "name": "forks",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues",
+                  "type": "number",
+                  "description": "未关闭 Issue 数量"
+              },
+              {
+                  "name": "watchers",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "stargazers",
+                  "type": "number",
+                  "description": "Star 用户数量"
+              },
+              {
+                  "name": "master_branch",
+                  "type": "string",
+                  "description": "主分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "所有者",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "所有者姓名"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "所有者邮箱"
+                      },
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "所有者 Gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "所有者 API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者主页 URL"
+                      },
+                      {
+                          "name": "user_view_type",
+                          "type": "string",
+                          "description": "用户视图类型"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "所有者是否为站点管理员"
+                      }
+                  ]
+              },
+              {
+                  "name": "license",
+                  "type": "object",
+                  "description": "仓库许可证信息"
+              }
+          ]
+      },
+      {
+          "name": "pusher",
+          "type": "object",
+          "description": "推送变更的用户信息"
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "发送者",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "发送者用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "发送者 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "发送者节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "发送者头像 URL"
+              },
+              {
+                  "name": "gravatar_id",
+                  "type": "string",
+                  "description": "发送者 Gravatar ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "发送者 API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "发送者主页 URL"
+              },
+              {
+                  "name": "user_view_type",
+                  "type": "string",
+                  "description": "用户视图类型"
+              },
+              {
+                  "name": "site_admin",
+                  "type": "boolean",
+                  "description": "发送者是否为站点管理员"
+              }
+          ]
+      },
+      {
+          "name": "commits",
+          "type": "array",
+          "description": "提交对象数组"
+      },
+      {
+          "name": "head_commit",
+          "type": "object",
+          "description": "最新提交对象"
+      },
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub 事件类型（例如：push、pull_request、issues）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "所执行的操作（例如：opened、closed、synchronize）"
+      },
+      {
+          "name": "branch",
+          "type": "string",
+          "description": "从 ref 中提取的分支名称"
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue 已关闭
+
+当 GitHub 仓库中的 Issue 被关闭时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Closed"
+    type="github_issue_closed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "用于验证 Webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（如 issues、pull_request、push）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（opened、closed、reopened、edited 等）"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue 节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue 标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue 正文/描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue 状态（open、closed）"
+              },
+              {
+                  "name": "state_reason",
+                  "type": "string",
+                  "description": "状态原因（completed、not_planned、reopened）"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "已分配用户数组"
+              },
+              {
+                  "name": "milestone",
+                  "type": "object",
+                  "description": "已分配的里程碑对象"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue 创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue 最后更新时间戳"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Issue 关闭时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Watcher 数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "开放 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Push
+
+当代码推送到仓库时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Push"
+    type="github_push"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 webhook 请求确实来自 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在发送 webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：push）"
+      },
+      {
+          "name": "branch",
+          "type": "string",
+          "description": "从 ref 中提取的分支名称（例如：从 refs/heads/main 提取 main）"
+      },
+      {
+          "name": "ref",
+          "type": "string",
+          "description": "被推送的 Git 引用（例如：refs/heads/main）"
+      },
+      {
+          "name": "before",
+          "type": "string",
+          "description": "推送前的提交 SHA"
+      },
+      {
+          "name": "after",
+          "type": "string",
+          "description": "推送后的提交 SHA"
+      },
+      {
+          "name": "created",
+          "type": "boolean",
+          "description": "此次推送是否创建了新分支或标签"
+      },
+      {
+          "name": "deleted",
+          "type": "boolean",
+          "description": "此次推送是否删除了分支或标签"
+      },
+      {
+          "name": "forced",
+          "type": "boolean",
+          "description": "是否为强制推送"
+      },
+      {
+          "name": "base_ref",
+          "type": "string",
+          "description": "推送的基础引用"
+      },
+      {
+          "name": "compare",
+          "type": "string",
+          "description": "用于比较变更的 URL"
+      },
+      {
+          "name": "commits",
+          "type": "array",
+          "description": "此次推送中包含的提交对象数组"
+      },
+      {
+          "name": "head_commit",
+          "type": "object",
+          "description": "head_commit",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "最新提交的提交 SHA"
+              },
+              {
+                  "name": "tree_id",
+                  "type": "string",
+                  "description": "Git 树 SHA"
+              },
+              {
+                  "name": "distinct",
+                  "type": "boolean",
+                  "description": "此提交是否为独立提交"
+              },
+              {
+                  "name": "message",
+                  "type": "string",
+                  "description": "提交信息"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "提交时间戳"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "提交 URL"
+              },
+              {
+                  "name": "author",
+                  "type": "object",
+                  "description": "author",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "作者姓名"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "作者邮箱"
+                      },
+                      {
+                          "name": "username",
+                          "type": "string",
+                          "description": "作者 GitHub 用户名"
+                      }
+                  ]
+              },
+              {
+                  "name": "committer",
+                  "type": "object",
+                  "description": "committer",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "提交者姓名"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "提交者邮箱"
+                      },
+                      {
+                          "name": "username",
+                          "type": "string",
+                          "description": "提交者 GitHub 用户名"
+                      }
+                  ]
+              },
+              {
+                  "name": "added",
+                  "type": "array",
+                  "description": "此次提交中新增的文件路径数组"
+              },
+              {
+                  "name": "removed",
+                  "type": "array",
+                  "description": "此次提交中删除的文件路径数组"
+              },
+              {
+                  "name": "modified",
+                  "type": "array",
+                  "description": "此次提交中修改的文件路径数组"
+              }
+          ]
+      },
+      {
+          "name": "pusher",
+          "type": "object",
+          "description": "pusher",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "推送者姓名"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "推送者邮箱"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Watch 数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "未解决 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR 已开启
+
+当 GitHub 仓库中有新的 Pull Request 被开启时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Opened"
+    type="github_pr_opened"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 Webhook 载荷时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "用于验证 Webhook 投递来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在投递 Webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 请求头的 GitHub 事件类型（例如：pull_request）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "已执行的操作（opened、closed、synchronize、reopened、edited 等）"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "Pull Request 编号"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull Request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull Request 节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull Request 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull Request 标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull Request 描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull Request 状态（open、closed）"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "PR 是否已合并"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "PR 合并时间戳"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "PR 是否为草稿"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull Request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull Request Diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull Request Patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "个人主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "源分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "源分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "源仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "源仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "目标分支名称"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "目标分支提交 SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "目标仓库名称"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "目标仓库全名"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "新增行数"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "删除行数"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "变更文件数"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "指派用户数组"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "请求审查者数组"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull Request 创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull Request 最后更新时间戳"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Pull Request 关闭时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（owner/repo）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "仓库是否为 Fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "仓库 API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "仓库主页 URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "仓库大小（KB）"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Star 数量"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "关注者数量"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "主要编程语言"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Fork 数量"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "开放 Issue 数量"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "默认分支名称"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者个人主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "个人主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR 评论
+
+当 GitHub 仓库中的拉取请求被添加评论时触发工作流
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR 评论"
+    type="github_pr_comment"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "description": "GitHub 发送 webhook 负载时使用的格式。",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "生成或输入一个强密钥",
+            "description": "验证 webhook 推送来源是否为 GitHub。",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL 验证",
+            "description": "GitHub 在推送 webhook 时会验证 SSL 证书。",
+            "required": true,
+            "options": [
+                {
+                    "label": "已启用",
+                    "id": "enabled"
+                },
+                {
+                    "label": "已禁用",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出 Schema
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "来自 X-GitHub-Event 标头的 GitHub 事件类型（例如：issue_comment）"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "执行的操作（created、edited、deleted）"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue 节点 ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue/PR 编号"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue/PR 标题"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue/PR 描述"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue/PR 状态（open、closed）"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue/PR HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "标签对象数组"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "已分配用户数组"
+              },
+              {
+                  "name": "pull_request",
+                  "type": "object",
+                  "description": "pull_request",
+                  "children": [
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "拉取请求 API URL（仅在 PR 评论中存在）"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "拉取请求 HTML URL"
+                      },
+                      {
+                          "name": "diff_url",
+                          "type": "string",
+                          "description": "拉取请求 diff URL"
+                      },
+                      {
+                          "name": "patch_url",
+                          "type": "string",
+                          "description": "拉取请求 patch URL"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue/PR 创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue/PR 最后更新时间戳"
+              }
+          ]
+      },
+      {
+          "name": "comment",
+          "type": "object",
+          "description": "comment",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "评论 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "评论节点 ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "评论 API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "评论 HTML URL"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "评论正文"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "用户 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "用户节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "主页 URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "用户类型（User、Bot、Organization）"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "评论创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "评论最后更新时间戳"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "仓库 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "仓库节点 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "仓库名称"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "仓库全名（所有者/仓库名）"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "仓库是否为私有"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "仓库 HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "仓库描述"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "所有者用户名"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "所有者 ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "所有者节点 ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "所有者头像 URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "所有者主页 URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "所有者类型（User、Organization）"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "用户名"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "用户 ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "用户节点 ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "头像 URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "主页 URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "用户类型（User、Bot、Organization）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

@@ -1,0 +1,140 @@
+---
+title: Disparador RSS
+description: Se activa cuando se publican nuevos elementos en un feed RSS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="rss"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Se activa cuando se publican nuevos elementos en un feed RSS
+
+<Callout type="info">
+  Este es un disparador **basado en polling**. TradingGoose verifica automáticamente la existencia de nuevos datos en intervalos regulares.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Disparador de Feed RSS"
+    type="rss_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "feedUrl",
+            "type": "short-input",
+            "title": "URL del Feed",
+            "placeholder": "https://example.com/feed.xml",
+            "description": "La URL del feed RSS o Atom a monitorear",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+<SchemaTree
+  title="Payload del Evento"
+  fields={[
+      {
+          "name": "item",
+          "type": "object",
+          "description": "elemento",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título del elemento"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "Enlace/URL del elemento"
+              },
+              {
+                  "name": "pubDate",
+                  "type": "string",
+                  "description": "Fecha de publicación"
+              },
+              {
+                  "name": "guid",
+                  "type": "string",
+                  "description": "Identificador único"
+              },
+              {
+                  "name": "summary",
+                  "type": "string",
+                  "description": "Descripción/resumen del elemento"
+              },
+              {
+                  "name": "content",
+                  "type": "string",
+                  "description": "Contenido completo (content:encoded)"
+              },
+              {
+                  "name": "contentSnippet",
+                  "type": "string",
+                  "description": "Fragmento de contenido sin HTML"
+              },
+              {
+                  "name": "author",
+                  "type": "string",
+                  "description": "Nombre del autor"
+              },
+              {
+                  "name": "categories",
+                  "type": "json",
+                  "description": "Array de categorías/etiquetas"
+              },
+              {
+                  "name": "enclosure",
+                  "type": "json",
+                  "description": "Información del adjunto multimedia (url, tipo, longitud)"
+              },
+              {
+                  "name": "isoDate",
+                  "type": "string",
+                  "description": "Fecha de publicación en formato ISO"
+              }
+          ]
+      },
+      {
+          "name": "feed",
+          "type": "object",
+          "description": "feed",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título del feed"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "Enlace del sitio web del feed"
+              },
+              {
+                  "name": "feedDescription",
+                  "type": "string",
+                  "description": "Descripción del feed"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Marca de tiempo del evento"
+      }
+  ]}
+/>

@@ -1,34 +1,70 @@
 ---
-title: Widgets
+title: 组件
+description: 可在工作区面板中自由排列的仪表盘 UI 组件。
 ---
 
 import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Callout } from 'fumadocs-ui/components/callout'
 
-小部件是可以嵌入并自定义到您的工作流程中的可视化组件。
+组件是构成工作区的仪表盘 UI 元素。每个组件占据工作区布局中的一个面板，为特定任务提供专注的操作界面——编辑工作流、监控执行状态、绘制市场行情图表或管理工作区资源。您可以自由地重新排列、调整大小和切换组件，以构建适合您需求的布局。
 
-<Callout>
-  本节内容正在建设中。更多内容即将推出！
-</Callout>
-
-## 概述
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-## 功能
-
-- **功能 1**：功能 1 的占位描述
-- **功能 2**：功能 2 的占位描述
-- **功能 3**：功能 3 的占位描述
-
-## 入门
-
-Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-
-## 下一步
+## Copilot
 
 <Cards>
-  <Card title="即将推出" href="/widgets">
-    更多小部件文档将添加到此处
+  <Card title="Copilot" href="/widgets/copilot">
+    全工作区 AI 助手，负责管理工作流、MCP 服务器、技能、自定义工具、知识库等。
+  </Card>
+</Cards>
+
+## 工作流
+
+用于构建、运行和与工作流交互的组件。
+
+<Cards>
+  <Card title="工作流编辑器" href="/widgets/editor-workflow">
+    通过连接模块来构建和编辑工作流的画布界面。
+  </Card>
+  <Card title="工作流列表" href="/widgets/list-workflow">
+    支持拖放操作的文件夹树，用于浏览和整理工作流。
+  </Card>
+  <Card title="工作流聊天" href="/widgets/workflow-chat">
+    在执行过程中与工作流模块进行交互的聊天界面。
+  </Card>
+  <Card title="工作流控制台" href="/widgets/workflow-console">
+    实时执行控制台，显示日志和流式输出。
+  </Card>
+  <Card title="工作流变量" href="/widgets/workflow-variables">
+    查看和编辑所选工作流的变量。
+  </Card>
+</Cards>
+
+## 交易
+
+用于技术分析、图表绘制和市场监控的组件。
+
+<Cards>
+  <Card title="指标编辑器" href="/widgets/editor-indicator">
+    用于编写和测试 PineTS 指标的代码编辑器。
+  </Card>
+  <Card title="数据图表" href="/widgets/data-chart">
+    用于可视化 OHLCV 市场数据的交互式蜡烛图。
+  </Card>
+  <Card title="自选股" href="/widgets/watchlist">
+    带有实时市场数据列的标的自选列表。
+  </Card>
+</Cards>
+
+## 可扩展性
+
+用于管理 MCP 服务器、技能和自定义工具的组件。
+
+<Cards>
+  <Card title="技能编辑器" href="/widgets/editor-skill">
+    用于创建和更新可复用工作区技能的编辑器。
+  </Card>
+  <Card title="MCP 编辑器" href="/widgets/editor-mcp">
+    查看、编辑、测试和刷新已连接 MCP 服务器的编辑器。
+  </Card>
+  <Card title="自定义工具编辑器" href="/widgets/editor-custom-tool">
+    用于构建带有用户自定义参数的自定义工具的编辑器。
   </Card>
 </Cards>

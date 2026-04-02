@@ -1,0 +1,135 @@
+---
+title: Airtable Trigger
+description: Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable Webhook"
+    type="airtable_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires airtable credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "Base ID",
+            "placeholder": "appXXXXXXXXXXXXXX",
+            "description": "The ID of the Airtable Base this webhook will monitor.",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "Table ID",
+            "placeholder": "tblXXXXXXXXXXXXXX",
+            "description": "The ID of the table within the Base that the webhook will monitor.",
+            "required": true
+        },
+        {
+            "id": "includeCellValues",
+            "type": "switch",
+            "title": "Include Full Record Data",
+            "description": "Enable to receive the complete record data in the payload, not just changes."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payloads",
+          "type": "array",
+          "description": "The payloads of the Airtable changes"
+      },
+      {
+          "name": "latestPayload",
+          "type": "object",
+          "description": "latestPayload",
+          "children": [
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "The timestamp of the Airtable change"
+              },
+              {
+                  "name": "payloadFormat",
+                  "type": "object",
+                  "description": "The format of the Airtable change"
+              },
+              {
+                  "name": "actionMetadata",
+                  "type": "object",
+                  "description": "actionMetadata",
+                  "children": [
+                      {
+                          "name": "source",
+                          "type": "string",
+                          "description": "The source of the Airtable change"
+                      },
+                      {
+                          "name": "sourceMetadata",
+                          "type": "object",
+                          "description": "sourceMetadata",
+                          "children": [
+                              {
+                                  "name": "pageId",
+                                  "type": "string",
+                                  "description": "The ID of the page that triggered the Airtable change"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "changedTablesById",
+                          "type": "object",
+                          "description": "The tables that were changed"
+                      },
+                      {
+                          "name": "baseTransactionNumber",
+                          "type": "number",
+                          "description": "The transaction number of the Airtable change"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "airtableChanges",
+          "type": "array",
+          "description": "Changes made to the Airtable table"
+      }
+  ]}
+/>
+
+

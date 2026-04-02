@@ -2,28 +2,25 @@
 title: 外部 API
 ---
 
-import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { CodeBlock } from 'fumadocs-ui/components/codeblock'
-import { Video } from '@/components/ui/video'
 
-TradingGoose 提供了一个全面的外部 API，用于查询工作流执行日志，并在工作流完成时设置实时通知的 webhook。
+TradingGoose 提供了一套全面的外部 API，用于查询工作流执行日志，以及在工作流完成时设置 Webhook 以接收实时通知。
 
 ## 身份验证
 
-所有 API 请求都需要在 `x-api-key` 标头中传递 API 密钥：
+所有 API 请求都需要在 `x-api-key` 请求头中传入 API 密钥：
 
 ```bash
 curl -H "x-api-key: YOUR_API_KEY" \
   https://tradinggoose.ai/api/v1/logs?workspaceId=YOUR_WORKSPACE_ID
 ```
 
-您可以在 TradingGoose 仪表板的用户设置中生成 API 密钥。
+您可以在 TradingGoose 控制台的用户设置中生成 API 密钥。
 
 ## 日志 API
 
-所有 API 响应都包含有关您的工作流执行限制和使用情况的信息：
+所有 API 响应均包含有关工作流执行限制和使用情况的信息：
 
 ```json
 "limits": {
@@ -48,11 +45,11 @@ curl -H "x-api-key: YOUR_API_KEY" \
 }
 ```
 
-**注意：** 响应正文中的速率限制是针对工作流执行的。调用此 API 端点的速率限制在响应标头中（`X-RateLimit-*`）。
+**注意：** 响应体中的速率限制适用于工作流执行。调用此 API 端点的速率限制位于响应头中（`X-RateLimit-*`）。
 
 ### 查询日志
 
-使用广泛的过滤选项查询工作流执行日志。
+通过丰富的过滤选项查询工作流执行日志。
 
 <Tabs items={['Request', 'Response']}>
   <Tab value="Request">
@@ -61,32 +58,32 @@ curl -H "x-api-key: YOUR_API_KEY" \
     GET /api/v1/logs
     ```
 
-    **必需参数：**
+    **必填参数：**
     - `workspaceId` - 您的工作区 ID
 
     **可选过滤器：**
-    - `workflowIds` - 逗号分隔的工作流 ID
-    - `folderIds` - 逗号分隔的文件夹 ID
-    - `triggers` - 逗号分隔的触发类型：`api`、`webhook`、`schedule`、`manual`、`chat`
+    - `workflowIds` - 以逗号分隔的工作流 ID
+    - `folderIds` - 以逗号分隔的文件夹 ID
+    - `triggers` - 以逗号分隔的触发类型：`api`、`webhook`、`schedule`、`manual`、`chat`
     - `level` - 按级别过滤：`info`、`error`
     - `startDate` - 日期范围起始的 ISO 时间戳
     - `endDate` - 日期范围结束的 ISO 时间戳
-    - `executionId` - 精确执行 ID 匹配
-    - `minDurationMs` - 最小执行持续时间（毫秒）
-    - `maxDurationMs` - 最大执行持续时间（毫秒）
+    - `executionId` - 精确匹配执行 ID
+    - `minDurationMs` - 最小执行时长（毫秒）
+    - `maxDurationMs` - 最大执行时长（毫秒）
     - `minCost` - 最小执行成本
     - `maxCost` - 最大执行成本
-    - `model` - 按使用的 AI 模型过滤
+    - `model` - 按所用 AI 模型过滤
 
     **分页：**
     - `limit` - 每页结果数（默认：100）
     - `cursor` - 下一页的游标
-    - `order` - 排序顺序：`desc`、`asc`（默认：降序）
+    - `order` - 排序顺序：`desc`、`asc`（默认：desc）
 
-    **详细级别：**
-    - `details` - 响应详细级别：`basic`, `full`（默认：basic）
-    - `includeTraceSpans` - 包含跟踪跨度（默认：false）
-    - `includeFinalOutput` - 包含最终输出（默认：false）
+    **详情级别：**
+    - `details` - 响应详情级别：`basic`、`full`（默认：basic）
+    - `includeTraceSpans` - 是否包含追踪 Span（默认：false）
+    - `includeFinalOutput` - 是否包含最终输出（默认：false）
   </Tab>
   <Tab value="Response">
 
@@ -255,30 +252,26 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 ## Webhook 订阅
 
-在工作流执行完成时获取实时通知。Webhook 可通过 TradingGoose UI 的工作流编辑器进行配置。
+在工作流执行完成时获取实时通知。Webhook 通过 TradingGoose UI 中的工作流编辑器进行配置。
 
 ### 配置
 
-可以通过工作流编辑器 UI 为每个工作流配置 Webhook。点击控制栏中的 Webhook 图标以设置 Webhook 订阅。
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="configure-webhook.mp4" width={700} height={450} />
-</div>
+可通过工作流编辑器 UI 为每个工作流配置 Webhook。点击控制栏中的 Webhook 图标，打开 Webhook 配置面板，在此可添加、编辑和管理您的 Webhook 订阅。
 
 **可用配置选项：**
 - `url`：您的 Webhook 端点 URL
 - `secret`：用于 HMAC 签名验证的可选密钥
-- `includeFinalOutput`：在负载中包含工作流的最终输出
-- `includeTraceSpans`：包含详细的执行跟踪跨度
+- `includeFinalOutput`：在载荷中包含工作流的最终输出
+- `includeTraceSpans`：包含详细的执行追踪 Span
 - `includeRateLimits`：包含工作流所有者的速率限制信息
-- `includeUsageData`：包含工作流所有者的使用和计费数据
-- `levelFilter`：接收的日志级别数组（`info`, `error`）
-- `triggerFilter`：接收的触发类型数组（`api`, `webhook`, `schedule`, `manual`, `chat`）
+- `includeUsageData`：包含工作流所有者的使用量与计费数据
+- `levelFilter`：要接收的日志级别数组（`info`、`error`）
+- `triggerFilter`：要接收的触发类型数组（`api`、`webhook`、`schedule`、`manual`、`chat`）
 - `active`：启用/禁用 Webhook 订阅
 
-### Webhook 负载
+### Webhook 载荷
 
-当工作流执行完成时，TradingGoose 会向您的 Webhook URL 发送一个 POST 请求：
+当工作流执行完成时，TradingGoose 将向您的 Webhook URL 发送 POST 请求：
 
 ```json
 {
@@ -329,17 +322,17 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 ### Webhook 请求头
 
-每个 webhook 请求都包含以下请求头：
+每个 webhook 请求均包含以下请求头：
 
 - `tradinggoose-event`：事件类型（始终为 `workflow.execution.completed`）
-- `tradinggoose-timestamp`：以毫秒为单位的 Unix 时间戳
-- `tradinggoose-delivery-id`：用于幂等性的唯一交付 ID
-- `tradinggoose-signature`：用于验证的 HMAC-SHA256 签名（如果配置了密钥）
-- `Idempotency-Key`：与交付 ID 相同，用于检测重复
+- `tradinggoose-timestamp`：Unix 时间戳（毫秒）
+- `tradinggoose-delivery-id`：用于幂等性的唯一投递 ID
+- `tradinggoose-signature`：用于验证的 HMAC-SHA256 签名（如已配置密钥）
+- `Idempotency-Key`：与投递 ID 相同，用于重复检测
 
 ### 签名验证
 
-如果您配置了 webhook 密钥，请验证签名以确保 webhook 来自 TradingGoose：
+如果您配置了 webhook 密钥，请验证签名以确保 webhook 请求来自 TradingGoose：
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
@@ -412,43 +405,43 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 ### 重试策略
 
-失败的 webhook 交付会使用指数退避和抖动进行重试：
+失败的 webhook 投递将采用指数退避加抖动机制进行重试：
 
-- 最大尝试次数：5
-- 重试延迟：5 秒、15 秒、1 分钟、3 分钟、10 分钟
-- 抖动：最多额外延迟 10% 以防止蜂拥效应
+- 最大重试次数：5 次
+- 重试间隔：5 秒、15 秒、1 分钟、3 分钟、10 分钟
+- 抖动：额外增加最多 10% 的延迟，以防止惊群效应
 - 仅 HTTP 5xx 和 429 响应会触发重试
-- 交付在 30 秒后超时
+- 投递超时时间为 30 秒
 
 <Callout type="info">
-  Webhook 交付是异步处理的，不会影响工作流执行性能。
+  Webhook 投递以异步方式处理，不影响工作流的执行性能。
 </Callout>
 
 ## 最佳实践
 
-1. **轮询策略**：在轮询日志时，使用基于游标的分页与 `order=asc` 和 `startDate` 高效获取新日志。
+1. **轮询策略**：轮询日志时，结合使用 `order=asc` 和 `startDate` 进行基于游标的分页，以高效获取新日志。
 
-2. **Webhook 安全性**：始终配置 webhook 密钥并验证签名以确保请求来自 TradingGoose。
+2. **Webhook 安全**：始终配置 webhook 密钥并验证签名，以确保请求来自 TradingGoose。
 
-3. **幂等性**：使用 `Idempotency-Key` 请求头检测并处理重复的 webhook 交付。
+3. **幂等性**：使用 `Idempotency-Key` 请求头检测并处理重复的 webhook 投递。
 
-4. **隐私**：默认情况下，`finalOutput` 和 `traceSpans` 不包含在响应中。仅在需要这些数据并了解隐私影响时启用它们。
+4. **隐私保护**：默认情况下，`finalOutput` 和 `traceSpans` 不包含在响应中。仅在需要相关数据且了解隐私影响的情况下启用。
 
-5. **速率限制**：当收到 429 响应时，实施指数退避。检查 `Retry-After` 请求头以获取推荐的等待时间。
+5. **速率限制**：收到 429 响应时，请实施指数退避策略，并参考 `Retry-After` 请求头获取建议的等待时间。
 
 ## 速率限制
 
-API 实现了速率限制以确保公平使用：
+该 API 实施速率限制以确保公平使用：
 
 - **免费计划**：每分钟 10 次请求
 - **专业计划**：每分钟 30 次请求
 - **团队计划**：每分钟 60 次请求
 - **企业计划**：自定义限制
 
-速率限制信息包含在响应头中：
-- `X-RateLimit-Limit`：每个窗口的最大请求数
-- `X-RateLimit-Remaining`：当前窗口中剩余的请求数
-- `X-RateLimit-Reset`：窗口重置时的 ISO 时间戳
+速率限制信息包含在响应标头中：
+- `X-RateLimit-Limit`：每个时间窗口的最大请求数
+- `X-RateLimit-Remaining`：当前时间窗口内的剩余请求数
+- `X-RateLimit-Reset`：时间窗口重置的 ISO 时间戳
 
 ## 示例：轮询新日志
 
@@ -497,7 +490,7 @@ async function pollLogs() {
 setInterval(pollLogs, 30000);
 ```
 
-## 示例：处理 Webhooks
+## 示例：处理 Webhook
 
 ```javascript
 import express from 'express';

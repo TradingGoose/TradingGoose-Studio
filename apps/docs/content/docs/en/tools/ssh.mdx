@@ -1,0 +1,2375 @@
+---
+title: SSH
+description: Connect to remote servers via SSH
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="ssh"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Execute Command
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_execute_command"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "command",
+            "type": "code",
+            "title": "Command",
+            "placeholder": "ls -la /var/www",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "workingDirectory",
+            "type": "short-input",
+            "title": "Working Directory",
+            "placeholder": "/var/www/html (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Execute Command (<code>ssh_execute_command</code>)</div>
+
+Execute a shell command on a remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `command` | string | Yes | Shell command to execute on the remote server |
+| `workingDirectory` | string | No | Working directory for command execution |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `stdout` | string | Standard output from command |
+| `stderr` | string | Standard error output |
+| `exitCode` | number | Command exit code |
+| `success` | boolean | Whether command succeeded \(exit code 0\) |
+
+</div>
+
+
+
+---
+
+### Execute Script
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_execute_script"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "script",
+            "type": "code",
+            "title": "Script Content",
+            "placeholder": "#!/bin/bash\\necho \"Hello World\"",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "interpreter",
+            "type": "short-input",
+            "title": "Interpreter",
+            "placeholder": "/bin/bash"
+        },
+        {
+            "id": "scriptWorkingDirectory",
+            "type": "short-input",
+            "title": "Working Directory",
+            "placeholder": "/var/www/html (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Execute Script (<code>ssh_execute_script</code>)</div>
+
+Upload and execute a multi-line script on a remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `script` | string | Yes | Script content to execute \(bash, python, etc.\) |
+| `interpreter` | string | No | Script interpreter \(default: /bin/bash\) |
+| `workingDirectory` | string | No | Working directory for script execution |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `stdout` | string | Standard output from script |
+| `stderr` | string | Standard error output |
+| `exitCode` | number | Script exit code |
+| `success` | boolean | Whether script succeeded \(exit code 0\) |
+| `scriptPath` | string | Temporary path where script was uploaded |
+
+</div>
+
+
+
+---
+
+### Check Command Exists
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_check_command_exists"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "commandName",
+            "type": "short-input",
+            "title": "Command Name",
+            "placeholder": "docker, git, python3",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Check Command Exists (<code>ssh_check_command_exists</code>)</div>
+
+Check if a command/program exists on the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `commandName` | string | Yes | Command name to check \(e.g., docker, git, python3\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `commandExists` | boolean | Whether the command exists |
+| `commandPath` | string | Full path to the command \(if found\) |
+| `version` | string | Command version output \(if applicable\) |
+
+</div>
+
+
+
+---
+
+### Upload File
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_upload_file"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "fileContent",
+            "type": "code",
+            "title": "File Content",
+            "placeholder": "Content to upload...",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "File Name",
+            "placeholder": "config.json",
+            "required": true
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Remote Path",
+            "placeholder": "/var/www/html/config.json",
+            "required": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "Permissions",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upload File (<code>ssh_upload_file</code>)</div>
+
+Upload a file to a remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `fileContent` | string | Yes | File content to upload \(base64 encoded for binary files\) |
+| `fileName` | string | Yes | Name of the file being uploaded |
+| `remotePath` | string | Yes | Destination path on the remote server |
+| `permissions` | string | No | File permissions \(e.g., 0644\) |
+| `overwrite` | boolean | No | Whether to overwrite existing files \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `uploaded` | boolean | Whether the file was uploaded successfully |
+| `remotePath` | string | Final path on the remote server |
+| `size` | number | File size in bytes |
+
+</div>
+
+
+
+---
+
+### Download File
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_download_file"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "downloadRemotePath",
+            "type": "short-input",
+            "title": "Remote File Path",
+            "placeholder": "/var/log/app.log",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Download File (<code>ssh_download_file</code>)</div>
+
+Download a file from a remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `remotePath` | string | Yes | Path of the file on the remote server |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `downloaded` | boolean | Whether the file was downloaded successfully |
+| `fileContent` | string | File content \(base64 encoded for binary files\) |
+| `fileName` | string | Name of the downloaded file |
+| `remotePath` | string | Source path on the remote server |
+| `size` | number | File size in bytes |
+
+</div>
+
+
+
+---
+
+### List Directory
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_list_directory"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "listPath",
+            "type": "short-input",
+            "title": "Directory Path",
+            "placeholder": "/var/www",
+            "required": true
+        },
+        {
+            "id": "detailed",
+            "type": "switch",
+            "title": "Show Details"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Directory (<code>ssh_list_directory</code>)</div>
+
+List files and directories in a remote directory
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Remote directory path to list |
+| `detailed` | boolean | No | Include file details \(size, permissions, modified date\) |
+| `recursive` | boolean | No | List subdirectories recursively \(default: false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `name` | string | File or directory name |
+| `type` | string | Entry type \(file, directory, symlink\) |
+| `size` | number | File size in bytes |
+| `permissions` | string | File permissions |
+
+</div>
+
+
+
+---
+
+### Check File/Directory Exists
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_check_file_exists"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "checkPath",
+            "type": "short-input",
+            "title": "Path to Check",
+            "placeholder": "/etc/nginx/nginx.conf",
+            "required": true
+        },
+        {
+            "id": "checkType",
+            "type": "dropdown",
+            "title": "Expected Type",
+            "options": [
+                {
+                    "label": "Any",
+                    "id": "any"
+                },
+                {
+                    "label": "File",
+                    "id": "file"
+                },
+                {
+                    "label": "Directory",
+                    "id": "directory"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Check File/Directory Exists (<code>ssh_check_file_exists</code>)</div>
+
+Check if a file or directory exists on the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Remote file or directory path to check |
+| `type` | string | No | Expected type: file, directory, or any \(default: any\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `exists` | boolean | Whether the path exists |
+| `type` | string | Type of path \(file, directory, symlink, not_found\) |
+| `size` | number | File size if it is a file |
+| `permissions` | string | File permissions \(e.g., 0755\) |
+| `modified` | string | Last modified timestamp |
+
+</div>
+
+
+
+---
+
+### Create Directory
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_create_directory"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "createPath",
+            "type": "short-input",
+            "title": "Directory Path",
+            "placeholder": "/var/www/new-site",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "Create Parent Directories",
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Directory (<code>ssh_create_directory</code>)</div>
+
+Create a directory on the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Directory path to create |
+| `recursive` | boolean | No | Create parent directories if they do not exist \(default: true\) |
+| `permissions` | string | No | Directory permissions \(default: 0755\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `created` | boolean | Whether the directory was created successfully |
+| `remotePath` | string | Created directory path |
+| `alreadyExists` | boolean | Whether the directory already existed |
+
+</div>
+
+
+
+---
+
+### Delete File/Directory
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_delete_file"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "deletePath",
+            "type": "short-input",
+            "title": "Path to Delete",
+            "placeholder": "/tmp/old-file.txt",
+            "required": true
+        },
+        {
+            "id": "deleteRecursive",
+            "type": "switch",
+            "title": "Recursive Delete"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "Force Delete"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete File/Directory (<code>ssh_delete_file</code>)</div>
+
+Delete a file or directory from the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Path to delete |
+| `recursive` | boolean | No | Recursively delete directories \(default: false\) |
+| `force` | boolean | No | Force deletion without confirmation \(default: false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Whether the path was deleted successfully |
+| `remotePath` | string | Deleted path |
+
+</div>
+
+
+
+---
+
+### Move/Rename
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_move_rename"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "sourcePath",
+            "type": "short-input",
+            "title": "Source Path",
+            "placeholder": "/var/www/old-name",
+            "required": true
+        },
+        {
+            "id": "destinationPath",
+            "type": "short-input",
+            "title": "Destination Path",
+            "placeholder": "/var/www/new-name",
+            "required": true
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "Overwrite if Exists"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Move/Rename (<code>ssh_move_rename</code>)</div>
+
+Move or rename a file or directory on the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `sourcePath` | string | Yes | Current path of the file or directory |
+| `destinationPath` | string | Yes | New path for the file or directory |
+| `overwrite` | boolean | No | Overwrite destination if it exists \(default: false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `moved` | boolean | Whether the operation was successful |
+| `sourcePath` | string | Original path |
+| `destinationPath` | string | New path |
+
+</div>
+
+
+
+---
+
+### Get System Info
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_get_system_info"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get System Info (<code>ssh_get_system_info</code>)</div>
+
+Retrieve system information from the remote SSH server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `hostname` | string | Server hostname |
+| `os` | string | Operating system \(e.g., Linux, Darwin\) |
+| `architecture` | string | CPU architecture \(e.g., x64, arm64\) |
+| `uptime` | number | System uptime in seconds |
+| `memory` | json | Memory information \(total, free, used\) |
+| `diskSpace` | json | Disk space information \(total, free, used\) |
+
+</div>
+
+
+
+---
+
+### Read File Content
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_read_file_content"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "readPath",
+            "type": "short-input",
+            "title": "File Path",
+            "placeholder": "/var/log/app.log",
+            "required": true
+        },
+        {
+            "id": "encoding",
+            "type": "short-input",
+            "title": "Encoding",
+            "placeholder": "utf-8"
+        },
+        {
+            "id": "maxSize",
+            "type": "short-input",
+            "title": "Max Size (MB)",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read File Content (<code>ssh_read_file_content</code>)</div>
+
+Read the contents of a remote file
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Remote file path to read |
+| `encoding` | string | No | File encoding \(default: utf-8\) |
+| `maxSize` | number | No | Maximum file size to read in MB \(default: 10\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | File content as string |
+| `size` | number | File size in bytes |
+| `lines` | number | Number of lines in file |
+| `remotePath` | string | Remote file path |
+
+</div>
+
+
+
+---
+
+### Write File Content
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Execute Command",
+                    "id": "ssh_execute_command"
+                },
+                {
+                    "label": "Execute Script",
+                    "id": "ssh_execute_script"
+                },
+                {
+                    "label": "Check Command Exists",
+                    "id": "ssh_check_command_exists"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "ssh_upload_file"
+                },
+                {
+                    "label": "Download File",
+                    "id": "ssh_download_file"
+                },
+                {
+                    "label": "List Directory",
+                    "id": "ssh_list_directory"
+                },
+                {
+                    "label": "Check File/Directory Exists",
+                    "id": "ssh_check_file_exists"
+                },
+                {
+                    "label": "Create Directory",
+                    "id": "ssh_create_directory"
+                },
+                {
+                    "label": "Delete File/Directory",
+                    "id": "ssh_delete_file"
+                },
+                {
+                    "label": "Move/Rename",
+                    "id": "ssh_move_rename"
+                },
+                {
+                    "label": "Get System Info",
+                    "id": "ssh_get_system_info"
+                },
+                {
+                    "label": "Read File Content",
+                    "id": "ssh_read_file_content"
+                },
+                {
+                    "label": "Write File Content",
+                    "id": "ssh_write_file_content"
+                }
+            ],
+            "defaultValue": "ssh_write_file_content"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "Password",
+                    "id": "password"
+                },
+                {
+                    "label": "Private Key",
+                    "id": "privateKey"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SSH password",
+            "password": true
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true
+        },
+        {
+            "id": "writePath",
+            "type": "short-input",
+            "title": "File Path",
+            "placeholder": "/etc/config.json",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "code",
+            "title": "File Content",
+            "placeholder": "Content to write...",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "writeMode",
+            "type": "dropdown",
+            "title": "Write Mode",
+            "options": [
+                {
+                    "label": "Overwrite",
+                    "id": "overwrite"
+                },
+                {
+                    "label": "Append",
+                    "id": "append"
+                },
+                {
+                    "label": "Create (fail if exists)",
+                    "id": "create"
+                }
+            ]
+        },
+        {
+            "id": "writePermissions",
+            "type": "short-input",
+            "title": "Permissions",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Write File Content (<code>ssh_write_file_content</code>)</div>
+
+Write or append content to a remote file
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SSH server hostname or IP address |
+| `port` | number | Yes | SSH server port \(default: 22\) |
+| `username` | string | Yes | SSH username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `path` | string | Yes | Remote file path to write to |
+| `content` | string | Yes | Content to write to the file |
+| `mode` | string | No | Write mode: overwrite, append, or create \(default: overwrite\) |
+| `permissions` | string | No | File permissions \(e.g., 0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `written` | boolean | Whether the file was written successfully |
+| `remotePath` | string | File path |
+| `size` | number | Final file size in bytes |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Execute commands, transfer files, and manage remote servers via SSH. Supports password and private key authentication for secure server access.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `ssh`

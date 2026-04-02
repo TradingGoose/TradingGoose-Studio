@@ -1,0 +1,655 @@
+---
+title: Trello
+description: Manage Trello boards and cards
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trello"
+  color="#0052CC"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Get Lists
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_list_lists"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Board",
+            "placeholder": "Enter board ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Lists (<code>trello_list_lists</code>)</div>
+
+List all lists on a Trello board
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Yes | ID of the board to list lists from |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `lists` | array | Array of list objects with id, name, closed, pos, and idBoard |
+
+</div>
+
+
+
+---
+
+### List Cards
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_list_cards"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Board",
+            "placeholder": "Enter board ID or search for a board",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List (Optional)",
+            "placeholder": "Enter list ID to filter cards by list"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Cards (<code>trello_list_cards</code>)</div>
+
+List all cards on a Trello board
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Yes | ID of the board to list cards from |
+| `listId` | string | No | Optional: Filter cards by list ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `cards` | array | Array of card objects with id, name, desc, url, board/list IDs, labels, and due date |
+
+</div>
+
+
+
+---
+
+### Create Card
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_create_card"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Board",
+            "placeholder": "Enter board ID or search for a board",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "List",
+            "placeholder": "Enter list ID or search for a list",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Card Name",
+            "placeholder": "Enter card name/title",
+            "required": true
+        },
+        {
+            "id": "desc",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Enter card description (optional)"
+        },
+        {
+            "id": "pos",
+            "type": "dropdown",
+            "title": "Position",
+            "options": [
+                {
+                    "label": "Top",
+                    "id": "top"
+                },
+                {
+                    "label": "Bottom",
+                    "id": "bottom"
+                }
+            ]
+        },
+        {
+            "id": "due",
+            "type": "datetime-input",
+            "title": "Due Date",
+            "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Labels",
+            "placeholder": "Comma-separated label IDs (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Card (<code>trello_create_card</code>)</div>
+
+Create a new card on a Trello board
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Yes | ID of the board to create the card on |
+| `listId` | string | Yes | ID of the list to create the card in |
+| `name` | string | Yes | Name/title of the card |
+| `desc` | string | No | Description of the card |
+| `pos` | string | No | Position of the card \(top, bottom, or positive float\) |
+| `due` | string | No | Due date \(ISO 8601 format\) |
+| `labels` | string | No | Comma-separated list of label IDs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Update Card
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_update_card"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "Card",
+            "placeholder": "Enter card ID or search for a card",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "New Card Name",
+            "placeholder": "Enter new card name (leave empty to keep current)"
+        },
+        {
+            "id": "desc",
+            "type": "long-input",
+            "title": "New Description",
+            "placeholder": "Enter new description (leave empty to keep current)"
+        },
+        {
+            "id": "closed",
+            "type": "switch",
+            "title": "Archive Card"
+        },
+        {
+            "id": "dueComplete",
+            "type": "switch",
+            "title": "Mark Due Date Complete"
+        },
+        {
+            "id": "idList",
+            "type": "short-input",
+            "title": "Move to List",
+            "placeholder": "Enter list ID to move card"
+        },
+        {
+            "id": "due",
+            "type": "datetime-input",
+            "title": "Due Date",
+            "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Card (<code>trello_update_card</code>)</div>
+
+Update an existing card on Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `cardId` | string | Yes | ID of the card to update |
+| `name` | string | No | New name/title of the card |
+| `desc` | string | No | New description of the card |
+| `closed` | boolean | No | Archive/close the card \(true\) or reopen it \(false\) |
+| `idList` | string | No | Move card to a different list |
+| `due` | string | No | Due date \(ISO 8601 format\) |
+| `dueComplete` | boolean | No | Mark the due date as complete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Actions
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_get_actions"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Board ID",
+            "placeholder": "Enter board ID to get board actions"
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "Card ID",
+            "placeholder": "Enter card ID to get card actions"
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Action Filter",
+            "placeholder": "e.g., commentCard,updateCard"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "50"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Actions (<code>trello_get_actions</code>)</div>
+
+Get activity/actions from a board or card
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | No | ID of the board to get actions from \(either boardId or cardId required\) |
+| `cardId` | string | No | ID of the card to get actions from \(either boardId or cardId required\) |
+| `filter` | string | No | Filter actions by type \(e.g., "commentCard,updateCard,createCard" or "all"\) |
+| `limit` | number | No | Maximum number of actions to return \(default: 50, max: 1000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `actions` | array | Array of action objects with type, date, member, and data |
+
+</div>
+
+
+
+---
+
+### Add Comment
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Lists",
+                    "id": "trello_list_lists"
+                },
+                {
+                    "label": "List Cards",
+                    "id": "trello_list_cards"
+                },
+                {
+                    "label": "Create Card",
+                    "id": "trello_create_card"
+                },
+                {
+                    "label": "Update Card",
+                    "id": "trello_update_card"
+                },
+                {
+                    "label": "Get Actions",
+                    "id": "trello_get_actions"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "trello_add_comment"
+                }
+            ],
+            "defaultValue": "trello_add_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Trello Account",
+            "placeholder": "Select Trello account",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "Card",
+            "placeholder": "Enter card ID or search for a card",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Comment",
+            "placeholder": "Enter your comment",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add Comment (<code>trello_add_comment</code>)</div>
+
+Add a comment to a Trello card
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `cardId` | string | Yes | ID of the card to comment on |
+| `text` | string | Yes | Comment text |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate with Trello to manage boards and cards. List boards, list cards, create cards, update cards, get actions, and add comments.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `trello`

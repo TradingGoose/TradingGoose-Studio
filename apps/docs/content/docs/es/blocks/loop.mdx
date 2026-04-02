@@ -1,279 +1,117 @@
 ---
 title: Loop
+description: Repite un grupo de bloques mediante iteración, procesamiento de
+  colecciones o lógica condicional
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
 
-El bloque Loop es un bloque contenedor en TradingGoose que permite crear flujos de trabajo iterativos ejecutando un grupo de bloques repetidamente. Los bucles permiten el procesamiento iterativo en tus flujos de trabajo.
-
-El bloque Loop admite cuatro tipos de iteración:
+El bloque Loop es un contenedor que ejecuta los bloques en su interior de forma repetida. No es un bloque regular con su propio archivo fuente -- es un nodo contenedor especial gestionado por el `LoopBlockHandler` del ejecutor. Arrastra bloques al contenedor del loop y se ejecutarán una vez por iteración.
 
 <Callout type="info">
-  Los bloques Loop son nodos contenedores que pueden albergar otros bloques dentro de ellos. Los bloques dentro de un bucle se ejecutarán múltiples veces según tu configuración.
+  Los bloques Loop son nodos contenedores. Arrastra otros bloques dentro de ellos en el lienzo para definir qué se ejecuta en cada iteración.
 </Callout>
 
-## Descripción general
+## Tipos de Loop
 
-El bloque Loop te permite:
-
-<Steps>
-  <Step>
-    <strong>Iterar sobre colecciones</strong>: Procesar arrays u objetos un elemento a la vez
-  </Step>
-  <Step>
-    <strong>Repetir operaciones</strong>: Ejecutar bloques un número fijo de veces
-  </Step>
-  <Step>
-    <strong>Bucles con condiciones</strong>: Continuar ejecutando mientras o hasta que se cumpla una condición
-  </Step>
-  <Step>
-    <strong>Agregar resultados</strong>: Recopilar salidas de todas las iteraciones del bucle
-  </Step>
-</Steps>
-
-## Cómo funciona
-
-El bloque Loop ejecuta los bloques contenidos a través de iteración secuencial:
-
-1. **Inicializar bucle** - Configurar parámetros de iteración (contador o colección)
-2. **Ejecutar iteración** - Ejecutar bloques contenidos para la iteración actual
-3. **Recopilar resultados** - Almacenar la salida de cada iteración
-4. **Continuar o completar** - Pasar a la siguiente iteración o finalizar el bucle
-
-## Opciones de configuración
-
-### Tipo de bucle
-
-Elige entre cuatro tipos de bucles:
-
-<Tabs items={['For Loop', 'ForEach Loop', 'While Loop', 'Do-While Loop']}>
+<Tabs items={['For', 'ForEach', 'While', 'Do-While']}>
   <Tab>
-    **Bucle For (Iteraciones)** - Un bucle numérico que se ejecuta un número fijo de veces:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/loop-1.png"
-        alt="Bucle For con iteraciones"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
-    
-    Úsalo cuando necesites repetir una operación un número específico de veces.
-    
+    **Bucle For** -- se ejecuta un número fijo de veces. El número de iteraciones predeterminado es **5** si no se especifica.
 
     ```
-    Example: Run 5 times
-    - Iteration 1
-    - Iteration 2
-    - Iteration 3
-    - Iteration 4
-    - Iteration 5
+    Example: Run 3 times
+    - Iteration 1 (index 0)
+    - Iteration 2 (index 1)
+    - Iteration 3 (index 2)
     ```
 
   </Tab>
   <Tab>
-    **Bucle ForEach (Colección)** - Un bucle basado en colecciones que itera sobre cada elemento en un array u objeto:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/loop-2.png"
-        alt="Bucle ForEach con colección"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
-    
-    Úsalo cuando necesites procesar una colección de elementos.
-    
+    **Bucle ForEach** -- itera sobre cada elemento de un array u objeto. La colección debe ser no vacía; una colección vacía genera un error.
 
     ```
     Example: Process ["apple", "banana", "orange"]
-    - Iteration 1: Process "apple"
-    - Iteration 2: Process "banana"
-    - Iteration 3: Process "orange"
+    - Iteration 1: currentItem = "apple"
+    - Iteration 2: currentItem = "banana"
+    - Iteration 3: currentItem = "orange"
     ```
 
+    Para objetos, cada iteración recibe un par `[key, value]`.
   </Tab>
   <Tab>
-    **Bucle While (Basado en condición)** - Continúa ejecutándose mientras una condición se evalúe como verdadera:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/loop-3.png"
-        alt="Bucle While con condición"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
-    
-    Úsalo cuando necesites hacer un bucle hasta que se cumpla una condición específica. La condición se comprueba **antes** de cada iteración.
-    
+    **Bucle While** -- evalúa una condición **antes** de cada iteración. Si la condición es falsa en la primera verificación, el cuerpo nunca se ejecuta.
 
-    ```
-    Example: While <variable.i> < 10
-    - Check condition → Execute if true
-    - Inside loop: Increment <variable.i>
-    - Inside loop: Variables assigns i = <variable.i> + 1
-    - Check condition → Execute if true
-    - Check condition → Exit if false
-    ```
-
+    Los bucles While y Do-While **no tienen límite de iteraciones incorporado**. Dependen de que la condición se vuelva falsa (o del tiempo de espera del flujo de trabajo) para detenerse.
   </Tab>
   <Tab>
-    **Bucle Do-While (Basado en condición)** - Se ejecuta al menos una vez, luego continúa mientras una condición sea verdadera:
-    
-    <div className="flex justify-center">
-      <Image
-        src="/static/blocks/loop-3.png"
-        alt="Bucle Do-While con condición"
-        width={500}
-        height={400}
-        className="my-6"
-      />
-    </div>
-    
-    Úsalo cuando necesites ejecutar al menos una vez, luego hacer un bucle hasta que se cumpla una condición. La condición se comprueba **después** de cada iteración.
-    
-
-    ```
-    Example: Do-while <variable.i> < 10
-    - Execute blocks
-    - Inside loop: Increment <variable.i>
-    - Inside loop: Variables assigns i = <variable.i> + 1
-    - Check condition → Continue if true
-    - Check condition → Exit if false
-    ```
-
+    **Bucle Do-While** -- ejecuta el cuerpo al menos una vez y luego evalúa la condición **después** de cada iteración. Útil cuando se necesita al menos un ciclo antes de realizar la verificación.
   </Tab>
 </Tabs>
 
-## Cómo usar los bucles
+## Cómo Funciona
 
-### Creando un bucle
+El `LoopBlockHandler` del ejecutor gestiona el control de iteración:
 
-1. Arrastra un bloque Loop desde la barra de herramientas a tu lienzo
-2. Configura el tipo de bucle y los parámetros
-3. Arrastra otros bloques dentro del contenedor del bucle
-4. Conecta los bloques según sea necesario
+1. **Inicializar** -- el contador del bucle comienza en 1. Para los bucles `forEach`, la colección se resuelve (JSON, referencias a variables o expresiones).
+2. **Verificar continuación** -- `for`/`forEach` comparan el contador con la longitud de la colección o el número de iteraciones. `while`/`doWhile` evalúan la expresión de condición utilizando el mismo motor que el bloque de Condición.
+3. **Activar elementos secundarios** -- los bloques conectados al manejador de inicio interno del bucle se colocan en la ruta de ejecución activa.
+4. **Recopilar resultados** -- las salidas de cada iteración se agregan en `loop.results`.
+5. **Incrementar y repetir** -- el contador avanza y el paso 2 se ejecuta nuevamente. Cuando el bucle finaliza, se activan los bloques conectados al manejador de salida del bucle.
 
-### Acceso a los resultados
+## Variables de Iteración
 
-Después de que un bucle se completa, puedes acceder a los resultados agregados:
+Dentro del cuerpo del bucle, las siguientes variables están disponibles:
 
-- **`<loop.results>`**: Array de resultados de todas las iteraciones del bucle
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.index` | number | Índice de base cero de la iteración actual |
+| `loop.currentItem` | any | El elemento actual (bucles ForEach) o el contexto del bucle (bucles While) |
+| `loop.items` | array/object | La colección completa que se está iterando (solo ForEach) |
 
-## Ejemplos de casos de uso
+Una vez completado el bucle, los bloques posteriores pueden acceder a:
 
-### Procesamiento de resultados de API
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.results` | array | Array ordenado de todas las salidas de iteración |
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Procesar múltiples registros de clientes</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>El bloque API obtiene la lista de clientes</li>
-    <li>El bucle ForEach itera sobre cada cliente</li>
-    <li>Dentro del bucle: El agente analiza los datos del cliente</li>
-    <li>Dentro del bucle: La función almacena los resultados del análisis</li>
-  </ol>
-</div>
+## Configuración
 
-### Generación iterativa de contenido
+| Parámetro | Aplica a | Descripción |
+|---|---|---|
+| **Tipo de Bucle** | Todos | `for`, `forEach`, `while`, o `doWhile` |
+| **Iteraciones** | For | Número de veces a repetir (predeterminado: 5) |
+| **Colección** | ForEach | Array u objeto a iterar. Admite literales JSON, referencias `<block.output>` y expresiones. |
+| **Condición** | While / Do-While | Una expresión booleana evaluada en cada iteración (p. ej., `<variable.i> < 10`) |
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Generar múltiples variaciones</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Configurar bucle For para 5 iteraciones</li>
-    <li>Dentro del bucle: El agente genera una variación de contenido</li>
-    <li>Dentro del bucle: El evaluador puntúa el contenido</li>
-    <li>Después del bucle: La función selecciona la mejor variación</li>
-  </ol>
-</div>
+## Casos de Uso de Ejemplo
 
-### Contador con bucle While
+### Procesamiento de Resultados de API
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Procesar elementos con bucle basado en contador</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Inicializar variable de flujo de trabajo: `i = 0`</li>
-    <li>Bucle While con condición: `<variable.i>` \< 10</li>
-    <li>Dentro del bucle: El agente procesa el elemento en el índice `<variable.i>`</li>
-    <li>Dentro del bucle: La variable incrementa `i = <variable.i> + 1`</li>
-    <li>El bucle continúa mientras i sea menor que 10</li>
-  </ol>
-</div>
+1. Un bloque de API obtiene una lista de registros de clientes.
+2. Un bucle ForEach itera sobre cada cliente.
+3. Dentro del bucle, un Agente analiza los datos del cliente y una Función almacena el resultado.
+4. Tras el bucle, un bloque de Respuesta devuelve el `loop.results` agregado.
 
-## Características avanzadas
+### Refinamiento Iterativo
 
-### Limitaciones
+1. Un bucle For configurado en 5 iteraciones genera variaciones de contenido.
+2. Dentro del bucle, un Agente produce un borrador y un Evaluador lo puntúa.
+3. Tras el bucle, una Función selecciona la variación con mayor puntuación de `loop.results`.
+
+## Limitaciones
 
 <Callout type="warning">
-  Los bloques contenedores (Bucles y Paralelos) no pueden anidarse dentro de otros. Esto significa:
-  - No puedes colocar un bloque de Bucle dentro de otro bloque de Bucle
-  - No puedes colocar un bloque Paralelo dentro de un bloque de Bucle
-  - No puedes colocar ningún bloque contenedor dentro de otro bloque contenedor
-  
-  Si necesitas iteración multidimensional, considera reestructurar tu flujo de trabajo para usar bucles secuenciales o procesar datos por etapas.
+  Los bloques contenedores (Bucles y Paralelos) **no pueden anidarse** entre sí. No es posible colocar un Bucle dentro de otro Bucle, ni un Paralelo dentro de un Bucle. Si necesita iteración multidimensional, reestructure su flujo de trabajo para usar bucles secuenciales o procesar los datos por etapas.
 </Callout>
 
 <Callout type="info">
-  Los bucles se ejecutan secuencialmente, no en paralelo. Si necesitas ejecución concurrente, usa el bloque Paralelo en su lugar.
+  Los bucles ejecutan las iteraciones **secuencialmente**. Para la ejecución concurrente de tareas independientes, utilice el bloque Paralelo.
 </Callout>
 
-## Entradas y salidas
+## Buenas Prácticas
 
-<Tabs items={['Configuration', 'Variables', 'Results']}>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>Tipo de bucle</strong>: Elige entre 'for', 'forEach', 'while', o 'doWhile'
-      </li>
-      <li>
-        <strong>Iteraciones</strong>: Número de veces a ejecutar (bucles for)
-      </li>
-      <li>
-        <strong>Colección</strong>: Array u objeto sobre el que iterar (bucles forEach)
-      </li>
-      <li>
-        <strong>Condición</strong>: Expresión booleana a evaluar (bucles while/do-while)
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>loop.currentItem</strong>: Elemento actual que se está procesando
-      </li>
-      <li>
-        <strong>loop.index</strong>: Número de iteración actual (base 0)
-      </li>
-      <li>
-        <strong>loop.items</strong>: Colección completa (bucles forEach)
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>loop.results</strong>: Array de todos los resultados de iteración
-      </li>
-      <li>
-        <strong>Estructura</strong>: Los resultados mantienen el orden de iteración
-      </li>
-      <li>
-        <strong>Acceso</strong>: Disponible en bloques después del bucle
-      </li>
-    </ul>
-  </Tab>
-</Tabs>
-
-## Mejores prácticas
-
-- **Establece límites razonables**: Mantén el número de iteraciones razonable para evitar tiempos de ejecución largos
-- **Usa ForEach para colecciones**: Cuando proceses arrays u objetos, usa bucles ForEach en lugar de bucles For
-- **Maneja los errores con elegancia**: Considera añadir manejo de errores dentro de los bucles para flujos de trabajo robustos
+- **Establezca conteos de iteración razonables** en los bucles For para evitar flujos de trabajo de larga duración. El valor predeterminado es 5.
+- **Use ForEach para colecciones** -- se ajusta automáticamente al tamaño de la colección y le proporciona `currentItem`.
+- **Actualice siempre la variable de condición** dentro de los bucles While/Do-While. Olvidar modificar la variable de la que depende la condición crea un bucle infinito (limitado únicamente por el tiempo de espera del flujo de trabajo).

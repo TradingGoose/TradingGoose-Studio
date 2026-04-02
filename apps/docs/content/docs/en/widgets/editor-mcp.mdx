@@ -1,0 +1,71 @@
+---
+title: "MCP Editor"
+description: "Inspect, edit, test, and refresh a selected MCP server."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `editor_mcp` |
+| **Category** | Editor |
+
+The MCP Editor lets you inspect, configure, test, and refresh a Model Context Protocol server attached to your workspace. It displays the server's connection status, transport settings, discovered tools, and any recent errors. Use the [MCP List](/utilities/mcp) widget to add or remove servers; the editor is the primary interface for managing an individual server's configuration.
+
+## Features
+
+- **Server info header** shows the server name, a color-coded connection status badge (Connected / Error / Disconnected), and the transport type (e.g. HTTP, SSE).
+- **Timestamps** display relative times for "last updated", "tools refreshed", and "last connected" so you can see at a glance how fresh the data is.
+- **Server form** lets you edit the transport type (streamable-http by default), endpoint URL, request timeout, and custom HTTP headers.
+- **Test connection button** sends a test request to the server with the current form values and displays the result inline.
+- **Refresh tools button** triggers a server-side refresh that re-discovers all tools exposed by the MCP server and updates the local tool list.
+- **Reset form button** reverts the form fields back to the last-saved server configuration.
+- **Save button** persists the updated server settings. If no test has been run yet, save automatically triggers a test first, then saves and refreshes tools.
+- **Clear selection button** deselects the current server.
+- **Tools list** enumerates every tool discovered from the server, showing each tool's name and description.
+- **Error panel** appears at the bottom when the server has a `lastError`, displaying the error message.
+- **Server selector** in the header bar switches between MCP servers in the workspace. When paired via a color link, it syncs with the MCP List widget.
+
+## Usage
+
+1. Add the widget to a workspace from the widget picker.
+2. Select an MCP server from the header dropdown, or add one from the [MCP List](/utilities/mcp) widget.
+3. Review the connection status and timestamps at the top.
+4. Edit the **URL**, **Timeout**, or **Headers** if needed.
+5. Click **Test connection** to verify the server is reachable with the current settings.
+6. Click **Refresh tools** to re-discover the tools the server exposes.
+7. Click **Save** to persist changes. The widget will test the connection if you have not already, then save and refresh tools.
+
+### Header Actions
+
+The header toolbar provides five action buttons (left to right):
+
+| Button | Icon | Action |
+|--------|------|--------|
+| Refresh tools | Rotate | Re-discovers tools from the server |
+| Test connection | Play | Sends a test request with current form values |
+| Reset form | Undo | Reverts form to last-saved values |
+| Save server | Save | Persists config, auto-tests if needed, refreshes tools |
+| Clear selection | X | Deselects the server |
+
+<Callout>
+This widget supports the **pairColor** mechanism. Assign the same color to an MCP Editor and an [MCP List](/utilities/mcp) widget so that selecting a server in the list automatically opens it in the editor.
+</Callout>
+
+## Configuration
+
+The selected server is stored in widget params as `mcpServerId` and synced through the pair-color store when linked. The form fields (transport, URL, timeout, headers) are local state derived from the selected server and are not persisted until you click Save.
+
+## Related
+
+<Cards>
+  <Card title="MCP Guide" href="/utilities/mcp">
+    Learn what MCP servers are, how to connect them, and how agents use their tools.
+  </Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+</Cards>

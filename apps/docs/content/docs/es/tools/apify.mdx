@@ -1,0 +1,304 @@
+---
+title: Apify
+description: Ejecutar actores de Apify y recuperar resultados
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="apify"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+/>
+
+## Configuración
+
+### Ejecutar Actor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Ejecutar Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Ejecutar Actor (Asíncrono)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_sync"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de API de Apify",
+            "placeholder": "Ingrese su token de API de Apify",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "ID del Actor",
+            "placeholder": "p. ej., janedoe/my-actor o ID del actor",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Entrada del Actor",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Tiempo de Espera",
+            "placeholder": "Tiempo de espera del actor en segundos"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Build",
+            "placeholder": "Build del actor (p. ej., \"latest\", \"beta\" o etiqueta de build)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar Actor (<code>apify_run_actor_sync</code>)</div>
+
+Ejecutar un actor de APIFY de forma síncrona y obtener resultados (máximo 5 minutos)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de API de APIFY desde console.apify.com/account#/integrations |
+| `actorId` | string | Sí | ID del actor o nombre-de-usuario/nombre-del-actor \(p. ej., "janedoe/my-actor" o ID del actor\) |
+| `input` | string | No | Entrada del actor como cadena JSON. Consulte la documentación del actor para los campos requeridos. |
+| `timeout` | number | No | Tiempo de espera en segundos \(predeterminado: valor por defecto del actor\) |
+| `build` | string | No | Compilación del actor a ejecutar \(p. ej., "latest", "beta" o etiqueta/número de compilación\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la ejecución del actor fue exitosa |
+| `runId` | string | ID de ejecución de APIFY |
+| `status` | string | Estado de la ejecución \(SUCCEEDED, FAILED, etc.\) |
+
+</div>
+
+---
+
+### Ejecutar Actor (Asíncrono)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 200 200'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <g clipPath='url(#clip0_267_4154)'>
+        <path
+          d='M114.695 0H196.97C198.643 0 200 1.35671 200 3.03031V128.766C200 131.778 196.083 132.945 194.434 130.425L112.159 4.68953C110.841 2.67412 112.287 0 114.695 0Z'
+          fill='#246DFF'
+        />
+        <path
+          d='M85.3048 0H3.0303C1.35671 0 0 1.35671 0 3.03031V128.766C0 131.778 3.91698 132.945 5.566 130.425L87.8405 4.68953C89.1593 2.67412 87.7134 0 85.3048 0Z'
+          fill='#20A34E'
+        />
+        <path
+          d='M98.5909 100.668L5.12683 194.835C3.22886 196.747 4.58334 200 7.27759 200H192.8C195.483 200 196.842 196.77 194.967 194.852L102.908 100.685C101.726 99.4749 99.7824 99.4676 98.5909 100.668Z'
+          fill='#F86606'
+        />
+      </g>
+      <defs>
+        <clipPath id='clip0_267_4154'>
+          <rect   fill='white' />
+        </clipPath>
+      </defs>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Ejecutar Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Ejecutar Actor (Asíncrono)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_async"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de API de Apify",
+            "placeholder": "Ingrese su token de API de Apify",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "ID del Actor",
+            "placeholder": "p. ej., janedoe/my-actor o ID del actor",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Entrada del Actor",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Tiempo de Espera",
+            "placeholder": "Tiempo de espera del actor en segundos"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Compilación",
+            "placeholder": "Compilación del actor (p. ej., \"latest\", \"beta\" o etiqueta de compilación)"
+        },
+        {
+            "id": "waitForFinish",
+            "type": "short-input",
+            "title": "Esperar Finalización",
+            "placeholder": "Tiempo de espera inicial en segundos (0-60)"
+        },
+        {
+            "id": "itemLimit",
+            "type": "short-input",
+            "title": "Límite de Elementos",
+            "placeholder": "Máx. elementos del dataset a obtener (1-250000)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar Actor (Asíncrono) (<code>apify_run_actor_async</code>)</div>
+
+Ejecuta un actor de APIFY de forma asíncrona con sondeo para tareas de larga duración
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de API de APIFY desde console.apify.com/account#/integrations |
+| `actorId` | string | Sí | ID del actor o nombre-de-usuario/nombre-del-actor \(p. ej., "janedoe/my-actor" o ID del actor\) |
+| `input` | string | No | Entrada del actor como cadena JSON |
+| `waitForFinish` | number | No | Tiempo de espera inicial en segundos \(0-60\) antes de iniciar el sondeo |
+| `itemLimit` | number | No | Máximo de elementos del dataset a obtener \(1-250000, predeterminado 100\) |
+| `timeout` | number | No | Tiempo de espera en segundos \(predeterminado: valor predeterminado del actor\) |
+| `build` | string | No | Build del actor a ejecutar \(p. ej., "latest", "beta" o etiqueta/número de build\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la ejecución del actor fue exitosa |
+| `runId` | string | ID de ejecución de APIFY |
+| `status` | string | Estado de la ejecución \(SUCCEEDED, FAILED, etc.\) |
+| `datasetId` | string | ID del dataset que contiene los resultados |
+
+</div>
+
+---
+
+## Instrucciones de Uso
+
+Integra Apify en tu flujo de trabajo. Ejecuta cualquier actor de Apify con entrada personalizada y recupera los resultados. Compatible con ejecución síncrona y asíncrona con obtención automática del dataset.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `apify`

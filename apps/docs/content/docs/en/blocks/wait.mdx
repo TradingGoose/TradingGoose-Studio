@@ -4,19 +4,23 @@ title: Wait
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 The Wait block pauses your workflow for a specified amount of time before continuing to the next block. Use it to add delays between actions, respect API rate limits, or space out operations.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/wait.png"
-    alt="Wait Block"
-    width={500}
-    height={350}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wait"
+    type="wait"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+      { "id": "timeValue", "title": "Wait Amount", "type": "short-input", "layout": "half", "description": "Max: 600 seconds or 10 minutes", "placeholder": "10", "required": true },
+      { "id": "timeUnit", "title": "Unit", "type": "dropdown", "layout": "half", "options": [{ "label": "Seconds", "id": "seconds" }, { "label": "Minutes", "id": "minutes" }], "required": true }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Overview
 

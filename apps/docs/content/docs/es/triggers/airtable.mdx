@@ -1,0 +1,135 @@
+---
+title: Disparador de Airtable
+description: Activa flujos de trabajo a partir de cambios en registros de
+  Airtable, como eventos de creación, actualización y eliminación (requiere
+  credenciales de Airtable)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activa flujos de trabajo a partir de cambios en registros de Airtable, como eventos de creación, actualización y eliminación (requiere credenciales de Airtable)
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable Webhook"
+    type="airtable_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este disparador requiere credenciales de Airtable para acceder a su cuenta.",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de Base",
+            "placeholder": "appXXXXXXXXXXXXXX",
+            "description": "El ID de la Base de Airtable que este webhook monitoreará.",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de Tabla",
+            "placeholder": "tblXXXXXXXXXXXXXX",
+            "description": "El ID de la tabla dentro de la Base que el webhook monitoreará.",
+            "required": true
+        },
+        {
+            "id": "includeCellValues",
+            "type": "switch",
+            "title": "Incluir Datos Completos del Registro",
+            "description": "Actívelo para recibir los datos completos del registro en el payload, no solo los cambios."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "payloads",
+          "type": "array",
+          "description": "Las cargas útiles de los cambios de Airtable"
+      },
+      {
+          "name": "latestPayload",
+          "type": "object",
+          "description": "latestPayload",
+          "children": [
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "La marca de tiempo del cambio de Airtable"
+              },
+              {
+                  "name": "payloadFormat",
+                  "type": "object",
+                  "description": "El formato del cambio de Airtable"
+              },
+              {
+                  "name": "actionMetadata",
+                  "type": "object",
+                  "description": "actionMetadata",
+                  "children": [
+                      {
+                          "name": "source",
+                          "type": "string",
+                          "description": "El origen del cambio de Airtable"
+                      },
+                      {
+                          "name": "sourceMetadata",
+                          "type": "object",
+                          "description": "sourceMetadata",
+                          "children": [
+                              {
+                                  "name": "pageId",
+                                  "type": "string",
+                                  "description": "El ID de la página que desencadenó el cambio de Airtable"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "changedTablesById",
+                          "type": "object",
+                          "description": "Las tablas que fueron modificadas"
+                      },
+                      {
+                          "name": "baseTransactionNumber",
+                          "type": "number",
+                          "description": "El número de transacción del cambio de Airtable"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "airtableChanges",
+          "type": "array",
+          "description": "Cambios realizados en la tabla de Airtable"
+      }
+  ]}
+/>

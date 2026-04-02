@@ -1,0 +1,201 @@
+---
+title: Calendly Trigger
+description: Trigger workflow when someone schedules a new event on Calendly
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="calendly"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow when someone schedules a new event on Calendly
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Events
+
+### Calendly Invitee Created
+
+Trigger workflow when someone schedules a new event on Calendly
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Created"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Calendly Invitee Canceled
+
+Trigger workflow when someone cancels a scheduled event on Calendly
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Canceled"
+    type="calendly_invitee_canceled"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Calendly Webhook
+
+Trigger workflow from any Calendly webhook event
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Webhook"
+    type="calendly_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Event type (invitee.created, invitee.canceled, or routing_form_submission.created)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook event creation timestamp"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI of the Calendly user who created this webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "Complete event payload (structure varies by event type)"
+      }
+  ]}
+/>
+
+---
+
+### Calendly Routing Form Submitted
+
+Trigger workflow when someone submits a Calendly routing form
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Routing Form Submitted"
+    type="calendly_routing_form_submitted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+

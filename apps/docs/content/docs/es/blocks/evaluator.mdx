@@ -5,48 +5,55 @@ title: Evaluador
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-El bloque Evaluador utiliza IA para puntuar y evaluar la calidad del contenido mediante métricas de evaluación personalizables que tú defines. Perfecto para control de calidad, pruebas A/B y para garantizar que tus resultados de IA cumplan con estándares específicos.
+El bloque Evaluador utiliza IA para puntuar y evaluar la calidad del contenido mediante métricas de evaluación personalizables que usted define. Ideal para el control de calidad, las pruebas A/B y para garantizar que los resultados de su IA cumplan con estándares específicos.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/evaluator.png"
-    alt="Configuración del bloque Evaluador"
-    width={500}
-    height={400}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Evaluador"
+    type="evaluator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+      { "id": "metrics", "title": "Métricas de Evaluación", "type": "eval-input", "layout": "full", "required": true },
+      { "id": "content", "title": "Contenido", "type": "short-input", "layout": "full", "placeholder": "Ingrese el contenido a evaluar", "required": true },
+      { "id": "model", "title": "Modelo", "type": "combobox", "layout": "half", "placeholder": "Escriba o seleccione un modelo...", "required": true },
+      { "id": "apiKey", "title": "Clave API", "type": "short-input", "layout": "full", "placeholder": "Ingrese su clave API", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Endpoint de Azure OpenAI", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Versión de la API de Azure", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
-## Descripción general
+## Descripción General
 
-El bloque Evaluador te permite:
+El bloque Evaluador le permite:
 
 <Steps>
   <Step>
-    <strong>Puntuar la calidad del contenido</strong>: Usa IA para evaluar contenido según métricas personalizadas con puntuaciones numéricas
+    <strong>Puntuar la Calidad del Contenido</strong>: Utilice IA para evaluar el contenido según métricas personalizadas con puntuaciones numéricas
   </Step>
   <Step>
-    <strong>Definir métricas personalizadas</strong>: Crea criterios de evaluación específicos adaptados a tu caso de uso  
+    <strong>Definir Métricas Personalizadas</strong>: Cree criterios de evaluación específicos adaptados a su caso de uso
   </Step>
   <Step>
-    <strong>Automatizar el control de calidad</strong>: Construye flujos de trabajo que evalúan y filtran contenido automáticamente
+    <strong>Automatizar el Control de Calidad</strong>: Construya flujos de trabajo que evalúen y filtren el contenido de forma automática
   </Step>
   <Step>
-    <strong>Seguir el rendimiento</strong>: Monitoriza mejoras y consistencia a lo largo del tiempo con puntuaciones objetivas
+    <strong>Monitorear el Rendimiento</strong>: Realice un seguimiento de las mejoras y la consistencia a lo largo del tiempo mediante puntuaciones objetivas
   </Step>
 </Steps>
 
-## Cómo funciona
+## Cómo Funciona
 
-El bloque Evaluador procesa contenido mediante evaluación impulsada por IA:
+El bloque Evaluador procesa el contenido mediante una evaluación impulsada por IA:
 
-1. **Recibe contenido** - Toma el contenido de entrada de bloques previos en tu flujo de trabajo
-2. **Aplica métricas** - Evalúa el contenido según tus métricas personalizadas definidas  
-3. **Genera puntuaciones** - El modelo de IA asigna puntuaciones numéricas para cada métrica
-4. **Proporciona resumen** - Devuelve una evaluación detallada con puntuaciones y explicaciones
+1. **Recibir contenido** - Toma el contenido de entrada de los bloques anteriores en tu flujo de trabajo
+2. **Aplicar métricas** - Evalúa el contenido según tus métricas personalizadas definidas
+3. **Generar puntuaciones** - El modelo de IA asigna puntuaciones numéricas para cada métrica
+4. **Proporcionar resumen** - Devuelve una evaluación detallada con puntuaciones y explicaciones
 
 ## Opciones de configuración
 
@@ -68,7 +75,7 @@ Relevance (1-5): How relevant is the content to the original query?
 
 ### Contenido
 
-El contenido a evaluar. Esto puede ser:
+El contenido a evaluar. Puede ser:
 
 - Proporcionado directamente en la configuración del bloque
 - Conectado desde la salida de otro bloque (típicamente un bloque de Agente)
@@ -84,15 +91,11 @@ Elige un modelo de IA para realizar la evaluación:
 **Otros proveedores**: Groq, Cerebras, xAI, DeepSeek
 **Modelos locales**: Cualquier modelo ejecutándose en Ollama
 
-<div className="w-full max-w-2xl mx-auto overflow-hidden rounded-lg">
-  <Video src="models.mp4" width={500} height={350} />
-</div>
-
-**Recomendación**: Utiliza modelos con fuertes capacidades de razonamiento como GPT-4o o Claude 3.7 Sonnet para evaluaciones más precisas.
+**Recomendación**: Utiliza modelos con capacidades de razonamiento avanzadas, como GPT-4o o Claude 3.7 Sonnet, para obtener evaluaciones más precisas.
 
 ### Clave API
 
-Tu clave API para el proveedor de LLM seleccionado. Esta se almacena de forma segura y se utiliza para la autenticación.
+Tu clave API para el proveedor de LLM seleccionado. Se almacena de forma segura y se utiliza para la autenticación.
 
 ## Cómo funciona
 
@@ -102,21 +105,21 @@ Tu clave API para el proveedor de LLM seleccionado. Esta se almacena de forma se
 4. El LLM evalúa el contenido y devuelve puntuaciones numéricas para cada métrica
 5. El bloque Evaluador formatea estas puntuaciones como salida estructurada para su uso en tu flujo de trabajo
 
-## Ejemplos de casos de uso
+## Casos de Uso de Ejemplo
 
-### Evaluación de calidad de contenido
+### Evaluación de Calidad del Contenido
 
 <div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Evaluar la calidad de un artículo de blog antes de su publicación</h4>
+  <h4 className="font-medium">Escenario: Evaluar la calidad de una entrada de blog antes de su publicación</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>El bloque de Agente genera el contenido del artículo</li>
-    <li>El Evaluador evalúa la precisión, legibilidad y engagement</li>
-    <li>El bloque de Condición verifica si las puntuaciones cumplen con los umbrales mínimos</li>
+    <li>El bloque de agente genera el contenido de la entrada de blog</li>
+    <li>El evaluador analiza la precisión, legibilidad y nivel de engagement</li>
+    <li>El bloque de condición verifica si las puntuaciones superan los umbrales mínimos</li>
     <li>Puntuaciones altas → Publicar, Puntuaciones bajas → Revisar y reintentar</li>
   </ol>
 </div>
 
-### Pruebas A/B de contenido
+### Pruebas A/B de Contenido
 
 <div className="mb-4 rounded-md border p-4">
   <h4 className="font-medium">Escenario: Comparar múltiples respuestas generadas por IA</h4>
@@ -128,31 +131,31 @@ Tu clave API para el proveedor de LLM seleccionado. Esta se almacena de forma se
   </ol>
 </div>
 
-### Control de calidad de atención al cliente
+### Control de Calidad en Atención al Cliente
 
 <div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Asegurar que las respuestas de soporte cumplan con los estándares de calidad</h4>
+  <h4 className="font-medium">Escenario: Garantizar que las respuestas de soporte cumplan los estándares de calidad</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>El agente de soporte genera una respuesta a la consulta del cliente</li>
     <li>El evaluador puntúa la utilidad, empatía y precisión</li>
-    <li>Las puntuaciones se registran para entrenamiento y monitoreo de rendimiento</li>
-    <li>Las puntuaciones bajas activan un proceso de revisión humana</li>
+    <li>Las puntuaciones se registran para entrenamiento y monitoreo del rendimiento</li>
+    <li>Las puntuaciones bajas activan el proceso de revisión humana</li>
   </ol>
 </div>
 
-## Entradas y salidas
+## Entradas y Salidas
 
-<Tabs items={['Configuración', 'Variables', 'Resultados']}>
+<Tabs items={['Configuration', 'Variables', 'Results']}>
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
         <strong>Contenido</strong>: El texto o datos estructurados a evaluar
       </li>
       <li>
-        <strong>Métricas de evaluación</strong>: Criterios personalizados con rangos de puntuación
+        <strong>Métricas de Evaluación</strong>: Criterios personalizados con rangos de puntuación
       </li>
       <li>
-        <strong>Modelo</strong>: Modelo de IA para análisis de evaluación
+        <strong>Modelo</strong>: Modelo de IA para el análisis de evaluación
       </li>
       <li>
         <strong>Clave API</strong>: Autenticación para el proveedor de LLM seleccionado
@@ -171,29 +174,29 @@ Tu clave API para el proveedor de LLM seleccionado. Esta se almacena de forma se
         <strong>evaluator.tokens</strong>: Estadísticas de uso de tokens
       </li>
       <li>
-        <strong>evaluator.cost</strong>: Resumen de costos para la llamada de evaluación
+        <strong>evaluator.cost</strong>: Resumen de costos de la llamada de evaluación
       </li>
     </ul>
   </Tab>
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>Puntuaciones de métricas</strong>: Puntuaciones numéricas para cada métrica definida
+        <strong>Puntuaciones de Métricas</strong>: Puntuaciones numéricas para cada métrica definida
       </li>
       <li>
-        <strong>Resumen de evaluación</strong>: Evaluación detallada con explicaciones
+        <strong>Resumen de Evaluación</strong>: Valoración detallada con explicaciones
       </li>
       <li>
-        <strong>Acceso</strong>: Disponible en bloques después del evaluador
+        <strong>Acceso</strong>: Disponible en los bloques posteriores al evaluador
       </li>
     </ul>
   </Tab>
 </Tabs>
 
-## Mejores prácticas
+## Mejores Prácticas
 
-- **Usar descripciones específicas de métricas**: Define claramente qué mide cada métrica para obtener evaluaciones más precisas
-- **Elegir rangos apropiados**: Selecciona rangos de puntuación que proporcionen suficiente detalle sin ser excesivamente complejos
-- **Conectar con bloques de agente**: Utiliza bloques evaluadores para evaluar las salidas de bloques de agente y crear bucles de retroalimentación
-- **Usar métricas consistentes**: Para análisis comparativos, mantén métricas consistentes en evaluaciones similares
-- **Combinar múltiples métricas**: Usa varias métricas para obtener una evaluación integral
+- **Utilice descripciones de métricas específicas**: Defina claramente qué mide cada métrica para obtener evaluaciones más precisas
+- **Elija rangos apropiados**: Seleccione rangos de puntuación que proporcionen suficiente granularidad sin ser demasiado complejos
+- **Conéctese con bloques de Agente**: Utilice bloques de Evaluador para valorar las salidas de los bloques de Agente y crear bucles de retroalimentación
+- **Utilice métricas consistentes**: Para el análisis comparativo, mantenga métricas consistentes en evaluaciones similares
+- **Combine múltiples métricas**: Utilice varias métricas para obtener una evaluación integral

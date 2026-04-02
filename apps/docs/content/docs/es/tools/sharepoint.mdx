@@ -4,10 +4,12 @@ description: Trabajar con páginas y listas
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="sharepoint"
-  color="#E0E0E0"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
       <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
@@ -44,180 +46,1195 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[SharePoint](https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration) es una plataforma colaborativa de Microsoft que permite a los usuarios crear y gestionar sitios web internos, compartir documentos y organizar recursos de equipo. Proporciona una solución potente y flexible para crear espacios de trabajo digitales y agilizar la gestión de contenidos en las organizaciones.
+## Configuración
 
-Con SharePoint, puedes:
+### Crear página
 
-- **Crear sitios de equipo y comunicación**: Configura páginas y portales para facilitar la colaboración, anuncios y distribución de contenido
-- **Organizar y compartir contenido**: Almacena documentos, gestiona archivos y habilita el control de versiones con capacidades seguras de compartición
-- **Personalizar páginas**: Añade partes de texto para adaptar cada sitio a las necesidades de tu equipo
-- **Mejorar la capacidad de descubrimiento**: Utiliza herramientas de metadatos, búsqueda y navegación para ayudar a los usuarios a encontrar rápidamente lo que necesitan
-- **Colaborar de forma segura**: Controla el acceso con configuraciones robustas de permisos e integración con Microsoft 365
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos a lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "create_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "Nombre de página",
+            "layout": "full",
+            "placeholder": "Nombre de la página"
+        },
+        {
+            "id": "manualSiteId",
+            "type": "short-input",
+            "title": "ID de sitio",
+            "layout": "full",
+            "placeholder": "Ingresar ID de sitio (dejar vacío para el sitio raíz)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-En TradingGoose, la integración con SharePoint permite a tus agentes crear y acceder a sitios y páginas de SharePoint como parte de sus flujos de trabajo. Esto facilita la gestión automatizada de documentos, el intercambio de conocimientos y la creación de espacios de trabajo sin esfuerzo manual. Los agentes pueden generar nuevas páginas de proyectos, cargar o recuperar archivos y organizar recursos de forma dinámica, basándose en las entradas del flujo de trabajo. Al conectar TradingGoose con SharePoint, incorporas la colaboración estructurada y la gestión de contenidos en tus flujos de automatización, dando a tus agentes la capacidad de coordinar actividades de equipo, mostrar información clave y mantener una única fuente de verdad en toda tu organización.
-{/* MANUAL-CONTENT-END */}
-
-## Instrucciones de uso
-
-Integra SharePoint en el flujo de trabajo. Lee/crea páginas, enumera sitios y trabaja con listas (leer, crear, actualizar elementos). Requiere OAuth.
-
-## Herramientas
-
-### `sharepoint_create_page`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear página (<code>sharepoint_create_page</code>)</div>
 
 Crear una nueva página en un sitio de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
 | `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
 | `pageName` | string | Sí | El nombre de la página a crear |
-| `pageTitle` | string | No | El título de la página \(por defecto es el nombre de la página si no se proporciona\) |
+| `pageTitle` | string | No | El título de la página \(por defecto es el nombre de la página si no se especifica\) |
 | `pageContent` | string | No | El contenido de la página |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `page` | object | Información de la página de SharePoint creada |
+| `id` | string | El ID único de la página creada |
+| `name` | string | El nombre de la página creada |
+| `title` | string | El título de la página creada |
+| `webUrl` | string | La URL para acceder a la página |
+| `pageLayout` | string | El tipo de diseño de la página |
+| `createdDateTime` | string | Fecha de creación de la página |
 
-### `sharepoint_read_page`
+</div>
+
+---
+
+### Leer página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos a la lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "read_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "Nombre de página",
+            "layout": "full",
+            "placeholder": "Nombre de la página"
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "ID de página (alternativa al nombre de página)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer página (<code>sharepoint_read_page</code>)</div>
 
 Leer una página específica de un sitio de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
 | `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
 | `pageId` | string | No | El ID de la página a leer |
 | `pageName` | string | No | El nombre de la página a leer \(alternativa a pageId\) |
-| `maxPages` | number | No | Número máximo de páginas a devolver cuando se listan todas las páginas \(predeterminado: 10, máximo: 50\) |
+| `maxPages` | number | No | Número máximo de páginas a devolver al listar todas las páginas \(predeterminado: 10, máx: 50\) |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `page` | objeto | Información sobre la página de SharePoint |
+| `id` | string | El ID único de la página |
+| `name` | string | El nombre de la página |
+| `title` | string | El título de la página |
+| `webUrl` | string | La URL para acceder a la página |
+| `pageLayout` | string | El tipo de diseño de la página |
+| `createdDateTime` | string | Fecha de creación de la página |
 
-### `sharepoint_list_sites`
+</div>
+
+---
+
+### Listar sitios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos a lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "list_sites"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Sitios (<code>sharepoint_list_sites</code>)</div>
 
 Listar detalles de todos los sitios de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | cadena | No | Seleccionar el sitio de SharePoint |
-| `groupId` | cadena | No | El ID del grupo para acceder a un sitio de equipo de grupo |
+| `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
+| `groupId` | string | No | El ID de grupo para acceder a un sitio de equipo de grupo |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `site` | objeto | Información sobre el sitio actual de SharePoint |
+| `id` | string | El ID único del sitio |
+| `name` | string | El nombre del sitio |
+| `displayName` | string | El nombre para mostrar del sitio |
+| `webUrl` | string | La URL para acceder al sitio |
+| `description` | string | La descripción del sitio |
+| `createdDateTime` | string | Cuándo fue creado el sitio |
+| `lastModifiedDateTime` | string | Cuándo fue modificado por última vez el sitio |
+| `isPersonalSite` | boolean | Si este es un sitio personal |
 
-### `sharepoint_create_list`
+</div>
+
+---
+
+### Crear Lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear Página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer Página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar Sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear Lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer Lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar Lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar Elementos a la Lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Subir Archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "create_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listDisplayName",
+            "type": "short-input",
+            "title": "Nombre para Mostrar de la Lista",
+            "layout": "full",
+            "placeholder": "Nombre de la lista"
+        },
+        {
+            "id": "listTemplate",
+            "type": "short-input",
+            "title": "Plantilla de Lista",
+            "layout": "full",
+            "placeholder": "Plantilla (p. ej., 'genericList')"
+        },
+        {
+            "id": "pageContent",
+            "type": "long-input",
+            "title": "Contenido de la Página",
+            "layout": "full",
+            "placeholder": "Proporcionar contenido de la página"
+        },
+        {
+            "id": "listDescription",
+            "type": "long-input",
+            "title": "Descripción de la Lista",
+            "layout": "full",
+            "placeholder": "Descripción opcional"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Lista (<code>sharepoint_create_list</code>)</div>
 
 Crear una nueva lista en un sitio de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
 | `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
-| `listDisplayName` | string | Sí | Nombre visible de la lista a crear |
+| `listDisplayName` | string | Sí | Nombre para mostrar de la lista a crear |
 | `listDescription` | string | No | Descripción de la lista |
-| `listTemplate` | string | No | Nombre de la plantilla de lista \(p. ej., 'genericList'\) |
-| `pageContent` | string | No | JSON opcional de columnas. Puede ser un array de nivel superior de definiciones de columnas o un objeto con \{ columns: \[...\] \}. |
+| `listTemplate` | string | No | Nombre de plantilla de lista \(p. ej., 'genericList'\) |
+| `pageContent` | string | No | JSON opcional de columnas. Ya sea un array de nivel superior de definiciones de columnas o un objeto con \{ columns: \[...\] \}. |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `list` | object | Información de la lista de SharePoint creada |
+| `id` | string | El ID único de la lista |
+| `displayName` | string | El nombre para mostrar de la lista |
+| `name` | string | El nombre interno de la lista |
+| `webUrl` | string | La URL web de la lista |
+| `createdDateTime` | string | Fecha de creación de la lista |
+| `lastModifiedDateTime` | string | Fecha de última modificación de la lista |
 
-### `sharepoint_get_list`
+</div>
+
+---
+
+### Leer Lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear Página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer Página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar Sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear Lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer Lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar Lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar Elementos a la Lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar Archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "read_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de Lista",
+            "layout": "full",
+            "placeholder": "Ingresar el ID de la lista (GUID). Requerido para Actualizar; opcional para Leer."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer lista (<code>sharepoint_get_list</code>)</div>
 
 Obtener metadatos (y opcionalmente columnas/elementos) de una lista de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
 | `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
 | `listId` | string | No | El ID de la lista a recuperar |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `list` | objeto | Información sobre la lista de SharePoint |
+| `id` | string | El ID único de la lista |
+| `displayName` | string | El nombre visible de la lista |
+| `name` | string | El nombre interno de la lista |
+| `webUrl` | string | La URL web de la lista |
+| `createdDateTime` | string | Fecha de creación de la lista |
+| `lastModifiedDateTime` | string | Fecha de última modificación de la lista |
+| `list` | object | Propiedades de la lista \(p. ej., plantilla\) |
 
-### `sharepoint_update_list`
+</div>
+
+---
+
+### Actualizar lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos a la lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "update_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "layout": "full",
+            "placeholder": "Ingresar ID de lista (GUID). Requerido para Actualizar; opcional para Leer."
+        },
+        {
+            "id": "listItemId",
+            "type": "short-input",
+            "title": "ID de elemento",
+            "layout": "full",
+            "placeholder": "Ingresar ID de elemento"
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "Campos del elemento de lista",
+            "layout": "full",
+            "placeholder": "Ingresar campos del elemento de lista"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Lista (<code>sharepoint_update_list</code>)</div>
 
 Actualizar las propiedades (campos) de un elemento de lista de SharePoint
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | cadena | No | Seleccionar el sitio de SharePoint |
-| `siteId` | cadena | No | El ID del sitio de SharePoint \(uso interno\) |
-| `listId` | cadena | No | El ID de la lista que contiene el elemento |
-| `itemId` | cadena | Sí | El ID del elemento de lista a actualizar |
-| `listItemFields` | objeto | Sí | Valores de campo para actualizar en el elemento de lista |
+| `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
+| `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
+| `listId` | string | No | El ID de la lista que contiene el elemento |
+| `itemId` | string | Sí | El ID del elemento de lista a actualizar |
+| `listItemFields` | object | Sí | Valores de campo a actualizar en el elemento de lista |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `item` | objeto | Elemento de lista de SharePoint actualizado |
+| `id` | string | ID del elemento |
 
-### `sharepoint_add_list_items`
+</div>
 
-Añadir un nuevo elemento a una lista de SharePoint
+---
 
-#### Entrada
+### Agregar Elementos a la Lista
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos a la lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "add_list_items"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "layout": "full",
+            "placeholder": "Ingresar ID de lista (GUID). Requerido para Actualizar; opcional para Leer."
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "Campos del elemento de lista",
+            "layout": "full",
+            "placeholder": "Ingresar campos del elemento de lista"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar elementos de lista (<code>sharepoint_add_list_items</code>)</div>
+
+Agregar un nuevo elemento a una lista de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | cadena | No | Seleccionar el sitio de SharePoint |
-| `siteId` | cadena | No | El ID del sitio de SharePoint \(uso interno\) |
-| `listId` | cadena | Sí | El ID de la lista a la que añadir el elemento |
-| `listItemFields` | objeto | Sí | Valores de campo para el nuevo elemento de lista |
+| `siteSelector` | string | No | Seleccionar el sitio de SharePoint |
+| `siteId` | string | No | El ID del sitio de SharePoint \(uso interno\) |
+| `listId` | string | Sí | El ID de la lista a la que se agregará el elemento |
+| `listItemFields` | object | Sí | Valores de campo para el nuevo elemento de lista |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `item` | object | Elemento de lista de SharePoint creado |
+| `id` | string | ID del elemento |
 
-### `sharepoint_upload_file`
+</div>
 
-Subir archivos a una biblioteca de documentos de SharePoint
+---
 
-#### Entrada
+### Cargar archivo
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color=""
+    iconSvg={`<svg className="block-icon"  fill='currentColor' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'>
+      <circle fill='#036C70' cx='16.31' cy='8.90' r='8.90' />
+      <circle fill='#1A9BA1' cx='23.72' cy='17.05' r='8.15' />
+      <circle fill='#37C6D0' cx='17.42' cy='24.83' r='6.30' />
+      <path
+        fill='#000000'
+        opacity='0.1'
+        d='M17.79,8.03v15.82c0,0.55-0.34,1.04-0.85,1.25c-0.16,0.07-0.34,0.10-0.51,0.10H11.13c-0.01-0.13-0.01-0.24-0.01-0.37c0-0.12,0-0.25,0.01-0.37c0.14-2.37,1.59-4.46,3.77-5.40v-1.38c-4.85-0.77-8.15-5.32-7.39-10.17c0.01-0.03,0.01-0.07,0.02-0.10c0.04-0.25,0.09-0.50,0.16-0.74h8.74c0.74,0,1.36,0.60,1.36,1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.25c0.15,0.02,0.29,0.05,0.44,0.06c-2.30,1.09-3.97,4.18-4.12,6.73c-0.01,0.12-0.02,0.25-0.01,0.37c0,0.13,0,0.24,0.01,0.37c0.01,0.25,0.05,0.50,0.10,0.74h4.47c0.55,0,1.04-0.34,1.25-0.85c0.07-0.16,0.10-0.34,0.10-0.51V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M15.69,7.41H7.54c-0.82,4.84,2.43,9.43,7.27,10.26c0.10,0.02,0.20,0.03,0.30,0.05c-2.22,1.17-3.83,4.26-3.97,6.75h4.56c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#000000'
+        opacity='0.2'
+        d='M14.95,7.41H7.54c-0.78,4.57,2.08,8.97,6.58,10.11c-1.84,2.43-2.27,5.61-2.58,7.22h3.82c0.75,0,1.35-0.61,1.36-1.36V8.77c0-0.75-0.61-1.36-1.36-1.36z'
+      />
+      <path
+        fill='#008789'
+        d='M1.36,7.41h13.58c0.75,0,1.36,0.61,1.36,1.36v13.58c0,0.75-0.61,1.36-1.36,1.36H1.36c-0.75,0-1.36-0.61-1.36-1.36V8.77C0,8.02,0.61,7.41,1.36,7.41z'
+      />
+      <path
+        fill='#FFFFFF'
+        d='M6.07,15.42c-0.32-0.21-0.58-0.49-0.78-0.82c-0.19-0.34-0.28-0.73-0.27-1.12c-0.02-0.53,0.16-1.05,0.50-1.46c0.36-0.41,0.82-0.71,1.34-0.87c0.59-0.19,1.21-0.29,1.83-0.28c0.82-0.03,1.63,0.08,2.41,0.34v1.71c-0.34-0.20-0.71-0.35-1.09-0.44c-0.42-0.10-0.84-0.15-1.27-0.15c-0.45-0.02-0.90,0.08-1.31,0.28c-0.31,0.14-0.52,0.44-0.52,0.79c0,0.21,0.08,0.41,0.22,0.56c0.17,0.18,0.37,0.32,0.59,0.42c0.25,0.12,0.62,0.29,1.11,0.49c0.05,0.02,0.11,0.04,0.16,0.06c0.49,0.19,0.96,0.42,1.40,0.69c0.34,0.21,0.62,0.49,0.83,0.83c0.21,0.39,0.31,0.82,0.30,1.26c0.02,0.54-0.14,1.08-0.47,1.52c-0.33,0.40-0.77,0.69-1.26,0.85c-0.58,0.18-1.19,0.27-1.80,0.26c-0.55,0-1.09-0.04-1.63-0.13c-0.45-0.07-0.90-0.20-1.32-0.39v-1.80c0.40,0.29,0.86,0.50,1.34,0.64c0.48,0.15,0.97,0.23,1.47,0.24c0.46,0.03,0.92-0.07,1.34-0.28c0.29-0.16,0.46-0.47,0.46-0.80c0-0.23-0.09-0.45-0.25-0.61c-0.20-0.20-0.44-0.36-0.69-0.48c-0.30-0.15-0.73-0.34-1.31-0.59C6.91,16.14,6.48,15.80,6.07,15.42z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Crear página",
+                    "id": "create_page"
+                },
+                {
+                    "label": "Leer página",
+                    "id": "read_page"
+                },
+                {
+                    "label": "Listar sitios",
+                    "id": "list_sites"
+                },
+                {
+                    "label": "Crear lista",
+                    "id": "create_list"
+                },
+                {
+                    "label": "Leer lista",
+                    "id": "read_list"
+                },
+                {
+                    "label": "Actualizar lista",
+                    "id": "update_list"
+                },
+                {
+                    "label": "Agregar elementos de lista",
+                    "id": "add_list_items"
+                },
+                {
+                    "label": "Cargar archivo",
+                    "id": "upload_file"
+                }
+            ],
+            "defaultValue": "upload_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "driveId",
+            "type": "short-input",
+            "title": "ID de biblioteca de documentos",
+            "layout": "full",
+            "placeholder": "Ingresar el ID de la biblioteca de documentos (drive)"
+        },
+        {
+            "id": "folderPath",
+            "type": "short-input",
+            "title": "Ruta de carpeta",
+            "layout": "full",
+            "placeholder": "Ruta de carpeta opcional (ej.: /Documents/Subfolder)"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Nombre de archivo",
+            "layout": "full",
+            "placeholder": "Opcional: reemplazar el nombre del archivo cargado"
+        },
+        {
+            "id": "uploadFiles",
+            "type": "file-upload",
+            "title": "Archivos",
+            "layout": "full",
+            "placeholder": "Cargar archivos a SharePoint"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Archivos",
+            "layout": "full",
+            "placeholder": "Referenciar archivos de bloques anteriores"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir archivo (<code>sharepoint_upload_file</code>)</div>
+
+Sube archivos a una biblioteca de documentos de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | cadena | No | El ID del sitio de SharePoint |
-| `driveId` | cadena | No | El ID de la biblioteca de documentos \(unidad\). Si no se proporciona, usa la unidad predeterminada. |
-| `folderPath` | cadena | No | Ruta de carpeta opcional dentro de la biblioteca de documentos \(p. ej., /Documents/Subfolder\) |
-| `fileName` | cadena | No | Opcional: sobrescribir el nombre del archivo subido |
-| `files` | archivo[] | No | Archivos para subir a SharePoint |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `driveId` | string | No | El ID de la biblioteca de documentos \(drive\). Si no se proporciona, usa el drive predeterminado. |
+| `folderPath` | string | No | Ruta de carpeta opcional dentro de la biblioteca de documentos \(p. ej., /Documents/Subfolder\) |
+| `fileName` | string | No | Opcional: sobreescribe el nombre del archivo subido |
+| `files` | file[] | No | Archivos a subir a SharePoint |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `uploadedFiles` | array | Array de objetos de archivos subidos |
+| `id` | string | El ID único del archivo subido |
+| `name` | string | El nombre del archivo subido |
+| `webUrl` | string | La URL para acceder al archivo |
+| `size` | number | El tamaño del archivo en bytes |
+| `createdDateTime` | string | Fecha de creación del archivo |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra SharePoint en el flujo de trabajo. Lee/crea páginas, lista sitios y trabaja con listas (leer, crear, actualizar elementos). Requiere OAuth.
 
 ## Notas
 

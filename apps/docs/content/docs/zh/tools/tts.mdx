@@ -1,0 +1,919 @@
+---
+title: 文字转语音
+description: 使用AI语音将文字转换为语音
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="tts"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+## 配置
+
+### OpenAI TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "openai"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "options": [
+                {
+                    "label": "TTS-1",
+                    "id": "tts-1"
+                },
+                {
+                    "label": "TTS-1-HD",
+                    "id": "tts-1-hd"
+                },
+                {
+                    "label": "GPT-4o Mini TTS",
+                    "id": "gpt-4o-mini-tts"
+                }
+            ]
+        },
+        {
+            "id": "voice",
+            "type": "dropdown",
+            "title": "音色",
+            "options": [
+                {
+                    "label": "Alloy",
+                    "id": "alloy"
+                },
+                {
+                    "label": "Ash",
+                    "id": "ash"
+                },
+                {
+                    "label": "Ballad",
+                    "id": "ballad"
+                },
+                {
+                    "label": "Cedar",
+                    "id": "cedar"
+                },
+                {
+                    "label": "Coral",
+                    "id": "coral"
+                },
+                {
+                    "label": "Echo",
+                    "id": "echo"
+                },
+                {
+                    "label": "Marin",
+                    "id": "marin"
+                },
+                {
+                    "label": "Sage",
+                    "id": "sage"
+                },
+                {
+                    "label": "Shimmer",
+                    "id": "shimmer"
+                },
+                {
+                    "label": "Verse",
+                    "id": "verse"
+                }
+            ]
+        },
+        {
+            "id": "responseFormat",
+            "type": "dropdown",
+            "title": "音频格式",
+            "options": [
+                {
+                    "label": "MP3",
+                    "id": "mp3"
+                },
+                {
+                    "label": "Opus",
+                    "id": "opus"
+                },
+                {
+                    "label": "AAC",
+                    "id": "aac"
+                },
+                {
+                    "label": "FLAC",
+                    "id": "flac"
+                },
+                {
+                    "label": "WAV",
+                    "id": "wav"
+                }
+            ]
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "语速",
+            "min": 0.25,
+            "max": 4,
+            "step": 0.25
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Deepgram Aura
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "deepgram"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voice",
+            "type": "dropdown",
+            "title": "语音",
+            "required": true,
+            "options": [
+                {
+                    "label": "Asteria",
+                    "id": "aura-asteria-en"
+                },
+                {
+                    "label": "Luna",
+                    "id": "aura-luna-en"
+                },
+                {
+                    "label": "Stella",
+                    "id": "aura-stella-en"
+                },
+                {
+                    "label": "Athena",
+                    "id": "aura-athena-en"
+                },
+                {
+                    "label": "Hera",
+                    "id": "aura-hera-en"
+                },
+                {
+                    "label": "Orion",
+                    "id": "aura-orion-en"
+                },
+                {
+                    "label": "Arcas",
+                    "id": "aura-arcas-en"
+                },
+                {
+                    "label": "Perseus",
+                    "id": "aura-perseus-en"
+                },
+                {
+                    "label": "Angus",
+                    "id": "aura-angus-en"
+                },
+                {
+                    "label": "Orpheus",
+                    "id": "aura-orpheus-en"
+                },
+                {
+                    "label": "Helios",
+                    "id": "aura-helios-en"
+                },
+                {
+                    "label": "Zeus",
+                    "id": "aura-zeus-en"
+                }
+            ]
+        },
+        {
+            "id": "encoding",
+            "type": "dropdown",
+            "title": "音频格式",
+            "options": [
+                {
+                    "label": "MP3",
+                    "id": "mp3"
+                },
+                {
+                    "label": "Opus",
+                    "id": "opus"
+                },
+                {
+                    "label": "AAC",
+                    "id": "aac"
+                },
+                {
+                    "label": "FLAC",
+                    "id": "flac"
+                },
+                {
+                    "label": "Linear16",
+                    "id": "linear16"
+                }
+            ]
+        },
+        {
+            "id": "sampleRate",
+            "type": "dropdown",
+            "title": "采样率",
+            "options": [
+                {
+                    "label": "8000 Hz",
+                    "id": "8000"
+                },
+                {
+                    "label": "16000 Hz",
+                    "id": "16000"
+                },
+                {
+                    "label": "24000 Hz",
+                    "id": "24000"
+                },
+                {
+                    "label": "48000 Hz",
+                    "id": "48000"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### ElevenLabs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "elevenlabs"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "语音 ID",
+            "placeholder": "输入 ElevenLabs 语音 ID",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "模型",
+            "options": [
+                {
+                    "label": "Turbo v2.5",
+                    "id": "eleven_turbo_v2_5"
+                },
+                {
+                    "label": "Flash v2.5",
+                    "id": "eleven_flash_v2_5"
+                },
+                {
+                    "label": "Multilingual v2",
+                    "id": "eleven_multilingual_v2"
+                },
+                {
+                    "label": "Turbo v2",
+                    "id": "eleven_turbo_v2"
+                },
+                {
+                    "label": "Monolingual v1",
+                    "id": "eleven_monolingual_v1"
+                },
+                {
+                    "label": "Multilingual v1",
+                    "id": "eleven_multilingual_v1"
+                }
+            ]
+        },
+        {
+            "id": "stability",
+            "type": "slider",
+            "title": "稳定性",
+            "min": 0,
+            "max": 1,
+            "step": 0.05
+        },
+        {
+            "id": "similarityBoost",
+            "type": "slider",
+            "title": "相似度增强",
+            "min": 0,
+            "max": 1,
+            "step": 0.05
+        },
+        {
+            "id": "style",
+            "type": "slider",
+            "title": "风格",
+            "min": 0,
+            "max": 1,
+            "step": 0.05
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Cartesia Sonic
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "cartesia"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "模型",
+            "options": [
+                {
+                    "label": "Sonic",
+                    "id": "sonic"
+                },
+                {
+                    "label": "Sonic 2",
+                    "id": "sonic-2"
+                },
+                {
+                    "label": "Sonic Turbo",
+                    "id": "sonic-turbo"
+                },
+                {
+                    "label": "Sonic 3",
+                    "id": "sonic-3"
+                },
+                {
+                    "label": "Sonic Multilingual",
+                    "id": "sonic-multilingual"
+                }
+            ]
+        },
+        {
+            "id": "voice",
+            "type": "short-input",
+            "title": "语音 ID",
+            "placeholder": "输入 Cartesia 语音 ID",
+            "required": true
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "速度",
+            "min": 0.5,
+            "max": 2,
+            "step": 0.1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Google Cloud TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "google"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "请输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "语音 ID",
+            "placeholder": "例如：en-US-Neural2-A"
+        },
+        {
+            "id": "languageCode",
+            "type": "short-input",
+            "title": "语言代码",
+            "placeholder": "例如：en-US、es-ES",
+            "required": true
+        },
+        {
+            "id": "speakingRate",
+            "type": "slider",
+            "title": "语速",
+            "min": 0.25,
+            "max": 2,
+            "step": 0.25
+        },
+        {
+            "id": "pitch",
+            "type": "slider",
+            "title": "音调",
+            "max": 20,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### Azure TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "azure"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "请输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "语音 ID",
+            "placeholder": "例如：en-US-JennyNeural"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "区域",
+            "placeholder": "例如：eastus、westus"
+        },
+        {
+            "id": "outputFormat",
+            "type": "dropdown",
+            "title": "输出格式",
+            "options": [
+                {
+                    "label": "MP3 24kHz 48kbps",
+                    "id": "audio-24khz-48kbitrate-mono-mp3"
+                },
+                {
+                    "label": "MP3 24kHz 96kbps",
+                    "id": "audio-24khz-96kbitrate-mono-mp3"
+                },
+                {
+                    "label": "MP3 48kHz 96kbps",
+                    "id": "audio-48khz-96kbitrate-mono-mp3"
+                }
+            ]
+        },
+        {
+            "id": "style",
+            "type": "short-input",
+            "title": "语音风格",
+            "placeholder": "例如：cheerful、sad、angry"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### PlayHT
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文字转语音"
+    type="tts"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "服务提供商",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI TTS",
+                    "id": "openai"
+                },
+                {
+                    "label": "Deepgram Aura",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "Cartesia Sonic",
+                    "id": "cartesia"
+                },
+                {
+                    "label": "Google Cloud TTS",
+                    "id": "google"
+                },
+                {
+                    "label": "Azure TTS",
+                    "id": "azure"
+                },
+                {
+                    "label": "PlayHT",
+                    "id": "playht"
+                }
+            ],
+            "defaultValue": "playht"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "placeholder": "输入要转换为语音的文本...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "输入您的 PlayHT 用户 ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voice",
+            "type": "short-input",
+            "title": "语音",
+            "placeholder": "语音 ID 或 Manifest URL"
+        },
+        {
+            "id": "quality",
+            "type": "dropdown",
+            "title": "质量",
+            "options": [
+                {
+                    "label": "草稿",
+                    "id": "draft"
+                },
+                {
+                    "label": "标准",
+                    "id": "standard"
+                },
+                {
+                    "label": "高级",
+                    "id": "premium"
+                }
+            ]
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "速度",
+            "min": 0.5,
+            "max": 2,
+            "step": 0.1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+## 使用说明
+
+使用来自 OpenAI、Deepgram、ElevenLabs、Cartesia、Google Cloud、Azure 和 PlayHT 的顶尖 AI 语音，将文本转换为自然流畅的语音。支持多种声音、语言及音频格式。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`tts`

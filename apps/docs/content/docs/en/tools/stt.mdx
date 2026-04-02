@@ -1,0 +1,1083 @@
+---
+title: Speech-to-Text
+description: Convert speech to text using AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="stt"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### OpenAI Whisper
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Speech-to-Text"
+    type="stt"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI Whisper",
+                    "id": "whisper"
+                },
+                {
+                    "label": "Deepgram",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "AssemblyAI",
+                    "id": "assemblyai"
+                },
+                {
+                    "label": "Google Gemini",
+                    "id": "gemini"
+                }
+            ],
+            "defaultValue": "whisper"
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Audio/Video File",
+            "placeholder": "Upload an audio or video file",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Audio/Video File Reference",
+            "placeholder": "Reference audio/video from previous blocks",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "Audio/Video URL",
+            "placeholder": "Or enter publicly accessible audio/video URL"
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Language",
+            "required": true,
+            "options": [
+                {
+                    "label": "Auto-detect",
+                    "id": "auto"
+                },
+                {
+                    "label": "English",
+                    "id": "en"
+                },
+                {
+                    "label": "Spanish",
+                    "id": "es"
+                },
+                {
+                    "label": "French",
+                    "id": "fr"
+                },
+                {
+                    "label": "German",
+                    "id": "de"
+                },
+                {
+                    "label": "Italian",
+                    "id": "it"
+                },
+                {
+                    "label": "Portuguese",
+                    "id": "pt"
+                },
+                {
+                    "label": "Dutch",
+                    "id": "nl"
+                },
+                {
+                    "label": "Russian",
+                    "id": "ru"
+                },
+                {
+                    "label": "Chinese",
+                    "id": "zh"
+                },
+                {
+                    "label": "Japanese",
+                    "id": "ja"
+                },
+                {
+                    "label": "Korean",
+                    "id": "ko"
+                },
+                {
+                    "label": "Arabic",
+                    "id": "ar"
+                },
+                {
+                    "label": "Hindi",
+                    "id": "hi"
+                },
+                {
+                    "label": "Polish",
+                    "id": "pl"
+                },
+                {
+                    "label": "Turkish",
+                    "id": "tr"
+                },
+                {
+                    "label": "Swedish",
+                    "id": "sv"
+                },
+                {
+                    "label": "Danish",
+                    "id": "da"
+                },
+                {
+                    "label": "Norwegian",
+                    "id": "no"
+                },
+                {
+                    "label": "Finnish",
+                    "id": "fi"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Timestamps",
+            "required": true,
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Sentence-level",
+                    "id": "sentence"
+                },
+                {
+                    "label": "Word-level",
+                    "id": "word"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Whisper-1",
+                    "id": "whisper-1"
+                }
+            ]
+        },
+        {
+            "id": "translateToEnglish",
+            "type": "switch",
+            "title": "Translate to English"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Deepgram
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Speech-to-Text"
+    type="stt"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI Whisper",
+                    "id": "whisper"
+                },
+                {
+                    "label": "Deepgram",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "AssemblyAI",
+                    "id": "assemblyai"
+                },
+                {
+                    "label": "Google Gemini",
+                    "id": "gemini"
+                }
+            ],
+            "defaultValue": "deepgram"
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Audio/Video File",
+            "placeholder": "Upload an audio or video file",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Audio/Video File Reference",
+            "placeholder": "Reference audio/video from previous blocks",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "Audio/Video URL",
+            "placeholder": "Or enter publicly accessible audio/video URL"
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Language",
+            "required": true,
+            "options": [
+                {
+                    "label": "Auto-detect",
+                    "id": "auto"
+                },
+                {
+                    "label": "English",
+                    "id": "en"
+                },
+                {
+                    "label": "Spanish",
+                    "id": "es"
+                },
+                {
+                    "label": "French",
+                    "id": "fr"
+                },
+                {
+                    "label": "German",
+                    "id": "de"
+                },
+                {
+                    "label": "Italian",
+                    "id": "it"
+                },
+                {
+                    "label": "Portuguese",
+                    "id": "pt"
+                },
+                {
+                    "label": "Dutch",
+                    "id": "nl"
+                },
+                {
+                    "label": "Russian",
+                    "id": "ru"
+                },
+                {
+                    "label": "Chinese",
+                    "id": "zh"
+                },
+                {
+                    "label": "Japanese",
+                    "id": "ja"
+                },
+                {
+                    "label": "Korean",
+                    "id": "ko"
+                },
+                {
+                    "label": "Arabic",
+                    "id": "ar"
+                },
+                {
+                    "label": "Hindi",
+                    "id": "hi"
+                },
+                {
+                    "label": "Polish",
+                    "id": "pl"
+                },
+                {
+                    "label": "Turkish",
+                    "id": "tr"
+                },
+                {
+                    "label": "Swedish",
+                    "id": "sv"
+                },
+                {
+                    "label": "Danish",
+                    "id": "da"
+                },
+                {
+                    "label": "Norwegian",
+                    "id": "no"
+                },
+                {
+                    "label": "Finnish",
+                    "id": "fi"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Timestamps",
+            "required": true,
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Sentence-level",
+                    "id": "sentence"
+                },
+                {
+                    "label": "Word-level",
+                    "id": "word"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Nova 3",
+                    "id": "nova-3"
+                },
+                {
+                    "label": "Nova 2",
+                    "id": "nova-2"
+                },
+                {
+                    "label": "Nova",
+                    "id": "nova"
+                },
+                {
+                    "label": "Whisper Large",
+                    "id": "whisper-large"
+                },
+                {
+                    "label": "Enhanced",
+                    "id": "enhanced"
+                },
+                {
+                    "label": "Base",
+                    "id": "base"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "Speaker Diarization"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### ElevenLabs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Speech-to-Text"
+    type="stt"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI Whisper",
+                    "id": "whisper"
+                },
+                {
+                    "label": "Deepgram",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "AssemblyAI",
+                    "id": "assemblyai"
+                },
+                {
+                    "label": "Google Gemini",
+                    "id": "gemini"
+                }
+            ],
+            "defaultValue": "elevenlabs"
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Audio/Video File",
+            "placeholder": "Upload an audio or video file",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Audio/Video File Reference",
+            "placeholder": "Reference audio/video from previous blocks",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "Audio/Video URL",
+            "placeholder": "Or enter publicly accessible audio/video URL"
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Language",
+            "required": true,
+            "options": [
+                {
+                    "label": "Auto-detect",
+                    "id": "auto"
+                },
+                {
+                    "label": "English",
+                    "id": "en"
+                },
+                {
+                    "label": "Spanish",
+                    "id": "es"
+                },
+                {
+                    "label": "French",
+                    "id": "fr"
+                },
+                {
+                    "label": "German",
+                    "id": "de"
+                },
+                {
+                    "label": "Italian",
+                    "id": "it"
+                },
+                {
+                    "label": "Portuguese",
+                    "id": "pt"
+                },
+                {
+                    "label": "Dutch",
+                    "id": "nl"
+                },
+                {
+                    "label": "Russian",
+                    "id": "ru"
+                },
+                {
+                    "label": "Chinese",
+                    "id": "zh"
+                },
+                {
+                    "label": "Japanese",
+                    "id": "ja"
+                },
+                {
+                    "label": "Korean",
+                    "id": "ko"
+                },
+                {
+                    "label": "Arabic",
+                    "id": "ar"
+                },
+                {
+                    "label": "Hindi",
+                    "id": "hi"
+                },
+                {
+                    "label": "Polish",
+                    "id": "pl"
+                },
+                {
+                    "label": "Turkish",
+                    "id": "tr"
+                },
+                {
+                    "label": "Swedish",
+                    "id": "sv"
+                },
+                {
+                    "label": "Danish",
+                    "id": "da"
+                },
+                {
+                    "label": "Norwegian",
+                    "id": "no"
+                },
+                {
+                    "label": "Finnish",
+                    "id": "fi"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Timestamps",
+            "required": true,
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Sentence-level",
+                    "id": "sentence"
+                },
+                {
+                    "label": "Word-level",
+                    "id": "word"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Scribe v1",
+                    "id": "scribe_v1"
+                },
+                {
+                    "label": "Scribe v1 Experimental",
+                    "id": "scribe_v1_experimental"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### AssemblyAI
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Speech-to-Text"
+    type="stt"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI Whisper",
+                    "id": "whisper"
+                },
+                {
+                    "label": "Deepgram",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "AssemblyAI",
+                    "id": "assemblyai"
+                },
+                {
+                    "label": "Google Gemini",
+                    "id": "gemini"
+                }
+            ],
+            "defaultValue": "assemblyai"
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Audio/Video File",
+            "placeholder": "Upload an audio or video file",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Audio/Video File Reference",
+            "placeholder": "Reference audio/video from previous blocks",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "Audio/Video URL",
+            "placeholder": "Or enter publicly accessible audio/video URL"
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Language",
+            "required": true,
+            "options": [
+                {
+                    "label": "Auto-detect",
+                    "id": "auto"
+                },
+                {
+                    "label": "English",
+                    "id": "en"
+                },
+                {
+                    "label": "Spanish",
+                    "id": "es"
+                },
+                {
+                    "label": "French",
+                    "id": "fr"
+                },
+                {
+                    "label": "German",
+                    "id": "de"
+                },
+                {
+                    "label": "Italian",
+                    "id": "it"
+                },
+                {
+                    "label": "Portuguese",
+                    "id": "pt"
+                },
+                {
+                    "label": "Dutch",
+                    "id": "nl"
+                },
+                {
+                    "label": "Russian",
+                    "id": "ru"
+                },
+                {
+                    "label": "Chinese",
+                    "id": "zh"
+                },
+                {
+                    "label": "Japanese",
+                    "id": "ja"
+                },
+                {
+                    "label": "Korean",
+                    "id": "ko"
+                },
+                {
+                    "label": "Arabic",
+                    "id": "ar"
+                },
+                {
+                    "label": "Hindi",
+                    "id": "hi"
+                },
+                {
+                    "label": "Polish",
+                    "id": "pl"
+                },
+                {
+                    "label": "Turkish",
+                    "id": "tr"
+                },
+                {
+                    "label": "Swedish",
+                    "id": "sv"
+                },
+                {
+                    "label": "Danish",
+                    "id": "da"
+                },
+                {
+                    "label": "Norwegian",
+                    "id": "no"
+                },
+                {
+                    "label": "Finnish",
+                    "id": "fi"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Timestamps",
+            "required": true,
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Sentence-level",
+                    "id": "sentence"
+                },
+                {
+                    "label": "Word-level",
+                    "id": "word"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Best",
+                    "id": "best"
+                },
+                {
+                    "label": "Nano",
+                    "id": "nano"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "Speaker Diarization"
+        },
+        {
+            "id": "sentiment",
+            "type": "switch",
+            "title": "Sentiment Analysis"
+        },
+        {
+            "id": "entityDetection",
+            "type": "switch",
+            "title": "Entity Detection"
+        },
+        {
+            "id": "piiRedaction",
+            "type": "switch",
+            "title": "PII Redaction"
+        },
+        {
+            "id": "summarization",
+            "type": "switch",
+            "title": "Auto Summarization"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+### Google Gemini
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Speech-to-Text"
+    type="stt"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "OpenAI Whisper",
+                    "id": "whisper"
+                },
+                {
+                    "label": "Deepgram",
+                    "id": "deepgram"
+                },
+                {
+                    "label": "ElevenLabs",
+                    "id": "elevenlabs"
+                },
+                {
+                    "label": "AssemblyAI",
+                    "id": "assemblyai"
+                },
+                {
+                    "label": "Google Gemini",
+                    "id": "gemini"
+                }
+            ],
+            "defaultValue": "gemini"
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Audio/Video File",
+            "placeholder": "Upload an audio or video file",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Audio/Video File Reference",
+            "placeholder": "Reference audio/video from previous blocks",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "Audio/Video URL",
+            "placeholder": "Or enter publicly accessible audio/video URL"
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Language",
+            "required": true,
+            "options": [
+                {
+                    "label": "Auto-detect",
+                    "id": "auto"
+                },
+                {
+                    "label": "English",
+                    "id": "en"
+                },
+                {
+                    "label": "Spanish",
+                    "id": "es"
+                },
+                {
+                    "label": "French",
+                    "id": "fr"
+                },
+                {
+                    "label": "German",
+                    "id": "de"
+                },
+                {
+                    "label": "Italian",
+                    "id": "it"
+                },
+                {
+                    "label": "Portuguese",
+                    "id": "pt"
+                },
+                {
+                    "label": "Dutch",
+                    "id": "nl"
+                },
+                {
+                    "label": "Russian",
+                    "id": "ru"
+                },
+                {
+                    "label": "Chinese",
+                    "id": "zh"
+                },
+                {
+                    "label": "Japanese",
+                    "id": "ja"
+                },
+                {
+                    "label": "Korean",
+                    "id": "ko"
+                },
+                {
+                    "label": "Arabic",
+                    "id": "ar"
+                },
+                {
+                    "label": "Hindi",
+                    "id": "hi"
+                },
+                {
+                    "label": "Polish",
+                    "id": "pl"
+                },
+                {
+                    "label": "Turkish",
+                    "id": "tr"
+                },
+                {
+                    "label": "Swedish",
+                    "id": "sv"
+                },
+                {
+                    "label": "Danish",
+                    "id": "da"
+                },
+                {
+                    "label": "Norwegian",
+                    "id": "no"
+                },
+                {
+                    "label": "Finnish",
+                    "id": "fi"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Timestamps",
+            "required": true,
+            "options": [
+                {
+                    "label": "None",
+                    "id": "none"
+                },
+                {
+                    "label": "Sentence-level",
+                    "id": "sentence"
+                },
+                {
+                    "label": "Word-level",
+                    "id": "word"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Gemini 3 Pro",
+                    "id": "gemini-3-pro-preview"
+                },
+                {
+                    "label": "Gemini 2.5 Pro",
+                    "id": "gemini-2.5-pro"
+                },
+                {
+                    "label": "Gemini 2.5 Flash",
+                    "id": "gemini-2.5-flash"
+                },
+                {
+                    "label": "Gemini 2.5 Flash Lite",
+                    "id": "gemini-2.5-flash-lite"
+                },
+                {
+                    "label": "Gemini 2.0 Flash",
+                    "id": "gemini-2.0-flash-exp"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+
+---
+
+
+## Usage Instructions
+
+Transcribe audio and video files to text using leading AI providers. Supports multiple languages, timestamps, and speaker diarization.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `stt`

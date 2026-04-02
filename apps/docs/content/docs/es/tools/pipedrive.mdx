@@ -1,0 +1,3123 @@
+---
+title: Pipedrive
+description: Interactúa con Pipedrive CRM
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="pipedrive"
+  color="#2E6936"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuración
+
+### Obtener todos los negocios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_all_deals"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Ganado",
+                    "id": "won"
+                },
+                {
+                    "label": "Perdido",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "Filtrar por ID de persona"
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Filtrar por ID de organización"
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "ID de pipeline",
+            "placeholder": "Filtrar por ID de pipeline "
+        },
+        {
+            "id": "updated_since",
+            "type": "datetime-input",
+            "title": "Actualizado desde",
+            "placeholder": "Fecha (2025-01-01T10:20:00Z)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máximo 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Todos los Negocios (<code>pipedrive_get_all_deals</code>)</div>
+
+Recuperar todos los negocios de Pipedrive con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | No | Solo obtener negocios con un estado específico. Valores: open, won, lost. Si se omite, se devuelven todos los negocios no eliminados |
+| `person_id` | string | No | Si se proporciona, solo se devuelven los negocios vinculados a la persona especificada |
+| `org_id` | string | No | Si se proporciona, solo se devuelven los negocios vinculados a la organización especificada |
+| `pipeline_id` | string | No | Si se proporciona, solo se devuelven los negocios en el pipeline especificado |
+| `updated_since` | string | No | Si se establece, solo se devuelven los negocios actualizados después de esta fecha y hora. Formato: 2025-01-01T10:20:00Z |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máximo: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deals` | array | Array de objetos de negocio de Pipedrive |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Negocio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "ID del trato",
+            "placeholder": "Ingresar ID del trato",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener negocio (<code>pipedrive_get_deal</code>)</div>
+
+Recuperar información detallada sobre un negocio específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | string | Sí | El ID del negocio a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deal` | object | Objeto del negocio con todos los detalles |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear negocio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Ingresar título del trato",
+            "required": true
+        },
+        {
+            "id": "value",
+            "type": "short-input",
+            "title": "Valor",
+            "placeholder": "Valor monetario "
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "Moneda",
+            "placeholder": "Código de moneda (p. ej., USD, EUR)"
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "ID de persona asociada "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización asociada "
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "ID del pipeline",
+            "placeholder": "ID del pipeline "
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "ID de etapa",
+            "placeholder": "ID de etapa "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Ganado",
+                    "id": "won"
+                },
+                {
+                    "label": "Perdido",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Fecha de cierre estimada",
+            "placeholder": "YYYY-MM-DD "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Negocio (<code>pipedrive_create_deal</code>)</div>
+
+Crear un nuevo negocio en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | El título del negocio |
+| `value` | string | No | El valor monetario del negocio |
+| `currency` | string | No | Código de divisa \(p. ej., USD, EUR\) |
+| `person_id` | string | No | ID de la persona asociada a este negocio |
+| `org_id` | string | No | ID de la organización asociada a este negocio |
+| `pipeline_id` | string | No | ID del pipeline en el que se debe colocar este negocio |
+| `stage_id` | string | No | ID de la etapa en la que se debe colocar este negocio |
+| `status` | string | No | Estado del negocio: abierto, ganado, perdido |
+| `expected_close_date` | string | No | Fecha de cierre estimada en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deal` | object | El objeto del negocio creado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar Negocio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "ID del trato",
+            "placeholder": "Introducir ID del trato",
+            "required": true
+        },
+        {
+            "id": "value",
+            "type": "short-input",
+            "title": "Valor",
+            "placeholder": "Valor monetario "
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "ID de etapa",
+            "placeholder": "ID de etapa "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Ganado",
+                    "id": "won"
+                },
+                {
+                    "label": "Perdido",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Fecha de cierre prevista",
+            "placeholder": "YYYY-MM-DD "
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Nuevo título",
+            "placeholder": "Nuevo título del trato "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Negocio (<code>pipedrive_update_deal</code>)</div>
+
+Actualizar un negocio existente en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | string | Sí | El ID del negocio a actualizar |
+| `title` | string | No | Nuevo título para el negocio |
+| `value` | string | No | Nuevo valor monetario para el negocio |
+| `status` | string | No | Nuevo estado: open, won, lost |
+| `stage_id` | string | No | Nuevo ID de etapa para el negocio |
+| `expected_close_date` | string | No | Nueva fecha de cierre esperada en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deal` | object | El objeto del negocio actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_files"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "ID del negocio",
+            "placeholder": "Filtrar por ID de negocio "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "Filtrar por ID de persona "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Filtrar por ID de organización "
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máx. 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Archivos (<code>pipedrive_get_files</code>)</div>
+
+Recuperar archivos de Pipedrive con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | string | No | Filtrar archivos por ID de negocio |
+| `person_id` | string | No | Filtrar archivos por ID de persona |
+| `org_id` | string | No | Filtrar archivos por ID de organización |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `files` | array | Array de objetos de archivo de Pipedrive |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Hilos de Correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_mail_messages"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "dropdown",
+            "title": "Carpeta",
+            "options": [
+                {
+                    "label": "Bandeja de entrada",
+                    "id": "inbox"
+                },
+                {
+                    "label": "Borradores",
+                    "id": "drafts"
+                },
+                {
+                    "label": "Enviados",
+                    "id": "sent"
+                },
+                {
+                    "label": "Archivo",
+                    "id": "archive"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Hilos de Correo (<code>pipedrive_get_mail_messages</code>)</div>
+
+Recuperar hilos de correo del buzón de Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folder` | string | No | Filtrar por carpeta: inbox, drafts, sent, archive \(predeterminado: inbox\) |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `messages` | array | Array de objetos de hilo de correo del buzón de Pipedrive |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Mensajes del Hilo de Correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_mail_thread"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "thread_id",
+            "type": "short-input",
+            "title": "ID del hilo",
+            "placeholder": "Ingrese el ID del hilo de correo",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Mensajes del Hilo de Correo (<code>pipedrive_get_mail_thread</code>)</div>
+
+Recuperar todos los mensajes de un hilo de correo específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `thread_id` | string | Sí | El ID del hilo de correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `messages` | array | Array de objetos de mensajes de correo del hilo |
+| `metadata` | object | Metadatos de la operación, incluido el ID del hilo |
+
+</div>
+
+---
+
+### Obtener Pipelines
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_pipelines"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "sort_by",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "options": [
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "Fecha de actualización",
+                    "id": "update_time"
+                },
+                {
+                    "label": "Fecha de creación",
+                    "id": "add_time"
+                }
+            ]
+        },
+        {
+            "id": "sort_direction",
+            "type": "dropdown",
+            "title": "Dirección del ordenamiento",
+            "options": [
+                {
+                    "label": "Ascendente",
+                    "id": "asc"
+                },
+                {
+                    "label": "Descendente",
+                    "id": "desc"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máximo 500)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Pipelines (<code>pipedrive_get_pipelines</code>)</div>
+
+Recuperar todos los pipelines de Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `sort_by` | string | No | Campo por el que ordenar: id, update_time, add_time \(predeterminado: id\) |
+| `sort_direction` | string | No | Dirección de ordenación: asc, desc \(predeterminado: asc\) |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx.: 500\) |
+| `cursor` | string | No | Para paginación, el marcador que representa el primer elemento de la siguiente página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `pipelines` | array | Array de objetos de pipeline de Pipedrive |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Deals de un Pipeline
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_pipeline_deals"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "ID de pipeline",
+            "placeholder": "Ingresar ID de pipeline",
+            "required": true
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "ID de etapa",
+            "placeholder": "Filtrar por ID de etapa "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Ganado",
+                    "id": "won"
+                },
+                {
+                    "label": "Perdido",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máximo 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Negocios del Pipeline (<code>pipedrive_get_pipeline_deals</code>)</div>
+
+Recuperar todos los negocios en un pipeline específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pipeline_id` | string | Sí | El ID del pipeline |
+| `stage_id` | string | No | Filtrar por etapa específica dentro del pipeline |
+| `status` | string | No | Filtrar por estado del negocio: abierto, ganado, perdido |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deals` | array | Array de objetos de negocio del pipeline |
+| `metadata` | object | Metadatos de la operación incluyendo el ID del pipeline |
+
+</div>
+
+---
+
+### Obtener Proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_projects"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "project_id",
+            "type": "short-input",
+            "title": "ID de proyecto",
+            "placeholder": "ID de proyecto"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Completado",
+                    "id": "completed"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máximo 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Proyectos (<code>pipedrive_get_projects</code>)</div>
+
+Recuperar todos los proyectos o un proyecto específico de Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `project_id` | string | No | Opcional: ID de un proyecto específico a recuperar |
+| `status` | string | No | Filtrar por estado del proyecto: abierto, completado, eliminado \(solo para listar todos\) |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx: 500, solo para listar todos\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `projects` | array | Arreglo de objetos de proyecto \(al listar todos\) |
+| `project` | object | Objeto de proyecto único \(cuando se proporciona project_id\) |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear Proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_project"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Ingresar título del proyecto",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción del proyecto "
+        },
+        {
+            "id": "start_date",
+            "type": "datetime-input",
+            "title": "Fecha de inicio",
+            "placeholder": "YYYY-MM-DD "
+        },
+        {
+            "id": "end_date",
+            "type": "datetime-input",
+            "title": "Fecha de fin",
+            "placeholder": "YYYY-MM-DD "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Proyecto (<code>pipedrive_create_project</code>)</div>
+
+Crea un nuevo proyecto en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | El título del proyecto |
+| `description` | string | No | Descripción del proyecto |
+| `start_date` | string | No | Fecha de inicio del proyecto en formato YYYY-MM-DD |
+| `end_date` | string | No | Fecha de fin del proyecto en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `project` | object | El objeto del proyecto creado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Actividades
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_activities"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "ID de trato",
+            "placeholder": "Filtrar por ID de trato "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "Filtrar por ID de persona "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Filtrar por ID de organización "
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de actividad",
+            "options": [
+                {
+                    "label": "Llamada",
+                    "id": "call"
+                },
+                {
+                    "label": "Reunión",
+                    "id": "meeting"
+                },
+                {
+                    "label": "Tarea",
+                    "id": "task"
+                },
+                {
+                    "label": "Fecha límite",
+                    "id": "deadline"
+                },
+                {
+                    "label": "Correo electrónico",
+                    "id": "email"
+                },
+                {
+                    "label": "Almuerzo",
+                    "id": "lunch"
+                }
+            ]
+        },
+        {
+            "id": "done",
+            "type": "dropdown",
+            "title": "Estado de finalización",
+            "options": [
+                {
+                    "label": "No completado",
+                    "id": "0"
+                },
+                {
+                    "label": "Completado",
+                    "id": "1"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100, máx. 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Actividades (<code>pipedrive_get_activities</code>)</div>
+
+Recuperar actividades (tareas) de Pipedrive con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | string | No | Filtrar actividades por ID de negocio |
+| `person_id` | string | No | Filtrar actividades por ID de persona |
+| `org_id` | string | No | Filtrar actividades por ID de organización |
+| `type` | string | No | Filtrar por tipo de actividad \(llamada, reunión, tarea, plazo, correo electrónico, almuerzo\) |
+| `done` | string | No | Filtrar por estado de completado: 0 para no completado, 1 para completado |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `activities` | array | Array de objetos de actividad de Pipedrive |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear Actividad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_activity"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "ID del trato",
+            "placeholder": "Filtrar por ID del trato "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de la persona",
+            "placeholder": "Filtrar por ID de la persona "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "ID de la organización",
+            "placeholder": "Filtrar por ID de la organización "
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto/título de la actividad",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de actividad",
+            "required": true,
+            "options": [
+                {
+                    "label": "Llamada",
+                    "id": "call"
+                },
+                {
+                    "label": "Reunión",
+                    "id": "meeting"
+                },
+                {
+                    "label": "Tarea",
+                    "id": "task"
+                },
+                {
+                    "label": "Fecha límite",
+                    "id": "deadline"
+                },
+                {
+                    "label": "Correo electrónico",
+                    "id": "email"
+                },
+                {
+                    "label": "Almuerzo",
+                    "id": "lunch"
+                }
+            ]
+        },
+        {
+            "id": "due_date",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD",
+            "required": true
+        },
+        {
+            "id": "due_time",
+            "type": "time-input",
+            "title": "Hora de vencimiento",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "duration",
+            "type": "time-input",
+            "title": "Duración",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "Notas",
+            "placeholder": "Notas de la actividad "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Actividad (<code>pipedrive_create_activity</code>)</div>
+
+Crear una nueva actividad (tarea) en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `subject` | string | Sí | El asunto/título de la actividad |
+| `type` | string | Sí | Tipo de actividad: llamada, reunión, tarea, fecha límite, correo electrónico, almuerzo |
+| `due_date` | string | Sí | Fecha de vencimiento en formato YYYY-MM-DD |
+| `due_time` | string | No | Hora de vencimiento en formato HH:mm:ss |
+| `duration` | string | No | Duración en formato HH:mm:ss |
+| `deal_id` | string | No | ID del trato a asociar |
+| `person_id` | string | No | ID de la persona a asociar |
+| `org_id` | string | No | ID de la organización a asociar |
+| `note` | string | No | Notas de la actividad |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `activity` | object | El objeto de la actividad creada |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar Actividad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener negocios del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_activity"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto/título de la actividad",
+            "required": true
+        },
+        {
+            "id": "due_date",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD",
+            "required": true
+        },
+        {
+            "id": "due_time",
+            "type": "time-input",
+            "title": "Hora de vencimiento",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "duration",
+            "type": "time-input",
+            "title": "Duración",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "Notas",
+            "placeholder": "Notas de la actividad "
+        },
+        {
+            "id": "activity_id",
+            "type": "short-input",
+            "title": "ID de actividad",
+            "placeholder": "Ingresar ID de actividad",
+            "required": true
+        },
+        {
+            "id": "done",
+            "type": "dropdown",
+            "title": "Marcar como completado",
+            "options": [
+                {
+                    "label": "No completado",
+                    "id": "0"
+                },
+                {
+                    "label": "Completado",
+                    "id": "1"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Actividad (<code>pipedrive_update_activity</code>)</div>
+
+Actualizar una actividad (tarea) existente en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `activity_id` | string | Sí | El ID de la actividad a actualizar |
+| `subject` | string | No | Nuevo asunto/título para la actividad |
+| `due_date` | string | No | Nueva fecha de vencimiento en formato YYYY-MM-DD |
+| `due_time` | string | No | Nueva hora de vencimiento en formato HH:mm:ss |
+| `duration` | string | No | Nueva duración en formato HH:mm:ss |
+| `done` | string | No | Marcar como completada: 0 para no completada, 1 para completada |
+| `note` | string | No | Nuevas notas para la actividad |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `activity` | object | El objeto de actividad actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener Leads
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_leads"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "ID del lead",
+            "placeholder": "ID del lead"
+        },
+        {
+            "id": "archived",
+            "type": "dropdown",
+            "title": "Archivado",
+            "options": [
+                {
+                    "label": "Leads activos",
+                    "id": "false"
+                },
+                {
+                    "label": "Leads archivados",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "ID de persona para vincular al lead"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización para vincular al lead"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del propietario",
+            "placeholder": "ID de usuario propietario"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (predeterminado 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Leads (<code>pipedrive_get_leads</code>)</div>
+
+Recuperar todos los leads o un lead específico de Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | string | No | Opcional: ID de un lead específico a recuperar |
+| `archived` | string | No | Obtener leads archivados en lugar de activos |
+| `owner_id` | string | No | Filtrar por ID de usuario propietario |
+| `person_id` | string | No | Filtrar por ID de persona |
+| `organization_id` | string | No | Filtrar por ID de organización |
+| `limit` | string | No | Número de resultados a devolver \(predeterminado: 100, máx: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `leads` | array | Array de objetos lead \(al listar todos\) |
+| `lead` | object | Objeto lead individual \(cuando se proporciona lead_id\) |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear Lead
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener todos los tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener hilos de correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener mensajes del hilo de correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener tratos del pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Ingrese el título del lead",
+            "required": true
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de persona",
+            "placeholder": "ID de persona para vincular al lead"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización para vincular al lead"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID de propietario",
+            "placeholder": "ID de usuario propietario"
+        },
+        {
+            "id": "value_amount",
+            "type": "short-input",
+            "title": "Monto del valor",
+            "placeholder": "Monto de valor potencial"
+        },
+        {
+            "id": "value_currency",
+            "type": "short-input",
+            "title": "Moneda del valor",
+            "placeholder": "Código de moneda (p. ej., USD, EUR)"
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Fecha de cierre esperada",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Lead (<code>pipedrive_create_lead</code>)</div>
+
+Crear un nuevo lead en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | El nombre del lead |
+| `person_id` | string | No | ID de la persona \(REQUERIDO a menos que se proporcione organization_id\) |
+| `organization_id` | string | No | ID de la organización \(REQUERIDO a menos que se proporcione person_id\) |
+| `owner_id` | string | No | ID del usuario que será propietario del lead |
+| `value_amount` | string | No | Importe del valor potencial |
+| `value_currency` | string | No | Código de divisa \(p. ej., USD, EUR\) |
+| `expected_close_date` | string | No | Fecha de cierre prevista en formato YYYY-MM-DD |
+| `visible_to` | string | No | Visibilidad: 1 \(Propietario y seguidores\), 3 \(Toda la empresa\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `lead` | object | El objeto lead creado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar Lead
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 304 304'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+    >
+      <defs>
+        <path
+          d='M59.6807,81.1772 C59.6807,101.5343 70.0078,123.4949 92.7336,123.4949 C109.5872,123.4949 126.6277,110.3374 126.6277,80.8785 C126.6277,55.0508 113.232,37.7119 93.2944,37.7119 C77.0483,37.7119 59.6807,49.1244 59.6807,81.1772 Z M101.3006,0 C142.0482,0 169.4469,32.2728 169.4469,80.3126 C169.4469,127.5978 140.584,160.60942 99.3224,160.60942 C79.6495,160.60942 67.0483,152.1836 60.4595,146.0843 C60.5063,147.5305 60.5374,149.1497 60.5374,150.8788 L60.5374,215 L18.32565,215 L18.32565,44.157 C18.32565,41.6732 17.53126,40.8873 15.07021,40.8873 L0.5531,40.8873 L0.5531,3.4741 L35.9736,3.4741 C52.282,3.4741 56.4564,11.7741 57.2508,18.1721 C63.8708,10.7524 77.5935,0 101.3006,0 Z'
+          id='path-1'
+        />
+      </defs>
+      <g
+        id='Pipedrive_letter_logo_dark'
+        stroke='none'
+        strokeWidth='1'
+        fill='none'
+        fillRule='evenodd'
+      >
+        <g transform='translate(67.000000, 44.000000)'>
+          <mask id='mask-2' fill='white'>
+            <use href='#path-1' />
+          </mask>
+          <use id='Clip-5' fill='#FFFFFF' xlinkHref='#path-1' />
+        </g>
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Todos los Negocios",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener Negocio",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear Negocio",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar Negocio",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener Archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener Hilos de Correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener Mensajes de Hilo de Correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener Negocios del Pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear Proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener Actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear Actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar Actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "ID del Lead",
+            "placeholder": "ID del Lead"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Nuevo Título",
+            "placeholder": "Nuevo título del lead"
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "ID de Persona",
+            "placeholder": "ID de persona para vincular al lead"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "ID de Organización",
+            "placeholder": "ID de organización para vincular al lead"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del Propietario",
+            "placeholder": "ID de usuario propietario"
+        },
+        {
+            "id": "value_amount",
+            "type": "short-input",
+            "title": "Importe del Valor",
+            "placeholder": "Importe del valor potencial"
+        },
+        {
+            "id": "value_currency",
+            "type": "short-input",
+            "title": "Divisa del Valor",
+            "placeholder": "Código de divisa (p. ej., USD, EUR)"
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Fecha de Cierre Prevista",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "is_archived",
+            "type": "dropdown",
+            "title": "Archivar Lead",
+            "options": [
+                {
+                    "label": "No",
+                    "id": "false"
+                },
+                {
+                    "label": "Sí",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Lead (<code>pipedrive_update_lead</code>)</div>
+
+Actualizar un lead existente en Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | string | Sí | El ID del lead a actualizar |
+| `title` | string | No | Nuevo nombre para el lead |
+| `person_id` | string | No | Nuevo ID de persona |
+| `organization_id` | string | No | Nuevo ID de organización |
+| `owner_id` | string | No | Nuevo ID de usuario propietario |
+| `value_amount` | string | No | Nuevo importe del valor |
+| `value_currency` | string | No | Nuevo código de moneda \(p. ej., USD, EUR\) |
+| `expected_close_date` | string | No | Nueva fecha de cierre esperada en formato YYYY-MM-DD |
+| `is_archived` | string | No | Archivar el lead: true o false |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `lead` | object | El objeto lead actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Eliminar Lead
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 304 304'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+    >
+      <defs>
+        <path
+          d='M59.6807,81.1772 C59.6807,101.5343 70.0078,123.4949 92.7336,123.4949 C109.5872,123.4949 126.6277,110.3374 126.6277,80.8785 C126.6277,55.0508 113.232,37.7119 93.2944,37.7119 C77.0483,37.7119 59.6807,49.1244 59.6807,81.1772 Z M101.3006,0 C142.0482,0 169.4469,32.2728 169.4469,80.3126 C169.4469,127.5978 140.584,160.60942 99.3224,160.60942 C79.6495,160.60942 67.0483,152.1836 60.4595,146.0843 C60.5063,147.5305 60.5374,149.1497 60.5374,150.8788 L60.5374,215 L18.32565,215 L18.32565,44.157 C18.32565,41.6732 17.53126,40.8873 15.07021,40.8873 L0.5531,40.8873 L0.5531,3.4741 L35.9736,3.4741 C52.282,3.4741 56.4564,11.7741 57.2508,18.1721 C63.8708,10.7524 77.5935,0 101.3006,0 Z'
+          id='path-1'
+        />
+      </defs>
+      <g
+        id='Pipedrive_letter_logo_dark'
+        stroke='none'
+        strokeWidth='1'
+        fill='none'
+        fillRule='evenodd'
+      >
+        <g transform='translate(67.000000, 44.000000)'>
+          <mask id='mask-2' fill='white'>
+            <use href='#path-1' />
+          </mask>
+          <use id='Clip-5' fill='#FFFFFF' xlinkHref='#path-1' />
+        </g>
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Todos los Tratos",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Obtener Trato",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Crear Trato",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Actualizar Trato",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Obtener Archivos",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Obtener Hilos de Correo",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Obtener Mensajes de Hilo de Correo",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Obtener Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Obtener Tratos del Pipeline",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Crear Proyecto",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Obtener Actividades",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Crear Actividad",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Actualizar Actividad",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Obtener Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Crear Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Actualizar Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Eliminar Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "delete_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Pipedrive",
+            "placeholder": "Seleccionar cuenta de Pipedrive",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "ID del Lead",
+            "placeholder": "ID del Lead"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar Lead (<code>pipedrive_delete_lead</code>)</div>
+
+Eliminar un lead específico de Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | string | Sí | El ID del lead a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | object | Datos de confirmación de eliminación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+## Instrucciones de Uso
+
+Integra Pipedrive en tu flujo de trabajo. Gestiona tratos, contactos, pipeline de ventas, proyectos, actividades, archivos y comunicaciones con potentes capacidades de CRM.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `pipedrive`

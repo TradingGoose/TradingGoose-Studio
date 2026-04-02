@@ -3,7 +3,6 @@ title: Environment Variables
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Image } from '@/components/ui/image'
 
 Environment variables provide a secure way to manage configuration values and secrets across your workflows, including API keys and other sensitive data that your workflows need to access. They keep secrets out of your workflow definitions while making them available during execution.
 
@@ -20,51 +19,19 @@ Workspace environment variables take precedence over personal ones when there's 
 
 ## Setting up Environment Variables
 
-Navigate to Settings to configure your environment variables:
-
-<Image
-  src="/static/environment/environment-1.png"
-  alt="Environment variables modal for creating new variables"
-  width={500}
-  height={350}
-/>
-
-From your workspace settings, you can create and manage both personal and workspace-level environment variables. Personal variables are private to your account, while workspace variables are shared with all team members.
+Navigate to **Settings** to configure your environment variables. From your workspace settings, you can create and manage both personal and workspace-level environment variables. Personal variables are private to your account, while workspace variables are shared with all team members.
 
 ### Making Variables Workspace-Scoped
 
-Use the workspace scope toggle to make variables available to your entire team:
-
-<Image
-  src="/static/environment/environment-2.png"
-  alt="Toggle workspace scope for environment variables"
-  width={500}
-  height={350}
-/>
-
-When you enable workspace scope, the variable becomes available to all workspace members and can be used in any workflow within that workspace.
+Use the workspace scope toggle to make variables available to your entire team. When you enable workspace scope, the variable becomes available to all workspace members and can be used in any workflow within that workspace.
 
 ### Workspace Variables View
 
-Once you have workspace-scoped variables, they appear in your environment variables list:
-
-<Image
-  src="/static/environment/environment-3.png"
-  alt="Workspace-scoped variables in the environment variables list"
-  width={500}
-  height={350}
-/>
+Once you have workspace-scoped variables, they appear in your environment variables list alongside your personal variables, clearly labeled with their scope.
 
 ## Using Variables in Workflows
 
 To reference environment variables in your workflows, use the `{{}}` notation. When you type `{{` in any input field, a dropdown will appear showing both your personal and workspace-level environment variables. Simply select the variable you want to use.
-
-<Image
-  src="/static/environment/environment-4.png"
-  alt="Using environment variables with double brace notation"
-  width={500}
-  height={350}
-/>
 
 ## Variable Precedence
 

@@ -4,53 +4,77 @@ description: Translate text to any language
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="translate"
-  color="#FF4B4B"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      xmlns='http://www.w3.org/2000/svg'
-      
-      
-      viewBox='0 0 24 24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      
-    >
-      <path d='m5 8 6 6' />
-      <path d='m4 14 6-6 2-3' />
-      <path d='M2 5h12' />
-      <path d='M7 2h1' />
-      <path d='m22 22-5-10-5 10' />
-      <path d='M14 18h6' />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-Translate is a tool that allows you to translate text between languages.
+## Configuration
 
-With Translate, you can:
-
-- **Translate text**: Translate text between languages
-- **Translate documents**: Translate documents between languages
-- **Translate websites**: Translate websites between languages
-- **Translate images**: Translate images between languages
-- **Translate audio**: Translate audio between languages
-- **Translate videos**: Translate videos between languages
-- **Translate speech**: Translate speech between languages
-- **Translate text**: Translate text between languages
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate Translate into the workflow. Can translate text to any language.
-
-
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Translate"
+    type="translate"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "context",
+            "type": "long-input",
+            "title": "Text to Translate",
+            "layout": "full",
+            "placeholder": "Enter the text you want to translate",
+            "required": true
+        },
+        {
+            "id": "targetLanguage",
+            "type": "short-input",
+            "title": "Translate To",
+            "layout": "full",
+            "placeholder": "Enter language (e.g. Spanish, French, etc.)",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "Model",
+            "layout": "half",
+            "placeholder": "Type or select a model...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Azure OpenAI Endpoint",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Azure API Version",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## Tools
 
@@ -69,9 +93,6 @@ Integrate Translate into the workflow. Can translate text to any language.
 | `model` | string | Model used |
 | `tokens` | json | Token usage |
 
-### `anthropic_chat`
-
-
 ### `google_chat`
 
 #### Input
@@ -86,6 +107,11 @@ Integrate Translate into the workflow. Can translate text to any language.
 | `content` | string | Translated text |
 | `model` | string | Model used |
 | `tokens` | json | Token usage |
+
+
+## Usage Instructions
+
+Integrate Translate into the workflow. Can translate text to any language.
 
 
 

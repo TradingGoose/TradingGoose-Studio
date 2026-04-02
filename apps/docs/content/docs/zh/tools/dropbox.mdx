@@ -1,0 +1,1228 @@
+---
+title: Dropbox
+description: 在 Dropbox 中上传、下载、共享和管理文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="dropbox"
+  color="#0061FF"
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+/>
+
+## 配置
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_upload"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "目标路径",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "fileContent",
+            "type": "long-input",
+            "title": "文件内容",
+            "placeholder": "Base64 编码的文件内容或文件引用",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "写入模式",
+            "options": [
+                {
+                    "label": "添加（新建）",
+                    "id": "add"
+                },
+                {
+                    "label": "覆盖（替换已有）",
+                    "id": "overwrite"
+                }
+            ]
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "冲突时自动重命名"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传文件 (<code>dropbox_upload</code>)</div>
+
+将文件上传至 Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 文件在 Dropbox 中的保存路径 \(例如：/folder/document.pdf\) |
+| `fileContent` | string | 是 | 要上传文件的 base64 编码内容 |
+| `fileName` | string | 否 | 可选文件名 \(当路径为文件夹时使用\) |
+| `mode` | string | 否 | 写入模式：add \(默认\) 或 overwrite |
+| `autorename` | boolean | 否 | 若为 true，发生冲突时自动重命名文件 |
+| `mute` | boolean | 否 | 若为 true，不向用户发送此次上传的通知 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 文件的唯一标识符 |
+| `name` | string | 文件名称 |
+| `path_display` | string | 文件的显示路径 |
+| `path_lower` | string | 文件的小写路径 |
+| `size` | number | 文件大小（字节） |
+| `client_modified` | string | 客户端修改时间 |
+| `server_modified` | string | 服务器修改时间 |
+| `rev` | string | 版本标识符 |
+
+</div>
+
+---
+
+### 下载文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_download"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件路径",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">下载文件 (<code>dropbox_download</code>)</div>
+
+从 Dropbox 下载文件并获取临时链接
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 要下载的文件路径 \(例如：/folder/document.pdf\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 文件的唯一标识符 |
+| `name` | string | 文件名称 |
+| `path_display` | string | 文件的显示路径 |
+
+</div>
+
+---
+
+### 列出文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_list_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件夹路径",
+            "placeholder": "/ (根目录) 或 /文件夹",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "递归列出"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "500"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出文件夹 (<code>dropbox_list_folder</code>)</div>
+
+列出 Dropbox 中文件夹的内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 要列出的文件夹路径（使用 "" 表示根目录）|
+| `recursive` | boolean | 否 | 若为 true，则递归列出内容 |
+| `includeDeleted` | boolean | 否 | 若为 true，则包含已删除的文件/文件夹 |
+| `includeMediaInfo` | boolean | 否 | 若为 true，则包含照片/视频的媒体信息 |
+| `limit` | number | 否 | 返回结果的最大数量（默认：500）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一标识符 |
+| `name` | string | 文件/文件夹名称 |
+| `path_display` | string | 显示路径 |
+
+</div>
+
+---
+
+### 创建文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_create_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件夹路径",
+            "placeholder": "/new-folder",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "冲突时自动重命名"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文件夹 (<code>dropbox_create_folder</code>)</div>
+
+在 Dropbox 中创建新文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 创建文件夹的路径 \(例如：/new-folder\) |
+| `autorename` | boolean | 否 | 如果为 true，在发生冲突时重命名该文件夹 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 文件夹的唯一标识符 |
+| `name` | string | 文件夹名称 |
+| `path_display` | string | 文件夹的显示路径 |
+
+</div>
+
+---
+
+### 删除文件/文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_delete"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "要删除的路径",
+            "placeholder": "/folder/file.txt",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文件/文件夹（<code>dropbox_delete</code>）</div>
+
+删除 Dropbox 中的文件或文件夹（移至回收站）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 要删除的文件或文件夹的路径 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `name` | string | 已删除项目的名称 |
+
+</div>
+
+---
+
+### 复制文件/文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_copy"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "fromPath",
+            "type": "short-input",
+            "title": "源路径",
+            "placeholder": "/source/document.pdf",
+            "required": true
+        },
+        {
+            "id": "toPath",
+            "type": "short-input",
+            "title": "目标路径",
+            "placeholder": "/destination/document.pdf",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "冲突时自动重命名"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">复制文件/文件夹 (<code>dropbox_copy</code>)</div>
+
+在 Dropbox 中复制文件或文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `fromPath` | string | 是 | 要复制的文件或文件夹的源路径 |
+| `toPath` | string | 是 | 复制后文件或文件夹的目标路径 |
+| `autorename` | boolean | 否 | 若为 true，当目标位置存在冲突时自动重命名文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一标识符 |
+| `name` | string | 复制项目的名称 |
+| `path_display` | string | 显示路径 |
+
+</div>
+
+---
+
+### 移动文件/文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_move"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "fromPath",
+            "type": "short-input",
+            "title": "源路径",
+            "placeholder": "/old-location/document.pdf",
+            "required": true
+        },
+        {
+            "id": "toPath",
+            "type": "short-input",
+            "title": "目标路径",
+            "placeholder": "/new-location/document.pdf",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "冲突时自动重命名"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">移动文件/文件夹 (<code>dropbox_move</code>)</div>
+
+在 Dropbox 中移动或重命名文件或文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `fromPath` | string | 是 | 要移动的文件或文件夹的源路径 |
+| `toPath` | string | 是 | 移动后文件或文件夹的目标路径 |
+| `autorename` | boolean | 否 | 若为 true，当目标位置存在冲突时自动重命名文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一标识符 |
+| `name` | string | 已移动项目的名称 |
+| `path_display` | string | 显示路径 |
+
+</div>
+
+---
+
+### 获取元数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_get_metadata"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件/文件夹路径",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "includeMediaInfo",
+            "type": "switch",
+            "title": "包含媒体信息"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取元数据（<code>dropbox_get_metadata</code>）</div>
+
+获取 Dropbox 中文件或文件夹的元数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | 是 | 要获取元数据的文件或文件夹路径 |
+| `includeMediaInfo` | boolean | 否 | 若为 true，则包含照片/视频的媒体信息 |
+| `includeDeleted` | boolean | 否 | 若为 true，则在结果中包含已删除的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一标识符 |
+| `name` | string | 条目名称 |
+| `path_display` | string | 显示路径 |
+| `path_lower` | string | 小写路径 |
+| `size` | number | 文件大小（字节，仅限文件）\(files only\) |
+| `client_modified` | string | 客户端修改时间 |
+| `server_modified` | string | 服务器修改时间 |
+| `rev` | string | 版本标识符 |
+
+</div>
+
+---
+
+### 创建共享链接
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_create_shared_link"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件/文件夹路径",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "requestedVisibility",
+            "type": "dropdown",
+            "title": "可见性",
+            "options": [
+                {
+                    "label": "公开（任何持有链接的人）",
+                    "id": "public"
+                },
+                {
+                    "label": "仅限团队",
+                    "id": "team_only"
+                },
+                {
+                    "label": "密码保护",
+                    "id": "password"
+                }
+            ]
+        },
+        {
+            "id": "linkPassword",
+            "type": "short-input",
+            "title": "链接密码",
+            "placeholder": "输入链接密码",
+            "password": true
+        },
+        {
+            "id": "expires",
+            "type": "datetime-input",
+            "title": "过期日期",
+            "placeholder": "2025-12-31T23:59:59Z"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建共享链接（<code>dropbox_create_shared_link</code>）</div>
+
+为 Dropbox 中的文件或文件夹创建可共享链接
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | string | 共享链接 URL |
+| `name` | string | 共享项目的名称 |
+| `path_lower` | string | 共享项目的小写路径 |
+| `expires` | string | 过期日期（如已设置）|
+
+</div>
+
+---
+
+### 搜索文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 43 40'>
+      <path
+        d='m12.5 0l-12.5 8.1 8.7 7 12.5-7.8-8.7-7.3zm-12.5 21.9l12.5 8.2 8.7-7.3-12.5-7.7-8.7 6.8zm21.2 0.9l8.8 7.3 12.4-8.1-8.6-6.9-12.6 7.7zm21.2-14.7l-12.4-8.1-8.8 7.3 12.6 7.8 8.6-7zm-21.1 16.3l-8.8 7.3-3.7-2.5v2.8l12.5 7.5 12.5-7.5v-2.8l-3.8 2.5-8.7-7.3z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "上传文件",
+                    "id": "dropbox_upload"
+                },
+                {
+                    "label": "下载文件",
+                    "id": "dropbox_download"
+                },
+                {
+                    "label": "列出文件夹",
+                    "id": "dropbox_list_folder"
+                },
+                {
+                    "label": "创建文件夹",
+                    "id": "dropbox_create_folder"
+                },
+                {
+                    "label": "删除文件/文件夹",
+                    "id": "dropbox_delete"
+                },
+                {
+                    "label": "复制文件/文件夹",
+                    "id": "dropbox_copy"
+                },
+                {
+                    "label": "移动文件/文件夹",
+                    "id": "dropbox_move"
+                },
+                {
+                    "label": "获取元数据",
+                    "id": "dropbox_get_metadata"
+                },
+                {
+                    "label": "创建共享链接",
+                    "id": "dropbox_create_shared_link"
+                },
+                {
+                    "label": "搜索文件",
+                    "id": "dropbox_search"
+                }
+            ],
+            "defaultValue": "dropbox_search"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Dropbox 账户",
+            "placeholder": "选择 Dropbox 账户",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "输入搜索词...",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "在文件夹中搜索",
+            "placeholder": "/ （搜索全部）或 /folder"
+        },
+        {
+            "id": "fileExtensions",
+            "type": "short-input",
+            "title": "文件扩展名",
+            "placeholder": "pdf,xlsx,docx（逗号分隔）"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索文件（<code>dropbox_search</code>）</div>
+
+在 Dropbox 中搜索文件和文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 搜索查询关键词 |
+| `path` | string | 否 | 将搜索限定在特定文件夹路径 |
+| `fileExtensions` | string | 否 | 以逗号分隔的文件扩展名过滤列表 \(例如：pdf,xlsx\) |
+| `maxResults` | number | 否 | 返回结果的最大数量 \(默认：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `match_type` | object | 匹配类型：文件名、内容或两者兼有 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Dropbox 集成到您的工作流程中，实现文件管理、共享与协作。支持上传文件、下载内容、创建文件夹、管理共享链接等功能。
+
+## 注意事项
+
+- 分类：`tools`
+- 类型：`dropbox`

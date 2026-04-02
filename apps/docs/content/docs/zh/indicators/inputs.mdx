@@ -1,0 +1,88 @@
+---
+title: 输入参数
+description: 使用 input 命名空间定义可配置的指标参数
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+`input` 命名空间允许您定义用户可在界面中配置的参数，无需修改代码。TradingGoose 会自动根据您的 `input.*()` 调用生成设置面板。
+
+## 输入类型
+
+| 函数 | 返回值 | 描述 |
+|----------|---------|-------------|
+| `input.int(defval, title, minval?, maxval?, step?)` | `number` | 整数输入，支持可选的范围和步长 |
+| `input.float(defval, title, minval?, maxval?, step?)` | `number` | 浮点数输入 |
+| `input.bool(defval, title)` | `boolean` | 开关/复选框 |
+| `input.string(defval, title)` | `string` | 文本输入 |
+| `input.color(defval, title)` | `string` | 颜色选择器（十六进制字符串） |
+| `input.source(defval, title)` | `series` | 数据源选择器（收盘价、开盘价、最高价、最低价等） |
+| `input.timeframe(defval, title)` | `string` | 时间周期选择器 |
+| `input.price(defval, title)` | `number` | 价格水平输入 |
+| `input.time(defval, title)` | `number` | 时间戳输入 |
+| `input.session(defval, title)` | `string` | 交易时段输入 |
+| `input.symbol(defval, title)` | `string` | 交易品种/代码输入 |
+| `input.text_area(defval, title)` | `string` | 多行文本输入 |
+| `input.enum(defval, title, options)` | `T` | 从选项列表中选择的下拉选择器 |
+
+## 示例
+
+### 数值输入
+
+```javascript
+// Integer with range constraints
+const length = input.int(14, 'RSI Length', 1, 200, 1);
+
+// Float with step
+const multiplier = input.float(2.0, 'StdDev Multiplier', 0.1, 10.0, 0.1);
+```
+
+### 布尔值与字符串
+
+```javascript
+const showSignals = input.bool(true, 'Show Signals');
+const customLabel = input.string('Buy', 'Signal Label');
+```
+
+### 数据源选择
+
+```javascript
+// Let users choose which price data to calculate on
+const src = input.source(close, 'Source');
+const sma = ta.sma(src, 20);
+```
+
+### 枚举（下拉菜单）
+
+```javascript
+const maType = input.enum('SMA', 'MA Type', ['SMA', 'EMA', 'WMA', 'HMA']);
+
+let ma;
+switch (maType) {
+  case 'EMA': ma = ta.ema(close, length); break;
+  case 'WMA': ma = ta.wma(close, length); break;
+  case 'HMA': ma = ta.hma(close, length); break;
+  default:    ma = ta.sma(close, length);
+}
+```
+
+### 颜色输入
+
+```javascript
+const bullColor = input.color('#00FF00', 'Bull Color');
+const bearColor = input.color('#FF0000', 'Bear Color');
+
+barcolor(close > open ? bullColor : bearColor);
+```
+
+## 输入参数的工作原理
+
+当 TradingGoose 加载您的指标时，它会解析所有 `input.*()` 调用，以执行以下操作：
+
+1. **提取元数据** — 标题、类型、默认值、约束条件（最小值/最大值/步长/选项）
+2. **生成 UI 控件** — 在指标设置面板中渲染相应的表单控件
+3. **传递运行时值** — 当用户修改参数时，指标将以更新后的值重新运行
+
+<Callout type="info">
+  输入参数从您的代码中静态提取。为获得最佳效果，请将 `input.*()` 调用放在脚本的顶层——避免将其放在条件语句或循环中。
+</Callout>

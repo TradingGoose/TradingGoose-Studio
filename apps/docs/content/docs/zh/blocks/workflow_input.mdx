@@ -1,0 +1,222 @@
+---
+title: 工作流
+description: 执行子工作流并将父变量映射到其输入模式
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="workflow_input"
+  color="#6366F1"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <circle
+        className='a'
+        cx='12'
+        cy='6'
+        r='3'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <rect
+        className='a'
+        
+        rx='2'
+        
+        x='2'
+        y='16'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <rect
+        className='a'
+        
+        rx='2'
+        
+        x='14'
+        y='16'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <path
+        className='a'
+        d='M6,16V14a2,2,0,0,1,2-2h8a2,2,0,0,1,2,2v2'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <line
+        className='a'
+        x1='12'
+        x2='12'
+        y1='9'
+        y2='12'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+/>
+
+工作流块用于在当前（父）工作流中执行另一个（子）工作流。它读取子工作流的**输入表单触发器**模式，并提供映射界面，以便将父变量传递到子工作流的预期输入中。这是将复杂自动化模块化为可复用子工作流的核心机制。
+
+## 概述
+
+<Steps>
+  <Step>
+    <strong>选择子工作流</strong>：从工作区中选择任意工作流（当前工作流除外）
+  </Step>
+  <Step>
+    <strong>映射输入</strong>：块读取子工作流的输入表单触发器，并显示每个预期字段。为每个字段映射父变量或硬编码值。
+  </Step>
+  <Step>
+    <strong>执行</strong>：子工作流以映射的输入运行至完成
+  </Step>
+  <Step>
+    <strong>返回结果</strong>：子工作流的最终输出作为块的 `result` 输出返回给父工作流
+  </Step>
+</Steps>
+
+## 工作原理
+
+子工作流必须使用**输入表单触发器**作为其起始块。该触发器定义输入模式（字段名称、类型和描述）。在此块中选择子工作流后，输入映射界面将动态渲染这些字段，以便进行连接配置。
+
+在运行时，该块将执行以下操作：
+
+1. 从父工作流的当前状态解析所有映射值。
+2. 调用子工作流的执行器，传入已解析的输入参数。
+3. 等待子工作流执行完成。
+4. 返回子工作流执行结果中的 `success`、`childWorkflowName` 以及完整的 `result`。
+
+<Callout type="info">
+  下拉列表仅显示工作区中与当前工作流不同的其他工作流。不支持递归调用工作流。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow_input"
+    color="#6366F1"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <circle
+        className='a'
+        cx='12'
+        cy='6'
+        r='3'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <rect
+        className='a'
+        
+        rx='2'
+        
+        x='2'
+        y='16'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <rect
+        className='a'
+        
+        rx='2'
+        
+        x='14'
+        y='16'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <path
+        className='a'
+        d='M6,16V14a2,2,0,0,1,2-2h8a2,2,0,0,1,2,2v2'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <line
+        className='a'
+        x1='12'
+        x2='12'
+        y1='9'
+        y2='12'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "选择工作流",
+            "required": true
+        },
+        {
+            "id": "inputMapping",
+            "type": "input-mapping",
+            "title": "输入映射",
+            "layout": "full",
+            "description": "将子工作流输入触发器中定义的字段映射到当前工作流中的变量或值。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### 字段
+
+| 字段 | 是否必填 | 描述 |
+|---|---|---|
+| **选择工作流** | 是 | 要执行的子工作流，必须配置有输入表单触发器。 |
+| **输入映射** | -- | 将父工作流中的值动态映射到子工作流的触发器模式。选择工作流后显示。 |
+
+## 输出
+
+| 输出 | 类型 | 描述 |
+|---|---|---|
+| `success` | boolean | 子工作流是否成功完成 |
+| `childWorkflowName` | string | 已执行的子工作流名称 |
+| `result` | json | 子工作流的完整执行结果 |
+| `error` | string | 子工作流执行失败时的错误信息 |
+
+## 最佳实践
+
+- **为子工作流设计清晰的输入表单触发器** -- 使用描述性字段名称，以便在父工作流中映射界面易于使用。
+- **保持子工作流的专注性** -- 子工作流应专注于单一功能，从而可在多个父工作流中复用。
+- **检查 `success` 输出** -- 在工作流块之后使用条件块，以优雅地处理故障。

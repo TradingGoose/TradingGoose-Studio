@@ -1,0 +1,166 @@
+---
+title: Plotting
+description: Visualize indicator data with plot functions, shapes, fills, and colors
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+## Plot Functions
+
+| Function | Description |
+|----------|-------------|
+| `plot(series, title?, options?)` | Plot a line, area, histogram, or other series style |
+| `plotshape(series, title?, options?)` | Plot shape markers (arrows, circles, diamonds, etc.) |
+| `plotchar(series, title?, char?, options?)` | Plot character markers |
+| `plotarrow(series, title?, options?)` | Plot arrow markers |
+| `plotbar(open, high, low, close, title?, options?)` | Plot OHLC bars |
+| `plotcandle(open, high, low, close, title?, options?)` | Plot candlesticks |
+| `hline(price, title?, options?)` | Draw a horizontal line at a fixed price level |
+| `fill(plot1, plot2, color?)` | Fill the area between two plots |
+| `bgcolor(color, offset?, options?)` | Set background color for bars |
+| `barcolor(color, offset?, options?)` | Set bar color |
+
+## Plot Styles
+
+Use `plot.style_*` constants to control how data is rendered:
+
+| Style | Description |
+|-------|-------------|
+| `plot.style_line` | Continuous line (default) |
+| `plot.style_linebr` | Line with breaks at `na` values |
+| `plot.style_stepline` | Step line |
+| `plot.style_stepline_diamond` | Step line with diamond markers |
+| `plot.style_steplinebr` | Step line with breaks |
+| `plot.style_area` | Filled area below the line |
+| `plot.style_areabr` | Area with breaks at `na` |
+| `plot.style_histogram` | Vertical histogram bars |
+| `plot.style_columns` | Column chart |
+| `plot.style_circles` | Circle markers |
+| `plot.style_cross` | Cross markers |
+
+### Line Styles (for `plot` and `hline`)
+
+| Style | Description |
+|-------|-------------|
+| `plot.linestyle_solid` | Solid line |
+| `plot.linestyle_dashed` | Dashed line |
+| `plot.linestyle_dotted` | Dotted line |
+| `hline.style_solid` | Solid horizontal line |
+| `hline.style_dashed` | Dashed horizontal line |
+| `hline.style_dotted` | Dotted horizontal line |
+
+## Examples
+
+### Basic Line Plot
+
+```javascript
+indicator('EMA Crossover', { overlay: true });
+
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+
+plot(fast, 'Fast EMA', { color: '#2962FF' });
+plot(slow, 'Slow EMA', { color: '#FF6D00' });
+```
+
+### Histogram
+
+```javascript
+indicator('MACD Histogram');
+
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+plot(hist, 'Histogram', {
+  style: plot.style_histogram,
+  color: hist > 0 ? '#26A69A' : '#EF5350'
+});
+plot(macdLine, 'MACD', { color: '#2962FF' });
+plot(signalLine, 'Signal', { color: '#FF6D00' });
+```
+
+### Fill Between Plots
+
+```javascript
+indicator('Bollinger Bands', { overlay: true });
+
+const [mid, upper, lower] = ta.bb(close, 20, 2);
+
+const p1 = plot(upper, 'Upper', { color: '#F23645' });
+plot(mid, 'Middle', { color: '#787B86' });
+const p2 = plot(lower, 'Lower', { color: '#089981' });
+
+fill(p1, p2);
+```
+
+### Shape Markers
+
+```javascript
+// Plot buy/sell arrows at crossover points
+if (ta.crossover(fast, slow)) {
+  plotshape(close, 'Buy', {
+    style: shape.triangleup,
+    location: location.belowbar,
+    color: '#00FF00',
+    size: size.small
+  });
+}
+
+if (ta.crossunder(fast, slow)) {
+  plotshape(close, 'Sell', {
+    style: shape.triangledown,
+    location: location.abovebar,
+    color: '#FF0000',
+    size: size.small
+  });
+}
+```
+
+### Shape Constants
+
+| Constant | Description |
+|----------|-------------|
+| `shape.triangleup` | Upward triangle |
+| `shape.triangledown` | Downward triangle |
+| `shape.circle` | Circle |
+| `shape.cross` | Cross |
+| `shape.xcross` | X-cross |
+| `shape.diamond` | Diamond |
+| `shape.square` | Square |
+| `shape.arrowup` | Upward arrow |
+| `shape.arrowdown` | Downward arrow |
+| `shape.flag` | Flag |
+| `shape.labelup` | Label pointing up |
+| `shape.labeldown` | Label pointing down |
+
+### Location Constants
+
+| Constant | Description |
+|----------|-------------|
+| `location.abovebar` | Above the bar |
+| `location.belowbar` | Below the bar |
+| `location.top` | Top of pane |
+| `location.bottom` | Bottom of pane |
+| `location.absolute` | At the exact value |
+
+### Size Constants
+
+| Constant | Description |
+|----------|-------------|
+| `size.tiny` | Tiny |
+| `size.small` | Small |
+| `size.normal` | Normal |
+| `size.large` | Large |
+| `size.huge` | Huge |
+| `size.auto` | Automatic |
+
+### Background and Bar Colors
+
+```javascript
+// Highlight bars based on condition
+bgcolor(ta.crossover(fast, slow) ? '#00FF0020' : na);
+barcolor(close > open ? '#26A69A' : '#EF5350');
+```
+
+<Callout type="info">
+  Colors can be specified as hex strings (e.g., `'#FF0000'`) or using the `color` namespace (e.g., `color.red`). Append two hex digits for alpha transparency (e.g., `'#FF000080'` for 50% opacity).
+</Callout>

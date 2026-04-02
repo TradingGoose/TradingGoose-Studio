@@ -1,0 +1,139 @@
+---
+title: 指标触发器
+description: 通过 trigger() API 将指标信号连接到 TradingGoose 工作流
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+`trigger()` 函数是 TradingGoose 对 PineTS 的扩展，允许您的指标在满足特定条件时触发工作流执行。它弥合了技术分析与工作流自动化之间的鸿沟——指标可以检测到信号并立即触发相应操作，例如发送通知、下达交易指令或运行复杂的多步骤工作流。
+
+## 语法
+
+```javascript
+trigger(event, options)
+```
+
+### 参数
+
+| 参数 | 类型 | 是否必填 | 描述 |
+|-----------|------|----------|-------------|
+| `event` | `string` | 是 | 事件名称标识符 |
+| `options` | `object` | 是 | 触发器配置（见下文） |
+
+### 选项对象
+
+| 属性 | 类型 | 是否必填 | 描述 |
+|----------|------|----------|-------------|
+| `condition` | `any` | 是 | 触发器触发所需满足的条件（须为真值） |
+| `input` | `string` | 是 | 传递给工作流的文本输入（例如，对所发生事件的描述） |
+| `signal` | `'long' \| 'short' \| 'flat'` | 是 | 交易信号方向 |
+| `position` | `'aboveBar' \| 'belowBar' \| 'inBar'` | 否 | 图表上的标记位置（默认：`'aboveBar'`） |
+| `color` | `string` | 否 | 标记颜色（十六进制字符串，例如 `'#FF0000'`） |
+
+### 事件名称规则
+
+- 必须符合以下模式：`/^[a-z][a-z0-9_]{0,63}$/`
+- 以小写字母开头
+- 仅允许小写字母、数字和下划线
+- 最多 64 个字符
+
+## 基础示例
+
+```javascript
+indicator('RSI Trigger Example');
+
+const rsi = ta.rsi(close, 14);
+plot(rsi, 'RSI');
+hline(70, { linestyle: hline.style_dashed });
+hline(30, { linestyle: hline.style_dashed });
+
+// Fire when RSI crosses above 70 (overbought)
+if (ta.crossover(rsi, 70)) {
+  trigger('rsi_overbought', {
+    condition: ta.crossover(rsi, 70),
+    input: 'RSI crossed above 70 — overbought signal',
+    signal: 'short',
+    position: 'aboveBar',
+    color: '#FF0000'
+  });
+}
+
+// Fire when RSI crosses below 30 (oversold)
+if (ta.crossunder(rsi, 30)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, 30),
+    input: 'RSI crossed below 30 — oversold signal',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## 多重触发器
+
+一个指标可以定义多个触发事件，每个事件可连接到不同的工作流：
+
+```javascript
+indicator('Multi-Signal', { overlay: true });
+
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+// EMA crossover trigger
+if (ta.crossover(fast, slow)) {
+  trigger('ema_bullish_cross', {
+    condition: ta.crossover(fast, slow),
+    input: 'Fast EMA crossed above slow EMA',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#26A69A'
+  });
+}
+
+// MACD histogram reversal trigger
+if (hist > 0 && hist[1] <= 0) {
+  trigger('macd_positive_flip', {
+    condition: hist > 0 && hist[1] <= 0,
+    input: 'MACD histogram flipped positive',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#2962FF'
+  });
+}
+```
+
+## 工作原理
+
+1. **评估** — 在每根K线上，PineTS 会评估您的指标代码，包括 `trigger()` 调用
+2. **条件检查** — 针对当前K线解析 `condition` 属性。若为假值，则静默跳过该触发器
+3. **验证** — 对事件名称、选项结构、输入及信号进行验证。无效调用将生成警告（而非错误）
+4. **捕获** — 有效的触发器连同其元数据（事件、输入、信号、位置、颜色、K线时间、K线索引）一并被捕获
+5. **工作流分发** — 在实时运行时，捕获到的触发器事件将通过指标触发器分发至已连接的工作流
+
+## 连接至工作流
+
+如需在工作流中使用指标触发器：
+
+1. 创建一个包含 `trigger()` 调用的指标
+2. 在工作流编辑器中，添加一个 **指标触发器** 模块作为工作流的起始节点
+3. 将其配置为监听您指标的事件
+4. 工作流将接收触发器的 `input` 文本和 `signal` 作为工作流输入数据
+
+## 验证警告
+
+无效的触发器调用将产生警告（而非错误），以确保指标继续正常运行：
+
+| 警告代码 | 原因 |
+|-------------|-------|
+| `indicator_trigger_invalid_event` | 事件名称不符合所需的模式 |
+| `indicator_trigger_invalid_options` | 选项参数不是一个对象 |
+| `indicator_trigger_condition_unresolved` | 条件值无法被解析 |
+| `indicator_trigger_invalid_input` | 输入缺失或不是字符串类型 |
+| `indicator_trigger_invalid_signal` | 信号不是 `'long'`、`'short'` 或 `'flat'` |
+| `indicator_trigger_invalid_time` | K线开盘时间不可用 |
+
+<Callout type="info">
+  `trigger()` API 是 TradingGoose 的专属扩展，在标准 Pine Script 或 PineTS 中不存在。包含 `trigger()` 调用的指标在所有环境中均可正常运行——触发器在 TradingGoose 之外仅不生效。
+</Callout>

@@ -1,0 +1,226 @@
+---
+title: Conocimiento
+description: Busca, crea y gestiona documentos en tus bases de conocimiento
+  mediante similitud vectorial
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="knowledge"
+  color="#00B0B0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.5'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <path d='M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14' />
+      <path d='m7.5 4.27 9 5.15' />
+      <polyline points='3.29 7 12 12 20.71 7' />
+      <line x1='12' x2='12' y1='22' y2='12' />
+      <circle cx='18.5' cy='15.5' r='2.5' />
+      <path d='M20.27 17.27 22 19' />
+    </svg>`}
+/>
+
+El bloque de Conocimiento conecta tu flujo de trabajo a una base de conocimiento, habilitando la generación aumentada por recuperación (RAG) mediante búsquedas de similitud vectorial, carga de nuevos fragmentos y creación de documentos, todo en tiempo de ejecución.
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Buscar</strong>: Ejecuta una consulta de similitud semántica contra tu base de conocimiento y recupera los fragmentos más relevantes
+  </Step>
+  <Step>
+    <strong>Cargar fragmento</strong>: Añade un nuevo fragmento de texto a un documento existente para que sea indexable en consultas futuras
+  </Step>
+  <Step>
+    <strong>Crear documento</strong>: Agrega un documento completamente nuevo (con etiquetas opcionales) a la base de conocimiento
+  </Step>
+</Steps>
+
+## Operaciones
+
+<Tabs items={['Buscar', 'Cargar fragmento', 'Crear documento']}>
+  <Tab>
+    Realiza una búsqueda de similitud vectorial y devuelve los fragmentos más relevantes.
+
+    | Campo | Requerido | Descripción |
+    |---|---|---|
+    | **Base de conocimiento** | Sí | La base de conocimiento en la que buscar |
+    | **Consulta de búsqueda** | No | Consulta en lenguaje natural. Opcional cuando se usan solo filtros de etiquetas. |
+    | **Número de resultados** | No | Cuántos fragmentos devolver (predeterminado: 10) |
+    | **Filtros de etiquetas** | No | Restringe los resultados a documentos que coincidan con etiquetas específicas |
+
+    La consulta de búsqueda es opcional -- puede filtrar únicamente por etiquetas para recuperar todos los fragmentos de una categoría determinada.
+  </Tab>
+  <Tab>
+    Agrega un fragmento de texto a un documento existente dentro de la base de conocimiento. El fragmento se incrusta automáticamente y queda disponible para búsquedas futuras.
+
+    | Campo | Requerido | Descripción |
+    |---|---|---|
+    | **Base de Conocimiento** | Sí | Base de conocimiento de destino |
+    | **Documento** | Sí | El documento al que se agregará el fragmento |
+    | **Contenido del Fragmento** | Sí | El contenido de texto a cargar |
+  </Tab>
+  <Tab>
+    Crea un nuevo documento en la base de conocimiento. El contenido se divide en fragmentos, se incrusta y se indexa.
+
+    | Campo | Requerido | Descripción |
+    |---|---|---|
+    | **Base de Conocimiento** | Sí | Base de conocimiento de destino |
+    | **Nombre del Documento** | Sí | Nombre para el nuevo documento |
+    | **Contenido del Documento** | Sí | Contenido de texto completo |
+    | **Etiquetas del Documento** | No | Etiquetas para categorización y filtrado |
+  </Tab>
+</Tabs>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Knowledge"
+    type="knowledge"
+    color="#00B0B0"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      
+      
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.5'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <path d='M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14' />
+      <path d='m7.5 4.27 9 5.15' />
+      <polyline points='3.29 7 12 12 20.71 7' />
+      <line x1='12' x2='12' y1='22' y2='12' />
+      <circle cx='18.5' cy='15.5' r='2.5' />
+      <path d='M20.27 17.27 22 19' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                { "label": "Buscar", "id": "search" },
+                { "label": "Cargar Fragmento", "id": "upload_chunk" },
+                { "label": "Crear Documento", "id": "create_document" }
+            ]
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "Base de Conocimiento",
+            "layout": "full",
+            "placeholder": "Seleccionar base de conocimiento",
+            "required": true,
+            "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] }
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de Búsqueda",
+            "layout": "full",
+            "placeholder": "Ingrese su consulta de búsqueda (opcional al usar filtros de etiquetas)",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "topK",
+            "type": "short-input",
+            "title": "Número de Resultados",
+            "layout": "full",
+            "placeholder": "Ingrese el número de resultados (predeterminado: 10)",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "tagFilters",
+            "type": "knowledge-tag-filters",
+            "title": "Filtros de Etiquetas",
+            "layout": "full",
+            "placeholder": "Agregar filtros de etiquetas",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "documentId",
+            "type": "document-selector",
+            "title": "Documento",
+            "layout": "full",
+            "placeholder": "Seleccionar documento",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido del Fragmento",
+            "layout": "full",
+            "placeholder": "Ingrese el contenido del fragmento a cargar",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre del Documento",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del documento",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido del Documento",
+            "layout": "full",
+            "placeholder": "Ingrese el contenido del documento",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "documentTags",
+            "type": "document-tag-entry",
+            "title": "Etiquetas del Documento",
+            "layout": "full",
+            "condition": { "field": "operation", "value": "create_document" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `results` | json | Array de fragmentos coincidentes (búsqueda) o datos de confirmación (operaciones de escritura) |
+| `query` | string | La consulta que se utilizó |
+| `totalResults` | number | Cantidad de resultados devueltos |
+
+## Mejores Prácticas
+
+- **Usa filtros de etiquetas para acotar las búsquedas** -- las etiquetas te permiten particionar una base de conocimiento por tema, cliente o categoría sin necesidad de crear bases separadas.
+- **Mantén los fragmentos enfocados** -- los fragmentos más cortos y temáticamente coherentes producen mejores coincidencias de similitud que los textos largos con múltiples temas.
+- **Combina con un bloque de Agente** -- conecta los resultados de búsqueda al contexto de un Agente para construir un pipeline RAG.
+
+<Callout type="info">
+  El campo de consulta de búsqueda es opcional. Cuando solo necesitas documentos que coincidan con ciertas etiquetas, deja la consulta vacía y usa filtros de etiquetas en su lugar.
+</Callout>

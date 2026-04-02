@@ -4,10 +4,12 @@ description: Convertir TTS usando ElevenLabs
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="elevenlabs"
-  color="#181C1E"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"
       
@@ -22,23 +24,82 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[ElevenLabs](https://elevenlabs.io/) es una plataforma de texto a voz de última generación que crea voces de IA increíblemente naturales y expresivas. Ofrece algunas de las voces sintéticas más realistas y emocionalmente matizadas disponibles actualmente, lo que la hace ideal para crear contenido de audio realista.
+## Configuración
 
-Con ElevenLabs, puedes:
-
-- **Generar voz de sonido natural**: Crear audio casi indistinguible del habla humana
-- **Elegir entre diversas opciones de voz**: Acceder a una biblioteca de voces prediseñadas con diferentes acentos, tonos y características
-- **Clonar voces**: Crear voces personalizadas basadas en muestras de audio (con los permisos adecuados)
-- **Controlar parámetros del habla**: Ajustar estabilidad, claridad y tono emocional para perfeccionar el resultado
-- **Añadir emociones realistas**: Incorporar emociones de sonido natural como felicidad, tristeza o entusiasmo
-
-En TradingGoose, la integración de ElevenLabs permite a tus agentes convertir texto en voz realista, mejorando la interactividad y el compromiso de tus aplicaciones. Esto es particularmente valioso para crear asistentes de voz, generar contenido de audio, desarrollar aplicaciones accesibles o construir interfaces conversacionales que se sientan más humanas. La integración te permite incorporar sin problemas las capacidades avanzadas de síntesis de voz de ElevenLabs en los flujos de trabajo de tus agentes, cerrando la brecha entre la IA basada en texto y la comunicación humana natural.
-{/* MANUAL-CONTENT-END */}
-
-## Instrucciones de uso
-
-Integra ElevenLabs en el flujo de trabajo. Puede convertir texto a voz. Requiere clave API.
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ElevenLabs"
+    type="elevenlabs"
+    color=""
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      
+      
+      viewBox='0 0 876 876'
+      fill='none'
+    >
+      <path d='M498 138H618V738H498V138Z' fill='currentColor' />
+      <path d='M258 138H378V738H258V138Z' fill='currentColor' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "layout": "full",
+            "placeholder": "Introduce el texto a convertir en voz",
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "ID de voz",
+            "layout": "full",
+            "placeholder": "Introduce el ID de voz",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "ID de modelo",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "eleven_monolingual_v1",
+                    "id": "eleven_monolingual_v1"
+                },
+                {
+                    "label": "eleven_multilingual_v2",
+                    "id": "eleven_multilingual_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2",
+                    "id": "eleven_turbo_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2_5",
+                    "id": "eleven_turbo_v2_5"
+                },
+                {
+                    "label": "eleven_flash_v2_5",
+                    "id": "eleven_flash_v2_5"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de ElevenLabs",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## Herramientas
 
@@ -48,11 +109,11 @@ Convertir TTS usando voces de ElevenLabs
 
 #### Entrada
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
 | `text` | string | Sí | El texto a convertir en voz |
 | `voiceId` | string | Sí | El ID de la voz a utilizar |
-| `modelId` | string | No | El ID del modelo a utilizar \(por defecto es eleven_monolingual_v1\) |
+| `modelId` | string | No | El ID del modelo a utilizar \(por defecto eleven_monolingual_v1\) |
 | `apiKey` | string | Sí | Tu clave API de ElevenLabs |
 
 #### Salida
@@ -60,6 +121,10 @@ Convertir TTS usando voces de ElevenLabs
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | La URL del audio generado |
+
+## Instrucciones de uso
+
+Integra ElevenLabs en el flujo de trabajo. Puede convertir texto a voz.
 
 ## Notas
 

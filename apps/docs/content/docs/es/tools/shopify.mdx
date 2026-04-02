@@ -1,0 +1,3728 @@
+---
+title: Shopify
+description: Gestiona productos, pedidos, clientes e inventario en tu tienda Shopify
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="shopify"
+  color="#FFFFFF"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+### Crear Producto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Envío",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_create_product"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título del Producto",
+            "placeholder": "Ingresa el título del producto"
+        },
+        {
+            "id": "descriptionHtml",
+            "type": "long-input",
+            "title": "Descripción (HTML)",
+            "placeholder": "Ingresa la descripción del producto"
+        },
+        {
+            "id": "productType",
+            "type": "short-input",
+            "title": "Tipo de Producto",
+            "placeholder": "p. ej., Calzado, Electrónica"
+        },
+        {
+            "id": "vendor",
+            "type": "short-input",
+            "title": "Proveedor",
+            "placeholder": "Ingresa el nombre del proveedor"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "etiqueta1, etiqueta2, etiqueta3 (separadas por comas)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Activo",
+                    "id": "ACTIVE"
+                },
+                {
+                    "label": "Borrador",
+                    "id": "DRAFT"
+                },
+                {
+                    "label": "Archivado",
+                    "id": "ARCHIVED"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Producto (<code>shopify_create_product</code>)</div>
+
+Crea un nuevo producto en tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `title` | string | Sí | Título del producto |
+| `descriptionHtml` | string | No | Descripción del producto \(HTML\) |
+| `vendor` | string | No | Proveedor/marca del producto |
+| `productType` | string | No | Tipo/categoría del producto |
+| `tags` | array | No | Etiquetas del producto |
+| `status` | string | No | Estado del producto \(ACTIVE, DRAFT, ARCHIVED\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Producto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Fulfillment",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_get_product"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Selecciona una cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "productId",
+            "type": "short-input",
+            "title": "ID de Producto",
+            "placeholder": "gid://shopify/Product/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Producto (<code>shopify_get_product</code>)</div>
+
+Obtener un único producto por ID de tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `productId` | string | Sí | ID del producto \(gid://shopify/Product/123456789\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Productos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Envío",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_products"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "productQuery",
+            "type": "short-input",
+            "title": "Consulta de Búsqueda",
+            "placeholder": "Filtrar productos (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Productos (<code>shopify_list_products</code>)</div>
+
+Lista productos de tu tienda Shopify con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de productos a devolver \(predeterminado: 50, máx: 250\) |
+| `query` | string | No | Consulta de búsqueda para filtrar productos \(p. ej., "title:shirt" o "vendor:Nike" o "status:active"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `products` | array | Lista de productos |
+
+</div>
+
+---
+
+### Actualizar Producto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Envío",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_update_product"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "productId",
+            "type": "short-input",
+            "title": "ID de Producto",
+            "placeholder": "gid://shopify/Product/123456789",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título del Producto",
+            "placeholder": "Ingresa el título del producto"
+        },
+        {
+            "id": "descriptionHtml",
+            "type": "long-input",
+            "title": "Descripción (HTML)",
+            "placeholder": "Ingresa la descripción del producto"
+        },
+        {
+            "id": "productType",
+            "type": "short-input",
+            "title": "Tipo de Producto",
+            "placeholder": "p. ej., Zapatos, Electrónica"
+        },
+        {
+            "id": "vendor",
+            "type": "short-input",
+            "title": "Proveedor",
+            "placeholder": "Ingresa el nombre del proveedor"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "etiqueta1, etiqueta2, etiqueta3 (separadas por comas)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Activo",
+                    "id": "ACTIVE"
+                },
+                {
+                    "label": "Borrador",
+                    "id": "DRAFT"
+                },
+                {
+                    "label": "Archivado",
+                    "id": "ARCHIVED"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar producto (<code>shopify_update_product</code>)</div>
+
+Actualiza un producto existente en tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `productId` | string | Sí | ID del producto a actualizar \(gid://shopify/Product/123456789\) |
+| `title` | string | No | Nuevo título del producto |
+| `descriptionHtml` | string | No | Nueva descripción del producto \(HTML\) |
+| `vendor` | string | No | Nuevo proveedor/marca del producto |
+| `productType` | string | No | Nuevo tipo/categoría del producto |
+| `tags` | array | No | Nuevas etiquetas del producto |
+| `status` | string | No | Nuevo estado del producto \(ACTIVE, DRAFT, ARCHIVED\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Eliminar producto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar artículos de inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener nivel de inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear envío",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_delete_product"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "productId",
+            "type": "short-input",
+            "title": "ID del producto",
+            "placeholder": "gid://shopify/Product/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar producto (<code>shopify_delete_product</code>)</div>
+
+Elimina un producto de tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `productId` | string | Sí | ID del producto a eliminar \(gid://shopify/Product/123456789\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener pedido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar artículos de inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener nivel de inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_get_order"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "ID de pedido",
+            "placeholder": "gid://shopify/Order/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Pedido (<code>shopify_get_order</code>)</div>
+
+Obtiene un único pedido por ID desde tu tienda de Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `orderId` | string | Sí | ID del pedido \(gid://shopify/Order/123456789\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Pedidos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Cumplimiento",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_orders"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "orderStatus",
+            "type": "dropdown",
+            "title": "Estado del Pedido",
+            "options": [
+                {
+                    "label": "Cualquiera",
+                    "id": "any"
+                },
+                {
+                    "label": "Abierto",
+                    "id": "open"
+                },
+                {
+                    "label": "Cerrado",
+                    "id": "closed"
+                },
+                {
+                    "label": "Cancelado",
+                    "id": "cancelled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Pedidos (<code>shopify_list_orders</code>)</div>
+
+Lista los pedidos de tu tienda Shopify con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de pedidos a retornar \(por defecto: 50, máx: 250\) |
+| `status` | string | No | Filtrar por estado del pedido \(open, closed, cancelled, any\) |
+| `query` | string | No | Consulta de búsqueda para filtrar pedidos \(p. ej., "financial_status:paid" o "fulfillment_status:unfulfilled" o "email:customer@example.com"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `orders` | array | Lista de pedidos |
+
+</div>
+
+---
+
+### Actualizar Pedido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_update_order"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "ID de Pedido",
+            "placeholder": "gid://shopify/Order/123456789",
+            "required": true
+        },
+        {
+            "id": "orderNote",
+            "type": "long-input",
+            "title": "Nota del Pedido",
+            "placeholder": "Ingresar nota del pedido"
+        },
+        {
+            "id": "orderEmail",
+            "type": "short-input",
+            "title": "Correo del Cliente",
+            "placeholder": "customer@example.com"
+        },
+        {
+            "id": "orderTags",
+            "type": "short-input",
+            "title": "Etiquetas del Pedido",
+            "placeholder": "etiqueta1, etiqueta2, etiqueta3 (separadas por comas)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Pedido (<code>shopify_update_order</code>)</div>
+
+Actualiza un pedido existente en tu tienda de Shopify (nota, etiquetas, correo electrónico)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `orderId` | string | Sí | ID del pedido a actualizar \(gid://shopify/Order/123456789\) |
+| `note` | string | No | Nueva nota del pedido |
+| `tags` | array | No | Nuevas etiquetas del pedido |
+| `email` | string | No | Nuevo correo electrónico del cliente para el pedido |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Cancelar Pedido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_cancel_order"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "ID del Pedido",
+            "placeholder": "gid://shopify/Order/123456789",
+            "required": true
+        },
+        {
+            "id": "cancelReason",
+            "type": "dropdown",
+            "title": "Motivo de Cancelación",
+            "required": true,
+            "options": [
+                {
+                    "label": "Solicitud del Cliente",
+                    "id": "CUSTOMER"
+                },
+                {
+                    "label": "Pago Rechazado",
+                    "id": "DECLINED"
+                },
+                {
+                    "label": "Fraude",
+                    "id": "FRAUD"
+                },
+                {
+                    "label": "Problema de Inventario",
+                    "id": "INVENTORY"
+                },
+                {
+                    "label": "Otro",
+                    "id": "OTHER"
+                }
+            ]
+        },
+        {
+            "id": "staffNote",
+            "type": "long-input",
+            "title": "Nota Interna",
+            "placeholder": "Nota interna sobre esta cancelación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar Pedido (<code>shopify_cancel_order</code>)</div>
+
+Cancela un pedido en tu tienda de Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `orderId` | string | Sí | ID del pedido a cancelar \(gid://shopify/Order/123456789\) |
+| `reason` | string | Sí | Motivo de cancelación \(CUSTOMER, DECLINED, FRAUD, INVENTORY, STAFF, OTHER\) |
+| `notifyCustomer` | boolean | No | Si se debe notificar al cliente sobre la cancelación |
+| `refund` | boolean | No | Si se debe reembolsar el pedido |
+| `restock` | boolean | No | Si se debe reponer el inventario |
+| `staffNote` | string | No | Una nota sobre la cancelación para referencia del personal |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Crear Cliente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_create_customer"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "customerEmail",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "cliente@ejemplo.com"
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Ingresa el nombre"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Ingresa el apellido"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Teléfono",
+            "placeholder": "+1234567890"
+        },
+        {
+            "id": "customerNote",
+            "type": "long-input",
+            "title": "Nota del Cliente",
+            "placeholder": "Ingresa una nota sobre el cliente"
+        },
+        {
+            "id": "customerTags",
+            "type": "short-input",
+            "title": "Etiquetas del Cliente",
+            "placeholder": "vip, mayorista (separadas por comas)"
+        },
+        {
+            "id": "acceptsMarketing",
+            "type": "switch",
+            "title": "Acepta Marketing"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Cliente (<code>shopify_create_customer</code>)</div>
+
+Crea un nuevo cliente en tu tienda de Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `email` | string | No | Correo electrónico del cliente |
+| `firstName` | string | No | Nombre del cliente |
+| `lastName` | string | No | Apellido del cliente |
+| `phone` | string | No | Número de teléfono del cliente |
+| `note` | string | No | Nota sobre el cliente |
+| `tags` | array | No | Etiquetas del cliente |
+| `addresses` | array | No | Direcciones del cliente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Cliente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Cumplimiento",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_get_customer"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "customerId",
+            "type": "short-input",
+            "title": "ID de Cliente",
+            "placeholder": "gid://shopify/Customer/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener cliente (<code>shopify_get_customer</code>)</div>
+
+Obtener un único cliente por ID desde tu tienda de Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `customerId` | string | Sí | ID del cliente \(gid://shopify/Customer/123456789\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar clientes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar artículos de inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener nivel de inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_customers"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "customerQuery",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "p. ej., first_name:John OR email:*@gmail.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Clientes (<code>shopify_list_customers</code>)</div>
+
+Listar clientes de tu tienda Shopify con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de clientes a devolver \(predeterminado: 50, máx.: 250\) |
+| `query` | string | No | Consulta de búsqueda para filtrar clientes \(p. ej., "first_name:John" o "last_name:Smith" o "email:*@gmail.com" o "tag:vip"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `customers` | array | Lista de clientes |
+
+</div>
+
+---
+
+### Actualizar Cliente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Envío",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_update_customer"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "customerId",
+            "type": "short-input",
+            "title": "ID de Cliente",
+            "placeholder": "gid://shopify/Customer/123456789",
+            "required": true
+        },
+        {
+            "id": "customerEmail",
+            "type": "short-input",
+            "title": "Correo Electrónico",
+            "placeholder": "customer@example.com"
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Ingresa el nombre"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Ingresa el apellido"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Teléfono",
+            "placeholder": "+1234567890"
+        },
+        {
+            "id": "customerNote",
+            "type": "long-input",
+            "title": "Nota del Cliente",
+            "placeholder": "Ingresa una nota sobre el cliente"
+        },
+        {
+            "id": "customerTags",
+            "type": "short-input",
+            "title": "Etiquetas del Cliente",
+            "placeholder": "vip, wholesale (separadas por comas)"
+        },
+        {
+            "id": "acceptsMarketing",
+            "type": "switch",
+            "title": "Acepta Marketing"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Cliente (<code>shopify_update_customer</code>)</div>
+
+Actualiza un cliente existente en tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | Dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `customerId` | string | Sí | ID del cliente a actualizar \(gid://shopify/Customer/123456789\) |
+| `email` | string | No | Nueva dirección de correo electrónico del cliente |
+| `firstName` | string | No | Nuevo nombre del cliente |
+| `lastName` | string | No | Nuevo apellido del cliente |
+| `phone` | string | No | Nuevo número de teléfono del cliente |
+| `note` | string | No | Nueva nota sobre el cliente |
+| `tags` | array | No | Nuevas etiquetas del cliente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Eliminar Cliente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_delete_customer"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "customerId",
+            "type": "short-input",
+            "title": "ID de Cliente",
+            "placeholder": "gid://shopify/Customer/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar cliente (<code>shopify_delete_customer</code>)</div>
+
+Eliminar un cliente de tu tienda Shopify
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `customerId` | string | Sí | ID del cliente a eliminar \(gid://shopify/Customer/123456789\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar artículos de inventario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar artículos de inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener nivel de inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_inventory_items"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "inventoryQuery",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "p. ej., sku:ABC123"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Artículos de Inventario (<code>shopify_list_inventory_items</code>)</div>
+
+Lista los artículos de inventario de tu tienda Shopify. Úsalo para encontrar IDs de artículos de inventario por SKU.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de artículos de inventario a devolver \(predeterminado: 50, máx.: 250\) |
+| `query` | string | No | Consulta de búsqueda para filtrar artículos de inventario \(ej., "sku:ABC123"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `inventoryItems` | array | Lista de artículos de inventario con sus IDs, SKUs y niveles de stock |
+
+</div>
+
+---
+
+### Obtener Nivel de Inventario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_get_inventory_level"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "inventoryItemId",
+            "type": "short-input",
+            "title": "ID de Artículo de Inventario",
+            "placeholder": "gid://shopify/InventoryItem/123456789",
+            "required": true
+        },
+        {
+            "id": "locationId",
+            "type": "short-input",
+            "title": "ID de Ubicación",
+            "placeholder": "gid://shopify/Location/123456789"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Nivel de Inventario (<code>shopify_get_inventory_level</code>)</div>
+
+Obtener el nivel de inventario de una variante de producto en una ubicación específica
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | Dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `inventoryItemId` | string | Sí | ID del artículo de inventario \(gid://shopify/InventoryItem/123456789\) |
+| `locationId` | string | No | ID de ubicación para filtrar \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Ajustar Inventario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_adjust_inventory"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "inventoryItemId",
+            "type": "short-input",
+            "title": "ID del Artículo de Inventario",
+            "placeholder": "gid://shopify/InventoryItem/123456789",
+            "required": true
+        },
+        {
+            "id": "locationId",
+            "type": "short-input",
+            "title": "ID de Ubicación",
+            "placeholder": "gid://shopify/Location/123456789"
+        },
+        {
+            "id": "delta",
+            "type": "short-input",
+            "title": "Cambio de Cantidad",
+            "placeholder": "Positivo para agregar, negativo para restar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ajustar Inventario (<code>shopify_adjust_inventory</code>)</div>
+
+Ajustar la cantidad de inventario para una variante de producto en una ubicación específica
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `inventoryItemId` | string | Sí | ID del artículo de inventario \(gid://shopify/InventoryItem/123456789\) |
+| `locationId` | string | Sí | ID de ubicación \(gid://shopify/Location/123456789\) |
+| `delta` | number | Sí | Cantidad a ajustar \(positivo para aumentar, negativo para disminuir\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Ubicaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Despacho",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_locations"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Ubicaciones (<code>shopify_list_locations</code>)</div>
+
+Lista las ubicaciones de inventario de tu tienda Shopify. Úsalo para encontrar los IDs de ubicación necesarios para las operaciones de inventario.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de ubicaciones a devolver \(por defecto: 50, máx: 250\) |
+| `includeInactive` | boolean | No | Si se deben incluir ubicaciones desactivadas \(por defecto: false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `locations` | array | Lista de ubicaciones con sus IDs, nombres y direcciones |
+
+</div>
+
+---
+
+### Crear Fulfillment
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Fulfillment",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_create_fulfillment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "fulfillmentOrderId",
+            "type": "short-input",
+            "title": "ID de Orden de Fulfillment",
+            "placeholder": "gid://shopify/FulfillmentOrder/123456789",
+            "required": true
+        },
+        {
+            "id": "trackingNumber",
+            "type": "short-input",
+            "title": "Número de Seguimiento",
+            "placeholder": "Ingrese el número de seguimiento"
+        },
+        {
+            "id": "trackingCompany",
+            "type": "short-input",
+            "title": "Transportista",
+            "placeholder": "ej., UPS, FedEx, USPS, DHL"
+        },
+        {
+            "id": "trackingUrl",
+            "type": "short-input",
+            "title": "URL de Seguimiento",
+            "placeholder": "https://..."
+        },
+        {
+            "id": "notifyCustomer",
+            "type": "switch",
+            "title": "Notificar al Cliente"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Entrega (<code>shopify_create_fulfillment</code>)</div>
+
+Crea una entrega para marcar los artículos del pedido como enviados. Requiere un ID de orden de entrega (obténlo desde los detalles del pedido).
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `fulfillmentOrderId` | string | Sí | El ID de la orden de entrega \(p. ej., gid://shopify/FulfillmentOrder/123456789\) |
+| `trackingNumber` | string | No | Número de seguimiento del envío |
+| `trackingCompany` | string | No | Nombre del transportista \(p. ej., UPS, FedEx, USPS, DHL\) |
+| `trackingUrl` | string | No | URL para rastrear el envío |
+| `notifyCustomer` | boolean | No | Si se debe enviar un correo electrónico de confirmación de envío al cliente \(por defecto: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Listar Colecciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Entrega",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_list_collections"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "collectionQuery",
+            "type": "short-input",
+            "title": "Consulta de Búsqueda",
+            "placeholder": "p. ej., title:Summer OR collection_type:smart"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Colecciones (<code>shopify_list_collections</code>)</div>
+
+Lista las colecciones de productos de tu tienda Shopify. Filtra por título, tipo (personalizada/inteligente) o identificador.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de colecciones a devolver \(predeterminado: 50, máx.: 250\) |
+| `query` | string | No | Consulta de búsqueda para filtrar colecciones \(p. ej., "title:Summer" o "collection_type:smart"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `collections` | array | Lista de colecciones con sus IDs, títulos y recuentos de productos |
+
+</div>
+
+---
+
+### Obtener Colección
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 48 48'
+      
+      
+    >
+      <path
+        fill='#7cb342'
+        d='M37.216,11.78c-0.023-0.211-0.211-0.305-0.351-0.305s-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	c-0.234-0.234-0.68-0.164-0.867-0.117c-0.023,0-0.469,0.141-1.195,0.375c-0.726-2.086-1.968-3.984-4.194-3.984h-0.211	C24.187,4.375,23.391,4,22.735,4c-5.155,0-7.639,6.444-8.412,9.725c-2.015,0.633-3.445,1.054-3.609,1.125	c-1.125,0.351-1.148,0.375-1.289,1.429c-0.117,0.797-3.046,23.456-3.046,23.456L29.179,44l12.373-2.671	C41.575,41.282,37.24,11.991,37.216,11.78z M27.937,9.483c-0.562,0.164-1.242,0.375-1.921,0.609V9.671	c0-1.265-0.164-2.296-0.469-3.117C26.718,6.695,27.445,7.984,27.937,9.483L27.937,9.483z M24.117,6.812	c0.305,0.797,0.516,1.922,0.516,3.468v0.234c-1.265,0.398-2.601,0.797-3.984,1.242C21.422,8.804,22.899,7.351,24.117,6.812	L24.117,6.812z M22.617,5.359c0.234,0,0.469,0.094,0.656,0.234c-1.664,0.773-3.421,2.718-4.148,6.655	c-1.101,0.351-2.156,0.656-3.163,0.984C16.806,10.233,18.915,5.359,22.617,5.359z'
+      />
+      <path
+        fill='#558b2f'
+        d='M36.865,11.428c-0.141,0-3.21-0.234-3.21-0.234s-2.132-2.132-2.39-2.343	C31.17,8.757,31.053,8.71,30.96,8.71L29.249,44l12.373-2.671c0,0-4.335-29.338-4.359-29.549	C37.169,11.569,37.005,11.475,36.865,11.428z'
+      />
+      <path
+        fill='#fff'
+        d='M24.792,18.593l-1.475,4.449c0,0-1.337-0.715-2.927-0.715c-2.374,0-2.489,1.498-2.489,1.867	c0,2.028,5.301,2.812,5.301,7.583c0,3.757-2.374,6.177-5.578,6.177c-3.872,0-5.808-2.397-5.808-2.397l1.037-3.411	c0,0,2.028,1.752,3.734,1.752c1.129,0,1.59-0.876,1.59-1.521c0-2.651-4.333-2.766-4.333-7.145c0-3.665,2.628-7.214,7.952-7.214	C23.777,17.994,24.792,18.593,24.792,18.593z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Crear Producto",
+                    "id": "shopify_create_product"
+                },
+                {
+                    "label": "Obtener Producto",
+                    "id": "shopify_get_product"
+                },
+                {
+                    "label": "Listar Productos",
+                    "id": "shopify_list_products"
+                },
+                {
+                    "label": "Actualizar Producto",
+                    "id": "shopify_update_product"
+                },
+                {
+                    "label": "Eliminar Producto",
+                    "id": "shopify_delete_product"
+                },
+                {
+                    "label": "Obtener Pedido",
+                    "id": "shopify_get_order"
+                },
+                {
+                    "label": "Listar Pedidos",
+                    "id": "shopify_list_orders"
+                },
+                {
+                    "label": "Actualizar Pedido",
+                    "id": "shopify_update_order"
+                },
+                {
+                    "label": "Cancelar Pedido",
+                    "id": "shopify_cancel_order"
+                },
+                {
+                    "label": "Crear Cliente",
+                    "id": "shopify_create_customer"
+                },
+                {
+                    "label": "Obtener Cliente",
+                    "id": "shopify_get_customer"
+                },
+                {
+                    "label": "Listar Clientes",
+                    "id": "shopify_list_customers"
+                },
+                {
+                    "label": "Actualizar Cliente",
+                    "id": "shopify_update_customer"
+                },
+                {
+                    "label": "Eliminar Cliente",
+                    "id": "shopify_delete_customer"
+                },
+                {
+                    "label": "Listar Artículos de Inventario",
+                    "id": "shopify_list_inventory_items"
+                },
+                {
+                    "label": "Obtener Nivel de Inventario",
+                    "id": "shopify_get_inventory_level"
+                },
+                {
+                    "label": "Ajustar Inventario",
+                    "id": "shopify_adjust_inventory"
+                },
+                {
+                    "label": "Listar Ubicaciones",
+                    "id": "shopify_list_locations"
+                },
+                {
+                    "label": "Crear Cumplimiento",
+                    "id": "shopify_create_fulfillment"
+                },
+                {
+                    "label": "Listar Colecciones",
+                    "id": "shopify_list_collections"
+                },
+                {
+                    "label": "Obtener Colección",
+                    "id": "shopify_get_collection"
+                }
+            ],
+            "defaultValue": "shopify_get_collection"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de Colección",
+            "placeholder": "gid://shopify/Collection/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Colección (<code>shopify_get_collection</code>)</div>
+
+Obtiene una colección específica por ID, incluyendo sus productos. Úsalo para recuperar productos dentro de una colección.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | El dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `collectionId` | string | Sí | El ID de la colección \(p. ej., gid://shopify/Collection/123456789\) |
+| `productsFirst` | number | No | Número de productos a devolver de esta colección \(predeterminado: 50, máx.: 250\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+## Instrucciones de Uso
+
+Integra Shopify en tu flujo de trabajo. Gestiona productos, pedidos, clientes e inventario. Crea, lee, actualiza y elimina productos. Lista y administra pedidos. Maneja datos de clientes y ajusta niveles de inventario.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `shopify`

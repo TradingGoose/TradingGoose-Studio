@@ -1,0 +1,2377 @@
+---
+title: Polymarket
+description: Accede a datos de mercados de predicción de Polymarket
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="polymarket"
+  color="#4C82FB"
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+### Obtener Mercados
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_markets"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Solo Activos",
+                    "id": "false"
+                },
+                {
+                    "label": "Solo Cerrados",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Ordenar Por",
+            "options": [
+                {
+                    "label": "Volumen",
+                    "id": "volumeNum"
+                },
+                {
+                    "label": "Liquidez",
+                    "id": "liquidityNum"
+                },
+                {
+                    "label": "Fecha de Inicio",
+                    "id": "startDate"
+                },
+                {
+                    "label": "Fecha de Fin",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Fecha de Creación",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Fecha de Actualización",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "Orden de Clasificación",
+            "options": [
+                {
+                    "label": "Descendente",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascendente",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "ID de Etiqueta",
+            "placeholder": "Filtrar por ID de etiqueta"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Mercados (<code>polymarket_get_markets</code>)</div>
+
+Recuperar una lista de mercados de predicción de Polymarket con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `closed` | string | No | Filtrar por estado cerrado \(true/false\). Usar false solo para mercados activos. |
+| `order` | string | No | Campo de ordenación \(p. ej., volumeNum, liquidityNum, startDate, endDate, createdAt\) |
+| `ascending` | string | No | Dirección de ordenación \(true para ascendente, false para descendente\) |
+| `tagId` | string | No | Filtrar por ID de etiqueta |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación \(omitir este número de resultados\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Mercado
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_market"
+        },
+        {
+            "id": "marketId",
+            "type": "short-input",
+            "title": "ID de Mercado",
+            "placeholder": "ID de mercado (requerido si no hay slug)"
+        },
+        {
+            "id": "marketSlug",
+            "type": "short-input",
+            "title": "Slug de Mercado",
+            "placeholder": "Slug de mercado (requerido si no hay ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Mercado (<code>polymarket_get_market</code>)</div>
+
+Recuperar los detalles de un mercado de predicción específico por ID o slug
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `marketId` | string | No | El ID del mercado. Requerido si no se proporciona el slug. |
+| `slug` | string | No | El slug del mercado \(p. ej., "will-trump-win"\). Requerido si no se proporciona el marketId. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_events"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Solo Activos",
+                    "id": "false"
+                },
+                {
+                    "label": "Solo Cerrados",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "orderEvents",
+            "type": "dropdown",
+            "title": "Ordenar Por",
+            "options": [
+                {
+                    "label": "Volumen",
+                    "id": "volume"
+                },
+                {
+                    "label": "Liquidez",
+                    "id": "liquidity"
+                },
+                {
+                    "label": "Fecha de Inicio",
+                    "id": "startDate"
+                },
+                {
+                    "label": "Fecha de Fin",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Fecha de Creación",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Fecha de Actualización",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "Orden de Clasificación",
+            "options": [
+                {
+                    "label": "Descendente",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascendente",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "ID de Etiqueta",
+            "placeholder": "Filtrar por ID de etiqueta"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Eventos (<code>polymarket_get_events</code>)</div>
+
+Recuperar una lista de eventos de Polymarket con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `closed` | string | No | Filtrar por estado cerrado \(true/false\). Usar false solo para eventos activos. |
+| `order` | string | No | Campo de ordenación \(p. ej., volume, liquidity, startDate, endDate, createdAt\) |
+| `ascending` | string | No | Dirección de ordenación \(true para ascendente, false para descendente\) |
+| `tagId` | string | No | Filtrar por ID de etiqueta |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación \(omitir esta cantidad de resultados\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_event"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "ID de Evento",
+            "placeholder": "ID de evento (requerido si no hay slug)"
+        },
+        {
+            "id": "eventSlug",
+            "type": "short-input",
+            "title": "Slug de Evento",
+            "placeholder": "Slug de evento (requerido si no hay ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Evento (<code>polymarket_get_event</code>)</div>
+
+Recuperar los detalles de un evento específico por ID o slug
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `eventId` | string | No | El ID del evento. Requerido si no se proporciona el slug. |
+| `slug` | string | No | El slug del evento \(p. ej., "2024-presidential-election"\). Requerido si no se proporciona el eventId. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Etiquetas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tags"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Etiquetas (<code>polymarket_get_tags</code>)</div>
+
+Recuperar etiquetas disponibles para filtrar mercados en Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación \(omitir esta cantidad de resultados\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Búsqueda",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de Búsqueda",
+            "placeholder": "Término de búsqueda",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda (<code>polymarket_search</code>)</div>
+
+Busca mercados, eventos y perfiles en Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Término de búsqueda |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Series
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Series por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Series (<code>polymarket_get_series</code>)</div>
+
+Recuperar series (grupos de mercados relacionados) de Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación \(omitir esta cantidad de resultados\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Series por ID
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Series por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series_by_id"
+        },
+        {
+            "id": "seriesId",
+            "type": "short-input",
+            "title": "ID de Serie",
+            "placeholder": "ID de Serie",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Serie por ID (<code>polymarket_get_series_by_id</code>)</div>
+
+Recupera una serie específica (grupo de mercados relacionados) por ID en Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `seriesId` | string | Sí | El ID de la serie |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Libro de Órdenes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_orderbook"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Libro de Órdenes (<code>polymarket_get_orderbook</code>)</div>
+
+Recupera el resumen del libro de órdenes para un token específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Precio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Lado",
+            "required": true,
+            "options": [
+                {
+                    "label": "Comprar",
+                    "id": "buy"
+                },
+                {
+                    "label": "Vender",
+                    "id": "sell"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Precio (<code>polymarket_get_price</code>)</div>
+
+Recuperar el precio de mercado para un token y lado específicos
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+| `side` | string | Sí | Lado de la orden: buy o sell |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Punto Medio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_midpoint"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Punto Medio (<code>polymarket_get_midpoint</code>)</div>
+
+Recupera el precio del punto medio para un token específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Historial de Precios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Series por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price_history"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Intervalo",
+            "options": [
+                {
+                    "label": "1 Minuto",
+                    "id": "1m"
+                },
+                {
+                    "label": "1 Hora",
+                    "id": "1h"
+                },
+                {
+                    "label": "6 Horas",
+                    "id": "6h"
+                },
+                {
+                    "label": "1 Día",
+                    "id": "1d"
+                },
+                {
+                    "label": "1 Semana",
+                    "id": "1w"
+                },
+                {
+                    "label": "Máximo",
+                    "id": "max"
+                }
+            ]
+        },
+        {
+            "id": "fidelity",
+            "type": "short-input",
+            "title": "Fidelidad (minutos)",
+            "placeholder": "Resolución de datos en minutos (p. ej., 60)"
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "Timestamp de Inicio",
+            "placeholder": "Timestamp Unix UTC (si no hay intervalo)"
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "Timestamp de Fin",
+            "placeholder": "Timestamp Unix UTC (si no hay intervalo)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Historial de Precios (<code>polymarket_get_price_history</code>)</div>
+
+Recuperar datos históricos de precios para un token de mercado específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+| `interval` | string | No | Duración hasta el momento actual \(1m, 1h, 6h, 1d, 1w, max\). Mutuamente excluyente con startTs/endTs. |
+| `fidelity` | number | No | Resolución de datos en minutos \(p. ej., 60 para datos por hora\) |
+| `startTs` | number | No | Marca de tiempo de inicio \(Unix segundos UTC\) |
+| `endTs` | number | No | Marca de tiempo de fin \(Unix segundos UTC\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Último Precio Negociado
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_last_trade_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Último Precio de Operación (<code>polymarket_get_last_trade_price</code>)</div>
+
+Recupera el último precio de operación para un token específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de clobTokenIds del mercado\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Spread
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio de Operación",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_spread"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Spread (<code>polymarket_get_spread</code>)</div>
+
+Recuperar el spread bid-ask para un token específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Tamaño de Tick
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tick_size"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "ID de Token",
+            "placeholder": "ID de Token CLOB del mercado",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Tamaño de Tick (<code>polymarket_get_tick_size</code>)</div>
+
+Recuperar el tamaño mínimo de tick para un token específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Sí | El ID de token CLOB \(de market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Posiciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Serie",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Serie por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_positions"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "Dirección de Billetera del Usuario",
+            "placeholder": "Dirección de billetera",
+            "required": true
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "ID de Mercado",
+            "placeholder": "ID de mercado (filtro opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Posiciones (<code>polymarket_get_positions</code>)</div>
+
+Recuperar las posiciones del usuario en Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `user` | string | Sí | Dirección de la billetera del usuario |
+| `market` | string | No | ID de mercado opcional para filtrar posiciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+### Obtener Operaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='51 209 123 155'>
+      <path
+        fill='currentColor'
+        d='M173.2,363.2L51.1,328.3v-83.7l122.1-34.9V363.2z M161.4,296.2l-89.8,25.6l89.8,25.6L161.4,296.2z M62.9,260.8v51.3l89.8-25.6L62.9,260.8z M161.4,225.3L71.6,251l89.8,25.6L161.4,225.3z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Mercados",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Obtener Mercado",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Obtener Eventos",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Obtener Evento",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Obtener Etiquetas",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Buscar",
+                    "id": "search"
+                },
+                {
+                    "label": "Obtener Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Obtener Series por ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Obtener Libro de Órdenes",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Obtener Precio",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Obtener Punto Medio",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Obtener Historial de Precios",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Obtener Último Precio Negociado",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Obtener Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Obtener Tamaño de Tick",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Obtener Posiciones",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Obtener Operaciones",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_trades"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "Dirección de Billetera del Usuario",
+            "placeholder": "Dirección de billetera (filtro opcional)"
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "ID de Mercado",
+            "placeholder": "ID de mercado (filtro opcional)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (máx. 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Desplazamiento de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Operaciones (<code>polymarket_get_trades</code>)</div>
+
+Recuperar el historial de operaciones de Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `user` | string | No | Dirección de wallet del usuario para filtrar operaciones |
+| `market` | string | No | ID de mercado para filtrar operaciones |
+| `limit` | string | No | Número de resultados por página \(máx. 50\) |
+| `offset` | string | No | Desplazamiento de paginación \(omitir esta cantidad de resultados\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+## Instrucciones de Uso
+
+Integre los mercados de predicción de Polymarket en el flujo de trabajo. Permite obtener mercados, mercado, eventos, evento, etiquetas, series, libro de órdenes, precio, punto medio, historial de precios, último precio negociado, spread, tamaño de tick, posiciones, operaciones y búsqueda.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `polymarket`

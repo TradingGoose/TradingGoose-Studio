@@ -1,0 +1,147 @@
+---
+title: 技术分析
+description: ta 命名空间中包含 57+ 个内置技术分析函数
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+`ta` 命名空间提供 57+ 个技术分析函数，涵盖移动平均线、振荡器、波动率、成交量、趋势识别与统计分析。
+
+## 移动平均线
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.sma(source, length)` | 简单移动平均线（SMA） |
+| `ta.ema(source, length)` | 指数移动平均线（EMA） |
+| `ta.wma(source, length)` | 加权移动平均线（WMA） |
+| `ta.vwma(source, length)` | 成交量加权移动平均线（VWMA） |
+| `ta.rma(source, length)` | 滚动/运行移动平均线（Wilder 平滑法） |
+| `ta.hma(source, length)` | 赫尔移动平均线（HMA） |
+| `ta.alma(source, length, offset?, sigma?)` | Arnaud Legoux 移动平均线（ALMA） |
+| `ta.swma(source)` | 对称加权移动平均线（SWMA） |
+| `ta.linreg(source, length, offset?)` | 线性回归 |
+| `ta.vwap` | 成交量加权平均价格（变量形式） |
+| `ta.vwap(source)` | 成交量加权平均价格（函数形式） |
+
+```javascript
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+plot(fast, 'Fast EMA', { color: '#2962FF' });
+plot(slow, 'Slow EMA', { color: '#FF6D00' });
+```
+
+## 振荡器与动量指标
+
+| 函数 | 返回值 | 描述 |
+|----------|---------|-------------|
+| `ta.rsi(source, length)` | `number` | 相对强弱指数（RSI） |
+| `ta.macd(source, fast, slow, signal)` | `[macd, signal, hist]` | MACD（返回元组） |
+| `ta.stoch(source, high, low, length)` | `number` | 随机振荡器（Stochastic） |
+| `ta.cci(source, length)` | `number` | 商品通道指数（CCI） |
+| `ta.mfi(series, length)` | `number` | 资金流量指数（MFI） |
+| `ta.mom(source, length)` | `number` | 动量（Momentum） |
+| `ta.roc(source, length)` | `number` | 变动率（ROC） |
+| `ta.tsi(source, short, long)` | `number` | 真实强度指数（TSI） |
+| `ta.cmo(source, length)` | `number` | Chande 动量振荡器（CMO） |
+| `ta.cog(source, length)` | `number` | 重力中心（COG） |
+| `ta.wpr(length)` | `number` | 威廉指标（Williams %R） |
+| `ta.change(source, length?)` | `number` | N 根 K 线内的价格变动 |
+
+```javascript
+const rsi = ta.rsi(close, 14);
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+```
+
+## 波动率与价格区间
+
+| 函数 | 返回值 | 描述 |
+|----------|---------|-------------|
+| `ta.atr(length)` | `number` | 平均真实范围 (ATR) |
+| `ta.bb(source, length, mult)` | `[middle, upper, lower]` | 布林带（元组） |
+| `ta.bbw(source, length, mult)` | `number` | 布林带宽度 |
+| `ta.kc(source, length, mult)` | `[middle, upper, lower]` | 肯特纳通道（元组） |
+| `ta.kcw(source, length, mult)` | `number` | 肯特纳通道宽度 |
+| `ta.stdev(source, length)` | `number` | 标准差 |
+| `ta.dev(source, length)` | `number` | 平均绝对偏差 |
+| `ta.variance(source, length)` | `number` | 方差 |
+| `ta.range(source, length)` | `number` | 区间（最高值 - 最低值） |
+| `ta.tr` | `number` | 真实范围（变量） |
+| `ta.tr(handleNa?)` | `number` | 真实范围（函数） |
+
+```javascript
+const [middle, upper, lower] = ta.bb(close, 20, 2);
+const atr = ta.atr(14);
+```
+
+## 成交量指标
+
+以下指标以变量形式访问（非函数调用）：
+
+| 变量 | 描述 |
+|----------|-------------|
+| `ta.obv` | 能量潮 (OBV) |
+| `ta.accdist` | 累积/派发指标 |
+| `ta.pvt` | 价量趋势 |
+| `ta.wad` | 威廉累积/派发指标 |
+| `ta.wvad` | 威廉可变累积/派发指标 |
+| `ta.nvi` | 负成交量指数 |
+| `ta.pvi` | 正成交量指数 |
+| `ta.iii` | 盘中强度指数 |
+
+```javascript
+plot(ta.obv, 'OBV');
+plot(ta.accdist, 'A/D');
+```
+
+## 趋势分析
+
+| 函数 | 返回值 | 描述 |
+|----------|---------|-------------|
+| `ta.crossover(a, b)` | `boolean` | 当 `a` 向上穿越 `b` 时为真 |
+| `ta.crossunder(a, b)` | `boolean` | 当 `a` 向下穿越 `b` 时为真 |
+| `ta.cross(a, b)` | `boolean` | 当 `a` 以任意方向穿越 `b` 时为真 |
+| `ta.rising(source, length)` | `boolean` | 当数据源连续上涨 `length` 根K线时为真 |
+| `ta.falling(source, length)` | `boolean` | 当数据源连续下跌 `length` 根K线时为真 |
+| `ta.supertrend(factor, atrLength)` | `[value, direction]` | 超级趋势（元组） |
+| `ta.sar(start, inc, max)` | `number` | 抛物线转向指标 (SAR) |
+| `ta.dmi(diLength, adxSmoothing)` | `[plus, minus, adx]` | 方向运动指数（元组） |
+
+```javascript
+if (ta.crossover(fast, slow)) {
+  plotshape(close, 'Buy', { style: shape.triangleup, location: location.belowbar });
+}
+```
+
+## 统计函数
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.highest(source, length)` | N根K线内的最高值 |
+| `ta.lowest(source, length)` | N根K线内的最低值 |
+| `ta.highestbars(source, length)` | 距最高值的K线数 |
+| `ta.lowestbars(source, length)` | 距最低值的K线数 |
+| `ta.median(source, length)` | 中位数 |
+| `ta.mode(source, length)` | 众数 |
+| `ta.percentile_linear_interpolation(source, length, pct)` | 百分位数（线性插值）|
+| `ta.percentile_nearest_rank(source, length, pct)` | 百分位数（最近秩次）|
+| `ta.percentrank(source, length)` | 百分位秩 |
+| `ta.correlation(a, b, length)` | 相关系数 |
+| `ta.max(a, b)` | 两值中的较大值 |
+| `ta.min(a, b)` | 两值中的较小值 |
+
+## 实用函数
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.barssince(condition)` | 条件为真以来的K线数 |
+| `ta.valuewhen(condition, source, occurrence)` | 条件为真时的值 |
+| `ta.cum(source)` | 累计求和 |
+| `ta.rci(source, length)` | 秩相关指数 |
+
+## 支撑与阻力
+
+| 函数 | 描述 |
+|----------|-------------|
+| `ta.pivothigh(source, leftbars, rightbars)` | 识别枢轴高点 |
+| `ta.pivotlow(source, leftbars, rightbars)` | 识别枢轴低点 |
+| `ta.pivot_point_levels(type, anchor)` | 计算枢轴点位 |

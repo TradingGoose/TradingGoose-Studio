@@ -24,6 +24,7 @@
         "@next/env": "15.4.1",
         "@octokit/rest": "^21.0.0",
         "drizzle-kit": "^0.31.4",
+        "glob": "13.0.6",
         "husky": "9.1.7",
         "lint-staged": "16.0.0",
         "turbo": "2.5.8",

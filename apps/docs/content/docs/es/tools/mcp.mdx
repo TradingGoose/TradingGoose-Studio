@@ -1,13 +1,15 @@
 ---
 title: Herramienta MCP
-description: Ejecuta herramientas desde servidores de Protocolo de Contexto de Modelo (MCP)
+description: Ejecutar herramientas desde servidores de Model Context Protocol (MCP)
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="mcp"
-  color="#181C1E"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"
       
@@ -26,11 +28,62 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MCP Tool"
+    type="mcp"
+    color=""
+    iconSvg={`<svg className="block-icon"
+      
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <rect   x='2' y='2' rx='2' ry='2' />
+      <rect   x='2' y='14' rx='2' ry='2' />
+      <line x1='6' x2='6.01' y1='6' y2='6' />
+      <line x1='6' x2='6.01' y1='18' y2='18' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "server",
+            "type": "mcp-server-selector",
+            "title": "Servidor MCP",
+            "layout": "full",
+            "placeholder": "Seleccionar un servidor MCP",
+            "description": "Seleccione entre los servidores MCP configurados en su espacio de trabajo",
+            "required": true
+        },
+        {
+            "id": "tool",
+            "type": "mcp-tool-selector",
+            "title": "Herramienta",
+            "layout": "full",
+            "placeholder": "Seleccionar una herramienta",
+            "description": "Herramientas disponibles del servidor MCP seleccionado",
+            "required": true
+        },
+        {
+            "id": "arguments",
+            "type": "mcp-dynamic-args",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
 ## Instrucciones de uso
 
-Integra MCP en el flujo de trabajo. Puede ejecutar herramientas desde servidores MCP. Requiere servidores MCP en la configuración del espacio de trabajo.
+Integre MCP en el flujo de trabajo. Permite ejecutar herramientas desde servidores MCP configurados en los widgets del panel de control del espacio de trabajo.
 
 ## Notas
 
-- Categoría: `tools`
-- Tipo: `mcp`
+- Category: `tools`
+- Type: `mcp`

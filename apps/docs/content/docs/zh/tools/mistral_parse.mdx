@@ -1,84 +1,201 @@
 ---
-title: Mistral Parser
+title: Mistral 解析器
 description: 从 PDF 文档中提取文本
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="mistral_parse"
-  color="#000000"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"
-      
-      
-      
-      viewBox='1 0.5 24 22'
-      fill='none'
-      xmlns='http://www.w3.org/2000/svg'
-      preserveAspectRatio='xMidYMid meet'
-    >
-      <g clipPath='url(#clip0_1621_58)'>
-        <path d='M17.4541 0H21.8177V4.39481H17.4541V0Z' fill='black' />
-        <path d='M19.6367 0H24.0003V4.39481H19.6367V0Z' fill='#F7D046' />
-        <path
-          d='M0 0H4.36359V4.39481H0V0ZM0 4.39481H4.36359V8.78961H0V4.39481ZM0 8.78971H4.36359V13.1845H0V8.78971ZM0 13.1845H4.36359V17.5793H0V13.1845ZM0 17.5794H4.36359V21.9742H0V17.5794Z'
-          fill='black'
-        />
-        <path d='M2.18164 0H6.54523V4.39481H2.18164V0Z' fill='#F7D046' />
-        <path
-          d='M19.6362 4.39478H23.9998V8.78958H19.6362V4.39478ZM2.18164 4.39478H6.54523V8.78958H2.18164V4.39478Z'
-          fill='#F2A73B'
-        />
-        <path d='M13.0908 4.39478H17.4544V8.78958H13.0908V4.39478Z' fill='black' />
-        <path
-          d='M15.2732 4.39478H19.6368V8.78958H15.2732V4.39478ZM6.5459 4.39478H10.9095V8.78958H6.5459V4.39478Z'
-          fill='#F2A73B'
-        />
-        <path
-          d='M10.9096 8.78979H15.2732V13.1846H10.9096V8.78979ZM15.2732 8.78979H19.6368V13.1846H15.2732V8.78979ZM6.5459 8.78979H10.9096V13.1846H6.5459V8.78979Z'
-          fill='#EE792F'
-        />
-        <path d='M8.72754 13.1846H13.0911V17.5794H8.72754V13.1846Z' fill='black' />
-        <path d='M10.9092 13.1846H15.2728V17.5794H10.9092V13.1846Z' fill='#EB5829' />
-        <path
-          d='M19.6362 8.78979H23.9998V13.1846H19.6362V8.78979ZM2.18164 8.78979H6.54523V13.1846H2.18164V8.78979Z'
-          fill='#EE792F'
-        />
-        <path d='M17.4541 13.1846H21.8177V17.5794H17.4541V13.1846Z' fill='black' />
-        <path d='M19.6367 13.1846H24.0003V17.5794H19.6367V13.1846Z' fill='#EB5829' />
-        <path d='M17.4541 17.5793H21.8177V21.9742H17.4541V17.5793Z' fill='black' />
-        <path d='M2.18164 13.1846H6.54523V17.5794H2.18164V13.1846Z' fill='#EB5829' />
-        <path
-          d='M19.6362 17.5793H23.9998V21.9742H19.6362V17.5793ZM2.18164 17.5793H6.54523V21.9742H2.18164V17.5793Z'
-          fill='#EA3326'
-        />
-      </g>
-      <defs>
-        <clipPath id='clip0_1621_58'>
-          <rect   fill='white' />
-        </clipPath>
-      </defs>
-    </svg>`}
+            
+            
+            
+            viewBox='1 0.5 24 22'
+            fill='none'
+            xmlns='http://www.w3.org/2000/svg'
+            preserveAspectRatio='xMidYMid meet'
+        >
+            <g clipPath='url(#clip0_1621_58)'>
+                <path d='M17.4541 0H21.8177V4.39481H17.4541V0Z' fill='black' />
+                <path d='M19.6367 0H24.0003V4.39481H19.6367V0Z' fill='#F7D046' />
+                <path
+                    d='M0 0H4.36359V4.39481H0V0ZM0 4.39481H4.36359V8.78961H0V4.39481ZM0 8.78971H4.36359V13.1845H0V8.78971ZM0 13.1845H4.36359V17.5793H0V13.1845ZM0 17.5794H4.36359V21.9742H0V17.5794Z'
+                    fill='black'
+                />
+                <path d='M2.18164 0H6.54523V4.39481H2.18164V0Z' fill='#F7D046' />
+                <path
+                    d='M19.6362 4.39478H23.9998V8.78958H19.6362V4.39478ZM2.18164 4.39478H6.54523V8.78958H2.18164V4.39478Z'
+                    fill='#F2A73B'
+                />
+                <path d='M13.0908 4.39478H17.4544V8.78958H13.0908V4.39478Z' fill='black' />
+                <path
+                    d='M15.2732 4.39478H19.6368V8.78958H15.2732V4.39478ZM6.5459 4.39478H10.9095V8.78958H6.5459V4.39478Z'
+                    fill='#F2A73B'
+                />
+                <path
+                    d='M10.9096 8.78979H15.2732V13.1846H10.9096V8.78979ZM15.2732 8.78979H19.6368V13.1846H15.2732V8.78979ZM6.5459 8.78979H10.9096V13.1846H6.5459V8.78979Z'
+                    fill='#EE792F'
+                />
+                <path d='M8.72754 13.1846H13.0911V17.5794H8.72754V13.1846Z' fill='black' />
+                <path d='M10.9092 13.1846H15.2728V17.5794H10.9092V13.1846Z' fill='#EB5829' />
+                <path
+                    d='M19.6362 8.78979H23.9998V13.1846H19.6362V8.78979ZM2.18164 8.78979H6.54523V13.1846H2.18164V8.78979Z'
+                    fill='#EE792F'
+                />
+                <path d='M17.4541 13.1846H21.8177V17.5794H17.4541V13.1846Z' fill='black' />
+                <path d='M19.6367 13.1846H24.0003V17.5794H19.6367V13.1846Z' fill='#EB5829' />
+                <path d='M17.4541 17.5793H21.8177V21.9742H17.4541V17.5793Z' fill='black' />
+                <path d='M2.18164 13.1846H6.54523V17.5794H2.18164V13.1846Z' fill='#EB5829' />
+                <path
+                    d='M19.6362 17.5793H23.9998V21.9742H19.6362V17.5793ZM2.18164 17.5793H6.54523V21.9742H2.18164V17.5793Z'
+                    fill='#EA3326'
+                />
+            </g>
+            <defs>
+                <clipPath id='clip0_1621_58'>
+                    <rect   fill='white' />
+                </clipPath>
+            </defs>
+        </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-Mistral Parse 工具提供了一种强大的方式，通过 [Mistral 的 OCR API](https://mistral.ai/) 从 PDF 文档中提取和处理内容。该工具利用先进的光学字符识别技术，能够准确提取 PDF 文件中的文本和结构，使文档数据轻松融入您的代理工作流程。
+## 配置
 
-使用 Mistral Parse 工具，您可以：
-
-- **从 PDF 中提取文本**：将 PDF 内容准确转换为文本、Markdown 或 JSON 格式
-- **处理来自 URL 的 PDF**：通过提供在线托管的 PDF 的 URL，直接提取内容
-- **保留文档结构**：保留原始 PDF 的格式、表格和布局
-- **提取图像**：可选地包含 PDF 中嵌入的图像
-- **选择特定页面**：仅处理多页文档中您需要的页面
-
-Mistral Parse 工具在需要处理 PDF 内容的场景中特别有用，例如分析报告、从表单中提取数据或处理扫描文档中的文本。它简化了将 PDF 内容提供给代理的过程，使他们能够像处理直接文本输入一样轻松地处理存储在 PDF 中的信息。
-{/* MANUAL-CONTENT-END */}
-
-## 使用说明
-
-将 Mistral Parse 集成到工作流程中。可以从上传的 PDF 文档或 URL 中提取文本。需要 API 密钥。
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral 解析器"
+    type="mistral_parse"
+    color=""
+    iconSvg={`<svg className="block-icon"
+            
+            
+            
+            viewBox='1 0.5 24 22'
+            fill='none'
+            xmlns='http://www.w3.org/2000/svg'
+            preserveAspectRatio='xMidYMid meet'
+        >
+            <g clipPath='url(#clip0_1621_58)'>
+                <path d='M17.4541 0H21.8177V4.39481H17.4541V0Z' fill='black' />
+                <path d='M19.6367 0H24.0003V4.39481H19.6367V0Z' fill='#F7D046' />
+                <path
+                    d='M0 0H4.36359V4.39481H0V0ZM0 4.39481H4.36359V8.78961H0V4.39481ZM0 8.78971H4.36359V13.1845H0V8.78971ZM0 13.1845H4.36359V17.5793H0V13.1845ZM0 17.5794H4.36359V21.9742H0V17.5794Z'
+                    fill='black'
+                />
+                <path d='M2.18164 0H6.54523V4.39481H2.18164V0Z' fill='#F7D046' />
+                <path
+                    d='M19.6362 4.39478H23.9998V8.78958H19.6362V4.39478ZM2.18164 4.39478H6.54523V8.78958H2.18164V4.39478Z'
+                    fill='#F2A73B'
+                />
+                <path d='M13.0908 4.39478H17.4544V8.78958H13.0908V4.39478Z' fill='black' />
+                <path
+                    d='M15.2732 4.39478H19.6368V8.78958H15.2732V4.39478ZM6.5459 4.39478H10.9095V8.78958H6.5459V4.39478Z'
+                    fill='#F2A73B'
+                />
+                <path
+                    d='M10.9096 8.78979H15.2732V13.1846H10.9096V8.78979ZM15.2732 8.78979H19.6368V13.1846H15.2732V8.78979ZM6.5459 8.78979H10.9096V13.1846H6.5459V8.78979Z'
+                    fill='#EE792F'
+                />
+                <path d='M8.72754 13.1846H13.0911V17.5794H8.72754V13.1846Z' fill='black' />
+                <path d='M10.9092 13.1846H15.2728V17.5794H10.9092V13.1846Z' fill='#EB5829' />
+                <path
+                    d='M19.6362 8.78979H23.9998V13.1846H19.6362V8.78979ZM2.18164 8.78979H6.54523V13.1846H2.18164V8.78979Z'
+                    fill='#EE792F'
+                />
+                <path d='M17.4541 13.1846H21.8177V17.5794H17.4541V13.1846Z' fill='black' />
+                <path d='M19.6367 13.1846H24.0003V17.5794H19.6367V13.1846Z' fill='#EB5829' />
+                <path d='M17.4541 17.5793H21.8177V21.9742H17.4541V17.5793Z' fill='black' />
+                <path d='M2.18164 13.1846H6.54523V17.5794H2.18164V13.1846Z' fill='#EB5829' />
+                <path
+                    d='M19.6362 17.5793H23.9998V21.9742H19.6362V17.5793ZM2.18164 17.5793H6.54523V21.9742H2.18164V17.5793Z'
+                    fill='#EA3326'
+                />
+            </g>
+            <defs>
+                <clipPath id='clip0_1621_58'>
+                    <rect   fill='white' />
+                </clipPath>
+            </defs>
+        </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方式",
+            "layout": "full"
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "PDF 文档 URL",
+            "layout": "full",
+            "placeholder": "输入 PDF 文档的完整 URL（https://example.com/document.pdf）",
+            "condition": {
+                "field": "inputMethod",
+                "value": "url"
+            }
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "上传 PDF",
+            "layout": "full",
+            "condition": {
+                "field": "inputMethod",
+                "value": "upload"
+            }
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "输出格式",
+            "layout": "full"
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "指定页面",
+            "layout": "full",
+            "placeholder": "例如：0,1,2（留空则处理所有页面）"
+        },
+        {
+            "id": "includeImageBase64",
+            "type": "switch",
+            "title": "包含 PDF 图片",
+            "layout": "half"
+        },
+        {
+            "id": "imageLimit",
+            "type": "short-input",
+            "title": "最大图片数量",
+            "layout": "half",
+            "placeholder": "可提取的最大图片数量"
+        },
+        {
+            "id": "imageMinSize",
+            "type": "short-input",
+            "title": "最小图片尺寸（px）",
+            "layout": "half",
+            "placeholder": "最小宽度/高度（像素）"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入您的 Mistral API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## 工具
 
@@ -88,24 +205,36 @@ Mistral Parse 工具在需要处理 PDF 内容的场景中特别有用，例如�
 
 #### 输入
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `filePath` | 字符串 | 是 | 要处理的 PDF 文档的 URL |
-| `fileUpload` | 对象 | 否 | 来自文件上传组件的文件上传数据 |
-| `resultType` | 字符串 | 否 | 解析结果的类型（markdown、text 或 json）。默认为 markdown。 |
-| `includeImageBase64` | 布尔值 | 否 | 在响应中包含 base64 编码的图像 |
-| `pages` | 数组 | 否 | 要处理的特定页面（页面编号数组，从 0 开始） |
-| `imageLimit` | 数字 | 否 | 从 PDF 中提取的最大图像数量 |
-| `imageMinSize` | 数字 | 否 | 从 PDF 中提取的图像的最小高度和宽度 |
-| `apiKey` | 字符串 | 是 | Mistral API 密钥（MISTRAL_API_KEY） |
+| `filePath` | string | 是 | 待处理 PDF 文档的 URL |
+| `fileUpload` | object | 否 | 来自文件上传组件的文件上传数据 |
+| `resultType` | string | 否 | 解析结果的类型 \(markdown、text 或 json\)，默认为 markdown |
+| `includeImageBase64` | boolean | 否 | 在响应中包含 base64 编码的图像 |
+| `pages` | array | 否 | 指定要处理的页面 \(页码数组，从 0 开始\) |
+| `imageLimit` | number | 否 | 从 PDF 中提取图像的最大数量 |
+| `imageMinSize` | number | 否 | 从 PDF 中提取图像的最小高度和宽度 |
+| `apiKey` | string | 是 | Mistral API 密钥 \(MISTRAL_API_KEY\) |
 
 #### 输出
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `success` | boolean | PDF 是否成功解析 |
-| `content` | string | 按请求格式提取的内容（markdown、text 或 JSON） |
-| `metadata` | object | 包括 jobId、fileType、pageCount 和使用信息的处理元数据 |
+| `success` | boolean | PDF 是否解析成功 |
+| `content` | string | 以请求格式提取的内容 \(markdown、text 或 JSON\) |
+| `jobId` | string | 唯一任务标识符 |
+| `fileType` | string | 文件类型 \(例如：pdf\) |
+| `fileName` | string | 原始文件名 |
+| `source` | string | 来源类型 \(url\) |
+| `pageCount` | number | 已处理的页数 |
+| `model` | string | 所使用的 Mistral 模型 |
+| `resultType` | string | 输出格式 \(markdown、text、json\) |
+| `processedAt` | string | 处理时间戳 |
+| `sourceUrl` | string | 来源 URL（如适用）|
+
+## 使用说明
+
+将 Mistral Parse 集成到工作流中。可从上传的 PDF 文档或 URL 中提取文本。
 
 ## 注意事项
 

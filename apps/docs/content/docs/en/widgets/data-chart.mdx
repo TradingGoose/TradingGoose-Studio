@@ -1,0 +1,72 @@
+---
+title: "Data Chart"
+description: "Visualize OHLCV market data."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `data_chart` |
+| **Category** | Data |
+
+The Data Chart widget renders OHLCV candlestick charts with technical indicator overlays, drawing tools, and configurable time intervals. It uses [lightweight-charts](https://tradingview.github.io/lightweight-charts/) under the hood and supports multiple data providers and market session modes.
+
+## Features
+
+- **Six candle styles** -- Solid, Hollow, Up Hollow, Down Hollow, OHLC bar stroke, and Area line.
+- **Time intervals** -- 1m through 12mo, with range presets (1D, 5D, 1W, 1M, 3M, 6M, 1Y, 5Y, ALL) that auto-select a fitting interval.
+- **Technical indicators** -- Add one or more Pine-style indicators from your workspace library or the built-in defaults. Each indicator renders in its own pane (or overlays the price pane) and exposes per-plot legend values on crosshair hover. Indicator inputs are editable through a settings modal. See the [Indicator scripting guide](/indicators) for authoring custom indicators.
+- **Drawing tools** -- A sidebar offers lines (trend line, ray, arrow, extended line, horizontal/vertical/cross lines), notes (callout, text), freehand (brush, highlighter, path), shapes (rectangle, circle, triangle), and analysis tools (parallel channel, Fibonacci retracement, price range, long/short position, market depth). Drawings persist per symbol and can be toggled visible or hidden in bulk.
+- **OHLCV legend** -- Displays open, high, low, close values (or a single value for area mode) at the crosshair position, color-coded green/red by direction.
+- **Timezone and session controls** -- Switch the chart timeline between exchange-local, UTC, or any IANA timezone. Toggle between regular and extended market sessions when the provider supports it.
+- **Price axis modes** -- Normal, percentage, and logarithmic scaling.
+- **Live bar updates** -- When enabled, the chart streams real-time bar data through the socket connection and merges incoming bars into the visible series.
+
+## Usage
+
+Add the Data Chart to any workspace panel. The header is split into three control groups:
+
+- **Left (provider)** -- Select the market data provider and configure provider-specific parameters or API credentials.
+- **Center (listing)** -- Search and select a symbol. When the widget shares a pair color with a [Watchlist](/widgets/watchlist), clicking a symbol in the Watchlist automatically loads it here.
+- **Right (chart)** -- Change the time interval, candle style, and toggle indicators.
+
+The footer contains range preset buttons (1D through ALL) and a timezone selector. Scroll to zoom, drag to pan, and hover to inspect OHLCV values in the legend overlay.
+
+<Callout type="info">
+Pair the Data Chart with a Watchlist widget using the same pair color so that selecting a symbol in the watchlist automatically updates the chart.
+</Callout>
+
+## Configuration
+
+| Parameter | Description |
+|-----------|-------------|
+| `listing` | The symbol identity to chart (set automatically via the header or pair color sync). |
+| `data.provider` | Market data provider ID. |
+| `data.auth` | Optional API key / secret for the selected provider. |
+| `data.live.enabled` | Enable real-time bar streaming. |
+| `view.interval` | Active time interval (e.g. `1d`, `5m`). |
+| `view.candleType` | One of `candle_solid`, `candle_stroke`, `candle_up_stroke`, `candle_down_stroke`, `ohlc`, or `area`. |
+| `view.priceAxisType` | `normal`, `percentage`, or `log`. |
+| `view.marketSession` | `regular` or `extended`. |
+| `view.timezone` | IANA timezone string applied to the time axis. |
+| `view.pineIndicators` | Array of indicator references (id + optional input overrides). |
+| `view.drawTools` | Persisted drawing tool snapshots. |
+| `view.rangePresetId` | Active range preset (`1d`, `5d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`, `all`). |
+
+## Related
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">
+    Browse and select symbols that load into the chart via pair color linking.
+  </Card>
+  <Card title="Indicators Guide" href="/indicators">
+    Author custom Pine-style indicators rendered as chart overlays.
+  </Card>
+  <Card title="Indicator Editor" href="/widgets/editor-indicator">
+    Write and refine custom PineTS indicators.
+  </Card>
+</Cards>

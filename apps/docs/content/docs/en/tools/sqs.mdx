@@ -1,0 +1,138 @@
+---
+title: Amazon SQS
+description: Connect to Amazon SQS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sqs"
+  color="#527FFF"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon SQS"
+    type="sqs"
+    color="#527FFF"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "queueUrl",
+            "type": "short-input",
+            "title": "Queue URL",
+            "placeholder": "https://sqs.us-east-1.amazonaws.com/123456789012/my-queue",
+            "required": true
+        },
+        {
+            "id": "messageGroupId",
+            "type": "short-input",
+            "title": "Message Group ID (optional)",
+            "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
+            "condition": {
+                "field": "operation",
+                "value": "send"
+            }
+        },
+        {
+            "id": "messageDeduplicationId",
+            "type": "short-input",
+            "title": "Message Deduplication ID (optional)",
+            "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
+            "condition": {
+                "field": "operation",
+                "value": "send"
+            }
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Data (JSON)",
+            "placeholder": "{\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\",\\n  \"active\": true\\n}",
+            "language": "json",
+            "required": true,
+            "condition": {
+                "field": "operation",
+                "value": "send"
+            }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `sqs_send`
+
+Send a message to an Amazon SQS queue
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `queueUrl` | string | Yes | Queue URL |
+| `data` | object | Yes | Message body to send |
+| `messageGroupId` | string | No | Message group ID \(optional\) |
+| `messageDeduplicationId` | string | No | Message deduplication ID \(optional\) |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+
+
+## Usage Instructions
+
+Integrate Amazon SQS into the workflow. Can send messages to SQS queues.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `sqs`

@@ -1,0 +1,167 @@
+---
+title: Gmail Trigger
+description: Triggers when new emails are received in Gmail (requires Gmail credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="gmail"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Triggers when new emails are received in Gmail (requires Gmail credentials)
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail Email Trigger"
+    type="gmail_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires google email credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "labelIds",
+            "type": "dropdown",
+            "title": "Gmail Labels to Monitor",
+            "placeholder": "Select Gmail labels to monitor for new emails",
+            "description": "Choose which Gmail labels to monitor. Leave empty to monitor all emails."
+        },
+        {
+            "id": "labelFilterBehavior",
+            "type": "dropdown",
+            "title": "Label Filter Behavior",
+            "description": "Include only emails with selected labels, or exclude emails with selected labels",
+            "required": true,
+            "options": [
+                {
+                    "label": "INCLUDE",
+                    "id": "INCLUDE"
+                },
+                {
+                    "label": "EXCLUDE",
+                    "id": "EXCLUDE"
+                }
+            ]
+        },
+        {
+            "id": "searchQuery",
+            "type": "short-input",
+            "title": "Gmail Search Query",
+            "placeholder": "subject:report OR from:important@example.com",
+            "description": "Optional Gmail search query to filter emails. Use the same format as Gmail search box (e.g., \"subject:invoice\", \"from:boss@company.com\", \"has:attachment\"). Leave empty to search all emails."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Mark as Read",
+            "description": "Automatically mark emails as read after processing"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Include Attachments",
+            "description": "Download and include email attachments in the trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Gmail message ID"
+              },
+              {
+                  "name": "threadId",
+                  "type": "string",
+                  "description": "Gmail thread ID"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Email subject line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Sender email address"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Recipient email address"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC recipients"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Email date in ISO format"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain text email body"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email body"
+              },
+              {
+                  "name": "labels",
+                  "type": "string",
+                  "description": "Email labels array"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Whether email has attachments"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Array of email attachments as files (if includeAttachments is enabled)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Event timestamp"
+      }
+  ]}
+/>
+
+

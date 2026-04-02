@@ -1,0 +1,2482 @@
+---
+title: SendGrid
+description: 使用 SendGrid 发送电子邮件并管理联系人、列表和模板
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sendgrid"
+  color="#1A82E2"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+/>
+
+## 配置
+
+### 发送邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "send_mail"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "发件人邮箱",
+            "placeholder": "sender@yourdomain.com",
+            "required": true
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "发件人姓名",
+            "placeholder": "发件人姓名"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人邮箱",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "toName",
+            "type": "short-input",
+            "title": "收件人姓名",
+            "placeholder": "收件人姓名"
+        },
+        {
+            "id": "mailSubject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "邮件主题（使用模板时可选）"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "正文内容",
+            "placeholder": "邮件正文内容（使用模板时可选）"
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "options": [
+                {
+                    "label": "纯文本",
+                    "id": "text/plain"
+                },
+                {
+                    "label": "HTML",
+                    "id": "text/html"
+                }
+            ]
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "回复至",
+            "placeholder": "replyto@example.com"
+        },
+        {
+            "id": "replyToName",
+            "type": "short-input",
+            "title": "回复人姓名",
+            "placeholder": "回复人姓名"
+        },
+        {
+            "id": "mailTemplateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "SendGrid 模板 ID"
+        },
+        {
+            "id": "dynamicTemplateData",
+            "type": "code",
+            "title": "动态模板数据",
+            "placeholder": "{\"name\": \"John\", \"order_id\": \"12345\"}",
+            "language": "json"
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "placeholder": "上传要附加的文件"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "placeholder": "引用前置模块中的文件"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 添加联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "add_contact"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "contact@example.com",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "名字",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "姓氏",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "customFields",
+            "type": "code",
+            "title": "自定义字段",
+            "placeholder": "{\"custom_field_1\": \"value1\"}",
+            "language": "json"
+        },
+        {
+            "id": "contactListIds",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "以逗号分隔的列表 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 获取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_contact"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "search_contacts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "描述搜索条件...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 删除联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_contacts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "以逗号分隔的联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 创建列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listName",
+            "type": "short-input",
+            "title": "列表名称",
+            "placeholder": "列表名称",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 获取列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 列出所有列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加至列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "list_all_lists"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listPageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 删除列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 将联系人添加到列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "add_contacts_to_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人（JSON 数组）",
+            "placeholder": "[{\"email\": \"user@example.com\", \"first_name\": \"John\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 从列表中移除联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "remove_contacts_from_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "以逗号分隔的联系人 ID",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 创建模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加至列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateName",
+            "type": "short-input",
+            "title": "模板名称",
+            "placeholder": "模板名称",
+            "required": true
+        },
+        {
+            "id": "generation",
+            "type": "dropdown",
+            "title": "模板版本类型",
+            "options": [
+                {
+                    "label": "动态",
+                    "id": "dynamic"
+                },
+                {
+                    "label": "旧版",
+                    "id": "legacy"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 获取模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "get_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 列出模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "list_templates"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateGenerations",
+            "type": "short-input",
+            "title": "按生成版本筛选",
+            "placeholder": "legacy、dynamic 或 both"
+        },
+        {
+            "id": "templatePageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "placeholder": "20"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 删除模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "delete_template"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+### 创建模板版本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 0 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M256.000405,0 L256.000405,170.666936 L170.666936,170.666936 L170.666936,255.996382 L0.00201096905,255.996382 L0.002,170.666 L0,170.666936 L0,85.3314569 L85.3334681,85.3314569 L85.3334681,0 L256.000405,0 Z'
+          fill='#9DD6E3'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='0.00201096905 255.996382 85.3354791 255.996382 85.3354791 170.662915 0.00201096905 170.662915'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='170.666936 170.666936 256.000405 170.666936 256.000405 85.3314569 170.666936 85.3314569'
+        />
+        <polygon
+          fill='#00A9D1'
+          points='85.3334681 85.3334679 170.666936 85.3334679 170.666936 0 85.3334681 0'
+        />
+        <polygon
+          fill='#2191C4'
+          points='85.3334681 170.664925 170.666936 170.664925 170.666936 85.3314569 85.3334681 85.3314569'
+        />
+        <polygon
+          fill='#3F72AB'
+          points='170.666936 85.3334679 256.000405 85.3334679 256.000405 0 170.666936 0'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "发送邮件",
+                    "id": "send_mail"
+                },
+                {
+                    "label": "添加联系人",
+                    "id": "add_contact"
+                },
+                {
+                    "label": "获取联系人",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "删除联系人",
+                    "id": "delete_contacts"
+                },
+                {
+                    "label": "创建列表",
+                    "id": "create_list"
+                },
+                {
+                    "label": "获取列表",
+                    "id": "get_list"
+                },
+                {
+                    "label": "列出所有列表",
+                    "id": "list_all_lists"
+                },
+                {
+                    "label": "删除列表",
+                    "id": "delete_list"
+                },
+                {
+                    "label": "将联系人添加到列表",
+                    "id": "add_contacts_to_list"
+                },
+                {
+                    "label": "从列表中移除联系人",
+                    "id": "remove_contacts_from_list"
+                },
+                {
+                    "label": "创建模板",
+                    "id": "create_template"
+                },
+                {
+                    "label": "获取模板",
+                    "id": "get_template"
+                },
+                {
+                    "label": "列出模板",
+                    "id": "list_templates"
+                },
+                {
+                    "label": "删除模板",
+                    "id": "delete_template"
+                },
+                {
+                    "label": "创建模板版本",
+                    "id": "create_template_version"
+                }
+            ],
+            "defaultValue": "create_template_version"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "请输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        },
+        {
+            "id": "versionName",
+            "type": "short-input",
+            "title": "版本名称",
+            "placeholder": "版本名称",
+            "required": true
+        },
+        {
+            "id": "templateSubject",
+            "type": "short-input",
+            "title": "模板主题",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "htmlContent",
+            "type": "code",
+            "title": "HTML 内容",
+            "placeholder": "<html><body>{{name}}</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "plainContent",
+            "type": "long-input",
+            "title": "纯文本内容",
+            "placeholder": "纯文本内容"
+        },
+        {
+            "id": "active",
+            "type": "dropdown",
+            "title": "激活",
+            "options": [
+                {
+                    "label": "是",
+                    "id": "true"
+                },
+                {
+                    "label": "否",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+---
+
+## 使用说明
+
+将 SendGrid 集成到您的工作流程中。发送事务性电子邮件、管理营销联系人和列表，以及使用电子邮件模板。支持动态模板、附件和全面的联系人管理。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`sendgrid`

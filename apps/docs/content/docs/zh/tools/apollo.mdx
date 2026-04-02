@@ -1,0 +1,5003 @@
+---
+title: Apollo
+description: 使用 Apollo.io 搜索、丰富和管理联系人
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="apollo"
+  color="#EBF212"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+/>
+
+## 配置
+
+### 搜索人员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "person_titles",
+            "type": "code",
+            "title": "职位名称",
+            "placeholder": "[\"CEO\", \"VP of Sales\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_locations",
+            "type": "code",
+            "title": "地点",
+            "placeholder": "[\"San Francisco, CA\", \"New York, NY\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_names",
+            "type": "code",
+            "title": "公司名称",
+            "placeholder": "[\"Company A\", \"Company B\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_seniorities",
+            "type": "code",
+            "title": "职级",
+            "placeholder": "[\"senior\", \"manager\", \"director\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索人员（<code>apollo_people_search</code>）</div>
+
+搜索 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `person_titles` | array | 否 | 要搜索的职位名称 \(例如，\["CEO", "VP of Sales"\]\) |
+| `person_locations` | array | 否 | 要搜索的地区 \(例如，\["San Francisco, CA", "New York, NY"\]\) |
+| `person_seniorities` | array | 否 | 职级层次 \(例如，\["senior", "executive", "manager"\]\) |
+| `organization_names` | array | 否 | 要搜索的公司名称 |
+| `q_keywords` | string | 否 | 搜索关键词 |
+| `page` | number | 否 | 分页页码 \(默认：1\) |
+| `per_page` | number | 否 | 每页结果数 \(默认：25，最大：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `people` | json | 符合搜索条件的人员数组 |
+
+</div>
+
+---
+
+### 丰富人员信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名",
+            "placeholder": "名"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓",
+            "placeholder": "姓"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "公司名称",
+            "placeholder": "公司名称"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "example.com"
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "显示个人邮件"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "显示电话号码"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">人员数据增强 (<code>apollo_people_enrich</code>)</div>
+
+使用 Apollo 对单个人员进行数据增强
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `first_name` | string | 否 | 人员名字 |
+| `last_name` | string | 否 | 人员姓氏 |
+| `email` | string | 否 | 人员电子邮件地址 |
+| `organization_name` | string | 否 | 人员所在公司名称 |
+| `domain` | string | 否 | 公司域名 \(例如：apollo.io\) |
+| `linkedin_url` | string | 否 | LinkedIn 主页 URL |
+| `reveal_personal_emails` | boolean | 否 | 显示个人电子邮件地址 \(消耗积分\) |
+| `reveal_phone_number` | boolean | 否 | 显示电话号码 \(消耗积分\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `person` | json | 来自 Apollo 的人员增强数据 |
+
+</div>
+
+---
+
+### 批量人员数据增强
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "人员数据增强",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量人员数据增强",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "组织数据增强",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量组织数据增强",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取电子邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "显示个人电子邮件"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "显示电话号码"
+        },
+        {
+            "id": "people",
+            "type": "code",
+            "title": "人员（JSON 数组）",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量丰富人员数据（<code>apollo_people_bulk_enrich</code>）</div>
+
+使用 Apollo 一次性为最多 10 位人员丰富数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `people` | array | 是 | 待丰富人员数组 \(最多 10 人\) |
+| `reveal_personal_emails` | boolean | 否 | 显示个人电子邮件地址 \(消耗积分\) |
+| `reveal_phone_number` | boolean | 否 | 显示电话号码 \(消耗积分\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `people` | json | 已丰富的人员数据数组 |
+
+</div>
+
+---
+
+### 搜索组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员数据",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员数据",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织数据",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织数据",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_locations",
+            "type": "code",
+            "title": "组织所在地",
+            "placeholder": "[\"San Francisco, CA\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_num_employees_ranges",
+            "type": "code",
+            "title": "员工人数范围",
+            "placeholder": "[\"1-10\", \"11-50\", \"51-200\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_keyword_tags",
+            "type": "code",
+            "title": "关键词标签",
+            "placeholder": "[\"saas\", \"b2b\", \"enterprise\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_name",
+            "type": "short-input",
+            "title": "组织名称",
+            "placeholder": "搜索的公司名称"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索组织 (<code>apollo_organization_search</code>)</div>
+
+搜索 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `organization_locations` | array | 否 | 要搜索的公司所在地 |
+| `organization_num_employees_ranges` | array | 否 | 员工人数范围 \(例如：\["1-10", "11-50"\]\) |
+| `q_organization_keyword_tags` | array | 否 | 行业或关键词标签 |
+| `q_organization_name` | string | 否 | 要搜索的组织名称 |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数 \(最大：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `organizations` | json | 符合搜索条件的组织数组 |
+
+</div>
+
+---
+
+### 丰富组织信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富个人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建客户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新客户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索客户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建客户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新客户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮箱账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "公司名称",
+            "placeholder": "公司名称"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">丰富组织信息 (<code>apollo_organization_enrich</code>)</div>
+
+使用 Apollo 丰富单个组织的数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `organization_name` | string | 否 | 组织名称 \(organization_name 和 domain 中至少需要提供一个\) |
+| `domain` | string | 否 | 公司域名 \(例如：apollo.io\) \(domain 和 organization_name 中至少需要提供一个\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `organization` | json | 来自 Apollo 的丰富组织数据 |
+
+</div>
+
+---
+
+### 批量丰富组织信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizations",
+            "type": "code",
+            "title": "组织列表（JSON 数组）",
+            "placeholder": "[{\"organization_name\": \"Company A\", \"domain\": \"companya.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量丰富组织信息（<code>apollo_organization_bulk_enrich</code>）</div>
+
+使用 Apollo 一次性丰富最多 10 个组织的数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `organizations` | array | 是 | 待丰富的组织数组 \(最多 10 个\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `organizations` | json | 已丰富的组织数据数组 |
+
+</div>
+
+---
+
+### 创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名",
+            "placeholder": "名"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓",
+            "placeholder": "姓"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "职位",
+            "placeholder": "职位名称"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "Apollo 用户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建联系人（<code>apollo_contact_create</code>）</div>
+
+在您的 Apollo 数据库中创建新联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `first_name` | string | 是 | 联系人名字 |
+| `last_name` | string | 是 | 联系人姓氏 |
+| `email` | string | 否 | 联系人电子邮件地址 |
+| `title` | string | 否 | 职位名称 |
+| `account_id` | string | 否 | 关联的 Apollo 账户 ID |
+| `owner_id` | string | 否 | 联系人负责人的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contact` | json | Apollo 返回的已创建联系人数据 |
+
+</div>
+
+---
+
+### 更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名字",
+            "placeholder": "名字"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓氏",
+            "placeholder": "姓氏"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "contact_id",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "Apollo 联系人 ID",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "职位名称",
+            "placeholder": "职位名称"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "Apollo 用户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新联系人（<code>apollo_contact_update</code>）</div>
+
+更新 Apollo 数据库中的现有联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `contact_id` | string | 是 | 待更新联系人的 ID |
+| `first_name` | string | 否 | 联系人名字 |
+| `last_name` | string | 否 | 联系人姓氏 |
+| `email` | string | 否 | 电子邮件地址 |
+| `title` | string | 否 | 职位名称 |
+| `account_id` | string | 否 | Apollo 账户 ID |
+| `owner_id` | string | 否 | 联系人负责人的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contact` | json | 来自 Apollo 的已更新联系人数据 |
+
+</div>
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富个人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取电子邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contact_stage_ids",
+            "type": "code",
+            "title": "联系人阶段 ID",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大值：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索联系人（<code>apollo_contact_search</code>）</div>
+
+搜索您的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `q_keywords` | string | 否 | 搜索关键词 |
+| `contact_stage_ids` | array | 否 | 按联系人阶段 ID 筛选 |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数 \(最大值：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contacts` | json | 符合搜索条件的联系人数组 |
+
+</div>
+
+---
+
+### 批量创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人（JSON 数组）",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "run_dedupe",
+            "type": "switch",
+            "title": "运行去重"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量创建联系人（<code>apollo_contact_bulk_create</code>）</div>
+
+在您的 Apollo 数据库中一次最多创建 100 个联系人。支持去重以防止创建重复联系人。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 \(需要主密钥\) |
+| `contacts` | array | 是 | 要创建的联系人数组 \(最多 100 个\)。每个联系人应包含 first_name、last_name，以及可选的 email、title、account_id、owner_id |
+| `run_dedupe` | boolean | 否 | 启用去重以防止创建重复联系人。当设为 true 时，已存在的联系人将直接返回而不做修改 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `created_contacts` | json | 新创建的联系人数组 |
+| `existing_contacts` | json | 已存在的联系人数组 \(启用去重时返回\) |
+
+</div>
+
+---
+
+### 批量更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人（JSON 数组）",
+            "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量更新联系人（<code>apollo_contact_bulk_update</code>）</div>
+
+在您的 Apollo 数据库中一次最多更新 100 个现有联系人。每个联系人必须包含 id 字段。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 \(需要主密钥\) |
+| `contacts` | array | 是 | 待更新的联系人数组 \(最多 100 个\)。每个联系人必须包含 id 字段，可选字段包括 first_name、last_name、email、title、account_id、owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `updated_contacts` | json | 成功更新的联系人数组 |
+| `failed_contacts` | json | 更新失败的联系人数组 |
+
+</div>
+
+---
+
+### 创建账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "enrichment 个人",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量 enrichment 人员",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "enrichment 组织",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量 enrichment 组织",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "账户名称",
+            "placeholder": "公司名称"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话号码",
+            "placeholder": "公司电话"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建账户 (<code>apollo_account_create</code>)</div>
+
+在您的 Apollo 数据库中创建新账户（公司）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `name` | string | 是 | 公司名称 |
+| `website_url` | string | 否 | 公司网站 URL |
+| `phone` | string | 否 | 公司电话号码 |
+| `owner_id` | string | 否 | 账户所有者的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `account` | json | 来自 Apollo 的已创建账户数据 |
+
+</div>
+
+---
+
+### 更新账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "账户名称",
+            "placeholder": "公司名称"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话号码",
+            "placeholder": "公司电话"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新账户（<code>apollo_account_update</code>）</div>
+
+更新您 Apollo 数据库中的现有账户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `account_id` | string | 是 | 要更新的账户 ID |
+| `name` | string | 否 | 公司名称 |
+| `website_url` | string | 否 | 公司网站 URL |
+| `phone` | string | 否 | 公司电话号码 |
+| `owner_id` | string | 否 | 账户负责人的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `account` | json | 来自 Apollo 的已更新账户数据 |
+
+</div>
+
+---
+
+### 搜索账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "enrichment联系人",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量enrichment联系人",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "enrichment组织",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量enrichment组织",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "account_stage_ids",
+            "type": "code",
+            "title": "账户阶段 ID",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索账户 (<code>apollo_account_search</code>)</div>
+
+搜索您的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 \(需要主密钥\) |
+| `q_keywords` | string | 否 | 在账户数据中搜索的关键词 |
+| `owner_id` | string | 否 | 按账户所有者用户 ID 筛选 |
+| `account_stage_ids` | array | 否 | 按账户阶段 ID 筛选 |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数 \(最大值：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `accounts` | json | 符合搜索条件的账户数组 |
+
+</div>
+
+---
+
+### 批量创建账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "账户（JSON 数组）",
+            "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量创建账户（<code>apollo_account_bulk_create</code>）</div>
+
+在您的 Apollo 数据库中一次最多创建 100 个账户。注意：Apollo 不执行去重操作——如果条目共享相似的名称或域名，可能会创建重复账户。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥） |
+| `accounts` | array | 是 | 要创建的账户数组（最多 100 个）。每个账户应包含 name（必填），以及可选的 website_url、phone、owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `created_accounts` | json | 新创建的账户数组 |
+| `failed_accounts` | json | 创建失败的账户数组 |
+
+</div>
+
+---
+
+### 批量更新账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取电子邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "账户（JSON 数组）",
+            "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量更新账户 (<code>apollo_account_bulk_update</code>)</div>
+
+在您的 Apollo 数据库中一次更新最多 1000 个现有账户（上限高于联系人！）。每个账户必须包含 id 字段。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 \(需要主密钥\) |
+| `accounts` | array | 是 | 待更新账户的数组 \(最多 1000 条\)。每个账户必须包含 id 字段，可选字段包括 name、website_url、phone、owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `updated_accounts` | json | 成功更新的账户数组 |
+| `failed_accounts` | json | 更新失败的账户数组 |
+
+</div>
+
+---
+
+### 创建商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "商机名称",
+            "placeholder": "商机名称"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额",
+            "placeholder": "交易金额（例如：50000）"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "阶段 ID",
+            "placeholder": "商机阶段 ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "预计成交日期",
+            "placeholder": "ISO 日期格式（例如：2024-12-31）"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "商机描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建商机 (<code>apollo_opportunity_create</code>)</div>
+
+在您的 Apollo 数据库中为账户创建新交易（需要主密钥）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 \(需要主密钥\) |
+| `name` | string | 是 | 商机/交易名称 |
+| `account_id` | string | 是 | 该商机所属账户的 ID |
+| `amount` | number | 否 | 商机的货币价值 |
+| `stage_id` | string | 否 | 交易阶段 ID |
+| `owner_id` | string | 否 | 商机负责人的用户 ID |
+| `close_date` | string | 否 | 预计成交日期 \(ISO 8601 格式\) |
+| `description` | string | 否 | 商机的描述或备注 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | 从 Apollo 返回的已创建商机数据 |
+
+</div>
+
+---
+
+### 搜索商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "enrichment 联系人",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量 Enrich 联系人",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich 组织",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量 Enrich 组织",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "account_ids",
+            "type": "code",
+            "title": "账户 ID",
+            "placeholder": "[\"account_id_1\", \"account_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "stage_ids",
+            "type": "code",
+            "title": "阶段 ID",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "owner_ids",
+            "type": "code",
+            "title": "负责人 ID",
+            "placeholder": "[\"user_id_1\", \"user_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大值：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索商机 (<code>apollo_opportunity_search</code>)</div>
+
+搜索并列出团队中的所有交易/商机
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `q_keywords` | string | 否 | 在商机名称中搜索的关键词 |
+| `account_ids` | array | 否 | 按特定客户 ID 筛选 |
+| `stage_ids` | array | 否 | 按交易阶段 ID 筛选 |
+| `owner_ids` | array | 否 | 按商机负责人 ID 筛选 |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数 \(最大值：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `opportunities` | json | 符合搜索条件的商机数组 |
+
+</div>
+
+---
+
+### 获取商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建客户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新客户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索客户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建客户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新客户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "商机 ID",
+            "placeholder": "Apollo 商机 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取商机 (<code>apollo_opportunity_get</code>)</div>
+
+通过 ID 检索特定交易/商机的完整详情
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `opportunity_id` | string | 是 | 要检索的商机 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | 来自 Apollo 的完整商机数据 |
+
+</div>
+
+---
+
+### 更新商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "商机名称",
+            "placeholder": "商机名称"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额",
+            "placeholder": "交易金额（例如：50000）"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "阶段 ID",
+            "placeholder": "商机阶段 ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "预计成交日期",
+            "placeholder": "ISO 日期格式（例如：2024-12-31）"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "商机描述"
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "商机 ID",
+            "placeholder": "Apollo 商机 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新商机（<code>apollo_opportunity_update</code>）</div>
+
+更新您 Apollo 数据库中的现有交易/商机
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥 |
+| `opportunity_id` | string | 是 | 要更新的商机 ID |
+| `name` | string | 否 | 商机/交易名称 |
+| `amount` | number | 否 | 商机的货币价值 |
+| `stage_id` | string | 否 | 交易阶段 ID |
+| `owner_id` | string | 否 | 商机负责人的用户 ID |
+| `close_date` | string | 否 | 预计成交日期 \(ISO 8601 格式\) |
+| `description` | string | 否 | 关于商机的描述或备注 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | 来自 Apollo 的已更新商机数据 |
+
+</div>
+
+---
+
+### 搜索序列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "enrichment联系人",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量enrichment联系人",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "enrichment组织",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量enrichment组织",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建客户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新客户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索客户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建客户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新客户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_name",
+            "type": "short-input",
+            "title": "序列名称",
+            "placeholder": "按序列名称搜索"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "仅显示活跃"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最多：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索序列（<code>apollo_sequence_search</code>）</div>
+
+在您的团队中搜索序列/活动
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥） |
+| `q_name` | string | 否 | 按名称搜索序列 |
+| `active` | boolean | 否 | 按活跃状态过滤（true 表示活跃序列，false 表示非活跃序列） |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数（最大：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `sequences` | json | 符合搜索条件的序列/活动数组 |
+
+</div>
+
+---
+
+### 添加到序列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取电子邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_add"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sequence_id",
+            "type": "short-input",
+            "title": "序列 ID",
+            "placeholder": "Apollo 序列 ID",
+            "required": true
+        },
+        {
+            "id": "contact_ids",
+            "type": "code",
+            "title": "联系人 ID（JSON 数组）",
+            "placeholder": "[\"contact_id_1\", \"contact_id_2\"]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加到序列 (<code>apollo_sequence_add_contacts</code>)</div>
+
+将联系人添加到 Apollo 序列
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥） |
+| `sequence_id` | string | 是 | 要添加联系人的序列 ID |
+| `contact_ids` | array | 是 | 要添加到序列的联系人 ID 数组 |
+| `emailer_campaign_id` | string | 否 | 可选的邮件营销活动 ID |
+| `send_email_from_user_id` | string | 否 | 发送邮件所使用的用户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contacts_added` | json | 已添加到序列的联系人 ID 数组 |
+
+</div>
+
+---
+
+### 创建任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索人员",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富人员信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富人员信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加到序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "任务备注",
+            "placeholder": "任务描述",
+            "required": true
+        },
+        {
+            "id": "due_at",
+            "type": "datetime-input",
+            "title": "截止日期",
+            "placeholder": "ISO 日期格式（例如：2024-12-31T23:59:59Z）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建任务（<code>apollo_task_create</code>）</div>
+
+在 Apollo 中创建新任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥） |
+| `note` | string | 是 | 任务备注/描述 |
+| `contact_id` | string | 否 | 关联的联系人 ID |
+| `account_id` | string | 否 | 关联的账户 ID |
+| `due_at` | string | 否 | ISO 格式的截止日期 |
+| `priority` | string | 否 | 任务优先级 |
+| `type` | string | 否 | 任务类型 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `task` | json | 从 Apollo 返回的已创建任务数据 |
+
+</div>
+
+---
+
+### 搜索任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "completed",
+            "type": "switch",
+            "title": "已完成"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "25（最大：100）",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索任务（<code>apollo_task_search</code>）</div>
+
+在 Apollo 中搜索任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥） |
+| `contact_id` | string | 否 | 按联系人 ID 筛选 |
+| `account_id` | string | 否 | 按账户 ID 筛选 |
+| `completed` | boolean | 否 | 按完成状态筛选 |
+| `page` | number | 否 | 分页页码 |
+| `per_page` | number | 否 | 每页结果数（最大：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `tasks` | json | 符合搜索条件的任务数组 |
+
+</div>
+
+---
+
+### 获取电子邮件账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      viewBox='0 0 36 36'
+      fill='currentColor'
+      xmlns='http://www.w3.org/2000/svg'
+    >
+      <path
+        d='M19.5993 0.0862365L19.605 13.2568C19.6058 15.3375 17.4222 16.6715 15.6079 15.6986L2.58376 8.7153C3.57706 7.05795 4.82616 5.57609 6.27427 4.32386L16.489 13.8945C17.0303 14.4015 17.8835 13.8518 17.6605 13.1398L13.6992 0.493553C15.0326 0.17147 16.4233 0 17.8536 0C18.4428 0 19.0248 0.0296814 19.5993 0.0862365Z'
+      />
+      <path
+        d='M16.0635 36.1087L16.0578 23.0046C16.057 20.9239 18.2407 19.5898 20.0549 20.5627L33.0838 27.5486C32.0838 29.2016 30.8289 30.6786 29.3751 31.925L19.1738 22.3668C18.6326 21.8598 17.7793 22.4095 18.0023 23.1215L21.9486 35.72C20.6338 36.0329 19.263 36.1989 17.8539 36.1989C17.2497 36.1989 16.6523 36.1683 16.0635 36.1087Z'
+      />
+      <path
+        d='M22.0105 16.77L31.4705 6.39392C30.2362 4.92008 28.7742 3.6486 27.1384 2.63702L20.2306 15.8767C19.2709 17.716 20.5871 19.9298 22.6396 19.9288L35.6183 19.923C35.6775 19.3234 35.7082 18.7151 35.7082 18.0996C35.7082 16.6683 35.5436 15.2761 35.2338 13.9406L22.7549 17.9576C22.0526 18.1837 21.5103 17.3187 22.0105 16.77Z'
+      />
+      <path
+        d='M0.0842758 16.3383L13.0237 16.3325C15.0764 16.3317 16.3923 18.5454 15.4327 20.3846L8.56047 33.5561C6.93095 32.547 5.47394 31.2801 4.24344 29.8121L13.653 19.4914C14.1531 18.9427 13.6107 18.0777 12.9084 18.3037L0.485078 22.3029C0.168551 20.954 0 19.5467 0 18.0994C0 17.5051 0.0290814 16.9177 0.0842758 16.3383Z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "搜索联系人",
+                    "id": "people_search"
+                },
+                {
+                    "label": "丰富联系人信息",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "批量丰富联系人信息",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "搜索组织",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "丰富组织信息",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "批量丰富组织信息",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "创建联系人",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "更新联系人",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "搜索联系人",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "批量创建联系人",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "批量更新联系人",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "创建账户",
+                    "id": "account_create"
+                },
+                {
+                    "label": "更新账户",
+                    "id": "account_update"
+                },
+                {
+                    "label": "搜索账户",
+                    "id": "account_search"
+                },
+                {
+                    "label": "批量创建账户",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "批量更新账户",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "创建商机",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "搜索商机",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "获取商机",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "更新商机",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "搜索序列",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "添加至序列",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "创建任务",
+                    "id": "task_create"
+                },
+                {
+                    "label": "搜索任务",
+                    "id": "task_search"
+                },
+                {
+                    "label": "获取电子邮件账户",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "email_accounts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "请输入您的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取电子邮件账户（<code>apollo_email_accounts</code>）</div>
+
+获取团队列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Apollo API 密钥（需要主密钥）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `email_accounts` | json | Apollo 中关联的团队电子邮件账户数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Apollo.io 集成到工作流中。搜索人员和公司、丰富联系人数据、管理 CRM 联系人和账户、将联系人添加到序列，以及创建任务。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`apollo`

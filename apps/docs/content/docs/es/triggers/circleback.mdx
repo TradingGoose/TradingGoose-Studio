@@ -1,0 +1,116 @@
+---
+title: Disparador de Circleback
+description: Disparar flujo de trabajo cuando las notas de reunión y los
+  elementos de acción estén listos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Disparar flujo de trabajo cuando las notas de reunión y los elementos de acción estén listos
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Eventos
+
+### Notas de Reunión de Circleback Listas
+
+Disparar flujo de trabajo cuando las notas de reunión y los elementos de acción estén listos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notas de Reunión de Circleback Listas"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de Firma",
+            "placeholder": "Pegue el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas del webhook se originen desde Circleback usando HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a su flujo de trabajo. Acceda a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Webhook de Circleback
+
+Disparador de webhook genérico para todos los eventos de Circleback
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de Circleback"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Tipo de Disparador",
+            "required": true
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de Firma",
+            "placeholder": "Pegue el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas del webhook se originen desde Circleback usando HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a su flujo de trabajo. Acceda a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Reunión de Circleback Completada
+
+Disparar flujo de trabajo cuando una reunión sea procesada y esté lista en Circleback
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reunión de Circleback Completada"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de Firma",
+            "placeholder": "Pegue el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas del webhook se originen desde Circleback usando HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos utilizando la sintaxis `<trigger.fieldName>`.
+
+---

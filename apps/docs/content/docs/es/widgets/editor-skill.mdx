@@ -1,0 +1,56 @@
+---
+title: Editor de Habilidades
+description: Editar habilidades del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_skill` |
+| **Categoría** | Editor |
+
+El Editor de Habilidades permite modificar el nombre, la descripción y el contenido de instrucciones de una habilidad del espacio de trabajo. Las habilidades son conjuntos de instrucciones reutilizables que el agente puede cargar en tiempo de ejecución para adquirir comportamientos especializados. Utilice el widget [Lista de Habilidades](/utilities/skills) para explorar y crear habilidades; el editor es donde se redacta su contenido.
+
+## Características
+
+- **Campo de nombre** acepta un identificador en formato kebab-case (p. ej. `market-research`). Esta es la clave que utiliza el agente al cargar la habilidad. El editor valida la unicidad dentro del espacio de trabajo al guardar.
+- **Campo de descripción** proporciona un resumen breve de lo que la habilidad ayuda al agente a realizar.
+- **Área de texto de instrucciones** es un campo de texto libre (hasta 50.000 caracteres) donde se redactan las instrucciones completas de la habilidad en texto plano o markdown. El área de texto utiliza una fuente monoespaciada para una edición cómoda.
+- **Botón Guardar** en la barra de encabezado persiste todos los cambios. La validación se ejecuta al guardar: el nombre debe ser un kebab-case no vacío, la descripción y el contenido deben ser no vacíos, y el nombre debe ser único dentro del espacio de trabajo.
+- **Selector de habilidades** en la barra de encabezado permite cambiar entre habilidades. Cuando se vincula mediante un enlace de color, el selector se sincroniza con el widget Lista de Habilidades.
+
+## Uso
+
+1. Añada el widget a un espacio de trabajo desde el selector de widgets.
+2. Seleccione una habilidad en el desplegable del encabezado, o cree una desde el widget [Lista de Habilidades](/utilities/skills).
+3. Edite los campos **Nombre**, **Descripción** e **Instrucciones**.
+4. Haga clic en el botón **Guardar** para persistir los cambios.
+
+### Reglas de Validación
+
+- **Name** debe estar en kebab-case (letras minúsculas, números y guiones). Ejemplo: `market-research`.
+- **Name** debe ser único -- no puedes tener dos skills con el mismo nombre en un mismo workspace.
+- **Description** e **Instructions** son ambos obligatorios y no pueden estar vacíos.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigna el mismo color a un widget Skill Editor y a un widget [Skill List](/utilities/skills) para que al seleccionar un skill en la lista se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+El skill seleccionado se almacena en los parámetros del widget como `skillId` y se sincroniza a través del almacén pair-color cuando está vinculado.
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de Skills" href="/utilities/skills">
+    Aprende qué son los skills, cómo los carga el agente y las mejores prácticas.
+  </Card>
+  <Card title="Editor de Flujos de Trabajo" href="/widgets/editor-workflow">
+    Interfaz de canvas para construir y editar flujos de trabajo.
+  </Card>
+</Cards>

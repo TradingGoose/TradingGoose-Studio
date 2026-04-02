@@ -1,0 +1,121 @@
+---
+title: 入门指南
+description: 编写并部署您的第一个自定义指标
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+## 创建您的第一个指标
+
+<Steps>
+  <Step>
+    **打开指标编辑器** — 在工作区中添加指标编辑器组件，或导航至指标列表并点击「新建指标」
+  </Step>
+  <Step>
+    **编写代码** — 从 `indicator()` 声明开始，定义输入参数、计算数值并绘制结果
+  </Step>
+  <Step>
+    **在图表上预览** — 数据图表组件会在您编辑时实时渲染指标输出
+  </Step>
+  <Step>
+    **保存并部署** — 为指标命名并将其保存至工作区，以便在各图表和工作流中使用
+  </Step>
+</Steps>
+
+## 最简示例
+
+每个指标都以 `indicator()` 调用开始，并包含至少一个 `plot()`：
+
+```javascript
+indicator('Simple Moving Average', { overlay: true });
+
+const length = input.int(20, 'Length');
+const sma = ta.sma(close, length);
+
+plot(sma, 'SMA', { color: '#2962FF' });
+```
+
+此指标包含以下内容：
+- 一个可配置的 `Length` 参数（默认值为 20），显示于用户界面中
+- 基于收盘价计算的简单移动平均线
+- 以蓝色折线叠加绘制于价格图表上
+
+## 指标选项
+
+`indicator()` 函数接受一个标题和一个选项对象：
+
+```javascript
+indicator('My Indicator', {
+  overlay: true,        // Plot on price chart (false = separate pane)
+  precision: 2,         // Decimal places for values
+  format: format.price, // Display format
+});
+```
+
+| 选项 | 类型 | 默认值 | 说明 |
+|--------|------|---------|-------------|
+| `overlay` | boolean | `false` | 在价格图表上叠加绘制，而非在独立面板中显示 |
+| `precision` | number | auto | 小数位数 |
+| `format` | string | `format.inherit` | 显示格式（`format.price`、`format.volume`、`format.percent`） |
+| `scale` | string | auto | 坐标轴类型 |
+| `max_bars_back` | number | auto | 可引用的最大历史K线数量 |
+| `max_lines_count` | number | auto | 最大折线绘图对象数量 |
+| `max_labels_count` | number | auto | 最大标签绘图对象数量 |
+| `max_boxes_count` | number | auto | 最大矩形绘图对象数量 |
+
+## 更完整的示例
+
+以下是一个布林带指标，展示了输入参数、元组解构、多重绘图与填充功能：
+
+```javascript
+indicator('Bollinger Bands', { overlay: true });
+
+const length = input.int(20, 'Length');
+const mult = input.float(2, 'StdDev');
+
+// ta.bb returns [middle, upper, lower] as a tuple
+const [middle, upper, lower] = ta.bb(close, length, mult);
+
+const upperPlot = plot(upper, 'Upper', { color: '#F23645' });
+plot(middle, 'Middle', { color: '#2962FF' });
+const lowerPlot = plot(lower, 'Lower', { color: '#089981' });
+
+// Fill the area between upper and lower bands
+fill(upperPlot, lowerPlot);
+```
+
+## 添加工作流触发器
+
+`trigger()` 函数是 TradingGoose 的扩展功能，用于将指标信号连接至工作流自动化：
+
+```javascript
+indicator('MACD Crossover Signal');
+
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+plot(hist, 'Histogram', { style: plot.style_histogram });
+plot(macdLine, 'MACD');
+plot(signalLine, 'Signal');
+
+// Fire a workflow when MACD crosses above signal line
+if (ta.crossover(macdLine, signalLine)) {
+  trigger('macd_bullish_cross', {
+    condition: ta.crossover(macdLine, signalLine),
+    input: 'MACD bullish crossover detected',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+<Callout type="info">
+  `trigger()` API 是 TradingGoose 的专有功能，在标准 Pine Script 中并不存在。完整文档请参阅 [触发器指南](/indicators/triggers)。
+</Callout>
+
+## 后续步骤
+
+- 学习 [PineTS 语法规则](/indicators/syntax) — 尤其是用于状态管理的 `let` 与 `var`
+- 探索 [输入类型](/indicators/inputs) 以构建可配置的指标
+- 浏览 [技术分析参考文档](/indicators/ta)，了解全部 57+ 个内置函数

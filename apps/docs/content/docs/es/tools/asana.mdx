@@ -1,0 +1,681 @@
+---
+title: Asana
+description: Interactuar con Asana
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="asana"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+/>
+
+## Configuración
+
+### Obtener tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Agregar comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "get_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de tarea",
+            "placeholder": "Dejar vacío para obtener todas las tareas con los filtros a continuación"
+        },
+        {
+            "id": "getTasks_workspace",
+            "type": "short-input",
+            "title": "GID de espacio de trabajo",
+            "placeholder": "Ingresar GID del espacio de trabajo"
+        },
+        {
+            "id": "getTasks_project",
+            "type": "short-input",
+            "title": "GID de proyecto",
+            "placeholder": "Ingresar GID del proyecto"
+        },
+        {
+            "id": "getTasks_limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de tareas a devolver (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener tarea (<code>asana_get_task</code>)</div>
+
+Recuperar una sola tarea por GID u obtener múltiples tareas con filtros
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | No | El identificador único global \(GID\) de la tarea. Si no se proporciona, se obtendrán múltiples tareas. |
+| `workspace` | string | No | GID del espacio de trabajo para filtrar tareas \(requerido cuando no se usa taskGid\) |
+| `project` | string | No | GID del proyecto para filtrar tareas |
+| `limit` | number | No | Número máximo de tareas a retornar \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | GID del asignado |
+| `resource_type` | string | Tipo de recurso \(tarea\) |
+| `resource_subtype` | string | Subtipo de recurso |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Indica si la tarea está completada |
+
+</div>
+
+---
+
+### Crear Tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear Tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar Tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar Tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Agregar Comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "create_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del Espacio de Trabajo",
+            "placeholder": "Ingrese el GID del espacio de trabajo de Asana",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de la Tarea",
+            "placeholder": "Ingrese el nombre de la tarea",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Notas de la Tarea",
+            "placeholder": "Ingrese notas o descripción de la tarea"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del Asignado",
+            "placeholder": "Ingrese el GID del usuario asignado"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Fecha de Vencimiento",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Tarea (<code>asana_create_task</code>)</div>
+
+Crear una nueva tarea en Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo donde se creará la tarea |
+| `name` | string | Sí | Nombre de la tarea |
+| `notes` | string | No | Notas o descripción de la tarea |
+| `assignee` | string | No | GID del usuario al que se asignará la tarea |
+| `due_on` | string | No | Fecha de vencimiento en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global de la tarea |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Indica si la tarea está completada |
+| `created_at` | string | Marca de tiempo de creación de la tarea |
+
+</div>
+
+---
+
+### Actualizar Tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear Tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar Tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar Tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Añadir Comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "update_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de Tarea",
+            "placeholder": "Introducir GID de tarea de Asana",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de Tarea",
+            "placeholder": "Introducir nombre de tarea",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Notas de Tarea",
+            "placeholder": "Introducir notas o descripción de la tarea"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del Responsable",
+            "placeholder": "Introducir GID del usuario responsable"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Fecha de Vencimiento",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Tarea (<code>asana_update_task</code>)</div>
+
+Actualizar una tarea existente en Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Sí | El identificador único global (GID) de la tarea a actualizar |
+| `name` | string | No | Nombre actualizado de la tarea |
+| `notes` | string | No | Notas o descripción actualizadas de la tarea |
+| `assignee` | string | No | GID del usuario asignado actualizado |
+| `completed` | boolean | No | Marcar la tarea como completada o no completada |
+| `due_on` | string | No | Fecha de vencimiento actualizada en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global de la tarea |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Si la tarea está completada |
+
+</div>
+
+---
+
+### Obtener Proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear Tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar Tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar Tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Agregar Comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "get_projects"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del Espacio de Trabajo",
+            "placeholder": "Ingresar GID del espacio de trabajo de Asana",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Proyectos (<code>asana_get_projects</code>)</div>
+
+Recuperar todos los proyectos de un espacio de trabajo de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo del que recuperar los proyectos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | GID del proyecto |
+| `name` | string | Nombre del proyecto |
+
+</div>
+
+---
+
+### Buscar Tareas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear Tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar Tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar Tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Agregar Comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "search_tasks"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del Espacio de Trabajo",
+            "placeholder": "Ingrese el GID del espacio de trabajo de Asana",
+            "required": true
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del Asignado",
+            "placeholder": "Ingrese el GID del usuario asignado"
+        },
+        {
+            "id": "searchText",
+            "type": "short-input",
+            "title": "Texto de Búsqueda",
+            "placeholder": "Ingrese el texto de búsqueda"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar Tareas (<code>asana_search_tasks</code>)</div>
+
+Buscar tareas en un espacio de trabajo de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo donde buscar tareas |
+| `text` | string | No | Texto a buscar en los nombres de las tareas |
+| `assignee` | string | No | Filtrar tareas por GID de usuario asignado |
+| `projects` | array | No | Array de GIDs de proyectos para filtrar tareas |
+| `completed` | boolean | No | Filtrar por estado de finalización |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | GID del asignado |
+| `resource_type` | string | Tipo de recurso |
+| `resource_subtype` | string | Subtipo de recurso |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas de la tarea |
+| `completed` | boolean | Estado de finalización |
+
+</div>
+
+---
+
+### Añadir Comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>
+      <circle cx='18' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='6' cy='16' r='4' fill='#F06A6A' />
+      <circle cx='12' cy='6.5' r='4' fill='#F06A6A' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Obtener Tarea",
+                    "id": "get_task"
+                },
+                {
+                    "label": "Crear Tarea",
+                    "id": "create_task"
+                },
+                {
+                    "label": "Actualizar Tarea",
+                    "id": "update_task"
+                },
+                {
+                    "label": "Obtener Proyectos",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Buscar Tareas",
+                    "id": "search_tasks"
+                },
+                {
+                    "label": "Añadir Comentario",
+                    "id": "add_comment"
+                }
+            ],
+            "defaultValue": "add_comment"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de Tarea",
+            "placeholder": "Introducir GID de tarea de Asana",
+            "required": true
+        },
+        {
+            "id": "commentText",
+            "type": "long-input",
+            "title": "Texto del Comentario",
+            "placeholder": "Introducir texto del comentario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar comentario (<code>asana_add_comment</code>)</div>
+
+Agregar un comentario (historia) a una tarea de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Sí | El identificador único global (GID) de la tarea |
+| `text` | string | Sí | El contenido de texto del comentario |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | GID del autor |
+| `text` | string | Contenido de texto del comentario |
+| `created_at` | string | Marca de tiempo de creación del comentario |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Asana en el flujo de trabajo. Permite leer, escribir y actualizar tareas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `asana`

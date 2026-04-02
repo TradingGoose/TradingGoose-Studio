@@ -1,0 +1,72 @@
+---
+title: 数据图表
+description: 可视化OHLCV市场数据。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概览
+
+| 属性 | 值 |
+|----------|-------|
+| **键名** | `data_chart` |
+| **类别** | 数据 |
+
+数据图表组件渲染带有技术指标叠加层、绘图工具及可配置时间周期的OHLCV蜡烛图。其底层使用 [lightweight-charts](https://tradingview.github.io/lightweight-charts/)，并支持多种数据提供商及市场交易时段模式。
+
+## 功能特性
+
+- **六种K线样式** -- 实心、空心、上涨空心、下跌空心、OHLC柱状描边及面积线。
+- **时间周期** -- 从1分钟到12个月，并提供区间预设（1D、5D、1W、1M、3M、6M、1Y、5Y、ALL），可自动匹配合适的周期。
+- **技术指标** -- 从工作区库或内置默认指标中添加一个或多个Pine风格指标。每个指标在独立面板中渲染（或叠加在价格面板上），并在十字光标悬停时显示各绘图的图例数值。指标参数可通过设置弹窗进行编辑。请参阅 [指标脚本编写指南](/indicators) 了解如何创建自定义指标。
+- **绘图工具** -- 侧边栏提供线条工具（趋势线、射线、箭头、延伸线、水平线/垂直线/十字线）、注释工具（标注框、文本）、手绘工具（画笔、荧光笔、路径）、形状工具（矩形、圆形、三角形）及分析工具（平行通道、斐波那契回调、价格区间、多/空仓位、市场深度）。绘图按标的持久保存，并可批量切换显示或隐藏。
+- **OHLCV图例** -- 在十字光标位置显示开盘价、最高价、最低价、收盘价（面积模式下显示单一数值），并按涨跌方向以绿/红色标注。
+- **时区与交易时段控制** -- 可将图表时间轴切换为交易所本地时区、UTC或任意IANA时区。在数据提供商支持的情况下，可切换常规与延长交易时段。
+- **价格轴模式** -- 支持普通、百分比及对数刻度。
+- **实时Bar更新** -- 启用后，图表通过Socket连接流式接收实时Bar数据，并将传入的Bar合并至当前可见的数据序列中。
+
+## 使用方法
+
+将数据图表添加到任意工作区面板。标题栏分为三个控制组：
+
+- **左侧（数据源）** -- 选择市场数据提供商，并配置特定于提供商的参数或 API 凭据。
+- **中部（标的列表）** -- 搜索并选择交易标的。当该组件与[自选列表](/widgets/watchlist)共享相同的配对颜色时，在自选列表中点击某个标的将自动在此处加载。
+- **右侧（图表）** -- 更改时间周期、K线样式，以及切换指标显示。
+
+底部包含范围预设按钮（1D 至 ALL）及时区选择器。滚动鼠标滚轮可缩放，拖拽可平移，悬停可在图例叠加层中查看 OHLCV 数值。
+
+<Callout type="info">
+将数据图表与自选列表组件配合使用，设置相同的配对颜色，即可在自选列表中选择标的时自动更新图表。
+</Callout>
+
+## 配置
+
+| 参数 | 描述 |
+|-----------|-------------|
+| `listing` | 用于图表展示的标的标识符（通过标题栏或配对颜色同步自动设置）。 |
+| `data.provider` | 市场数据提供商 ID。 |
+| `data.auth` | 所选提供商的可选 API 密钥／密钥对。 |
+| `data.live.enabled` | 启用实时 K 线数据流。 |
+| `view.interval` | 当前时间周期（例如 `1d`、`5m`）。 |
+| `view.candleType` | 可选值：`candle_solid`、`candle_stroke`、`candle_up_stroke`、`candle_down_stroke`、`ohlc` 或 `area`。 |
+| `view.priceAxisType` | `normal`、`percentage` 或 `log`。 |
+| `view.marketSession` | `regular` 或 `extended`。 |
+| `view.timezone` | 应用于时间轴的 IANA 时区字符串。 |
+| `view.pineIndicators` | 指标引用数组（包含 id 及可选的输入覆盖项）。 |
+| `view.drawTools` | 已持久化的绘图工具快照。 |
+| `view.rangePresetId` | 当前范围预设（`1d`、`5d`、`1w`、`1m`、`3m`、`6m`、`1y`、`5y`、`all`）。 |
+
+## 相关内容
+
+<Cards>
+  <Card title="观察列表" href="/widgets/watchlist">
+    浏览并选择通过配对颜色链接加载到图表中的交易品种。
+  </Card>
+  <Card title="指标指南" href="/indicators">
+    编写以图表叠加层形式呈现的自定义 Pine 风格指标。
+  </Card>
+  <Card title="指标编辑器" href="/widgets/editor-indicator">
+    编写并优化自定义 PineTS 指标。
+  </Card>
+</Cards>

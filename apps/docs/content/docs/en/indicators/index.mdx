@@ -1,0 +1,98 @@
+---
+title: Indicators
+description: Create custom technical analysis indicators with PineTS scripting
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+Indicators are custom technical analysis scripts that run on market data in TradingGoose. They are powered by [PineTS](https://github.com/nicholasgasior/PineTS), a JavaScript/TypeScript runtime for Pine Script, extended with TradingGoose-specific features like workflow triggers.
+
+## What Can You Build?
+
+- **Technical indicators** — RSI, MACD, Bollinger Bands, or your own custom calculations
+- **Signal generators** — Detect crossovers, breakouts, or custom conditions
+- **Workflow triggers** — Fire workflow executions when indicator conditions are met using the `trigger()` API
+- **Visual overlays** — Plot lines, shapes, and fills directly on the chart
+
+## How It Works
+
+<Steps>
+  <Step>
+    **Write PineTS code** in the Indicator Editor using familiar Pine Script syntax adapted for JavaScript/TypeScript
+  </Step>
+  <Step>
+    **Define inputs** with `input.int()`, `input.float()`, etc. — these become configurable parameters in the UI
+  </Step>
+  <Step>
+    **Calculate** using 57+ built-in technical analysis functions (`ta.*`), math operations, arrays, and more
+  </Step>
+  <Step>
+    **Visualize** with `plot()`, `plotshape()`, `fill()`, `bgcolor()` and other chart rendering functions
+  </Step>
+  <Step>
+    **Trigger workflows** by calling `trigger()` when conditions are met — connecting indicators to your automation pipelines
+  </Step>
+</Steps>
+
+## Quick Example
+
+```javascript
+indicator('RSI Signal', { overlay: false });
+
+const length = input.int(14, 'RSI Length');
+const overbought = input.int(70, 'Overbought');
+const oversold = input.int(30, 'Oversold');
+
+const rsi = ta.rsi(close, length);
+
+plot(rsi, 'RSI', { color: '#2962FF' });
+hline(overbought, { color: '#FF0000', linestyle: hline.style_dashed });
+hline(oversold, { color: '#00FF00', linestyle: hline.style_dashed });
+
+// Trigger a workflow when RSI crosses below oversold
+if (ta.crossunder(rsi, oversold)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, oversold),
+    input: 'RSI crossed below oversold threshold',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## Built-in Indicators
+
+TradingGoose ships with 80+ pre-built indicators covering momentum, trend, volatility, and volume analysis. These serve as both ready-to-use tools and reference examples for writing your own.
+
+<Callout type="info">
+  PineTS is based on Pine Script v5/v6 syntax. If you're familiar with TradingView's Pine Script, you'll feel right at home — the main difference is using JavaScript variable declarations (`const`, `let`, `var`) instead of Pine Script's implicit declarations.
+</Callout>
+
+## Guides
+
+<Cards>
+  <Card title="Getting Started" href="/indicators/getting-started">
+    Write and deploy your first indicator in 5 minutes
+  </Card>
+  <Card title="Syntax Guide" href="/indicators/syntax">
+    PineTS syntax rules: variables, loops, functions, and history access
+  </Card>
+  <Card title="Inputs" href="/indicators/inputs">
+    Define configurable parameters with the input namespace
+  </Card>
+  <Card title="Technical Analysis" href="/indicators/ta">
+    57+ built-in TA functions: moving averages, oscillators, trend detection
+  </Card>
+  <Card title="Plotting" href="/indicators/plots">
+    Visualize data with plot, shapes, fills, and colors
+  </Card>
+  <Card title="Triggers" href="/indicators/triggers">
+    Connect indicator signals to TradingGoose workflows
+  </Card>
+  <Card title="API Reference" href="/indicators/api-reference">
+    Complete function reference table
+  </Card>
+</Cards>

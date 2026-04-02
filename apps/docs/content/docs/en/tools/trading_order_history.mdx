@@ -1,0 +1,88 @@
+---
+title: Trading Order History
+description: Retrieve recorded trading order submissions for a date range.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_history"
+  color="#0f766e"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trading Order History"
+    type="trading_order_history"
+    color="#0f766e"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "Start Date",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "End Date",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "workflowId",
+            "type": "short-input",
+            "title": "Workflow ID",
+            "layout": "full",
+            "placeholder": "Defaults to current workflow"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `trading_order_history`
+
+Retrieve order submissions recorded for a workflow within a datetime range.
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `startDate` | string | Yes | Start datetime \(ISO 8601\). |
+| `endDate` | string | Yes | End datetime \(ISO 8601\). |
+| `workflowId` | string | No | Optional workflow ID to filter by. Defaults to the current workflow execution context. |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Order history record ID |
+| `provider` | string | Trading provider |
+| `recordedAt` | string | Recorded timestamp |
+| `workflowId` | string | Workflow ID |
+| `workflowExecutionId` | string | Workflow execution ID |
+
+
+## Usage Instructions
+
+Fetches order submission history recorded by the Trading Action tool for the selected workflow and date range.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `trading_order_history`

@@ -1,0 +1,73 @@
+---
+title: Funciones Matemáticas
+description: Operaciones matemáticas y constantes en el espacio de nombres math
+---
+
+El espacio de nombres `math` proporciona constantes matemáticas, operaciones básicas, trigonometría y funciones estadísticas.
+
+## Constantes
+
+| Constante | Valor | Descripción |
+|----------|-------|-------------|
+| `math.pi` | 3.14159... | Pi |
+| `math.e` | 2.71828... | Número de Euler |
+| `math.phi` | 1.61803... | Razón áurea |
+| `math.rphi` | 0.61803... | Recíproco de la razón áurea |
+
+## Operaciones Básicas
+
+| Función | Descripción |
+|----------|-------------|
+| `math.abs(x)` | Valor absoluto |
+| `math.ceil(x)` | Redondear hacia arriba al entero más cercano |
+| `math.floor(x)` | Redondear hacia abajo al entero más cercano |
+| `math.round(x, precision?)` | Redondear al entero más cercano (o precisión) |
+| `math.round_to_mintick(x)` | Redondear al tick mínimo del símbolo |
+| `math.sign(x)` | Signo del valor (-1, 0 o 1) |
+| `math.max(a, b)` | Máximo de dos valores |
+| `math.min(a, b)` | Mínimo de dos valores |
+| `math.avg(...)` | Promedio de valores |
+| `math.sum(source, length)` | Suma de valores en N barras |
+
+## Exponencial y Logarítmico
+
+| Función | Descripción |
+|----------|-------------|
+| `math.pow(base, exp)` | Potencia |
+| `math.sqrt(x)` | Raíz cuadrada |
+| `math.exp(x)` | e elevado a la potencia de x |
+| `math.log(x)` | Logaritmo natural |
+| `math.log10(x)` | Logaritmo en base 10 |
+
+## Trigonométrico
+
+| Función | Descripción |
+|----------|-------------|
+| `math.sin(x)` | Seno (radianes) |
+| `math.cos(x)` | Coseno (radianes) |
+| `math.tan(x)` | Tangente (radianes) |
+| `math.asin(x)` | Arcoseno |
+| `math.acos(x)` | Arcocoseno |
+| `math.atan(x)` | Arcotangente |
+| `math.todegrees(x)` | Convertir radianes a grados |
+| `math.toradians(x)` | Convertir grados a radianes |
+
+## Otro
+
+| Función | Descripción |
+|----------|-------------|
+| `math.random(min?, max?)` | Número aleatorio |
+
+## Ejemplo
+
+```javascript
+indicator('Volatility Ratio');
+
+const atr = ta.atr(14);
+const avgAtr = ta.sma(atr, 50);
+const ratio = atr / math.max(avgAtr, syminfo.mintick);
+const logRatio = math.log(ratio);
+
+plot(logRatio, 'Log Volatility Ratio');
+hline(0, { linestyle: hline.style_dashed });
+```

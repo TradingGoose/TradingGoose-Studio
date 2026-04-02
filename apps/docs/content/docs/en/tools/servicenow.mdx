@@ -1,0 +1,488 @@
+---
+title: ServiceNow
+description: Create, read, update, and delete ServiceNow records
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="servicenow"
+  color="#62D84E"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Create Record
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Record",
+                    "id": "servicenow_create_record"
+                },
+                {
+                    "label": "Read Records",
+                    "id": "servicenow_read_record"
+                },
+                {
+                    "label": "Update Record",
+                    "id": "servicenow_update_record"
+                },
+                {
+                    "label": "Delete Record",
+                    "id": "servicenow_delete_record"
+                }
+            ],
+            "defaultValue": "servicenow_create_record"
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "Instance URL",
+            "placeholder": "https://instance.service-now.com",
+            "description": "Your ServiceNow instance URL (e.g., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter your ServiceNow username",
+            "description": "ServiceNow user with web service access",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter your ServiceNow password",
+            "description": "Password for the ServiceNow user",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "ServiceNow table name",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "Fields (JSON)",
+            "placeholder": "{\\n  \"short_description\": \"Issue description\",\\n  \"priority\": \"1\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Record (<code>servicenow_create_record</code>)</div>
+
+Create a new record in a ServiceNow table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Yes | ServiceNow instance URL \(e.g., https://instance.service-now.com\) |
+| `username` | string | Yes | ServiceNow username |
+| `password` | string | Yes | ServiceNow password |
+| `tableName` | string | Yes | Table name \(e.g., incident, task, sys_user\) |
+| `fields` | json | Yes | Fields to set on the record \(JSON object\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `record` | json | Created ServiceNow record with sys_id and other fields |
+
+</div>
+
+
+
+---
+
+### Read Records
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Record",
+                    "id": "servicenow_create_record"
+                },
+                {
+                    "label": "Read Records",
+                    "id": "servicenow_read_record"
+                },
+                {
+                    "label": "Update Record",
+                    "id": "servicenow_update_record"
+                },
+                {
+                    "label": "Delete Record",
+                    "id": "servicenow_delete_record"
+                }
+            ],
+            "defaultValue": "servicenow_read_record"
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "Instance URL",
+            "placeholder": "https://instance.service-now.com",
+            "description": "Your ServiceNow instance URL (e.g., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter your ServiceNow username",
+            "description": "ServiceNow user with web service access",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter your ServiceNow password",
+            "description": "Password for the ServiceNow user",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "ServiceNow table name",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "Record sys_id",
+            "placeholder": "Specific record sys_id (optional)"
+        },
+        {
+            "id": "number",
+            "type": "short-input",
+            "title": "Record Number",
+            "placeholder": "e.g., INC0010001 (optional)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Query String",
+            "placeholder": "active=true^priority=1",
+            "description": "ServiceNow encoded query string"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "10"
+        },
+        {
+            "id": "fields",
+            "type": "short-input",
+            "title": "Fields to Return",
+            "placeholder": "number,short_description,priority",
+            "description": "Comma-separated list of fields"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Records (<code>servicenow_read_record</code>)</div>
+
+Read records from a ServiceNow table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Yes | ServiceNow instance URL \(e.g., https://instance.service-now.com\) |
+| `username` | string | Yes | ServiceNow username |
+| `password` | string | Yes | ServiceNow password |
+| `tableName` | string | Yes | Table name |
+| `sysId` | string | No | Specific record sys_id |
+| `number` | string | No | Record number \(e.g., INC0010001\) |
+| `query` | string | No | Encoded query string \(e.g., "active=true^priority=1"\) |
+| `limit` | number | No | Maximum number of records to return |
+| `fields` | string | No | Comma-separated list of fields to return |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `records` | array | Array of ServiceNow records |
+
+</div>
+
+
+
+---
+
+### Update Record
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Record",
+                    "id": "servicenow_create_record"
+                },
+                {
+                    "label": "Read Records",
+                    "id": "servicenow_read_record"
+                },
+                {
+                    "label": "Update Record",
+                    "id": "servicenow_update_record"
+                },
+                {
+                    "label": "Delete Record",
+                    "id": "servicenow_delete_record"
+                }
+            ],
+            "defaultValue": "servicenow_update_record"
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "Instance URL",
+            "placeholder": "https://instance.service-now.com",
+            "description": "Your ServiceNow instance URL (e.g., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter your ServiceNow username",
+            "description": "ServiceNow user with web service access",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter your ServiceNow password",
+            "description": "Password for the ServiceNow user",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "ServiceNow table name",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "Record sys_id",
+            "placeholder": "Record sys_id to update",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "Fields to Update (JSON)",
+            "placeholder": "{\\n  \"state\": \"2\",\\n  \"assigned_to\": \"user.sys_id\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Record (<code>servicenow_update_record</code>)</div>
+
+Update an existing record in a ServiceNow table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Yes | ServiceNow instance URL \(e.g., https://instance.service-now.com\) |
+| `username` | string | Yes | ServiceNow username |
+| `password` | string | Yes | ServiceNow password |
+| `tableName` | string | Yes | Table name |
+| `sysId` | string | Yes | Record sys_id to update |
+| `fields` | json | Yes | Fields to update \(JSON object\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `record` | json | Updated ServiceNow record |
+
+</div>
+
+
+
+---
+
+### Delete Record
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Create Record",
+                    "id": "servicenow_create_record"
+                },
+                {
+                    "label": "Read Records",
+                    "id": "servicenow_read_record"
+                },
+                {
+                    "label": "Update Record",
+                    "id": "servicenow_update_record"
+                },
+                {
+                    "label": "Delete Record",
+                    "id": "servicenow_delete_record"
+                }
+            ],
+            "defaultValue": "servicenow_delete_record"
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "Instance URL",
+            "placeholder": "https://instance.service-now.com",
+            "description": "Your ServiceNow instance URL (e.g., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter your ServiceNow username",
+            "description": "ServiceNow user with web service access",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter your ServiceNow password",
+            "description": "Password for the ServiceNow user",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "ServiceNow table name",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "Record sys_id",
+            "placeholder": "Record sys_id to delete",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Record (<code>servicenow_delete_record</code>)</div>
+
+Delete a record from a ServiceNow table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Yes | ServiceNow instance URL \(e.g., https://instance.service-now.com\) |
+| `username` | string | Yes | ServiceNow username |
+| `password` | string | Yes | ServiceNow password |
+| `tableName` | string | Yes | Table name |
+| `sysId` | string | Yes | Record sys_id to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the deletion was successful |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate ServiceNow into your workflow. Create, read, update, and delete records in any ServiceNow table including incidents, tasks, change requests, users, and more.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `servicenow`

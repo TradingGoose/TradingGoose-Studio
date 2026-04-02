@@ -1,0 +1,724 @@
+---
+title: Cursor
+description: Lanza y gestiona agentes cloud de Cursor para trabajar en
+  repositorios de GitHub
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="cursor"
+  color=""
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+/>
+
+## Configuración
+
+### Lanzar Agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Añadir Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_launch_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce la clave API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "URL del Repositorio",
+            "placeholder": "https://github.com/your-org/your-repo",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Rama/Ref",
+            "placeholder": "main (opcional)"
+        },
+        {
+            "id": "promptText",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe la tarea para el agente...",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "short-input",
+            "title": "Modelo",
+            "placeholder": "Selección automática por defecto"
+        },
+        {
+            "id": "branchName",
+            "type": "short-input",
+            "title": "Nombre de Rama",
+            "placeholder": "Nombre de rama personalizado (opcional)"
+        },
+        {
+            "id": "autoCreatePr",
+            "type": "switch",
+            "title": "Crear PR Automáticamente"
+        },
+        {
+            "id": "openAsCursorGithubApp",
+            "type": "switch",
+            "title": "Abrir como App GitHub de Cursor"
+        },
+        {
+            "id": "skipReviewerRequest",
+            "type": "switch",
+            "title": "Omitir Solicitud de Revisor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Launch Agent (<code>cursor_launch_agent</code>)</div>
+
+Inicia un nuevo agente en la nube para trabajar en un repositorio de GitHub con las instrucciones proporcionadas.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `repository` | string | Sí | URL del repositorio de GitHub \(p. ej., https://github.com/your-org/your-repo\) |
+| `ref` | string | No | Rama, etiqueta o commit desde el que trabajar \(por defecto, la rama predeterminada\) |
+| `promptText` | string | Sí | El texto de instrucción para el agente |
+| `promptImages` | string | No | Array JSON de objetos de imagen con datos en base64 y dimensiones |
+| `model` | string | No | Modelo a utilizar \(dejar vacío para selección automática\) |
+| `branchName` | string | No | Nombre de rama personalizado para que utilice el agente |
+| `autoCreatePr` | boolean | No | Crear automáticamente un PR cuando el agente finalice |
+| `openAsCursorGithubApp` | boolean | No | Abrir el PR como la aplicación GitHub de Cursor |
+| `skipReviewerRequest` | boolean | No | Omitir la solicitud de revisores en el PR |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito con detalles del agente |
+| `id` | string | ID del agente |
+
+</div>
+
+---
+
+### Añadir Seguimiento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Añadir Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_add_followup"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del Agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        },
+        {
+            "id": "followupPromptText",
+            "type": "long-input",
+            "title": "Prompt de Seguimiento",
+            "placeholder": "Instrucciones adicionales para el agente...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar seguimiento (<code>cursor_add_followup</code>)</div>
+
+Agrega una instrucción de seguimiento a un agente en la nube existente.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+| `followupPromptText` | string | Sí | El texto de la instrucción de seguimiento para el agente |
+| `promptImages` | string | No | Arreglo JSON de objetos de imagen con datos en base64 y dimensiones \(máx. 5\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+
+</div>
+
+---
+
+### Obtener estado del agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Agregar seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener estado del agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_get_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese la clave API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Estado del Agente (<code>cursor_get_agent</code>)</div>
+
+Recupera el estado actual y los resultados de un agente en la nube.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Detalles del agente en formato legible |
+| `id` | string | ID del agente |
+| `name` | string | Nombre del agente |
+| `status` | string | Estado del agente |
+| `source` | object | Información del repositorio de origen |
+| `target` | object | Información de la rama de destino |
+| `summary` | string | Resumen del agente |
+
+</div>
+
+---
+
+### Obtener Conversación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Agregar Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_get_conversation"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del Agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Conversación (<code>cursor_get_conversation</code>)</div>
+
+Recupera el historial de conversación de un agente en la nube, incluyendo todos los mensajes del usuario y las respuestas del asistente.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Historial de conversación legible |
+| `id` | string | ID del agente |
+
+</div>
+
+---
+
+### Listar Agentes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Añadir Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_list_agents"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese la clave API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "20 (predeterminado, máx. 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor de Paginación",
+            "placeholder": "Cursor de la respuesta anterior"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Agentes (<code>cursor_list_agents</code>)</div>
+
+Lista todos los agentes en la nube para el usuario autenticado con paginación opcional.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `limit` | number | No | Número de agentes a devolver \(predeterminado: 20, máx: 100\) |
+| `cursor` | string | No | Cursor de paginación de la respuesta anterior |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Lista de agentes legible para humanos |
+| `agents` | array | Array de objetos de agente |
+
+</div>
+
+---
+
+### Detener Agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Añadir Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_stop_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID de Agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Detener Agente (<code>cursor_stop_agent</code>)</div>
+
+Detener un agente en la nube en ejecución. Esto pausa el agente sin eliminarlo.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+
+</div>
+
+---
+
+### Eliminar Agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 546 546' fill='currentColor'>
+      <path d='m466.383 137.073-206.469-119.2034c-6.63-3.8287-14.811-3.8287-21.441 0l-206.4586 119.2034c-5.5734 3.218-9.0144 9.169-9.0144 15.615v240.375c0 6.436 3.441 12.397 9.0144 15.615l206.4686 119.203c6.63 3.829 14.811 3.829 21.441 0l206.468-119.203c5.574-3.218 9.015-9.17 9.015-15.615v-240.375c0-6.436-3.441-12.397-9.015-15.615zm-12.969 25.25-199.316 345.223c-1.347 2.326-4.904 1.376-4.904-1.319v-226.048c0-4.517-2.414-8.695-6.33-10.963l-195.7577-113.019c-2.3263-1.347-1.3764-4.905 1.3182-4.905h398.6305c5.661 0 9.199 6.136 6.368 11.041h-.009z' />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Lanzar Agente",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Agregar Seguimiento",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Obtener Estado del Agente",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Obtener Conversación",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "Listar Agentes",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Detener Agente",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Eliminar Agente",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_delete_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del Agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar agente (<code>cursor_delete_agent</code>)</div>
+
+Eliminar permanentemente un agente en la nube. Esta acción no se puede deshacer.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Interactúa con la API de Cursor Cloud Agents para lanzar agentes de IA que pueden trabajar en tus repositorios de GitHub. Admite el lanzamiento de agentes, la adición de instrucciones de seguimiento, la verificación del estado, la visualización de conversaciones y la gestión del ciclo de vida de los agentes.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `cursor`

@@ -1,0 +1,2000 @@
+---
+title: Sentry
+description: 管理 Sentry 问题、项目、事件和版本发布
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sentry"
+  color="#6e4bb4"
+  icon={true}
+  iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+/>
+
+## 配置
+
+### 列出问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_issues_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织标识符",
+            "placeholder": "您的 Sentry 组织标识符",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目标识符",
+            "placeholder": "按项目筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "例如：is:unresolved, level:error"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "统计周期",
+            "placeholder": "24h, 7d, 30d"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制数量",
+            "placeholder": "25"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "未解决",
+                    "id": "unresolved"
+                },
+                {
+                    "label": "已解决",
+                    "id": "resolved"
+                },
+                {
+                    "label": "已忽略",
+                    "id": "ignored"
+                },
+                {
+                    "label": "已静默",
+                    "id": "muted"
+                }
+            ]
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "排序方式",
+            "options": [
+                {
+                    "label": "日期",
+                    "id": "date"
+                },
+                {
+                    "label": "最新",
+                    "id": "new"
+                },
+                {
+                    "label": "频率",
+                    "id": "freq"
+                },
+                {
+                    "label": "优先级",
+                    "id": "priority"
+                },
+                {
+                    "label": "用户数量",
+                    "id": "user"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出问题（<code>sentry_issues_list</code>）</div>
+
+列出特定组织（以及可选的特定项目）在 Sentry 中的问题。返回问题详情，包括状态、错误计数及最后出现时间戳。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 否 | 按特定项目 slug 筛选问题（可选）|
+| `query` | string | 否 | 用于筛选问题的搜索查询，支持 Sentry 搜索语法（如 "is:unresolved"、"level:error"）|
+| `statsPeriod` | string | 否 | 统计数据的时间范围（如 "24h"、"7d"、"30d"），默认为 24h。|
+| `cursor` | string | 否 | 用于获取下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的问题数量（默认：25，最大：100）|
+| `status` | string | 否 | 按问题状态筛选：unresolved（未解决）、resolved（已解决）、ignored（已忽略）或 muted（已静音）|
+| `sort` | string | 否 | 排序方式：date（日期）、new（最新）、freq（频率）、priority（优先级）或 user（用户）（默认：date）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 项目 ID |
+| `shortId` | string | 问题短标识符 |
+| `title` | string | 问题标题 |
+| `culprit` | string | 引发问题的函数或位置 |
+| `permalink` | string | 问题在 Sentry 中的直接链接 |
+| `logger` | string | 报告该问题的日志记录器名称 |
+| `level` | string | 严重级别（error、warning、info 等）|
+| `status` | string | 当前问题状态 |
+| `platform` | string | 问题发生的平台 |
+| `name` | string | 项目名称 |
+| `slug` | string | 项目 slug |
+
+</div>
+
+---
+
+### 获取问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_issues_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织标识符",
+            "placeholder": "您的 Sentry 组织标识符",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "请输入问题 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取问题 (<code>sentry_issues_get</code>)</div>
+
+通过 ID 检索特定 Sentry 问题的详细信息。返回完整的问题详情，包括元数据、标签和统计数据。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `issueId` | string | 是 | 要检索的问题的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 项目 ID |
+| `shortId` | string | 问题短标识符 |
+| `title` | string | 问题标题 |
+| `culprit` | string | 引发问题的函数或位置 |
+| `permalink` | string | Sentry 中问题的直接链接 |
+| `logger` | string | 报告问题的 Logger 名称 |
+| `level` | string | 严重级别 \(error、warning、info 等\) |
+| `status` | string | 当前问题状态 |
+| `statusDetails` | object | 状态的附加详情 |
+| `isPublic` | boolean | 问题是否公开可见 |
+| `platform` | string | 问题发生的平台 |
+| `name` | string | 项目名称 |
+| `slug` | string | 项目 slug |
+
+</div>
+
+---
+
+### 更新问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_issues_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "输入问题 ID",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "新状态",
+            "options": [
+                {
+                    "label": "已解决",
+                    "id": "resolved"
+                },
+                {
+                    "label": "未解决",
+                    "id": "unresolved"
+                },
+                {
+                    "label": "已忽略",
+                    "id": "ignored"
+                },
+                {
+                    "label": "在下次发布时解决",
+                    "id": "resolvedInNextRelease"
+                }
+            ]
+        },
+        {
+            "id": "assignedTo",
+            "type": "short-input",
+            "title": "分配给",
+            "placeholder": "用户 ID 或邮箱（留空以取消分配）"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "收藏问题"
+        },
+        {
+            "id": "isSubscribed",
+            "type": "switch",
+            "title": "订阅更新"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新问题 (<code>sentry_issues_update</code>)</div>
+
+通过更改状态、分配、书签状态或其他属性来更新 Sentry 问题。返回更新后的问题详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `issueId` | string | 是 | 要更新的问题的唯一 ID |
+| `status` | string | 否 | 问题的新状态：resolved、unresolved、ignored 或 resolvedInNextRelease |
+| `assignedTo` | string | 否 | 分配问题的用户 ID 或邮箱。使用空字符串取消分配。 |
+| `isBookmarked` | boolean | 否 | 是否将该问题加入书签 |
+| `isSubscribed` | boolean | 否 | 是否订阅问题更新 |
+| `isPublic` | boolean | 否 | 该问题是否应公开可见 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 用户 ID |
+| `shortId` | string | 问题短标识符 |
+| `title` | string | 问题标题 |
+| `status` | string | 更新后的问题状态 |
+| `name` | string | 用户名 |
+
+</div>
+
+---
+
+### 项目列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "问题列表",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "项目列表",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "事件列表",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "版本列表",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_projects_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制数量",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出项目（<code>sentry_projects_list</code>）</div>
+
+列出 Sentry 组织中的所有项目。返回项目详情，包括名称、平台、团队及配置信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `cursor` | string | 否 | 用于检索下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的项目数量 \(默认值：25，最大值：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 组织 ID |
+| `slug` | string | 组织 slug |
+| `name` | string | 项目名称 |
+| `platform` | string | 平台/编程语言 \(例如：javascript、python\) |
+| `dateCreated` | string | 项目创建时间 \(ISO 时间戳\) |
+| `isBookmarked` | boolean | 项目是否已加入书签 |
+| `isMember` | boolean | 用户是否为项目成员 |
+| `features` | array | 项目已启用的功能列表 |
+
+</div>
+
+---
+
+### 获取项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_projects_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 ID 或 Slug",
+            "placeholder": "请输入项目 ID 或 slug",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取项目 (<code>sentry_projects_get</code>)</div>
+
+通过项目的 slug 检索特定 Sentry 项目的详细信息。返回完整的项目详情，包括团队、功能特性及配置信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要检索的项目 ID 或 slug |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一项目 ID |
+| `slug` | string | URL 友好的项目标识符 |
+| `name` | string | 项目名称 |
+| `platform` | string | 平台/编程语言 \(例如：javascript、python\) |
+| `dateCreated` | string | 项目创建时间 \(ISO 时间戳\) |
+| `isBookmarked` | boolean | 项目是否已加入书签 |
+| `isMember` | boolean | 用户是否为项目成员 |
+
+</div>
+
+---
+
+### 创建项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_projects_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "项目名称",
+            "placeholder": "请输入项目名称",
+            "required": true
+        },
+        {
+            "id": "teamSlug",
+            "type": "short-input",
+            "title": "团队 Slug",
+            "placeholder": "将拥有该项目的团队",
+            "required": true
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "若未提供则自动生成"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "平台",
+            "placeholder": "javascript、python、node 等"
+        },
+        {
+            "id": "defaultRules",
+            "type": "switch",
+            "title": "创建默认告警规则"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建项目 (<code>sentry_projects_create</code>)</div>
+
+在组织中创建一个新的 Sentry 项目。需要指定一个团队与该项目关联。返回已创建项目的详细信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `name` | string | 是 | 项目名称 |
+| `teamSlug` | string | 是 | 拥有该项目的团队 slug |
+| `slug` | string | 否 | URL 友好的项目标识符 \(若未提供则自动从名称生成\) |
+| `platform` | string | 否 | 项目的平台/语言 \(例如：javascript、python、node、react-native\)。若未指定，默认为 "other" |
+| `defaultRules` | boolean | 否 | 是否创建默认告警规则 \(默认值：true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 组织 ID |
+| `slug` | string | 组织 slug |
+| `name` | string | 项目名称 |
+| `platform` | string | 平台/语言 |
+| `dateCreated` | string | 项目创建时间 \(ISO 时间戳\) |
+
+</div>
+
+---
+
+### 更新项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_projects_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "请输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "新名称",
+            "placeholder": "留空则保留当前名称"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "新 Slug",
+            "placeholder": "留空则保留当前 slug"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "平台",
+            "placeholder": "留空则保留当前平台"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "收藏项目"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新项目（<code>sentry_projects_update</code>）</div>
+
+通过更改名称、slug、平台或其他设置来更新 Sentry 项目。返回更新后的项目详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要更新的项目 slug |
+| `name` | string | 否 | 项目的新名称 |
+| `slug` | string | 否 | 新的 URL 友好型项目标识符 |
+| `platform` | string | 否 | 项目的新平台/语言 \(例如：javascript、python、node\) |
+| `isBookmarked` | boolean | 否 | 是否将项目加入书签 |
+| `digestsMinDelay` | number | 否 | 摘要通知的最小延迟时间 \(以秒为单位\) |
+| `digestsMaxDelay` | number | 否 | 摘要通知的最大延迟时间 \(以秒为单位\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 组织 ID |
+| `slug` | string | 组织 slug |
+| `name` | string | 项目名称 |
+| `platform` | string | 平台/语言 |
+| `isBookmarked` | boolean | 项目是否已加入书签 |
+
+</div>
+
+---
+
+### 列出事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_events_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "按特定问题筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "例如：user.email:*@example.com"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "50"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "统计周期",
+            "placeholder": "24h、7d、30d、90d"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事件（<code>sentry_events_list</code>）</div>
+
+列出 Sentry 项目中的事件。可按 Issue ID、查询条件或时间段进行筛选。返回包含上下文、标签和用户信息在内的事件详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要列出事件的项目 slug |
+| `issueId` | string | 否 | 按特定 Issue ID 筛选事件 |
+| `query` | string | 否 | 用于筛选事件的搜索查询，支持 Sentry 搜索语法 \(例如，"user.email:*@example.com"\) |
+| `cursor` | string | 否 | 用于检索下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的事件数量 \(默认：50，最大：100\) |
+| `statsPeriod` | string | 否 | 查询的时间段 \(例如，"24h"、"7d"、"30d"\)，未指定时默认为 90d |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 用户 ID |
+| `eventID` | string | 事件标识符 |
+| `projectID` | string | 项目 ID |
+| `groupID` | string | Issue 组 ID |
+| `message` | string | 事件消息 |
+| `title` | string | 事件标题 |
+| `culprit` | string | 触发事件的函数或位置 |
+| `dateCreated` | string | 事件创建时间 \(ISO 时间戳\) |
+| `dateReceived` | string | Sentry 接收事件的时间 \(ISO 时间戳\) |
+| `email` | string | 用户邮箱 |
+| `username` | string | 用户名 |
+
+</div>
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_events_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "请输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织标识符",
+            "placeholder": "您的 Sentry 组织标识符",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目标识符",
+            "placeholder": "请输入项目标识符",
+            "required": true
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "事件 ID",
+            "placeholder": "请输入事件 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件 (<code>sentry_events_get</code>)</div>
+
+通过事件 ID 检索特定 Sentry 事件的详细信息。返回完整的事件详情，包括堆栈跟踪、面包屑导航、上下文及用户信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 项目的 slug |
+| `eventId` | string | 是 | 待检索事件的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 用户 ID |
+| `eventID` | string | 事件标识符 |
+| `projectID` | string | 项目 ID |
+| `groupID` | string | 该事件所属的问题组 ID |
+| `message` | string | 事件消息 |
+| `title` | string | 事件标题 |
+| `location` | string | 位置信息 |
+| `culprit` | string | 触发事件的函数或位置 |
+| `dateCreated` | string | 事件创建时间 \(ISO 时间戳\) |
+| `dateReceived` | string | Sentry 接收事件的时间 \(ISO 时间戳\) |
+| `email` | string | 用户邮箱 |
+| `username` | string | 用户名 |
+| `ipAddress` | string | IP 地址 |
+
+</div>
+
+---
+
+### 列出版本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_releases_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织标识符",
+            "placeholder": "您的 Sentry 组织标识符",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目标识符",
+            "placeholder": "按项目筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "搜索特定版本号"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制数量",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出发布版本 (<code>sentry_releases_list</code>)</div>
+
+列出 Sentry 组织或项目的发布版本。返回发布详情，包括版本号、提交记录、部署信息及关联项目。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 否 | 按特定项目 slug 筛选发布版本（可选）|
+| `query` | string | 否 | 用于筛选发布版本的搜索查询（如版本名称模式）|
+| `cursor` | string | 否 | 用于检索下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的发布版本数量（默认：25，最大：100）|
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 用户 ID |
+| `version` | string | 发布版本标识符 |
+| `shortVersion` | string | 缩短版本标识符 |
+| `ref` | string | Git 引用（提交 SHA、标签或分支）|
+| `url` | string | 发布版本的 URL（如 GitHub 发布页面）|
+| `dateReleased` | string | 发布部署时间（ISO 时间戳）|
+| `dateCreated` | string | 发布创建时间（ISO 时间戳）|
+| `newGroups` | number | 此版本引入的新问题数量 |
+| `name` | string | 用户名 |
+
+</div>
+
+---
+
+### 创建发布版本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_releases_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "您的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "version",
+            "type": "short-input",
+            "title": "版本",
+            "placeholder": "例如：2.0.0 或 my-app@1.0.0",
+            "required": true
+        },
+        {
+            "id": "projects",
+            "type": "long-input",
+            "title": "项目",
+            "placeholder": "以逗号分隔的项目 slug",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Git 引用",
+            "placeholder": "Commit SHA、标签或分支"
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "发布 URL",
+            "placeholder": "发布页面的 URL（例如：GitHub release）"
+        },
+        {
+            "id": "dateReleased",
+            "type": "datetime-input",
+            "title": "发布日期",
+            "placeholder": "ISO 8601 时间戳（默认为当前时间）"
+        },
+        {
+            "id": "commits",
+            "type": "long-input",
+            "title": "提交记录（JSON）",
+            "placeholder": "[{\"id\":\"abc123\",\"message\":\"Fix bug\"}]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建发布版本（<code>sentry_releases_create</code>）</div>
+
+在 Sentry 中创建新的发布版本。发布版本是部署到某个环境中的代码版本，可包含提交信息及关联项目。返回已创建的发布版本详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `version` | string | 是 | 发布版本的版本标识符（例如："2.0.0"、"my-app@1.0.0" 或 Git 提交 SHA）|
+| `projects` | string | 是 | 以逗号分隔的项目 slug 列表，用于关联此发布版本 |
+| `ref` | string | 否 | 此发布版本的 Git 引用（提交 SHA、标签或分支）|
+| `url` | string | 否 | 指向发布版本的 URL（例如：GitHub 发布页面）|
+| `dateReleased` | string | 否 | 发布版本部署时间的 ISO 8601 时间戳（默认为当前时间）|
+| `commits` | string | 否 | 包含提交对象的 JSON 数组，每个对象含 id、repository（可选）和 message（可选）。示例：\[\{"id":"abc123","message":"Fix bug"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 项目 ID |
+| `version` | string | 发布版本标识符 |
+| `shortVersion` | string | 简短版本标识符 |
+| `ref` | string | Git 引用（提交 SHA、标签或分支）|
+| `url` | string | 发布版本的 URL |
+| `dateReleased` | string | 发布版本的部署时间（ISO 时间戳）|
+| `dateCreated` | string | 发布版本的创建时间（ISO 时间戳）|
+| `commitCount` | number | 此发布版本中的提交数量 |
+| `name` | string | 项目名称 |
+
+</div>
+
+---
+
+### 创建部署
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    iconSvg={`<svg className="block-icon"
+      
+      
+      
+      viewBox='0 -14.5 256 256'
+      version='1.1'
+      xmlns='http://www.w3.org/2000/svg'
+      xmlnsXlink='http://www.w3.org/1999/xlink'
+      preserveAspectRatio='xMidYMid'
+    >
+      <g>
+        <path
+          d='M148.367708,12.4025287 C144.036807,5.21480737 136.258026,0.820118864 127.866362,0.820118864 C119.474697,0.820118864 111.695916,5.21480737 107.365016,12.4025287 L73.6403017,70.165071 C126.066153,96.3390588 160.689085,148.341727 164.615024,206.806542 L140.93597,206.806542 C137.017513,156.694333 106.874845,112.396698 61.6982677,90.3588968 L30.4849684,144.32869 C55.8497707,155.704426 73.6778379,179.211206 77.7918243,206.704035 L23.4120041,206.704035 C22.1018479,206.611361 20.9266153,205.864669 20.2861278,204.71799 C19.6456403,203.571311 19.6261529,202.179068 20.2342955,201.014912 L35.3027847,175.388229 C30.1976229,171.128798 24.3630321,167.829476 18.0816541,165.65009 L3.16692493,191.276772 C0.0305635285,196.656417 -0.818661742,203.068719 0.809210488,209.079324 C2.43708272,215.08993 6.40620885,220.197261 11.8287436,223.258872 C15.3657216,225.251729 19.3523095,226.310116 23.4120041,226.334074 L97.8831433,226.334074 C100.696274,191.620878 85.1423372,157.966047 56.8804514,137.614499 L68.7199787,117.113153 C104.398813,141.618242 124.473737,183.151896 121.510945,226.334074 L184.603837,226.334074 C187.593899,160.904124 155.557278,98.8221906 100.497065,63.3483734 L124.432386,22.3456815 C125.542508,20.4856859 127.944329,19.8680747 129.81399,20.9618406 C132.530418,22.4481882 233.807067,199.169791 235.703442,201.219925 C236.383476,202.439289 236.358897,203.929352 235.639016,205.125624 C234.919136,206.321896 233.614065,207.041397 232.218213,207.011555 L207.821611,207.011555 C208.129131,213.537817 208.129131,220.046994 207.821611,226.539592 L232.32072,226.539592 C238.604421,226.580218 244.643414,224.105731 249.091568,219.667205 C253.539722,215.228679 256.027289,209.195062 256,202.911286 C256.002825,198.802186 254.905596,194.767215 252.822066,191.225519 L148.367708,12.4025287 Z'
+          fill='currentColor'
+        />
+      </g>
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "列出问题",
+                    "id": "sentry_issues_list"
+                },
+                {
+                    "label": "获取问题",
+                    "id": "sentry_issues_get"
+                },
+                {
+                    "label": "更新问题",
+                    "id": "sentry_issues_update"
+                },
+                {
+                    "label": "列出项目",
+                    "id": "sentry_projects_list"
+                },
+                {
+                    "label": "获取项目",
+                    "id": "sentry_projects_get"
+                },
+                {
+                    "label": "创建项目",
+                    "id": "sentry_projects_create"
+                },
+                {
+                    "label": "更新项目",
+                    "id": "sentry_projects_update"
+                },
+                {
+                    "label": "列出事件",
+                    "id": "sentry_events_list"
+                },
+                {
+                    "label": "获取事件",
+                    "id": "sentry_events_get"
+                },
+                {
+                    "label": "列出发布版本",
+                    "id": "sentry_releases_list"
+                },
+                {
+                    "label": "创建发布版本",
+                    "id": "sentry_releases_create"
+                },
+                {
+                    "label": "创建部署",
+                    "id": "sentry_releases_deploy"
+                }
+            ],
+            "defaultValue": "sentry_releases_deploy"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织标识符",
+            "placeholder": "您的 Sentry 组织标识符",
+            "required": true
+        },
+        {
+            "id": "version",
+            "type": "short-input",
+            "title": "版本",
+            "placeholder": "要部署的发布版本",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "short-input",
+            "title": "环境",
+            "placeholder": "production、staging 等",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "部署名称",
+            "placeholder": "可选的部署名称"
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "部署 URL",
+            "placeholder": "CI/CD 流水线或部署的 URL"
+        },
+        {
+            "id": "dateStarted",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "placeholder": "ISO 8601 时间戳（默认为当前时间）"
+        },
+        {
+            "id": "dateFinished",
+            "type": "datetime-input",
+            "title": "完成时间",
+            "placeholder": "ISO 8601 时间戳"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建部署（<code>sentry_releases_deploy</code>）</div>
+
+为特定环境中的 Sentry 版本创建部署记录。部署记录用于追踪版本的部署时间和部署位置。返回已创建的部署详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `version` | string | 是 | 待部署版本的版本标识符 |
+| `environment` | string | 是 | 版本部署的目标环境名称 \(例如："production"、"staging"\) |
+| `name` | string | 否 | 本次部署的可选名称 \(例如："Deploy v2.0 to Production"\) |
+| `url` | string | 否 | 指向部署的 URL \(例如：CI/CD 流水线 URL\) |
+| `dateStarted` | string | 否 | 部署开始时间的 ISO 8601 时间戳 \(默认为当前时间\) |
+| `dateFinished` | string | 否 | 部署完成时间的 ISO 8601 时间戳 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 唯一部署 ID |
+| `environment` | string | 版本部署的目标环境名称 |
+| `name` | string | 部署名称 |
+| `url` | string | 指向部署的 URL |
+| `dateStarted` | string | 部署开始时间 \(ISO 时间戳\) |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Sentry 集成到工作流中。监控问题、管理项目、追踪事件，并协调应用程序的发布。
+
+## 注意事项
+
+- 类别: `tools`
+- 类型: `sentry`

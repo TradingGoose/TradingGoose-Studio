@@ -4,9 +4,8 @@ title: Registro
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
 
-TradingGoose proporciona un registro completo para todas las ejecuciones de flujos de trabajo, dándote visibilidad total sobre cómo se ejecutan tus flujos de trabajo, qué datos fluyen a través de ellos y dónde podrían ocurrir problemas.
+TradingGoose proporciona un registro exhaustivo de todas las ejecuciones de flujos de trabajo, ofreciéndote visibilidad completa sobre cómo se ejecutan, qué datos fluyen a través de ellos y dónde pueden producirse problemas.
 
 ## Sistema de registro
 
@@ -14,137 +13,95 @@ TradingGoose ofrece dos interfaces de registro complementarias para adaptarse a 
 
 ### Consola en tiempo real
 
-Durante la ejecución manual o por chat del flujo de trabajo, los registros aparecen en tiempo real en el panel de Consola en el lado derecho del editor de flujo de trabajo:
+Durante la ejecución manual o mediante chat, los registros aparecen en tiempo real en el panel de Consola situado en el lado derecho del editor de flujos de trabajo:
 
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/console.png"
-    alt="Panel de consola en tiempo real"
-    width={400}
-    height={300}
-    className="my-6"
-  />
-</div>
-
-La consola muestra:
+El panel de Consola aparece en el lado derecho del editor de flujos de trabajo y muestra:
 - Progreso de ejecución de bloques con resaltado del bloque activo
-- Resultados en tiempo real a medida que se completan los bloques
-- Tiempo de ejecución para cada bloque
+- Salidas en tiempo real a medida que los bloques se completan
+- Tiempos de ejecución para cada bloque
 - Indicadores de estado de éxito/error
 
 ### Página de registros
 
-Todas las ejecuciones de flujos de trabajo, ya sean activadas manualmente, a través de API, Chat, Programación o Webhook, se registran en la página dedicada de Registros:
+Todas las ejecuciones de flujos de trabajo —ya sea activadas manualmente, mediante API, Chat, Programación o Webhook— quedan registradas en la página de Registros dedicada:
 
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs.png"
-    alt="Página de registros"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
-
-La página de Registros proporciona:
-- Filtrado completo por rango de tiempo, estado, tipo de activación, carpeta y flujo de trabajo
+La página de Registros ofrece:
+- Filtrado exhaustivo por rango de tiempo, estado, tipo de activador, carpeta y flujo de trabajo
 - Funcionalidad de búsqueda en todos los registros
 - Modo en vivo para actualizaciones en tiempo real
-- Retención de registros de 7 días (ampliable para una retención más larga)
+- Retención de registros de 7 días (ampliable para mayor retención)
 
-## Barra lateral de detalles de registro
+## Panel lateral de detalles del registro
 
-Al hacer clic en cualquier entrada de registro se abre una vista detallada en la barra lateral:
-
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs-sidebar.png"
-    alt="Detalles de la barra lateral de registros"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
+Al hacer clic en cualquier entrada de registro se abre un panel lateral detallado que muestra la línea de tiempo de ejecución, los detalles a nivel de bloque y el resumen de costes.
 
 ### Entrada/Salida de bloque
 
-Visualiza el flujo de datos completo para cada bloque con pestañas para cambiar entre:
+Visualiza el flujo de datos completo de cada bloque con pestañas para alternar entre:
 
 <Tabs items={['Output', 'Input']}>
   <Tab>
-    **Pestaña de salida** muestra el resultado de la ejecución del bloque:
+    **Pestaña Salida** muestra el resultado de ejecución del bloque:
     - Datos estructurados con formato JSON
-    - Renderizado de Markdown para contenido generado por IA
-    - Botón de copiar para fácil extracción de datos
+    - Renderizado Markdown para contenido generado por IA
+    - Botón de copia para extracción de datos sencilla
   </Tab>
   
   <Tab>
-    **Pestaña de entrada** muestra lo que se pasó al bloque:
+    **Pestaña Entrada** muestra lo que se pasó al bloque:
     - Valores de variables resueltos
     - Salidas referenciadas de otros bloques
     - Variables de entorno utilizadas
-    - Las claves API se redactan automáticamente por seguridad
+    - Las claves API se ocultan automáticamente por seguridad
   </Tab>
 </Tabs>
 
-### Cronología de ejecución
+### Cronología de Ejecución
 
-Para los registros a nivel de flujo de trabajo, visualiza métricas detalladas de ejecución:
+Para los registros a nivel de flujo de trabajo, consulte las métricas de ejecución detalladas:
 - Marcas de tiempo de inicio y fin
 - Duración total del flujo de trabajo
-- Tiempos de ejecución de bloques individuales
-- Identificación de cuellos de botella de rendimiento
+- Tiempos de ejecución de cada bloque individual
+- Identificación de cuellos de botella en el rendimiento
 
-## Instantáneas del flujo de trabajo
+## Instantáneas del Flujo de Trabajo
 
-Para cualquier ejecución registrada, haz clic en "Ver instantánea" para ver el estado exacto del flujo de trabajo en el momento de la ejecución:
-
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs-frozen-canvas.png"
-    alt="Instantánea del flujo de trabajo"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
-
-La instantánea proporciona:
+Para cualquier ejecución registrada, haga clic en "Ver Instantánea" para ver el estado exacto del flujo de trabajo en el momento de la ejecución. La instantánea proporciona:
 - Lienzo congelado que muestra la estructura del flujo de trabajo
-- Estados de los bloques y conexiones tal como estaban durante la ejecución
-- Haz clic en cualquier bloque para ver sus entradas y salidas
-- Útil para depurar flujos de trabajo que han sido modificados desde entonces
+- Estados y conexiones de los bloques tal como estaban durante la ejecución
+- Haga clic en cualquier bloque para ver sus entradas y salidas
+- Útil para depurar flujos de trabajo que han sido modificados posteriormente
 
 <Callout type="info">
-  Las instantáneas de flujo de trabajo solo están disponibles para ejecuciones posteriores a la introducción del sistema mejorado de registro. Los registros migrados más antiguos muestran un mensaje de "Estado registrado no encontrado".
+  Las instantáneas del flujo de trabajo solo están disponibles para ejecuciones realizadas después de la introducción del sistema de registro mejorado. Los registros migrados más antiguos muestran el mensaje "Estado Registrado No Encontrado".
 </Callout>
 
-## Retención de registros
+## Retención de Registros
 
-- **Plan gratuito**: 7 días de retención de registros
-- **Plan pro**: 30 días de retención de registros
-- **Plan de equipo**: 90 días de retención de registros
-- **Plan empresarial**: Períodos de retención personalizados disponibles
+- **Plan Gratuito**: Retención de registros por 7 días
+- **Plan Pro**: Retención de registros por 30 días
+- **Plan Team**: Retención de registros por 90 días
+- **Plan Enterprise**: Períodos de retención personalizados disponibles
 
-## Mejores prácticas
+## Mejores Prácticas
 
-### Para desarrollo
-- Utiliza la consola en tiempo real para obtener retroalimentación inmediata durante las pruebas
-- Verifica las entradas y salidas de los bloques para comprobar el flujo de datos
-- Usa instantáneas del flujo de trabajo para comparar versiones funcionales vs. defectuosas
+### Para Desarrollo
+- Utilice la consola en tiempo real para obtener retroalimentación inmediata durante las pruebas
+- Verifique las entradas y salidas de los bloques para confirmar el flujo de datos
+- Use instantáneas del flujo de trabajo para comparar versiones funcionales y defectuosas
 
-### Para producción
-- Supervisa regularmente la página de registros para detectar errores o problemas de rendimiento
-- Configura filtros para centrarte en flujos de trabajo específicos o períodos de tiempo
-- Utiliza el modo en vivo durante implementaciones críticas para observar las ejecuciones en tiempo real
+### Para Producción
+- Monitoree la página de Registros regularmente en busca de errores o problemas de rendimiento
+- Configure filtros para centrarse en flujos de trabajo específicos o períodos de tiempo determinados
+- Utilice el modo en vivo durante despliegues críticos para observar las ejecuciones en tiempo real
 
-### Para depuración
-- Siempre verifica la cronología de ejecución para identificar bloques lentos
-- Compara las entradas entre ejecuciones exitosas y fallidas
-- Utiliza instantáneas del flujo de trabajo para ver el estado exacto cuando ocurrieron los problemas
+### Para Depuración
+- Consulte siempre la cronología de ejecución para identificar bloques lentos
+- Compare las entradas entre ejecuciones exitosas y fallidas
+- Use instantáneas del flujo de trabajo para ver el estado exacto cuando ocurrieron los problemas
 
-## Próximos pasos
+## Próximos Pasos
 
-- Aprende sobre [Cálculo de costos](/execution/costs) para entender los precios de los flujos de trabajo
-- Explora la [API externa](/execution/api) para acceso programático a los registros
-- Configura [notificaciones por Webhook](/execution/api#webhook-subscriptions) para alertas en tiempo real
+- Aprende sobre el [Cálculo de Costos](/execution/costs) para entender los precios de los flujos de trabajo
+- Explora la [API Externa](/execution/api) para acceso programático a los registros
+- Configura [notificaciones Webhook](/execution/api#webhook-subscriptions) para alertas en tiempo real

@@ -1,0 +1,98 @@
+---
+title: Indicadores
+description: Crea indicadores de análisis técnico personalizados con scripting PineTS
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+Los indicadores son scripts de análisis técnico personalizados que se ejecutan sobre datos de mercado en TradingGoose. Están impulsados por [PineTS](https://github.com/nicholasgasior/PineTS), un entorno de ejecución JavaScript/TypeScript para Pine Script, extendido con características específicas de TradingGoose como los disparadores de flujos de trabajo.
+
+## ¿Qué puedes construir?
+
+- **Indicadores técnicos** — RSI, MACD, Bandas de Bollinger o tus propios cálculos personalizados
+- **Generadores de señales** — Detecta cruces, rupturas o condiciones personalizadas
+- **Disparadores de flujos de trabajo** — Activa ejecuciones de flujos de trabajo cuando se cumplen las condiciones del indicador usando la API `trigger()`
+- **Superposiciones visuales** — Grafica líneas, formas y rellenos directamente en el gráfico
+
+## ¿Cómo funciona?
+
+<Steps>
+  <Step>
+    **Escribe código PineTS** en el Editor de Indicadores usando la sintaxis familiar de Pine Script adaptada para JavaScript/TypeScript
+  </Step>
+  <Step>
+    **Define entradas** con `input.int()`, `input.float()`, etc. — estos se convierten en parámetros configurables en la interfaz
+  </Step>
+  <Step>
+    **Calcula** usando más de 57 funciones integradas de análisis técnico (`ta.*`), operaciones matemáticas, arrays y más
+  </Step>
+  <Step>
+    **Visualiza** con `plot()`, `plotshape()`, `fill()`, `bgcolor()` y otras funciones de renderizado de gráficos
+  </Step>
+  <Step>
+    **Activa flujos de trabajo** llamando a `trigger()` cuando se cumplan las condiciones — conectando los indicadores a tus pipelines de automatización
+  </Step>
+</Steps>
+
+## Ejemplo rápido
+
+```javascript
+indicator('RSI Signal', { overlay: false });
+
+const length = input.int(14, 'RSI Length');
+const overbought = input.int(70, 'Overbought');
+const oversold = input.int(30, 'Oversold');
+
+const rsi = ta.rsi(close, length);
+
+plot(rsi, 'RSI', { color: '#2962FF' });
+hline(overbought, { color: '#FF0000', linestyle: hline.style_dashed });
+hline(oversold, { color: '#00FF00', linestyle: hline.style_dashed });
+
+// Trigger a workflow when RSI crosses below oversold
+if (ta.crossunder(rsi, oversold)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, oversold),
+    input: 'RSI crossed below oversold threshold',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## Indicadores integrados
+
+TradingGoose incluye más de 80 indicadores preconstruidos que cubren análisis de momentum, tendencia, volatilidad y volumen. Estos sirven tanto como herramientas listas para usar como ejemplos de referencia para escribir los tuyos propios.
+
+<Callout type="info">
+  PineTS está basado en la sintaxis de Pine Script v5/v6. Si estás familiarizado con Pine Script de TradingView, te sentirás como en casa — la principal diferencia es usar declaraciones de variables de JavaScript (`const`, `let`, `var`) en lugar de las declaraciones implícitas de Pine Script.
+</Callout>
+
+## Guías
+
+<Cards>
+  <Card title="Primeros Pasos" href="/indicators/getting-started">
+    Escribe y despliega tu primer indicador en 5 minutos
+  </Card>
+  <Card title="Guía de Sintaxis" href="/indicators/syntax">
+    Reglas de sintaxis de PineTS: variables, bucles, funciones y acceso al historial
+  </Card>
+  <Card title="Entradas" href="/indicators/inputs">
+    Define parámetros configurables con el namespace input
+  </Card>
+  <Card title="Análisis Técnico" href="/indicators/ta">
+    Más de 57 funciones de AT integradas: medias móviles, osciladores, detección de tendencias
+  </Card>
+  <Card title="Gráficos" href="/indicators/plots">
+    Visualiza datos con plot, formas, rellenos y colores
+  </Card>
+  <Card title="Disparadores" href="/indicators/triggers">
+    Conecta señales de indicadores a los flujos de trabajo de TradingGoose
+  </Card>
+  <Card title="Referencia de API" href="/indicators/api-reference">
+    Tabla de referencia completa de funciones
+  </Card>
+</Cards>

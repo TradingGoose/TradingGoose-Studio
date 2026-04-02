@@ -4,44 +4,82 @@ description: Convert TTS using ElevenLabs
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="elevenlabs"
-  color="#181C1E"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      xmlns='http://www.w3.org/2000/svg'
-      
-      
-      viewBox='0 0 876 876'
-      fill='none'
-    >
-      <path d='M498 138H618V738H498V138Z' fill='currentColor' />
-      <path d='M258 138H378V738H258V138Z' fill='currentColor' />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[ElevenLabs](https://elevenlabs.io/) is a state-of-the-art text-to-speech platform that creates incredibly natural and expressive AI voices. It offers some of the most realistic and emotionally nuanced synthetic voices available today, making it ideal for creating lifelike audio content.
+## Configuration
 
-With ElevenLabs, you can:
-
-- **Generate natural-sounding speech**: Create audio that's nearly indistinguishable from human speech
-- **Choose from diverse voice options**: Access a library of pre-made voices with different accents, tones, and characteristics
-- **Clone voices**: Create custom voices based on audio samples (with proper permissions)
-- **Control speech parameters**: Adjust stability, clarity, and emotional tone to fine-tune output
-- **Add realistic emotions**: Incorporate natural-sounding emotions like happiness, sadness, or excitement
-
-In TradingGoose, the ElevenLabs integration enables your agents to convert text to lifelike speech, enhancing the interactivity and engagement of your applications. This is particularly valuable for creating voice assistants, generating audio content, developing accessible applications, or building conversational interfaces that feel more human. The integration allows you to seamlessly incorporate ElevenLabs' advanced speech synthesis capabilities into your agent workflows, bridging the gap between text-based AI and natural human communication.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate ElevenLabs into the workflow. Can convert text to speech.
-
-
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ElevenLabs"
+    type="elevenlabs"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Text",
+            "layout": "full",
+            "placeholder": "Enter the text to convert to speech",
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "Voice ID",
+            "layout": "full",
+            "placeholder": "Enter the voice ID",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "Model ID",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "eleven_monolingual_v1",
+                    "id": "eleven_monolingual_v1"
+                },
+                {
+                    "label": "eleven_multilingual_v2",
+                    "id": "eleven_multilingual_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2",
+                    "id": "eleven_turbo_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2_5",
+                    "id": "eleven_turbo_v2_5"
+                },
+                {
+                    "label": "eleven_flash_v2_5",
+                    "id": "eleven_flash_v2_5"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your ElevenLabs API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## Tools
 
@@ -63,6 +101,11 @@ Convert TTS using ElevenLabs voices
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | The URL of the generated audio |
+
+
+## Usage Instructions
+
+Integrate ElevenLabs into the workflow. Can convert text to speech.
 
 
 

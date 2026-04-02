@@ -1,0 +1,2068 @@
+---
+title: Datadog
+description: Monitor infrastructure, applications, and logs with Datadog
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="datadog"
+  color="#632CA6"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Submit Metrics
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_submit_metrics"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "series",
+            "type": "code",
+            "title": "Metrics Data (JSON)",
+            "placeholder": "Describe the metrics you want to submit...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Submit Metrics (<code>datadog_submit_metrics</code>)</div>
+
+Submit custom metrics to Datadog. Use for tracking application performance, business metrics, or custom monitoring data.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `series` | string | Yes | JSON array of metric series to submit. Each series should include metric name, type \(gauge/rate/count\), points \(timestamp/value pairs\), and optional tags. |
+| `apiKey` | string | Yes | Datadog API key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the metrics were submitted successfully |
+
+</div>
+
+
+
+---
+
+### Query Timeseries
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_query_timeseries"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Query",
+            "placeholder": "avg:system.cpu.user{*}",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "From (Unix Timestamp)",
+            "placeholder": "e.g., 1701360000",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To (Unix Timestamp)",
+            "placeholder": "e.g., 1701446400",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Query Timeseries (<code>datadog_query_timeseries</code>)</div>
+
+Query metric timeseries data from Datadog. Use for analyzing trends, creating reports, or retrieving metric values.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Yes | Datadog metrics query \(e.g., "avg:system.cpu.user\{*\}"\) |
+| `from` | number | Yes | Start time as Unix timestamp in seconds |
+| `to` | number | Yes | End time as Unix timestamp in seconds |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `series` | array | Array of timeseries data with metric name, tags, and data points |
+
+</div>
+
+
+
+---
+
+### Create Event
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_event"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Event Title",
+            "placeholder": "Deployment completed",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Event Text",
+            "placeholder": "Describe the event...",
+            "required": true
+        },
+        {
+            "id": "alertType",
+            "type": "dropdown",
+            "title": "Alert Type",
+            "options": [
+                {
+                    "label": "Info",
+                    "id": "info"
+                },
+                {
+                    "label": "Success",
+                    "id": "success"
+                },
+                {
+                    "label": "Warning",
+                    "id": "warning"
+                },
+                {
+                    "label": "Error",
+                    "id": "error"
+                }
+            ]
+        },
+        {
+            "id": "priority",
+            "type": "dropdown",
+            "title": "Priority",
+            "options": [
+                {
+                    "label": "Normal",
+                    "id": "normal"
+                },
+                {
+                    "label": "Low",
+                    "id": "low"
+                }
+            ]
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Tags",
+            "placeholder": "env:production, service:api"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Event (<code>datadog_create_event</code>)</div>
+
+Post an event to the Datadog event stream. Use for deployment notifications, alerts, or any significant occurrences.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Yes | Event title |
+| `text` | string | Yes | Event body/description. Supports markdown. |
+| `alertType` | string | No | Alert type: error, warning, info, success, user_update, recommendation, or snapshot |
+| `priority` | string | No | Event priority: normal or low |
+| `host` | string | No | Host name to associate with this event |
+| `tags` | string | No | Comma-separated list of tags \(e.g., "env:production,service:api"\) |
+| `aggregationKey` | string | No | Key to aggregate events together |
+| `sourceTypeName` | string | No | Source type name for the event |
+| `dateHappened` | number | No | Unix timestamp when the event occurred \(defaults to now\) |
+| `apiKey` | string | Yes | Datadog API key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Event ID |
+| `title` | string | Event title |
+| `text` | string | Event text |
+| `date_happened` | number | Unix timestamp when event occurred |
+| `priority` | string | Event priority |
+| `alert_type` | string | Alert type |
+| `host` | string | Associated host |
+| `tags` | array | Event tags |
+
+</div>
+
+
+
+---
+
+### Create Monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Monitor Name",
+            "placeholder": "High CPU Usage Alert",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Monitor Type",
+            "required": true,
+            "options": [
+                {
+                    "label": "Metric Alert",
+                    "id": "metric alert"
+                },
+                {
+                    "label": "Service Check",
+                    "id": "service check"
+                },
+                {
+                    "label": "Event Alert",
+                    "id": "event alert"
+                },
+                {
+                    "label": "Log Alert",
+                    "id": "log alert"
+                },
+                {
+                    "label": "Query Alert",
+                    "id": "query alert"
+                },
+                {
+                    "label": "Composite",
+                    "id": "composite"
+                },
+                {
+                    "label": "SLO Alert",
+                    "id": "slo alert"
+                }
+            ]
+        },
+        {
+            "id": "monitorQuery",
+            "type": "long-input",
+            "title": "Monitor Query",
+            "placeholder": "avg(last_5m):avg:system.cpu.idle{*} < 20",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "Notification Message",
+            "placeholder": "Alert! CPU usage is high. @slack-alerts"
+        },
+        {
+            "id": "monitorTags",
+            "type": "short-input",
+            "title": "Tags",
+            "placeholder": "team:backend, priority:high"
+        },
+        {
+            "id": "monitorPriority",
+            "type": "short-input",
+            "title": "Priority (1-5)",
+            "placeholder": "3"
+        },
+        {
+            "id": "options",
+            "type": "code",
+            "title": "Options (JSON)",
+            "placeholder": "{\"notify_no_data\": true, \"thresholds\": {\"critical\": 90}}",
+            "language": "json"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Monitor (<code>datadog_create_monitor</code>)</div>
+
+Create a new monitor/alert in Datadog. Monitors can track metrics, service checks, events, and more.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | Yes | Monitor name |
+| `type` | string | Yes | Monitor type: metric alert, service check, event alert, process alert, log alert, query alert, composite, synthetics alert, slo alert |
+| `query` | string | Yes | Monitor query \(e.g., "avg\(last_5m\):avg:system.cpu.idle\{*\} &lt; 20"\) |
+| `message` | string | No | Message to include with notifications. Can include @-mentions and markdown. |
+| `tags` | string | No | Comma-separated list of tags |
+| `priority` | number | No | Monitor priority \(1-5, where 1 is highest\) |
+| `options` | string | No | JSON string of monitor options \(thresholds, notify_no_data, renotify_interval, etc.\) |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Monitor ID |
+| `name` | string | Monitor name |
+| `type` | string | Monitor type |
+| `query` | string | Monitor query |
+| `message` | string | Notification message |
+| `tags` | array | Monitor tags |
+| `priority` | number | Monitor priority |
+| `overall_state` | string | Current monitor state |
+| `created` | string | Creation timestamp |
+
+</div>
+
+
+
+---
+
+### Get Monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_get_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "monitorId",
+            "type": "short-input",
+            "title": "Monitor ID",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Monitor (<code>datadog_get_monitor</code>)</div>
+
+Retrieve details of a specific monitor by ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | string | Yes | The ID of the monitor to retrieve |
+| `groupStates` | string | No | Comma-separated group states to include: alert, warn, no data, ok |
+| `withDowntimes` | boolean | No | Include downtime data with the monitor |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Monitor ID |
+| `name` | string | Monitor name |
+| `type` | string | Monitor type |
+| `query` | string | Monitor query |
+| `message` | string | Notification message |
+| `tags` | array | Monitor tags |
+| `priority` | number | Monitor priority |
+| `overall_state` | string | Current monitor state |
+| `created` | string | Creation timestamp |
+
+</div>
+
+
+
+---
+
+### List Monitors
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_list_monitors"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "listMonitorName",
+            "type": "short-input",
+            "title": "Filter by Name",
+            "placeholder": "CPU"
+        },
+        {
+            "id": "listMonitorTags",
+            "type": "short-input",
+            "title": "Filter by Tags",
+            "placeholder": "env:production"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Monitors (<code>datadog_list_monitors</code>)</div>
+
+List all monitors in Datadog with optional filtering by name, tags, or state.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `groupStates` | string | No | Comma-separated group states to filter by: alert, warn, no data, ok |
+| `name` | string | No | Filter monitors by name \(partial match\) |
+| `tags` | string | No | Comma-separated list of tags to filter by |
+| `monitorTags` | string | No | Comma-separated list of monitor tags to filter by |
+| `withDowntimes` | boolean | No | Include downtime data with monitors |
+| `page` | number | No | Page number for pagination \(0-indexed\) |
+| `pageSize` | number | No | Number of monitors per page \(max 1000\) |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Monitor ID |
+| `name` | string | Monitor name |
+| `type` | string | Monitor type |
+| `query` | string | Monitor query |
+| `overall_state` | string | Current state |
+
+</div>
+
+
+
+---
+
+### Mute Monitor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_mute_monitor"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "muteMonitorId",
+            "type": "short-input",
+            "title": "Monitor ID",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "scope",
+            "type": "short-input",
+            "title": "Scope",
+            "placeholder": "host:myhost (optional)"
+        },
+        {
+            "id": "end",
+            "type": "short-input",
+            "title": "End Time (Unix Timestamp)",
+            "placeholder": "Leave empty for indefinite"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Mute Monitor (<code>datadog_mute_monitor</code>)</div>
+
+Mute a monitor to temporarily suppress notifications.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | string | Yes | The ID of the monitor to mute |
+| `scope` | string | No | Scope to mute \(e.g., "host:myhost"\). If not specified, mutes all scopes. |
+| `end` | number | No | Unix timestamp when the mute should end. If not specified, mutes indefinitely. |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Query Logs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_query_logs"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "logQuery",
+            "type": "long-input",
+            "title": "Search Query",
+            "placeholder": "service:web-app status:error",
+            "required": true
+        },
+        {
+            "id": "logFrom",
+            "type": "short-input",
+            "title": "From",
+            "placeholder": "now-1h",
+            "required": true
+        },
+        {
+            "id": "logTo",
+            "type": "short-input",
+            "title": "To",
+            "placeholder": "now",
+            "required": true
+        },
+        {
+            "id": "logLimit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "50"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Query Logs (<code>datadog_query_logs</code>)</div>
+
+Search and retrieve logs from Datadog. Use for troubleshooting, analysis, or monitoring.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Yes | Log search query \(e.g., "service:web-app status:error"\) |
+| `from` | string | Yes | Start time in ISO-8601 format or relative \(e.g., "now-1h"\) |
+| `to` | string | Yes | End time in ISO-8601 format or relative \(e.g., "now"\) |
+| `limit` | number | No | Maximum number of logs to return \(default: 50, max: 1000\) |
+| `sort` | string | No | Sort order: timestamp \(oldest first\) or -timestamp \(newest first\) |
+| `indexes` | string | No | Comma-separated list of log indexes to search |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Log ID |
+| `timestamp` | string | Log timestamp |
+| `host` | string | Host name |
+| `service` | string | Service name |
+| `message` | string | Log message |
+
+</div>
+
+
+
+---
+
+### Send Logs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_send_logs"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "logs",
+            "type": "code",
+            "title": "Logs (JSON)",
+            "placeholder": "Describe the logs you want to send...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Logs (<code>datadog_send_logs</code>)</div>
+
+Send log entries to Datadog for centralized logging and analysis.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `logs` | string | Yes | JSON array of log entries. Each entry should have message and optionally ddsource, ddtags, hostname, service. |
+| `apiKey` | string | Yes | Datadog API key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Create Downtime
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_create_downtime"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "downtimeScope",
+            "type": "short-input",
+            "title": "Scope",
+            "placeholder": "host:myhost or env:production or *",
+            "required": true
+        },
+        {
+            "id": "downtimeMessage",
+            "type": "long-input",
+            "title": "Message",
+            "placeholder": "Scheduled maintenance"
+        },
+        {
+            "id": "downtimeStart",
+            "type": "short-input",
+            "title": "Start Time (Unix Timestamp)",
+            "placeholder": "Leave empty for now"
+        },
+        {
+            "id": "downtimeEnd",
+            "type": "short-input",
+            "title": "End Time (Unix Timestamp)",
+            "placeholder": "e.g., 1701450000"
+        },
+        {
+            "id": "downtimeMonitorId",
+            "type": "short-input",
+            "title": "Monitor ID (optional)",
+            "placeholder": "12345678"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Downtime (<code>datadog_create_downtime</code>)</div>
+
+Schedule a downtime to suppress monitor notifications during maintenance windows.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `scope` | string | Yes | Scope to apply downtime to \(e.g., "host:myhost", "env:production", or "*" for all\) |
+| `message` | string | No | Message to display during downtime |
+| `start` | number | No | Unix timestamp for downtime start \(defaults to now\) |
+| `end` | number | No | Unix timestamp for downtime end |
+| `timezone` | string | No | Timezone for the downtime \(e.g., "America/New_York"\) |
+| `monitorId` | string | No | Specific monitor ID to mute |
+| `monitorTags` | string | No | Comma-separated monitor tags to match \(e.g., "team:backend,priority:high"\) |
+| `muteFirstRecoveryNotification` | boolean | No | Mute the first recovery notification |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Downtime ID |
+| `scope` | array | Downtime scope |
+| `message` | string | Downtime message |
+| `start` | number | Start time \(Unix timestamp\) |
+| `end` | number | End time \(Unix timestamp\) |
+
+</div>
+
+
+
+---
+
+### List Downtimes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_list_downtimes"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "currentOnly",
+            "type": "switch",
+            "title": "Current Only"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Downtimes (<code>datadog_list_downtimes</code>)</div>
+
+List all scheduled downtimes in Datadog.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `currentOnly` | boolean | No | Only return currently active downtimes |
+| `monitorId` | string | No | Filter by monitor ID |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | Downtime ID |
+| `scope` | array | Downtime scope |
+| `message` | string | Downtime message |
+| `start` | number | Start time \(Unix timestamp\) |
+| `end` | number | End time \(Unix timestamp\) |
+
+</div>
+
+
+
+---
+
+### Cancel Downtime
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Submit Metrics",
+                    "id": "datadog_submit_metrics"
+                },
+                {
+                    "label": "Query Timeseries",
+                    "id": "datadog_query_timeseries"
+                },
+                {
+                    "label": "Create Event",
+                    "id": "datadog_create_event"
+                },
+                {
+                    "label": "Create Monitor",
+                    "id": "datadog_create_monitor"
+                },
+                {
+                    "label": "Get Monitor",
+                    "id": "datadog_get_monitor"
+                },
+                {
+                    "label": "List Monitors",
+                    "id": "datadog_list_monitors"
+                },
+                {
+                    "label": "Mute Monitor",
+                    "id": "datadog_mute_monitor"
+                },
+                {
+                    "label": "Query Logs",
+                    "id": "datadog_query_logs"
+                },
+                {
+                    "label": "Send Logs",
+                    "id": "datadog_send_logs"
+                },
+                {
+                    "label": "Create Downtime",
+                    "id": "datadog_create_downtime"
+                },
+                {
+                    "label": "List Downtimes",
+                    "id": "datadog_list_downtimes"
+                },
+                {
+                    "label": "Cancel Downtime",
+                    "id": "datadog_cancel_downtime"
+                }
+            ],
+            "defaultValue": "datadog_cancel_downtime"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Datadog API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog Site",
+            "options": [
+                {
+                    "label": "US1 (datadoghq.com)",
+                    "id": "datadoghq.com"
+                },
+                {
+                    "label": "US3 (us3.datadoghq.com)",
+                    "id": "us3.datadoghq.com"
+                },
+                {
+                    "label": "US5 (us5.datadoghq.com)",
+                    "id": "us5.datadoghq.com"
+                },
+                {
+                    "label": "EU (datadoghq.eu)",
+                    "id": "datadoghq.eu"
+                },
+                {
+                    "label": "AP1 (ap1.datadoghq.com)",
+                    "id": "ap1.datadoghq.com"
+                },
+                {
+                    "label": "US1-FED (ddog-gov.com)",
+                    "id": "ddog-gov.com"
+                }
+            ]
+        },
+        {
+            "id": "downtimeId",
+            "type": "short-input",
+            "title": "Downtime ID",
+            "placeholder": "abc123",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "Application Key",
+            "placeholder": "Enter your Datadog application key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancel Downtime (<code>datadog_cancel_downtime</code>)</div>
+
+Cancel a scheduled downtime.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `downtimeId` | string | Yes | The ID of the downtime to cancel |
+| `apiKey` | string | Yes | Datadog API key |
+| `applicationKey` | string | Yes | Datadog Application key |
+| `site` | string | No | Datadog site/region \(default: datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Datadog monitoring into workflows. Submit metrics, manage monitors, query logs, create events, handle downtimes, and more.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `datadog`

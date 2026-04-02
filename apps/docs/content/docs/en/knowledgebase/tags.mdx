@@ -2,17 +2,11 @@
 title: Tags and Filtering
 ---
 
-import { Video } from '@/components/ui/video'
-
 Tags provide a powerful way to organize your documents and create precise filtering for your vector searches. By combining tag-based filtering with semantic search, you can retrieve exactly the content you need from your knowledgebase.
 
 ## Adding Tags to Documents
 
-You can add custom tags to any document in your knowledgebase to organize and categorize your content for easier retrieval.
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="knowledgebase-tag.mp4" width={700} height={450} />
-</div>
+You can add custom tags to any document in your knowledgebase to organize and categorize your content for easier retrieval. Open a document in your knowledgebase and use the tag fields to assign values.
 
 ### Tag Management
 - **Custom tags**: Create your own tag system that fits your workflow
@@ -26,11 +20,7 @@ You can add custom tags to any document in your knowledgebase to organize and ca
 
 ## Using Tags in Knowledge Blocks
 
-Tags become powerful when combined with the Knowledge block in your workflows. You can filter your searches to specific tagged content, ensuring your AI agents get the most relevant information.
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="knowledgebase-tag2.mp4" width={700} height={450} />
-</div>
+Tags become powerful when combined with the Knowledge block in your workflows. You can filter your searches to specific tagged content, ensuring your AI agents get the most relevant information. In the Knowledge block configuration, add tag filters to narrow search results to documents matching your specified tags.
 
 ## Search Modes
 
@@ -65,10 +55,10 @@ When you **provide both tags and a search query**:
 ### Search Configuration
 
 #### Tag Filtering
-- **Multiple tags**: Use multiple tags for OR logic (document must have one or more of the tags)
-- **Tag combinations**: Mix different tag types for precise filtering
+- **Multiple tag slots**: When filtering on multiple tag slots, AND logic is applied (all specified tag filters must match)
+- **OR within a tag**: A single tag slot supports OR logic, matching any of multiple specified values
 - **Case sensitivity**: Tag matching is case-insensitive
-- **Partial matching**: Exact tag name matching required
+- **Exact matching**: Tag values must match exactly (no partial or substring matching)
 
 #### Vector Search Parameters
 - **Query complexity**: Natural language questions work best

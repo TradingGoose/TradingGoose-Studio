@@ -4,50 +4,94 @@ description: Enviar mensajes SMS
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="twilio_sms"
-  color="#F22F46"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'>
       <path
-        fill='currentColor'
+        fill='#F22F46'
         d='M128 0c70.656 0 128 57.344 128 128s-57.344 128-128 128S0 198.656 0 128 57.344 0 128 0zm0 33.792c-52.224 0-94.208 41.984-94.208 94.208S75.776 222.208 128 222.208s94.208-41.984 94.208-94.208S180.224 33.792 128 33.792zm31.744 99.328c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm-63.488 0c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm63.488-63.488c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm-63.488 0c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624z'
       />
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Twilio SMS](https://www.twilio.com/en-us/sms) es una potente plataforma de comunicaciones en la nube que permite a las empresas integrar capacidades de mensajería en sus aplicaciones y servicios.
+## Configuración
 
-Twilio SMS proporciona una API robusta para enviar y recibir mensajes de texto programáticamente a nivel global. Con cobertura en más de 180 países y un SLA de disponibilidad del 99,999%, Twilio se ha establecido como líder de la industria en tecnología de comunicaciones.
-
-Las características principales de Twilio SMS incluyen:
-
-- **Alcance global**: Envía mensajes a destinatarios de todo el mundo con números de teléfono locales en múltiples países
-- **Mensajería programable**: Personaliza la entrega de mensajes con webhooks, recibos de entrega y opciones de programación
-- **Análisis avanzados**: Realiza seguimiento de tasas de entrega, métricas de participación y optimiza tus campañas de mensajería
-
-En TradingGoose, la integración de Twilio SMS permite a tus agentes aprovechar estas potentes capacidades de mensajería como parte de sus flujos de trabajo. Esto crea oportunidades para escenarios sofisticados de interacción con clientes como recordatorios de citas, códigos de verificación, alertas y conversaciones interactivas. La integración conecta tus flujos de trabajo de IA con los canales de comunicación de los clientes, permitiendo que tus agentes entreguen información oportuna y relevante directamente a los dispositivos móviles de los usuarios. Al conectar TradingGoose con Twilio SMS, puedes crear agentes inteligentes que interactúen con los clientes a través de su canal de comunicación preferido, mejorando la experiencia del usuario mientras automatizas tareas rutinarias de mensajería.
-{/* MANUAL-CONTENT-END */}
-
-## Instrucciones de uso
-
-Integrar Twilio en el flujo de trabajo. Puede enviar mensajes SMS.
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio SMS"
+    type="twilio_sms"
+    color=""
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'>
+      <path
+        fill='#F22F46'
+        d='M128 0c70.656 0 128 57.344 128 128s-57.344 128-128 128S0 198.656 0 128 57.344 0 128 0zm0 33.792c-52.224 0-94.208 41.984-94.208 94.208S75.776 222.208 128 222.208s94.208-41.984 94.208-94.208S180.224 33.792 128 33.792zm31.744 99.328c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm-63.488 0c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm63.488-63.488c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624zm-63.488 0c14.704 0 26.624 11.92 26.624 26.624 0 14.704-11.92 26.624-26.624 26.624-14.704 0-26.624-11.92-26.624-26.624 0-14.704 11.92-26.624 26.624-26.624z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "phoneNumbers",
+            "type": "long-input",
+            "title": "Números de teléfono destinatarios",
+            "layout": "full",
+            "placeholder": "Ingrese los números de teléfono con código de país (uno por línea, p. ej., +1234567890)",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "p. ej. \"¡Hola! Este es un mensaje de prueba.\"",
+            "required": true
+        },
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "SID de cuenta de Twilio",
+            "layout": "full",
+            "placeholder": "Su SID de cuenta de Twilio",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Token de autenticación",
+            "layout": "full",
+            "placeholder": "Su token de autenticación de Twilio",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "fromNumber",
+            "type": "short-input",
+            "title": "Número de teléfono de Twilio remitente",
+            "layout": "full",
+            "placeholder": "p. ej. +1234567890",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## Herramientas
 
 ### `twilio_send_sms`
 
-Envía mensajes de texto a uno o varios destinatarios utilizando la API de Twilio.
+Envía mensajes de texto a uno o varios destinatarios mediante la API de Twilio.
 
 #### Entrada
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | ----------- | ----------- |
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
 | `phoneNumbers` | string | Sí | Números de teléfono a los que enviar el mensaje, separados por saltos de línea |
 | `message` | string | Sí | Mensaje a enviar |
-| `accountSid` | string | Sí | SID de la cuenta de Twilio |
+| `accountSid` | string | Sí | SID de cuenta de Twilio |
 | `authToken` | string | Sí | Token de autenticación de Twilio |
 | `fromNumber` | string | Sí | Número de teléfono de Twilio desde el que enviar el mensaje |
 
@@ -55,11 +99,14 @@ Envía mensajes de texto a uno o varios destinatarios utilizando la API de Twili
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `success` | boolean | Estado de éxito del envío de SMS |
+| `success` | boolean | Estado de éxito del envío del SMS |
 | `messageId` | string | Identificador único del mensaje de Twilio \(SID\) |
 | `status` | string | Estado de entrega del mensaje desde Twilio |
 | `fromNumber` | string | Número de teléfono desde el que se envió el mensaje |
-| `toNumber` | string | Número de teléfono al que se envió el mensaje |
+
+## Instrucciones de uso
+
+Integra Twilio en el flujo de trabajo. Permite enviar mensajes SMS.
 
 ## Notas
 

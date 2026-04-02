@@ -1,161 +1,113 @@
 ---
 title: Copilot
+description: AI 助手，可管理工作流、MCP 服务器、技能、自定义工具、知识库等
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Image } from '@/components/ui/image'
-import { MessageCircle, Package, Zap, Infinity as InfinityIcon, Brain, BrainCircuit } from 'lucide-react'
 
-Copilot 是您编辑器中的助手，可帮助您使用 TradingGoose Copilot 构建和编辑工作流，同时理解和改进它们。它可以：
+Copilot 是一款 AI 驱动的助手，可在整个 TradingGoose 工作区中运行，而不仅限于工作流。它能够管理工作流、MCP 服务器、技能、自定义工具、知识库、部署、变量等。Copilot 在 [Copilot 小组件](/widgets/copilot) 中运行。
 
-- **解释**：回答有关 TradingGoose 和您当前工作流的问题
-- **指导**：建议编辑和最佳实践
-- **编辑**：在您批准后对模块、连接和设置进行更改
+## 功能
 
-<Callout type="info">
-  Copilot 是一个由 TradingGoose 管理的服务。对于自托管部署，请在托管应用程序中生成一个 Copilot API 密钥（tradinggoose.ai → 设置 → Copilot）
-  1. 前往 [tradinggoose.ai](https://tradinggoose.ai) → 设置 → Copilot 并生成一个 Copilot API 密钥
-  2. 在您的自托管环境中将 `COPILOT_API_KEY` 设置为该值
+Copilot 可访问覆盖整个平台的全面工具集：
+
+### 工作流管理
+- **编辑工作流** — 添加、删除或重新配置模块及连接。编辑内容以内联预览的形式实时流式呈现，提交前可供确认。
+- **部署工作流** — 检查部署状态并触发新部署。
+- **运行工作流** — 执行工作流并查看结果。
+- **管理变量** — 获取和设置全局工作流变量。
+- **查看控制台** — 检索执行日志及流式输出。
+
+### 工作区工具
+- **管理 MCP 服务器** — 创建、更新和配置 MCP 服务器连接。
+- **管理技能** — 创建、编辑和删除可复用的技能定义。
+- **管理自定义工具** — 创建和编辑自定义工具模式及代码。
+- **知识库** — 查询和引用知识库文档。
+
+### 通用
+- **解释** — 回答有关 TradingGoose 概念或工作区中任意工作流的问题。
+- **规划** — 对于较大型任务，Copilot 会生成一个待办事项列表，在逐步完成每个步骤时跟踪进度。
+- **引用上下文** — 使用 `@` 提及菜单引入历史对话、其他工作流、特定模块、知识库文档、文档、模板或执行日志。
+- **文件附件** — 直接在消息中附加文件以提供额外上下文。
+
+## 访问级别
+
+输入栏中的访问级别切换开关控制 Copilot 的自主程度。
+
+<Cards>
+  <Card title="有限（默认）">
+    Copilot 在执行任何带有中断标志的工具调用以及运行集成工具之前会暂停。您需要逐一审查并批准每项操作。
+  </Card>
+  <Card title="完全">
+    Copilot 自动执行所有工具调用、集成工具及工作流编辑，无需确认。当您信任当前任务且希望加快迭代速度时，可使用此模式。
+  </Card>
+</Cards>
+
+## 支持的模型
+
+Copilot 支持来自 Anthropic 和 OpenAI 的模型。您可以在 **设置 > Copilot** 中启用或禁用单个模型。活动模型可在输入栏中按消息切换。
+
+**Anthropic** -- claude-4.5-haiku、claude-4-sonnet、claude-4.5-sonnet、claude-4.1-opus
+
+**OpenAI** -- gpt-4o、gpt-4.1、gpt-5-fast、gpt-5、gpt-5-medium、gpt-5-high、o3
+
+模型按能力层级分组（快速、标准、推理）。已启用的模型在小部件与设置之间同步，确保您的选择在所有地方保持一致。
+
+## 设置
+
+<Steps>
+  <Step>
+    ### 托管版本（tradinggoose.ai）
+
+    Copilot 开箱即用。打开任意工作区，将 **Copilot** 小部件添加到面板，即可开始对话。
+  </Step>
+  <Step>
+    ### 自托管版本
+
+    自托管实例需要 Copilot API 密钥以连接至托管推理服务。
+
+    1. 登录 [tradinggoose.ai](https://tradinggoose.ai) 并打开 **设置 > Copilot**。
+    2. 点击 **创建** 以生成新的 API 密钥。请立即复制——该密钥仅显示一次。
+    3. 在您的自托管部署中，将 `COPILOT_API_KEY` 环境变量设置为已复制的值。
+    4. 重启应用程序。Copilot 小部件现在将通过该密钥进行连接。
+  </Step>
+</Steps>
+
+<Callout type="warn">
+  API 密钥授予完整的 Copilot 访问权限。请妥善存储，若密钥泄露请及时轮换。您可随时从同一设置页面删除密钥；删除后访问权限将立即撤销。
 </Callout>
 
-## 上下文菜单 (@)
+## 对话管理
 
-使用 `@` 符号引用各种资源，并为 Copilot 提供有关您的工作空间的更多上下文：
+每个 Copilot 会话均限定于当前活动面板的上下文范围。顶部下拉菜单按时间分组列出所有历史对话（今天、昨天、本周、上周、更早）。您可以通过顶部菜单执行以下操作：
 
-<Image
-  src="/static/copilot/copilot-menu.png"
-  alt="Copilot 上下文菜单显示可用的引用选项"
-  width={600}
-  height={400}
-/>
+- **切换对话** -- 点击任意历史对话即可继续该会话。
+- **新建对话** -- 点击顶部的 **+** 按钮创建新会话。
+- **删除对话** -- 悬停于某条对话记录并点击垃圾桶图标。确认弹窗将防止误删操作。
 
-`@` 菜单提供以下访问权限：
-- **聊天**：参考之前的 copilot 对话
-- **所有工作流**：参考工作区中的任何工作流
-- **工作流块**：参考工作流中的特定块
-- **块**：参考块类型和模板
-- **知识**：参考您上传的文档和知识库
-- **文档**：参考 TradingGoose 文档
-- **模板**：参考工作流模板
-- **日志**：参考执行日志和结果
+对话状态在页面刷新和面板尺寸调整后仍会保留。当组件与编辑器面板配对时，对话频道将限定于该特定面板，因此您可以并排运行独立的对话会话。
 
-这些上下文信息帮助 Copilot 为您的特定用例提供更准确和相关的帮助。
+## 编辑器集成
 
-## 模式
+Copilot 具备上下文感知能力——当与编辑器面板配对时，它会在发送消息时自动包含当前活动上下文（工作流、指标、技能、MCP 服务器或自定义工具），从而无需额外提示即可引用并修改相应资源。
 
-<Cards>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <MessageCircle className="h-4 w-4 text-muted-foreground" />
-        提问
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">
-      用于解释、指导和建议的问答模式，不会对您的工作流进行更改。
-    </div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Package className="h-4 w-4 text-muted-foreground" />
-        代理
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">
-      构建和编辑模式。Copilot 提出具体的编辑建议（添加模块、连接变量、调整设置），并在您批准后应用它们。
-    </div>
-  </Card>
-</Cards>
+当 Copilot 流式返回包含工具调用的响应时（例如添加区块、创建技能或配置 MCP 服务器），每个操作将以内联预览的形式呈现。在**受限**模式下，您需逐一审批或拒绝每项变更；在**完整**模式下，变更将自动应用。
 
-## 深度级别
+如需撤销 Copilot 的某项操作，您可以直接在对话中还原或编辑任意历史消息。被编辑节点之后的消息将变暗显示，表示这些内容将被重新生成。
 
-<Cards>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Zap className="h-4 w-4 text-muted-foreground" />
-        快速
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">最快且最便宜。适合小型编辑、简单工作流程和小幅调整。</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <InfinityIcon className="h-4 w-4 text-muted-foreground" />
-        Auto
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">速度与推理的平衡。推荐作为大多数任务的默认选项。</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Brain className="h-4 w-4 text-muted-foreground" />
-        高级
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">适用于更大的工作流程和复杂编辑的更多推理，同时保持高效性能。</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <BrainCircuit className="h-4 w-4 text-muted-foreground" />
-        巨兽
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">提供深度规划、调试和复杂架构更改的最大推理能力。</div>
-  </Card>
-</Cards>
+## 计费
 
-### 模式选择界面
+Copilot 的使用费用按底层 LLM 提供商的 Token 数量计费：
 
-您可以通过 Copilot 界面中的模式选择器轻松切换不同的推理模式：
+- **输入 token** —— 按提供商基础费率计费（按成本收费）。
+- **输出 token** —— 按提供商基础输出费率的 1.5 倍计费。
 
-<Image
-  src="/static/copilot/copilot-models.png"
-  alt="Copilot 模式选择界面，显示高级模式和 MAX 切换按钮"
-  width={600}
-  height={300}
-/>
-
-该界面允许您：
-- **选择推理级别**：从快速、Auto、高级或巨兽中选择
-- **启用 MAX 模式**：在需要最全面分析时切换到最大推理能力
-- **查看模式描述**：了解每种模式的优化用途
-
-根据任务的复杂性选择您的模式——简单问题使用快速模式，复杂架构更改使用巨兽模式。
-
-## 计费与成本计算
-
-### 成本如何计算
-
-Copilot 的使用按底层 LLM 的每个 token 计费：
-
-- **输入 token**：按提供商的基础费率计费（**成本价**）
-- **输出 token**：按提供商基础输出费率的 **1.5 倍** 计费
-
-```javascript
-copilotCost = (inputTokens × inputPrice + outputTokens × (outputPrice × 1.5)) / 1,000,000
+```
+cost = (inputTokens * inputPrice + outputTokens * outputPrice * 1.5) / 1_000_000
 ```
 
-| 组件       | 应用费率              |
-|----------|----------------------|
-| 输入       | inputPrice           |
-| 输出       | outputPrice × 1.5    |
-
-<Callout type="warning">
-  此处显示的定价反映截至 2025 年 9 月 4 日的费率。请查阅提供商文档以获取最新定价。
-</Callout>
-
 <Callout type="info">
-  模型价格以每百万个 token 为单位计算。计算公式将价格除以 1,000,000 以得出实际成本。请参阅<a href="/execution/costs">成本计算页面</a>了解背景信息和示例。
+  价格按每百万 token 计算。详细示例请参阅[费用计算](/execution/costs)页面。
 </Callout>

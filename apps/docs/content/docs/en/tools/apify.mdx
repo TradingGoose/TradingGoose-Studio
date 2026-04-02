@@ -1,0 +1,230 @@
+---
+title: Apify
+description: Run Apify actors and retrieve results
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="apify"
+  color="#E0E0E0"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Run Actor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Run Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Run Actor (Async)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_sync"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API Token",
+            "placeholder": "Enter your Apify API token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "e.g., janedoe/my-actor or actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor Input",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout",
+            "placeholder": "Actor timeout in seconds"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Build",
+            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Run Actor (<code>apify_run_actor_sync</code>)</div>
+
+Run an APIFY actor synchronously and get results (max 5 minutes)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | APIFY API token from console.apify.com/account#/integrations |
+| `actorId` | string | Yes | Actor ID or username/actor-name \(e.g., "janedoe/my-actor" or actor ID\) |
+| `input` | string | No | Actor input as JSON string. See actor documentation for required fields. |
+| `timeout` | number | No | Timeout in seconds \(default: actor default\) |
+| `build` | string | No | Actor build to run \(e.g., "latest", "beta", or build tag/number\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the actor run succeeded |
+| `runId` | string | APIFY run ID |
+| `status` | string | Run status \(SUCCEEDED, FAILED, etc.\) |
+
+</div>
+
+
+
+---
+
+### Run Actor (Async)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Run Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Run Actor (Async)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_async"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API Token",
+            "placeholder": "Enter your Apify API token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "e.g., janedoe/my-actor or actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor Input",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout",
+            "placeholder": "Actor timeout in seconds"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Build",
+            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)"
+        },
+        {
+            "id": "waitForFinish",
+            "type": "short-input",
+            "title": "Wait For Finish",
+            "placeholder": "Initial wait time in seconds (0-60)"
+        },
+        {
+            "id": "itemLimit",
+            "type": "short-input",
+            "title": "Item Limit",
+            "placeholder": "Max dataset items to fetch (1-250000)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Run Actor (Async) (<code>apify_run_actor_async</code>)</div>
+
+Run an APIFY actor asynchronously with polling for long-running tasks
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | APIFY API token from console.apify.com/account#/integrations |
+| `actorId` | string | Yes | Actor ID or username/actor-name \(e.g., "janedoe/my-actor" or actor ID\) |
+| `input` | string | No | Actor input as JSON string |
+| `waitForFinish` | number | No | Initial wait time in seconds \(0-60\) before polling starts |
+| `itemLimit` | number | No | Max dataset items to fetch \(1-250000, default 100\) |
+| `timeout` | number | No | Timeout in seconds \(default: actor default\) |
+| `build` | string | No | Actor build to run \(e.g., "latest", "beta", or build tag/number\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the actor run succeeded |
+| `runId` | string | APIFY run ID |
+| `status` | string | Run status \(SUCCEEDED, FAILED, etc.\) |
+| `datasetId` | string | Dataset ID containing results |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Apify into your workflow. Run any Apify actor with custom input and retrieve results. Supports both synchronous and asynchronous execution with automatic dataset fetching.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `apify`

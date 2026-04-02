@@ -1,0 +1,1142 @@
+---
+title: Hubspot Trigger
+description: Trigger workflow when a new company is created in HubSpot
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="hubspot"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow when a new company is created in HubSpot
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Events
+
+### HubSpot Company Created
+
+Trigger workflow when a new company is created in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Created"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Conversation Deletion
+
+Trigger workflow when a conversation is deleted in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Deletion"
+    type="hubspot_conversation_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Conversation Property Changed
+
+Trigger workflow when any property of a conversation is updated in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Property Changed"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., status, assignedTo",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Ticket Created
+
+Trigger workflow when a new ticket is created in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Created"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Deal Created
+
+Trigger workflow when a new deal is created in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Created"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Company Property Changed
+
+Trigger workflow when any property of a company is updated in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Property Changed"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., name, domain, industry",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Contact Deleted
+
+Trigger workflow when a contact is deleted in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Deleted"
+    type="hubspot_contact_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Contact Privacy Deleted
+
+Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Privacy Deleted"
+    type="hubspot_contact_privacy_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Ticket Deleted
+
+Trigger workflow when a ticket is deleted in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Deleted"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Conversation Privacy Deletion
+
+Trigger workflow when a conversation is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Privacy Deletion"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Conversation New Message
+
+Trigger workflow when a new message is added to a conversation in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation New Message"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Company Deleted
+
+Trigger workflow when a company is deleted in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Deleted"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Ticket Property Changed
+
+Trigger workflow when any property of a ticket is updated in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Property Changed"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., hs_pipeline_stage, hs_ticket_priority",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Contact Property Changed
+
+Trigger workflow when any property of a contact is updated in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Property Changed"
+    type="hubspot_contact_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., email, firstname, lifecyclestage",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Conversation Creation
+
+Trigger workflow when a new conversation is created in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Creation"
+    type="hubspot_conversation_creation"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Deal Property Changed
+
+Trigger workflow when any property of a deal is updated in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Property Changed"
+    type="hubspot_deal_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., dealstage, amount, closedate",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Deal Deleted
+
+Trigger workflow when a deal is deleted in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Deleted"
+    type="hubspot_deal_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### HubSpot Contact Created
+
+Trigger workflow when a new contact is created in HubSpot
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Contact Created"
+    type="hubspot_contact_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+

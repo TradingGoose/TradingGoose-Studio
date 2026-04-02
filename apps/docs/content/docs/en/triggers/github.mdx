@@ -1,0 +1,5724 @@
+---
+title: Github Trigger
+description: Trigger workflow when a pull request is successfully merged in a GitHub repository
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="github"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow when a pull request is successfully merged in a GitHub repository
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Events
+
+### GitHub PR Merged
+
+Trigger workflow when a pull request is successfully merged in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Merged"
+    type="github_pr_merged"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "Pull request number"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull request node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull request number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull request title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull request description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull request state (open, closed)"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "Whether the PR was merged"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "Timestamp when PR was merged"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "Whether the PR is a draft"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull request diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull request patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Source branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Source branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Source repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Source repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Target branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Target branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Target repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Target repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "Number of lines added"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "Number of lines deleted"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "Number of files changed"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "Array of requested reviewers"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull request creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull request last update timestamp"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Pull request closed timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR Reviewed
+
+Trigger workflow when a pull request review is submitted, edited, or dismissed in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Reviewed"
+    type="github_pr_reviewed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request_review)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (submitted, edited, dismissed)"
+      },
+      {
+          "name": "review",
+          "type": "object",
+          "description": "review",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Review ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Review node ID"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Reviewer username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Reviewer user ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Reviewer node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Reviewer avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Reviewer profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Review comment text"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Review state (approved, changes_requested, commented, dismissed)"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Review HTML URL"
+              },
+              {
+                  "name": "submitted_at",
+                  "type": "string",
+                  "description": "Review submission timestamp"
+              },
+              {
+                  "name": "commit_id",
+                  "type": "string",
+                  "description": "Commit SHA that was reviewed"
+              },
+              {
+                  "name": "author_association",
+                  "type": "string",
+                  "description": "Author association (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, etc.)"
+              }
+          ]
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull request node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull request number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull request title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull request description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull request state (open, closed)"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "Whether the PR was merged"
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "Whether the PR is a draft"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull request diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull request patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "PR author username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "PR author user ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "PR author node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "PR author avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "PR author profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Source branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Source branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Source repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Source repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Target branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Target branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Target repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Target repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull request creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull request last update timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Actions Workflow Run
+
+Trigger workflow when a GitHub Actions workflow run is requested, in progress, or completed
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Actions Workflow Run"
+    type="github_workflow_run"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., workflow_run)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (requested, in_progress, completed)"
+      },
+      {
+          "name": "workflow_run",
+          "type": "object",
+          "description": "workflow_run",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Workflow run ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Workflow run node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Workflow name"
+              },
+              {
+                  "name": "workflow_id",
+                  "type": "number",
+                  "description": "Workflow ID"
+              },
+              {
+                  "name": "run_number",
+                  "type": "number",
+                  "description": "Run number for this workflow"
+              },
+              {
+                  "name": "run_attempt",
+                  "type": "number",
+                  "description": "Attempt number for this run"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "Event that triggered the workflow (push, pull_request, etc.)"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "Current status (queued, in_progress, completed)"
+              },
+              {
+                  "name": "conclusion",
+                  "type": "string",
+                  "description": "Conclusion (success, failure, cancelled, skipped, timed_out, action_required)"
+              },
+              {
+                  "name": "head_branch",
+                  "type": "string",
+                  "description": "Branch name"
+              },
+              {
+                  "name": "head_sha",
+                  "type": "string",
+                  "description": "Commit SHA that triggered the workflow"
+              },
+              {
+                  "name": "path",
+                  "type": "string",
+                  "description": "Path to the workflow file"
+              },
+              {
+                  "name": "display_title",
+                  "type": "string",
+                  "description": "Display title for the run"
+              },
+              {
+                  "name": "run_started_at",
+                  "type": "string",
+                  "description": "Timestamp when the run started"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Workflow run creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Workflow run last update timestamp"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Workflow run HTML URL"
+              },
+              {
+                  "name": "check_suite_id",
+                  "type": "number",
+                  "description": "Associated check suite ID"
+              },
+              {
+                  "name": "check_suite_node_id",
+                  "type": "string",
+                  "description": "Associated check suite node ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Workflow run API URL"
+              },
+              {
+                  "name": "actor",
+                  "type": "object",
+                  "description": "actor",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "triggering_actor",
+                  "type": "object",
+                  "description": "triggering_actor",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "repository",
+                  "type": "object",
+                  "description": "repository",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Repository ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Repository node ID"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Repository name"
+                      },
+                      {
+                          "name": "full_name",
+                          "type": "string",
+                          "description": "Repository full name"
+                      },
+                      {
+                          "name": "private",
+                          "type": "boolean",
+                          "description": "Whether repository is private"
+                      }
+                  ]
+              },
+              {
+                  "name": "head_repository",
+                  "type": "object",
+                  "description": "head_repository",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Head repository ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Head repository node ID"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Head repository name"
+                      },
+                      {
+                          "name": "full_name",
+                          "type": "string",
+                          "description": "Head repository full name"
+                      },
+                      {
+                          "name": "private",
+                          "type": "boolean",
+                          "description": "Whether repository is private"
+                      }
+                  ]
+              },
+              {
+                  "name": "head_commit",
+                  "type": "object",
+                  "description": "head_commit",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "Commit SHA"
+                      },
+                      {
+                          "name": "tree_id",
+                          "type": "string",
+                          "description": "Tree ID"
+                      },
+                      {
+                          "name": "message",
+                          "type": "string",
+                          "description": "Commit message"
+                      },
+                      {
+                          "name": "timestamp",
+                          "type": "string",
+                          "description": "Commit timestamp"
+                      },
+                      {
+                          "name": "author",
+                          "type": "object",
+                          "description": "author",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Author name"
+                              },
+                              {
+                                  "name": "email",
+                                  "type": "string",
+                                  "description": "Author email"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "committer",
+                          "type": "object",
+                          "description": "committer",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Committer name"
+                              },
+                              {
+                                  "name": "email",
+                                  "type": "string",
+                                  "description": "Committer email"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "pull_requests",
+                  "type": "array",
+                  "description": "Array of associated pull requests"
+              },
+              {
+                  "name": "referenced_workflows",
+                  "type": "array",
+                  "description": "Array of referenced workflow runs"
+              }
+          ]
+      },
+      {
+          "name": "workflow",
+          "type": "object",
+          "description": "workflow",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Workflow ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Workflow node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Workflow name"
+              },
+              {
+                  "name": "path",
+                  "type": "string",
+                  "description": "Path to workflow file"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Workflow state (active, deleted, disabled_fork, etc.)"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Workflow creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Workflow last update timestamp"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Workflow API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Workflow HTML URL"
+              },
+              {
+                  "name": "badge_url",
+                  "type": "string",
+                  "description": "Workflow badge URL"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue Comment
+
+Trigger workflow when a comment is added to an issue (not pull requests)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Comment"
+    type="github_issue_comment"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., issue_comment)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (created, edited, deleted)"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue title"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue state (open, closed)"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "comment",
+          "type": "object",
+          "description": "comment",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Comment ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Comment node ID"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Comment text"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Comment HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Comment creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Comment last update timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Release Published
+
+Trigger workflow when a new release is published in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Release Published"
+    type="github_release_published"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., release)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (published, unpublished, created, edited, deleted, prereleased, released)"
+      },
+      {
+          "name": "release",
+          "type": "object",
+          "description": "release",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Release ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Release node ID"
+              },
+              {
+                  "name": "tag_name",
+                  "type": "string",
+                  "description": "Git tag name for the release"
+              },
+              {
+                  "name": "target_commitish",
+                  "type": "string",
+                  "description": "Target branch or commit SHA"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Release name/title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Release description/notes in markdown format"
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "Whether the release is a draft"
+              },
+              {
+                  "name": "prerelease",
+                  "type": "boolean",
+                  "description": "Whether the release is a pre-release"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Release creation timestamp"
+              },
+              {
+                  "name": "published_at",
+                  "type": "string",
+                  "description": "Release publication timestamp"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Release API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Release HTML URL"
+              },
+              {
+                  "name": "assets_url",
+                  "type": "string",
+                  "description": "Release assets API URL"
+              },
+              {
+                  "name": "upload_url",
+                  "type": "string",
+                  "description": "URL for uploading release assets"
+              },
+              {
+                  "name": "tarball_url",
+                  "type": "string",
+                  "description": "Source code tarball download URL"
+              },
+              {
+                  "name": "zipball_url",
+                  "type": "string",
+                  "description": "Source code zipball download URL"
+              },
+              {
+                  "name": "discussion_url",
+                  "type": "string",
+                  "description": "Discussion URL if available"
+              },
+              {
+                  "name": "author",
+                  "type": "object",
+                  "description": "author",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "Gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "User API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "followers_url",
+                          "type": "string",
+                          "description": "Followers API URL"
+                      },
+                      {
+                          "name": "following_url",
+                          "type": "string",
+                          "description": "Following API URL"
+                      },
+                      {
+                          "name": "gists_url",
+                          "type": "string",
+                          "description": "Gists API URL"
+                      },
+                      {
+                          "name": "starred_url",
+                          "type": "string",
+                          "description": "Starred repositories API URL"
+                      },
+                      {
+                          "name": "subscriptions_url",
+                          "type": "string",
+                          "description": "Subscriptions API URL"
+                      },
+                      {
+                          "name": "organizations_url",
+                          "type": "string",
+                          "description": "Organizations API URL"
+                      },
+                      {
+                          "name": "repos_url",
+                          "type": "string",
+                          "description": "Repositories API URL"
+                      },
+                      {
+                          "name": "events_url",
+                          "type": "string",
+                          "description": "Events API URL"
+                      },
+                      {
+                          "name": "received_events_url",
+                          "type": "string",
+                          "description": "Received events API URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "Whether user is a site administrator"
+                      }
+                  ]
+              },
+              {
+                  "name": "assets",
+                  "type": "array",
+                  "description": "Array of release asset objects with download URLs"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "archive_url",
+                  "type": "string",
+                  "description": "Archive API URL"
+              },
+              {
+                  "name": "assignees_url",
+                  "type": "string",
+                  "description": "Assignees API URL"
+              },
+              {
+                  "name": "blobs_url",
+                  "type": "string",
+                  "description": "Blobs API URL"
+              },
+              {
+                  "name": "branches_url",
+                  "type": "string",
+                  "description": "Branches API URL"
+              },
+              {
+                  "name": "collaborators_url",
+                  "type": "string",
+                  "description": "Collaborators API URL"
+              },
+              {
+                  "name": "comments_url",
+                  "type": "string",
+                  "description": "Comments API URL"
+              },
+              {
+                  "name": "commits_url",
+                  "type": "string",
+                  "description": "Commits API URL"
+              },
+              {
+                  "name": "compare_url",
+                  "type": "string",
+                  "description": "Compare API URL"
+              },
+              {
+                  "name": "contents_url",
+                  "type": "string",
+                  "description": "Contents API URL"
+              },
+              {
+                  "name": "contributors_url",
+                  "type": "string",
+                  "description": "Contributors API URL"
+              },
+              {
+                  "name": "deployments_url",
+                  "type": "string",
+                  "description": "Deployments API URL"
+              },
+              {
+                  "name": "downloads_url",
+                  "type": "string",
+                  "description": "Downloads API URL"
+              },
+              {
+                  "name": "events_url",
+                  "type": "string",
+                  "description": "Events API URL"
+              },
+              {
+                  "name": "forks_url",
+                  "type": "string",
+                  "description": "Forks API URL"
+              },
+              {
+                  "name": "git_commits_url",
+                  "type": "string",
+                  "description": "Git commits API URL"
+              },
+              {
+                  "name": "git_refs_url",
+                  "type": "string",
+                  "description": "Git refs API URL"
+              },
+              {
+                  "name": "git_tags_url",
+                  "type": "string",
+                  "description": "Git tags API URL"
+              },
+              {
+                  "name": "hooks_url",
+                  "type": "string",
+                  "description": "Hooks API URL"
+              },
+              {
+                  "name": "issue_comment_url",
+                  "type": "string",
+                  "description": "Issue comment API URL"
+              },
+              {
+                  "name": "issue_events_url",
+                  "type": "string",
+                  "description": "Issue events API URL"
+              },
+              {
+                  "name": "issues_url",
+                  "type": "string",
+                  "description": "Issues API URL"
+              },
+              {
+                  "name": "keys_url",
+                  "type": "string",
+                  "description": "Keys API URL"
+              },
+              {
+                  "name": "labels_url",
+                  "type": "string",
+                  "description": "Labels API URL"
+              },
+              {
+                  "name": "languages_url",
+                  "type": "string",
+                  "description": "Languages API URL"
+              },
+              {
+                  "name": "merges_url",
+                  "type": "string",
+                  "description": "Merges API URL"
+              },
+              {
+                  "name": "milestones_url",
+                  "type": "string",
+                  "description": "Milestones API URL"
+              },
+              {
+                  "name": "notifications_url",
+                  "type": "string",
+                  "description": "Notifications API URL"
+              },
+              {
+                  "name": "pulls_url",
+                  "type": "string",
+                  "description": "Pull requests API URL"
+              },
+              {
+                  "name": "releases_url",
+                  "type": "string",
+                  "description": "Releases API URL"
+              },
+              {
+                  "name": "stargazers_url",
+                  "type": "string",
+                  "description": "Stargazers API URL"
+              },
+              {
+                  "name": "statuses_url",
+                  "type": "string",
+                  "description": "Statuses API URL"
+              },
+              {
+                  "name": "subscribers_url",
+                  "type": "string",
+                  "description": "Subscribers API URL"
+              },
+              {
+                  "name": "subscription_url",
+                  "type": "string",
+                  "description": "Subscription API URL"
+              },
+              {
+                  "name": "tags_url",
+                  "type": "string",
+                  "description": "Tags API URL"
+              },
+              {
+                  "name": "teams_url",
+                  "type": "string",
+                  "description": "Teams API URL"
+              },
+              {
+                  "name": "trees_url",
+                  "type": "string",
+                  "description": "Trees API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "has_issues",
+                  "type": "boolean",
+                  "description": "Whether issues are enabled"
+              },
+              {
+                  "name": "has_projects",
+                  "type": "boolean",
+                  "description": "Whether projects are enabled"
+              },
+              {
+                  "name": "has_downloads",
+                  "type": "boolean",
+                  "description": "Whether downloads are enabled"
+              },
+              {
+                  "name": "has_wiki",
+                  "type": "boolean",
+                  "description": "Whether wiki is enabled"
+              },
+              {
+                  "name": "has_pages",
+                  "type": "boolean",
+                  "description": "Whether GitHub Pages is enabled"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "mirror_url",
+                  "type": "string",
+                  "description": "Mirror URL if repository is a mirror"
+              },
+              {
+                  "name": "archived",
+                  "type": "boolean",
+                  "description": "Whether the repository is archived"
+              },
+              {
+                  "name": "disabled",
+                  "type": "boolean",
+                  "description": "Whether the repository is disabled"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "license",
+                  "type": "object",
+                  "description": "license",
+                  "children": [
+                      {
+                          "name": "key",
+                          "type": "string",
+                          "description": "License key"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "License name"
+                      },
+                      {
+                          "name": "spdx_id",
+                          "type": "string",
+                          "description": "SPDX license identifier"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "License API URL"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "License node ID"
+                      }
+                  ]
+              },
+              {
+                  "name": "allow_forking",
+                  "type": "boolean",
+                  "description": "Whether forking is allowed"
+              },
+              {
+                  "name": "is_template",
+                  "type": "boolean",
+                  "description": "Whether repository is a template"
+              },
+              {
+                  "name": "topics",
+                  "type": "array",
+                  "description": "Array of repository topics"
+              },
+              {
+                  "name": "visibility",
+                  "type": "string",
+                  "description": "Repository visibility (public, private, internal)"
+              },
+              {
+                  "name": "forks",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "watchers",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Repository creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Repository last update timestamp"
+              },
+              {
+                  "name": "pushed_at",
+                  "type": "string",
+                  "description": "Repository last push timestamp"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "Owner gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "Owner API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "followers_url",
+                          "type": "string",
+                          "description": "Followers API URL"
+                      },
+                      {
+                          "name": "following_url",
+                          "type": "string",
+                          "description": "Following API URL"
+                      },
+                      {
+                          "name": "gists_url",
+                          "type": "string",
+                          "description": "Gists API URL"
+                      },
+                      {
+                          "name": "starred_url",
+                          "type": "string",
+                          "description": "Starred repositories API URL"
+                      },
+                      {
+                          "name": "subscriptions_url",
+                          "type": "string",
+                          "description": "Subscriptions API URL"
+                      },
+                      {
+                          "name": "organizations_url",
+                          "type": "string",
+                          "description": "Organizations API URL"
+                      },
+                      {
+                          "name": "repos_url",
+                          "type": "string",
+                          "description": "Repositories API URL"
+                      },
+                      {
+                          "name": "events_url",
+                          "type": "string",
+                          "description": "Events API URL"
+                      },
+                      {
+                          "name": "received_events_url",
+                          "type": "string",
+                          "description": "Received events API URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "Whether owner is a site administrator"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "gravatar_id",
+                  "type": "string",
+                  "description": "Gravatar ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "User API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "followers_url",
+                  "type": "string",
+                  "description": "Followers API URL"
+              },
+              {
+                  "name": "following_url",
+                  "type": "string",
+                  "description": "Following API URL"
+              },
+              {
+                  "name": "gists_url",
+                  "type": "string",
+                  "description": "Gists API URL"
+              },
+              {
+                  "name": "starred_url",
+                  "type": "string",
+                  "description": "Starred repositories API URL"
+              },
+              {
+                  "name": "subscriptions_url",
+                  "type": "string",
+                  "description": "Subscriptions API URL"
+              },
+              {
+                  "name": "organizations_url",
+                  "type": "string",
+                  "description": "Organizations API URL"
+              },
+              {
+                  "name": "repos_url",
+                  "type": "string",
+                  "description": "Repositories API URL"
+              },
+              {
+                  "name": "events_url",
+                  "type": "string",
+                  "description": "Events API URL"
+              },
+              {
+                  "name": "received_events_url",
+                  "type": "string",
+                  "description": "Received events API URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              },
+              {
+                  "name": "site_admin",
+                  "type": "boolean",
+                  "description": "Whether user is a site administrator"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR Closed
+
+Trigger workflow when a pull request is closed without being merged (e.g., abandoned) in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Closed"
+    type="github_pr_closed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "Pull request number"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull request node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull request number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull request title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull request description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull request state (open, closed)"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "Whether the PR was merged"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "Timestamp when PR was merged"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "Whether the PR is a draft"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull request diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull request patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Source branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Source branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Source repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Source repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Target branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Target branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Target repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Target repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "Number of lines added"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "Number of lines deleted"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "Number of files changed"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "Array of requested reviewers"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull request creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull request last update timestamp"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Pull request closed timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue Opened
+
+Trigger workflow when a new issue is opened in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Opened"
+    type="github_issue_opened"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true,
+            "options": [
+                {
+                    "label": "Issue Opened",
+                    "id": "github_issue_opened"
+                },
+                {
+                    "label": "Issue Closed",
+                    "id": "github_issue_closed"
+                },
+                {
+                    "label": "Issue Comment",
+                    "id": "github_issue_comment"
+                },
+                {
+                    "label": "PR Opened",
+                    "id": "github_pr_opened"
+                },
+                {
+                    "label": "PR Closed",
+                    "id": "github_pr_closed"
+                },
+                {
+                    "label": "PR Merged",
+                    "id": "github_pr_merged"
+                },
+                {
+                    "label": "PR Comment",
+                    "id": "github_pr_comment"
+                },
+                {
+                    "label": "PR Reviewed",
+                    "id": "github_pr_reviewed"
+                },
+                {
+                    "label": "Code Push",
+                    "id": "github_push"
+                },
+                {
+                    "label": "Release Published",
+                    "id": "github_release_published"
+                },
+                {
+                    "label": "Actions Workflow Run",
+                    "id": "github_workflow_run"
+                }
+            ]
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., issues, pull_request, push)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (opened, closed, reopened, edited, etc.)"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue body/description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue state (open, closed)"
+              },
+              {
+                  "name": "state_reason",
+                  "type": "string",
+                  "description": "Reason for state (completed, not_planned, reopened)"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "milestone",
+                  "type": "object",
+                  "description": "Milestone object if assigned"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue last update timestamp"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Issue closed timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Webhook
+
+Trigger workflow from GitHub events like push, pull requests, issues, and more
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Webhook"
+    type="github_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "ref",
+          "type": "string",
+          "description": "Git reference (e.g., refs/heads/fix/telegram-wh)"
+      },
+      {
+          "name": "before",
+          "type": "string",
+          "description": "SHA of the commit before the push"
+      },
+      {
+          "name": "after",
+          "type": "string",
+          "description": "SHA of the commit after the push"
+      },
+      {
+          "name": "created",
+          "type": "boolean",
+          "description": "Whether the push created the reference"
+      },
+      {
+          "name": "deleted",
+          "type": "boolean",
+          "description": "Whether the push deleted the reference"
+      },
+      {
+          "name": "forced",
+          "type": "boolean",
+          "description": "Whether the push was forced"
+      },
+      {
+          "name": "base_ref",
+          "type": "string",
+          "description": "Base reference for the push"
+      },
+      {
+          "name": "compare",
+          "type": "string",
+          "description": "URL to compare the changes"
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "created_at",
+                  "type": "number",
+                  "description": "Repository creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Repository last updated time"
+              },
+              {
+                  "name": "pushed_at",
+                  "type": "number",
+                  "description": "Repository last push timestamp"
+              },
+              {
+                  "name": "git_url",
+                  "type": "string",
+                  "description": "Repository git URL"
+              },
+              {
+                  "name": "ssh_url",
+                  "type": "string",
+                  "description": "Repository SSH URL"
+              },
+              {
+                  "name": "clone_url",
+                  "type": "string",
+                  "description": "Repository clone URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "archived",
+                  "type": "boolean",
+                  "description": "Whether the repository is archived"
+              },
+              {
+                  "name": "disabled",
+                  "type": "boolean",
+                  "description": "Whether the repository is disabled"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "topics",
+                  "type": "array",
+                  "description": "Repository topics"
+              },
+              {
+                  "name": "visibility",
+                  "type": "string",
+                  "description": "Repository visibility (public, private)"
+              },
+              {
+                  "name": "forks",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "watchers",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "stargazers",
+                  "type": "number",
+                  "description": "Number of stargazers"
+              },
+              {
+                  "name": "master_branch",
+                  "type": "string",
+                  "description": "Master branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Owner name"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "Owner email"
+                      },
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "gravatar_id",
+                          "type": "string",
+                          "description": "Owner gravatar ID"
+                      },
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "Owner API URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "user_view_type",
+                          "type": "string",
+                          "description": "User view type"
+                      },
+                      {
+                          "name": "site_admin",
+                          "type": "boolean",
+                          "description": "Whether the owner is a site admin"
+                      }
+                  ]
+              },
+              {
+                  "name": "license",
+                  "type": "object",
+                  "description": "Repository license information"
+              }
+          ]
+      },
+      {
+          "name": "pusher",
+          "type": "object",
+          "description": "Information about who pushed the changes"
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Sender username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Sender ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Sender node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Sender avatar URL"
+              },
+              {
+                  "name": "gravatar_id",
+                  "type": "string",
+                  "description": "Sender gravatar ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Sender API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Sender profile URL"
+              },
+              {
+                  "name": "user_view_type",
+                  "type": "string",
+                  "description": "User view type"
+              },
+              {
+                  "name": "site_admin",
+                  "type": "boolean",
+                  "description": "Whether the sender is a site admin"
+              }
+          ]
+      },
+      {
+          "name": "commits",
+          "type": "array",
+          "description": "Array of commit objects"
+      },
+      {
+          "name": "head_commit",
+          "type": "object",
+          "description": "Head commit object"
+      },
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "Type of GitHub event (e.g., push, pull_request, issues)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "The action that was performed (e.g., opened, closed, synchronize)"
+      },
+      {
+          "name": "branch",
+          "type": "string",
+          "description": "Branch name extracted from ref"
+      }
+  ]}
+/>
+
+---
+
+### GitHub Issue Closed
+
+Trigger workflow when an issue is closed in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Issue Closed"
+    type="github_issue_closed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., issues, pull_request, push)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (opened, closed, reopened, edited, etc.)"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue body/description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue state (open, closed)"
+              },
+              {
+                  "name": "state_reason",
+                  "type": "string",
+                  "description": "Reason for state (completed, not_planned, reopened)"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "milestone",
+                  "type": "object",
+                  "description": "Milestone object if assigned"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue last update timestamp"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Issue closed timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub Push
+
+Trigger workflow when code is pushed to a repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub Push"
+    type="github_push"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., push)"
+      },
+      {
+          "name": "branch",
+          "type": "string",
+          "description": "Branch name derived from ref (e.g., main from refs/heads/main)"
+      },
+      {
+          "name": "ref",
+          "type": "string",
+          "description": "Git reference that was pushed (e.g., refs/heads/main)"
+      },
+      {
+          "name": "before",
+          "type": "string",
+          "description": "SHA of the commit before the push"
+      },
+      {
+          "name": "after",
+          "type": "string",
+          "description": "SHA of the commit after the push"
+      },
+      {
+          "name": "created",
+          "type": "boolean",
+          "description": "Whether this push created a new branch or tag"
+      },
+      {
+          "name": "deleted",
+          "type": "boolean",
+          "description": "Whether this push deleted a branch or tag"
+      },
+      {
+          "name": "forced",
+          "type": "boolean",
+          "description": "Whether this was a force push"
+      },
+      {
+          "name": "base_ref",
+          "type": "string",
+          "description": "Base reference for the push"
+      },
+      {
+          "name": "compare",
+          "type": "string",
+          "description": "URL to compare the changes"
+      },
+      {
+          "name": "commits",
+          "type": "array",
+          "description": "Array of commit objects included in this push"
+      },
+      {
+          "name": "head_commit",
+          "type": "object",
+          "description": "head_commit",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Commit SHA of the most recent commit"
+              },
+              {
+                  "name": "tree_id",
+                  "type": "string",
+                  "description": "Git tree SHA"
+              },
+              {
+                  "name": "distinct",
+                  "type": "boolean",
+                  "description": "Whether this commit is distinct"
+              },
+              {
+                  "name": "message",
+                  "type": "string",
+                  "description": "Commit message"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "Commit timestamp"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Commit URL"
+              },
+              {
+                  "name": "author",
+                  "type": "object",
+                  "description": "author",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Author name"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "Author email"
+                      },
+                      {
+                          "name": "username",
+                          "type": "string",
+                          "description": "Author GitHub username"
+                      }
+                  ]
+              },
+              {
+                  "name": "committer",
+                  "type": "object",
+                  "description": "committer",
+                  "children": [
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Committer name"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "Committer email"
+                      },
+                      {
+                          "name": "username",
+                          "type": "string",
+                          "description": "Committer GitHub username"
+                      }
+                  ]
+              },
+              {
+                  "name": "added",
+                  "type": "array",
+                  "description": "Array of file paths added in this commit"
+              },
+              {
+                  "name": "removed",
+                  "type": "array",
+                  "description": "Array of file paths removed in this commit"
+              },
+              {
+                  "name": "modified",
+                  "type": "array",
+                  "description": "Array of file paths modified in this commit"
+              }
+          ]
+      },
+      {
+          "name": "pusher",
+          "type": "object",
+          "description": "pusher",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Pusher name"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "Pusher email"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR Opened
+
+Trigger workflow when a new pull request is opened in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Opened"
+    type="github_pr_opened"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+      },
+      {
+          "name": "number",
+          "type": "number",
+          "description": "Pull request number"
+      },
+      {
+          "name": "pull_request",
+          "type": "object",
+          "description": "pull_request",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Pull request ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Pull request node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Pull request number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Pull request title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Pull request description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Pull request state (open, closed)"
+              },
+              {
+                  "name": "merged",
+                  "type": "boolean",
+                  "description": "Whether the PR was merged"
+              },
+              {
+                  "name": "merged_at",
+                  "type": "string",
+                  "description": "Timestamp when PR was merged"
+              },
+              {
+                  "name": "merged_by",
+                  "type": "object",
+                  "description": "merged_by",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "draft",
+                  "type": "boolean",
+                  "description": "Whether the PR is a draft"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Pull request HTML URL"
+              },
+              {
+                  "name": "diff_url",
+                  "type": "string",
+                  "description": "Pull request diff URL"
+              },
+              {
+                  "name": "patch_url",
+                  "type": "string",
+                  "description": "Pull request patch URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "head",
+                  "type": "object",
+                  "description": "head",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Source branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Source branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Source repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Source repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "base",
+                  "type": "object",
+                  "description": "base",
+                  "children": [
+                      {
+                          "name": "ref",
+                          "type": "string",
+                          "description": "Target branch name"
+                      },
+                      {
+                          "name": "sha",
+                          "type": "string",
+                          "description": "Target branch commit SHA"
+                      },
+                      {
+                          "name": "repo",
+                          "type": "object",
+                          "description": "repo",
+                          "children": [
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Target repository name"
+                              },
+                              {
+                                  "name": "full_name",
+                                  "type": "string",
+                                  "description": "Target repository full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "additions",
+                  "type": "number",
+                  "description": "Number of lines added"
+              },
+              {
+                  "name": "deletions",
+                  "type": "number",
+                  "description": "Number of lines deleted"
+              },
+              {
+                  "name": "changed_files",
+                  "type": "number",
+                  "description": "Number of files changed"
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "requested_reviewers",
+                  "type": "array",
+                  "description": "Array of requested reviewers"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Pull request creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Pull request last update timestamp"
+              },
+              {
+                  "name": "closed_at",
+                  "type": "string",
+                  "description": "Pull request closed timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "fork",
+                  "type": "boolean",
+                  "description": "Whether the repository is a fork"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Repository API URL"
+              },
+              {
+                  "name": "homepage",
+                  "type": "string",
+                  "description": "Repository homepage URL"
+              },
+              {
+                  "name": "size",
+                  "type": "number",
+                  "description": "Repository size in KB"
+              },
+              {
+                  "name": "stargazers_count",
+                  "type": "number",
+                  "description": "Number of stars"
+              },
+              {
+                  "name": "watchers_count",
+                  "type": "number",
+                  "description": "Number of watchers"
+              },
+              {
+                  "name": "language",
+                  "type": "string",
+                  "description": "Primary programming language"
+              },
+              {
+                  "name": "forks_count",
+                  "type": "number",
+                  "description": "Number of forks"
+              },
+              {
+                  "name": "open_issues_count",
+                  "type": "number",
+                  "description": "Number of open issues"
+              },
+              {
+                  "name": "default_branch",
+                  "type": "string",
+                  "description": "Default branch name"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### GitHub PR Comment
+
+Trigger workflow when a comment is added to a pull request in a GitHub repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub PR Comment"
+    type="github_pr_comment"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Content Type",
+            "description": "Format GitHub will use when sending the webhook payload.",
+            "required": true,
+            "options": [
+                {
+                    "label": "application/json",
+                    "id": "application/json"
+                },
+                {
+                    "label": "application/x-www-form-urlencoded",
+                    "id": "application/x-www-form-urlencoded"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Generate or enter a strong secret",
+            "description": "Validates that webhook deliveries originate from GitHub.",
+            "password": true
+        },
+        {
+            "id": "sslVerification",
+            "type": "dropdown",
+            "title": "SSL Verification",
+            "description": "GitHub verifies SSL certificates when delivering webhooks.",
+            "required": true,
+            "options": [
+                {
+                    "label": "Enabled",
+                    "id": "enabled"
+                },
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event_type",
+          "type": "string",
+          "description": "GitHub event type from X-GitHub-Event header (e.g., issue_comment)"
+      },
+      {
+          "name": "action",
+          "type": "string",
+          "description": "Action performed (created, edited, deleted)"
+      },
+      {
+          "name": "issue",
+          "type": "object",
+          "description": "issue",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Issue ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Issue node ID"
+              },
+              {
+                  "name": "number",
+                  "type": "number",
+                  "description": "Issue/PR number"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Issue/PR title"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Issue/PR description"
+              },
+              {
+                  "name": "state",
+                  "type": "string",
+                  "description": "Issue/PR state (open, closed)"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Issue/PR HTML URL"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "labels",
+                  "type": "array",
+                  "description": "Array of label objects"
+              },
+              {
+                  "name": "assignees",
+                  "type": "array",
+                  "description": "Array of assigned users"
+              },
+              {
+                  "name": "pull_request",
+                  "type": "object",
+                  "description": "pull_request",
+                  "children": [
+                      {
+                          "name": "url",
+                          "type": "string",
+                          "description": "Pull request API URL (present only for PR comments)"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Pull request HTML URL"
+                      },
+                      {
+                          "name": "diff_url",
+                          "type": "string",
+                          "description": "Pull request diff URL"
+                      },
+                      {
+                          "name": "patch_url",
+                          "type": "string",
+                          "description": "Pull request patch URL"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Issue/PR creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Issue/PR last update timestamp"
+              }
+          ]
+      },
+      {
+          "name": "comment",
+          "type": "object",
+          "description": "comment",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Comment ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Comment node ID"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "Comment API URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Comment HTML URL"
+              },
+              {
+                  "name": "body",
+                  "type": "string",
+                  "description": "Comment text"
+              },
+              {
+                  "name": "user",
+                  "type": "object",
+                  "description": "user",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "User ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "User node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Profile URL"
+                      },
+                      {
+                          "name": "user_type",
+                          "type": "string",
+                          "description": "User type (User, Bot, Organization)"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Comment creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Comment last update timestamp"
+              }
+          ]
+      },
+      {
+          "name": "repository",
+          "type": "object",
+          "description": "repository",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Repository ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "Repository node ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Repository name"
+              },
+              {
+                  "name": "full_name",
+                  "type": "string",
+                  "description": "Repository full name (owner/repo)"
+              },
+              {
+                  "name": "private",
+                  "type": "boolean",
+                  "description": "Whether the repository is private"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Repository HTML URL"
+              },
+              {
+                  "name": "repo_description",
+                  "type": "string",
+                  "description": "Repository description"
+              },
+              {
+                  "name": "owner",
+                  "type": "object",
+                  "description": "owner",
+                  "children": [
+                      {
+                          "name": "login",
+                          "type": "string",
+                          "description": "Owner username"
+                      },
+                      {
+                          "name": "id",
+                          "type": "number",
+                          "description": "Owner ID"
+                      },
+                      {
+                          "name": "node_id",
+                          "type": "string",
+                          "description": "Owner node ID"
+                      },
+                      {
+                          "name": "avatar_url",
+                          "type": "string",
+                          "description": "Owner avatar URL"
+                      },
+                      {
+                          "name": "html_url",
+                          "type": "string",
+                          "description": "Owner profile URL"
+                      },
+                      {
+                          "name": "owner_type",
+                          "type": "string",
+                          "description": "Owner type (User, Organization)"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "sender",
+          "children": [
+              {
+                  "name": "login",
+                  "type": "string",
+                  "description": "Username"
+              },
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "User ID"
+              },
+              {
+                  "name": "node_id",
+                  "type": "string",
+                  "description": "User node ID"
+              },
+              {
+                  "name": "avatar_url",
+                  "type": "string",
+                  "description": "Avatar URL"
+              },
+              {
+                  "name": "html_url",
+                  "type": "string",
+                  "description": "Profile URL"
+              },
+              {
+                  "name": "user_type",
+                  "type": "string",
+                  "description": "User type (User, Bot, Organization)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+

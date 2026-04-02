@@ -1,0 +1,63 @@
+---
+title: "Watchlist"
+description: "Manage symbol watchlists with live market columns."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `watchlist` |
+| **Category** | Data |
+
+The Watchlist widget lets you create, organize, and monitor lists of trading symbols with live quote data. It displays last price, change, and change-percent columns and supports drag-and-drop reordering, collapsible sections, and inline symbol editing.
+
+## Features
+
+- **Multiple watchlists** -- Create, rename, and delete watchlists within a workspace. The list selector in the header lets you switch between them. System watchlists (auto-generated) cannot be deleted.
+- **Live quote columns** -- Each row shows **Last**, **Change**, and **Change %**, color-coded green for positive and red for negative values. Quotes refresh automatically and can be manually refreshed with the header button.
+- **Sections** -- Group symbols under collapsible section headers. Sections can be renamed inline and expanded or collapsed independently.
+- **Drag-and-drop reorder** -- Reorder symbols and sections using mouse, touch, or keyboard (arrow keys with the sortable keyboard sensor). Items can be moved between sections.
+- **Inline symbol editing** -- Double-click a row to open an inline listing selector and change the symbol for that entry without removing and re-adding it.
+- **Symbol search and add** -- The center header control provides a listing search field. Select a symbol and click the check button to append it to the active watchlist.
+- **Import / export** -- Import symbols from a JSON file or export the current watchlist to JSON through the list actions menu.
+- **Provider selection** -- Choose a market data provider from the left header control. Provider-specific parameters and API credentials can be configured through the settings popover.
+- **Pair color linking** -- When the widget is assigned a pair color, clicking a row broadcasts the selected listing to other widgets sharing the same color (e.g. a [Data Chart](/widgets/data-chart)), and the currently linked symbol is highlighted.
+
+## Usage
+
+Add the Watchlist to a workspace panel. The header is organized into three groups:
+
+- **Left** -- Provider settings button, provider selector dropdown, and a manual refresh button.
+- **Center** -- Listing search input and an add button to append the selected symbol.
+- **Right** -- Watchlist selector dropdown (switch between lists, rename, or delete) and a list actions menu (create watchlist, add section, import, export, delete).
+
+Click a row to select it. When the widget shares a pair color with a Data Chart, that click also loads the symbol in the chart. Double-click to enter edit mode and change the symbol inline. Right-side controls on each row let you remove individual items, and section headers have rename and delete actions.
+
+<Callout type="info">
+Assign the same pair color to a Watchlist and a Data Chart so that clicking a symbol in the list immediately loads its chart.
+</Callout>
+
+## Configuration
+
+| Parameter | Description |
+|-----------|-------------|
+| `watchlistId` | ID of the currently selected watchlist. |
+| `provider` | Market data provider used for quote fetching. |
+| `providerParams` | Provider-specific parameters (e.g. exchange, market type). |
+| `auth` | Optional API key / secret for the selected provider. |
+| `runtime.refreshAt` | Epoch timestamp that triggers a quote refresh when updated. |
+
+## Related
+
+<Cards>
+  <Card title="Data Chart" href="/widgets/data-chart">
+    Pair with the Watchlist so symbol clicks load the chart automatically.
+  </Card>
+  <Card title="Tools Overview" href="/tools">
+    Browse all available workflow tools.
+  </Card>
+</Cards>

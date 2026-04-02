@@ -1,59 +1,70 @@
 ---
-title: Consola de flujo de trabajo
+title: Consola de Flujo de Trabajo
 description: Consola de ejecución de flujo de trabajo en tiempo real con
-  registros y salida en streaming
+  registros y salida en streaming.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
-El widget de Consola de flujo de trabajo proporciona una vista en tiempo real de la ejecución del flujo de trabajo, mostrando registros, información de depuración y salida en streaming mientras se ejecuta tu flujo de trabajo.
-
-## Descripción general
+## Descripción General
 
 | Propiedad | Valor |
 |----------|-------|
 | **Clave** | `workflow_console` |
 | **Categoría** | Utilidad |
-| **Icono** | Actividad |
+
+El widget Consola de Flujo de Trabajo muestra un registro en tiempo real de todo lo que ocurre durante la ejecución del flujo de trabajo. Cada entrada está etiquetada con el bloque que la generó, su estado y una marca de tiempo. El widget es adaptable al ancho del panel y ajusta su diseño automáticamente.
 
 ## Características
 
-- **Registros en tiempo real**: Visualiza los registros de ejecución mientras ocurren
-- **Salida en streaming**: Observa las salidas de los bloques en tiempo real
-- **Estado de ejecución**: Monitorea el estado actual de la ejecución del flujo de trabajo
-- **Visualización de errores**: Identifica y depura errores rápidamente
-- **Filtrado de registros**: Filtra registros por tipo, bloque o gravedad
-- **Limpiar consola**: Reinicia la salida de la consola
+- **Flujo de registro en tiempo real** -- las entradas aparecen a medida que se ejecuta cada bloque, mostrando el nombre, tipo, estado y salida del bloque
+- **Filtrar por estado y bloque** -- un panel de filtros permite alternar la visibilidad de los estados `error` e `info`, y marcar o desmarcar bloques individuales por nombre; los filtros activos se resaltan en el ícono de filtro
+- **Ordenar por tiempo** -- alterna entre orden cronológico ascendente y descendente con un solo botón en el encabezado
+- **Vista estructurada** -- un interruptor que cambia las entradas del registro a un diseño con formato de estilo JSON para inspeccionar objetos de salida complejos
+- **Ajuste de texto** -- un interruptor que controla si las líneas de registro largas se ajustan o se desplazan horizontalmente
+- **Exportar a CSV** -- descarga las entradas actuales (filtradas) de la consola como un archivo CSV
+- **Limpiar consola** -- elimina todas las entradas del flujo de trabajo activo del almacén de la consola
+- **Selector de flujo de trabajo** -- menú desplegable en el encabezado para cambiar entre flujos de trabajo; respeta la sincronización de colores por pares cuando están vinculados
 
 ## Uso
 
-La Consola de flujo de trabajo es esencial para:
+### Agregar el widget
 
-- Depurar la ejecución del flujo de trabajo
-- Monitorear flujos de trabajo de larga duración
-- Ver salidas intermedias de bloques
-- Identificar errores y cuellos de botella
+Abra el selector de widgets y seleccione **Consola de Flujo de Trabajo**. Carga las entradas del flujo de trabajo activo en el espacio de trabajo actual.
 
-### Tipos de registros
+### Disposición del encabezado
 
-| Tipo | Descripción |
-|------|-------------|
-| **Info** | Información general de ejecución |
-| **Debug** | Información detallada de depuración |
-| **Warning** | Problemas no críticos |
-| **Error** | Errores y fallos de ejecución |
-| **Output** | Datos de salida de bloques |
+- **Centro** -- menú desplegable de selección de flujo de trabajo
+- **Derecha** -- barra de herramientas con botones de filtro, ordenación, vista estructurada, ajuste de texto, exportar CSV y borrar (todos agrupados)
 
-### Visualización del flujo de ejecución
+### Interacciones principales
 
-La consola muestra la ruta de ejecución a través de tu flujo de trabajo:
+1. Ejecuta un flujo de trabajo desde el editor o el chat y observa cómo las entradas se transmiten a la consola
+2. Abre el panel de filtros para acotar los resultados a bloques específicos o solo a entradas con errores
+3. Activa la vista estructurada para leer los payloads JSON con mayor facilidad
+4. Activa el ajuste de texto cuando las entradas contengan cadenas largas en una sola línea
+5. Haz clic en el botón de descarga para exportar las entradas filtradas como CSV para análisis sin conexión
+6. Haz clic en el botón de papelera para borrar la consola del flujo de trabajo actual
 
-1. **Inicio**: Comienza la ejecución del flujo de trabajo
-2. **Entrada de bloque**: Cada bloque comienza el procesamiento
-3. **Salida de bloque**: Resultados de cada bloque
-4. **Salida de bloque**: El bloque se completa
-5. **Fin**: La ejecución del flujo de trabajo se completa
+### Sincronización de color de par
+
+Cuando se asigna un color de par, la consola sigue automáticamente el flujo de trabajo seleccionado en el editor emparejado. Cuando el color de par es `gray`, puedes elegir de forma independiente qué flujo de trabajo monitorizar mediante el menú desplegable del encabezado.
 
 <Callout>
-Este widget admite el mecanismo **pairColor**. Emparéjalo con un Editor de flujo de trabajo para ver los registros del flujo de trabajo que estás editando.
+Empareja este widget con el **Editor de flujos de trabajo** para ver los registros de ejecución en tiempo real del flujo de trabajo que estás construyendo.
 </Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de flujos de trabajo" href="/widgets/editor-workflow">
+    Interfaz de canvas para construir y editar flujos de trabajo.
+  </Card>
+  <Card title="Guía de ejecución" href="/execution">
+    Aprende cómo funciona la ejecución de flujos de trabajo.
+  </Card>
+  <Card title="Chat de flujo de trabajo" href="/widgets/workflow-chat">
+    Interfaz conversacional para ejecutar flujos de trabajo.
+  </Card>
+</Cards>

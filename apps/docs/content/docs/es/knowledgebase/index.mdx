@@ -1,48 +1,39 @@
 ---
-title: Base de conocimientos
+title: Base de conocimiento
 ---
 
-import { Video } from '@/components/ui/video'
-import { Image } from '@/components/ui/image'
-
-La base de conocimientos te permite cargar, procesar y buscar a través de tus documentos con búsqueda vectorial inteligente y fragmentación. Los documentos de varios tipos se procesan, incorporan y hacen buscables automáticamente. Tus documentos se fragmentan de manera inteligente, y puedes verlos, editarlos y buscar a través de ellos utilizando consultas en lenguaje natural.
+La base de conocimiento le permite cargar, procesar y buscar en sus documentos mediante búsqueda vectorial inteligente y segmentación. Los documentos de diversos tipos se procesan, incrustan y hacen buscables de forma automática. Sus documentos se segmentan de manera inteligente, y puede visualizarlos, editarlos y buscar en ellos mediante consultas en lenguaje natural.
 
 ## Carga y procesamiento
 
-Simplemente carga tus documentos para comenzar. TradingGoose los procesa automáticamente en segundo plano, extrayendo texto, creando incrustaciones y dividiéndolos en fragmentos buscables.
+Simplemente cargue sus documentos para comenzar. TradingGoose los procesa automáticamente en segundo plano, extrayendo texto, creando embeddings y dividiéndolos en fragmentos buscables.
 
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="knowledgebase-1.mp4" width={700} height={450} />
-</div>
+El sistema gestiona todo el pipeline de procesamiento por usted:
 
-El sistema maneja todo el proceso por ti:
+1. **Extracción de texto**: El contenido se extrae de sus documentos mediante parsers especializados para cada tipo de archivo
+2. **Segmentación inteligente**: Los documentos se dividen en fragmentos significativos con tamaño y solapamiento configurables
+3. **Generación de embeddings**: Se crean embeddings vectoriales para las capacidades de búsqueda semántica
+4. **Estado del procesamiento**: Realice un seguimiento del progreso mientras se procesan sus documentos
 
-1. **Extracción de texto**: El contenido se extrae de tus documentos utilizando analizadores especializados para cada tipo de archivo
-2. **Fragmentación inteligente**: Los documentos se dividen en fragmentos significativos con tamaño y superposición configurables
-3. **Generación de incrustaciones**: Se crean incrustaciones vectoriales para capacidades de búsqueda semántica
-4. **Estado del procesamiento**: Sigue el progreso mientras tus documentos son procesados
+## Tipos de archivo compatibles
 
-## Tipos de archivos compatibles
-
-TradingGoose admite archivos PDF, Word (DOC/DOCX), texto plano (TXT), Markdown (MD), HTML, Excel (XLS/XLSX), PowerPoint (PPT/PPTX) y CSV. Los archivos pueden tener hasta 100MB cada uno, con un rendimiento óptimo para archivos de menos de 50MB. Puedes cargar múltiples documentos simultáneamente, y los archivos PDF incluyen procesamiento OCR para documentos escaneados.
+TradingGoose admite archivos PDF, Word (DOC/DOCX), texto plano (TXT), Markdown (MD), HTML, Excel (XLS/XLSX), PowerPoint (PPT/PPTX) y CSV. Los archivos pueden tener hasta 100 MB cada uno, con un rendimiento óptimo para archivos de menos de 50 MB. Puede cargar múltiples documentos simultáneamente, y los archivos PDF incluyen procesamiento OCR para documentos escaneados.
 
 ## Visualización y edición de fragmentos
 
-Una vez que tus documentos están procesados, puedes ver y editar los fragmentos individuales. Esto te da control total sobre cómo se organiza y busca tu contenido.
-
-<Image src="/static/knowledgebase/knowledgebase.png" alt="Vista de fragmentos de documentos mostrando contenido procesado" width={800} height={500} />
+Una vez procesados sus documentos, puede visualizar y editar los fragmentos individuales. Esto le otorga control total sobre cómo se organiza y busca su contenido. La vista de fragmentos muestra el contenido de texto de cada fragmento, su índice dentro del documento y cualquier etiqueta asociada.
 
 ### Configuración de fragmentos
-- **Tamaño predeterminado del fragmento**: 1.024 caracteres
+- **Tamaño de fragmento predeterminado**: 1.024 caracteres
 - **Rango configurable**: 100-4.000 caracteres por fragmento
-- **Superposición inteligente**: 200 caracteres por defecto para preservar el contexto
+- **Solapamiento inteligente**: 200 caracteres por defecto para preservar el contexto
 - **División jerárquica**: Respeta la estructura del documento (secciones, párrafos, oraciones)
 
 ### Capacidades de edición
-- **Editar contenido de fragmentos**: Modificar el contenido de texto de fragmentos individuales
+- **Editar contenido de fragmentos**: Modificar el contenido textual de fragmentos individuales
 - **Ajustar límites de fragmentos**: Fusionar o dividir fragmentos según sea necesario
-- **Añadir metadatos**: Mejorar fragmentos con contexto adicional
-- **Operaciones masivas**: Gestionar múltiples fragmentos de manera eficiente
+- **Añadir metadatos**: Enriquecer los fragmentos con contexto adicional
+- **Operaciones en masa**: Gestionar múltiples fragmentos de forma eficiente
 
 ## Procesamiento avanzado de PDF
 
@@ -51,63 +42,61 @@ Para documentos PDF, TradingGoose ofrece capacidades de procesamiento mejoradas:
 ### Soporte OCR
 Cuando se configura con Azure o [Mistral OCR](https://docs.mistral.ai/ocr/):
 - **Procesamiento de documentos escaneados**: Extraer texto de PDFs basados en imágenes
-- **Manejo de contenido mixto**: Procesar PDFs con texto e imágenes
-- **Alta precisión**: Modelos avanzados de IA aseguran una extracción precisa del texto
+- **Manejo de contenido mixto**: Procesar PDFs con texto e imágenes combinados
+- **Alta precisión**: Los modelos avanzados de IA garantizan una extracción de texto precisa
 
 ## Uso del bloque de conocimiento en flujos de trabajo
 
-Una vez que tus documentos son procesados, puedes utilizarlos en tus flujos de trabajo de IA a través del bloque de Conocimiento. Esto permite la Generación Aumentada por Recuperación (RAG), permitiendo a tus agentes de IA acceder y razonar sobre el contenido de tus documentos para proporcionar respuestas más precisas y contextuales.
-
-<Image src="/static/knowledgebase/knowledgebase-2.png" alt="Uso del bloque de conocimiento en flujos de trabajo" width={800} height={500} />
+Una vez procesados sus documentos, puede utilizarlos en sus flujos de trabajo de IA a través del bloque de conocimiento. Esto habilita la Generación Aumentada por Recuperación (RAG), permitiendo que sus agentes de IA accedan y razonen sobre el contenido de sus documentos para ofrecer respuestas más precisas y contextuales. Añada un bloque de conocimiento a su flujo de trabajo, seleccione una base de conocimiento y configure su consulta de búsqueda y los filtros de etiquetas opcionales.
 
 ### Características del bloque de conocimiento
-- **Búsqueda semántica**: Encontrar contenido relevante usando consultas en lenguaje natural
+- **Búsqueda semántica**: Encontrar contenido relevante mediante consultas en lenguaje natural
 - **Integración de contexto**: Incluir automáticamente fragmentos relevantes en los prompts del agente
 - **Recuperación dinámica**: La búsqueda ocurre en tiempo real durante la ejecución del flujo de trabajo
 - **Puntuación de relevancia**: Resultados clasificados por similitud semántica
 
 ### Opciones de integración
-- **Prompts del sistema**: Proporcionar contexto a tus agentes de IA
+- **Prompts del sistema**: Proporcionar contexto a sus agentes de IA
 - **Contexto dinámico**: Buscar e incluir información relevante durante las conversaciones
-- **Búsqueda multi-documento**: Consultar a través de toda tu base de conocimiento
-- **Búsqueda filtrada**: Combinar con etiquetas para una recuperación precisa de contenido
+- **Búsqueda multidocumento**: Consultar a través de toda su base de conocimiento
+- **Búsqueda filtrada**: Combinar con etiquetas para una recuperación de contenido precisa
 
 ## Tecnología de búsqueda vectorial
 
-TradingGoose utiliza búsqueda vectorial impulsada por [pgvector](https://github.com/pgvector/pgvector) para entender el significado y contexto de tu contenido:
+TradingGoose utiliza búsqueda vectorial impulsada por [pgvector](https://github.com/pgvector/pgvector) para comprender el significado y el contexto de su contenido:
 
-### Comprensión semántica
+### Comprensión Semántica
 - **Búsqueda contextual**: Encuentra contenido relevante incluso cuando las palabras clave exactas no coinciden
 - **Recuperación basada en conceptos**: Comprende las relaciones entre ideas
 - **Soporte multilingüe**: Funciona en diferentes idiomas
 - **Reconocimiento de sinónimos**: Encuentra términos y conceptos relacionados
 
-### Capacidades de búsqueda
-- **Consultas en lenguaje natural**: Haz preguntas en español simple
+### Capacidades de Búsqueda
+- **Consultas en lenguaje natural**: Realiza preguntas en español sencillo
 - **Búsqueda por similitud**: Encuentra contenido conceptualmente similar
-- **Búsqueda híbrida**: Combina búsqueda vectorial y tradicional por palabras clave
-- **Resultados configurables**: Controla el número y umbral de relevancia de los resultados
+- **Búsqueda híbrida**: Combina búsqueda vectorial y búsqueda tradicional por palabras clave
+- **Resultados configurables**: Controla el número y el umbral de relevancia de los resultados
 
-## Gestión de documentos
+## Gestión de Documentos
 
-### Características de organización
+### Funciones de Organización
 - **Carga masiva**: Sube múltiples archivos a la vez mediante la API asíncrona
 - **Estado de procesamiento**: Actualizaciones en tiempo real sobre el procesamiento de documentos
 - **Búsqueda y filtrado**: Encuentra documentos rápidamente en grandes colecciones
 - **Seguimiento de metadatos**: Captura automática de información de archivos y detalles de procesamiento
 
-### Seguridad y privacidad
+### Seguridad y Privacidad
 - **Almacenamiento seguro**: Documentos almacenados con seguridad de nivel empresarial
 - **Control de acceso**: Permisos basados en espacios de trabajo
-- **Aislamiento de procesamiento**: Cada espacio de trabajo tiene procesamiento de documentos aislado
+- **Aislamiento de procesamiento**: Cada espacio de trabajo tiene un procesamiento de documentos aislado
 - **Retención de datos**: Configura políticas de retención de documentos
 
-## Primeros pasos
+## Primeros Pasos
 
 1. **Navega a tu base de conocimiento**: Accede desde la barra lateral de tu espacio de trabajo
-2. **Sube documentos**: Arrastra y suelta o selecciona archivos para subir
-3. **Monitorea el procesamiento**: Observa cómo se procesan y dividen los documentos
-4. **Explora fragmentos**: Visualiza y edita el contenido procesado
-5. **Añade a flujos de trabajo**: Usa el bloque de Conocimiento para integrarlo con tus agentes de IA
+2. **Sube documentos**: Arrastra y suelta o selecciona archivos para cargar
+3. **Supervisa el procesamiento**: Observa cómo se procesan y segmentan los documentos
+4. **Explora los fragmentos**: Visualiza y edita el contenido procesado
+5. **Añade a flujos de trabajo**: Usa el bloque de Conocimiento para integrar con tus agentes de IA
 
-La base de conocimiento transforma tus documentos estáticos en un recurso inteligente y consultable que tus flujos de trabajo de IA pueden aprovechar para obtener respuestas más informadas y contextuales.
+La base de conocimiento transforma tus documentos estáticos en un recurso inteligente y buscable que tus flujos de trabajo de IA pueden aprovechar para ofrecer respuestas más informadas y contextuales.

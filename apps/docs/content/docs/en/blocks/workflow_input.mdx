@@ -1,0 +1,100 @@
+---
+title: Workflow
+description: Execute a child workflow and map parent variables into its input schema
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="workflow_input"
+  color="#6366F1"
+  icon={true}
+  iconSvg={``}
+/>
+
+The Workflow block executes another (child) workflow from within the current (parent) workflow. It reads the child workflow's **Input Form Trigger** schema and presents a mapping UI so you can pass parent variables into the child's expected inputs. This is the primary mechanism for modularizing complex automations into reusable sub-workflows.
+
+## Overview
+
+<Steps>
+  <Step>
+    <strong>Select a child workflow</strong>: Pick any workflow in your workspace (except the current one)
+  </Step>
+  <Step>
+    <strong>Map inputs</strong>: The block reads the child's Input Form Trigger and shows each expected field. Map parent variables or hardcode values for each one.
+  </Step>
+  <Step>
+    <strong>Execute</strong>: The child workflow runs to completion with the mapped inputs
+  </Step>
+  <Step>
+    <strong>Return results</strong>: The child's final output is returned to the parent as the block's `result` output
+  </Step>
+</Steps>
+
+## How It Works
+
+The child workflow must use an **Input Form Trigger** as its start block. That trigger defines the input schema (field names, types, and descriptions). When you select the child workflow in this block, the Input Mapping UI dynamically renders those fields so you can wire them up.
+
+At runtime the block:
+
+1. Resolves all mapped values from the parent workflow's current state.
+2. Invokes the child workflow's executor, passing the resolved inputs.
+3. Waits for the child to finish.
+4. Returns `success`, `childWorkflowName`, and the full `result` from the child execution.
+
+<Callout type="info">
+  The dropdown only shows workflows in your workspace that are different from the current one. You cannot call a workflow recursively.
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow_input"
+    color="#6366F1"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "Select Workflow",
+            "required": true
+        },
+        {
+            "id": "inputMapping",
+            "type": "input-mapping",
+            "title": "Input Mapping",
+            "layout": "full",
+            "description": "Map fields defined in the child workflow's Input Trigger to variables/values in this workflow."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### Fields
+
+| Field | Required | Description |
+|---|---|---|
+| **Select Workflow** | Yes | The child workflow to execute. Must have an Input Form Trigger. |
+| **Input Mapping** | -- | Dynamic mapping of parent values to the child's trigger schema. Appears after you select a workflow. |
+
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `success` | boolean | Whether the child workflow completed successfully |
+| `childWorkflowName` | string | Name of the executed child workflow |
+| `result` | json | The full execution result from the child workflow |
+| `error` | string | Error message if the child workflow failed |
+
+## Best Practices
+
+- **Design child workflows with clear Input Form Triggers** -- name fields descriptively so the mapping UI is easy to use in the parent.
+- **Keep child workflows focused** -- a child workflow should do one thing well, making it reusable across multiple parents.
+- **Check the `success` output** -- use a Condition block after the Workflow block to handle failures gracefully.

@@ -5,19 +5,26 @@ title: Response
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 The Response block is the final step in your workflow that formats and sends a structured response back to API calls. It's like the "return" statement for your entire workflow—it packages up results and sends them back.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/response.png"
-    alt="Response Block Configuration"
-    width={500}
-    height={400}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Response"
+    type="response"
+    color="#2F55FF"
+    hideHeader
+    subBlocks={[
+      { "id": "dataMode", "title": "Response Data Mode", "type": "dropdown", "layout": "full", "options": [{ "label": "Builder", "id": "structured" }, { "label": "Editor", "id": "json" }], "description": "Choose how to define your response data structure" },
+      { "id": "builderData", "title": "Response Structure", "type": "response-format", "layout": "full", "description": "Define the structure of your response data. Use <variable.name> in field names to reference workflow variables." },
+      { "id": "data", "title": "Response Data", "type": "code", "layout": "full", "placeholder": "{\n  \"message\": \"Hello world\",\n  \"userId\": \"<variable.userId>\"\n}", "description": "Data that will be sent as the response body on API calls. Use <variable.name> to reference workflow variables." },
+      { "id": "status", "title": "Status Code", "type": "short-input", "layout": "half", "placeholder": "200", "description": "HTTP status code (default: 200)" },
+      { "id": "headers", "title": "Response Headers", "type": "table", "layout": "full", "description": "Additional HTTP headers to include in the response" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 <Callout type="info">
   Response blocks are terminal blocks - they end the workflow execution and cannot connect to other blocks.

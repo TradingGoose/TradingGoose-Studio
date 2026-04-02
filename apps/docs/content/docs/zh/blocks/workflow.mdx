@@ -4,37 +4,41 @@ description: 在当前流程中运行另一个工作流
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-## 功能简介
+## 功能说明
 
-<div className='flex justify-center my-6'>
-  <Image
-    src='/static/blocks/workflow.png'
-    alt='工作流模块配置'
-    width={400}
-    height={280}
-    className='rounded-xl border border-border shadow-sm'
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow"
+    color="#705335"
+    hideHeader
+    subBlocks={[
+      { "id": "workflowId", "title": "选择工作流", "type": "dropdown", "required": true },
+      { "id": "input", "title": "输入变量（可选）", "type": "short-input", "placeholder": "选择要传递给子工作流的变量", "description": "该变量将在子工作流中以 start.input 的形式访问" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
-当您希望在更大的流程中调用子工作流时，可以使用工作流模块。该模块运行该工作流的最新部署版本，等待其完成后，再继续执行父流程。
+当您需要在较大流程中调用子工作流时，请添加工作流模块。该模块会运行目标工作流的最新已部署版本，等待其执行完成后，再继续执行父工作流。
 
-## 配置方法
+## 配置说明
 
-1. **选择一个工作流**：从下拉菜单中选择（为了防止循环，禁止自引用）。
-2. **映射输入**：如果子工作流有输入表单触发器，您将看到每个字段，并可以连接父变量。映射的值是子工作流接收到的值。
-3. **输出**：子工作流完成后，该模块会提供以下输出：
-   - `result` – 子工作流的最终响应
-   - `success` – 是否运行无错误
-   - `error` – 运行失败时的消息
+1. **选择工作流**：从下拉列表中选取目标工作流（已禁止自引用以防止循环）。
+2. **映射输入**：若子工作流配置了输入表单触发器，您将看到各字段并可连接父工作流变量，映射后的值将传入子工作流。
+3. **输出结果**：子工作流执行完成后，该模块将暴露以下输出：
+   - `result` – 子工作流的最终响应结果
+   - `success` – 是否成功执行（无错误）
+   - `error` – 执行失败时的错误信息
 
-## 执行注意事项
+## 执行说明
 
-- 子工作流在相同的工作区上下文中运行，因此环境变量和工具会被继承。
-- 该模块使用部署版本控制：任何 API、计划任务、Webhook、手动或聊天执行都会调用已部署的快照。当您更改子工作流时，需要重新部署。
-- 如果子工作流失败，该模块会引发错误，除非您在下游处理了该错误。
+- 子工作流在相同的工作区上下文中运行，因此环境变量和工具配置均可继承。
+- 该模块使用部署版本控制：API、定时、Webhook、手动或对话触发的执行均调用已部署的快照版本。修改子工作流后请重新部署。
+- 若子工作流执行失败，该模块将抛出错误，除非您在下游对其进行处理。
 
 <Callout>
-保持子工作流的专注性。小型、可复用的流程更容易组合使用，而不会导致深层嵌套。
+保持子工作流的专注性。小型、可复用的流程更易于组合，同时避免产生深层嵌套。
 </Callout>

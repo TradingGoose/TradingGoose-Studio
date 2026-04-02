@@ -1,0 +1,201 @@
+---
+title: Grain Trigger
+description: Trigger workflow when a recording is updated in Grain
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="grain"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow when a recording is updated in Grain
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Events
+
+### Grain Recording Updated
+
+Trigger workflow when a recording is updated in Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Recording Updated"
+    type="grain_recording_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Grain Recording Created
+
+Trigger workflow when a new recording is added in Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Recording Created"
+    type="grain_recording_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Grain Webhook
+
+Generic webhook trigger for all Grain events
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Webhook"
+    type="grain_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Grain Highlight Updated
+
+Trigger workflow when a highlight/clip is updated in Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Highlight Updated"
+    type="grain_highlight_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Grain Story Created
+
+Trigger workflow when a new story is created in Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Story Created"
+    type="grain_story_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+### Grain Highlight Created
+
+Trigger workflow when a new highlight/clip is created in Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Highlight Created"
+    type="grain_highlight_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key (Personal Access Token)",
+            "description": "Required to create the webhook in Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+---
+
+

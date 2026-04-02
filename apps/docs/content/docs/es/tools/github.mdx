@@ -4,10 +4,12 @@ description: Interactúa con GitHub o activa flujos de trabajo desde eventos de 
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="github"
-  color="#181C1E"
+  color=""
   icon={true}
   iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
       <path
@@ -17,112 +19,469 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
     </svg>`}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[GitHub](https://github.com/) es la plataforma líder mundial para el desarrollo de software y control de versiones usando Git. Proporciona un entorno colaborativo donde los desarrolladores pueden alojar y revisar código, gestionar proyectos y construir software juntos.
+## Configuración
 
-Con GitHub, puedes:
+### Obtener detalles del PR
 
-- **Alojar repositorios**: Almacena tu código en repositorios públicos o privados con control de versiones
-- **Colaborar en el código**: Usa pull requests para proponer cambios, revisar código y fusionar contribuciones
-- **Seguimiento de problemas**: Crea, asigna y gestiona issues para organizar el trabajo y seguir errores
-- **Automatizar flujos de trabajo**: Usa GitHub Actions para construir, probar y desplegar código automáticamente
-- **Gestionar proyectos**: Organiza el trabajo con tableros de proyectos, hitos y seguimiento de tareas
-- **Documentar código**: Crea y mantén documentación con GitHub Pages y wikis
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Obtener detalles del PR",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "Crear comentario en PR",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "Obtener información del repositorio",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "Obtener último commit",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_pr"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "Número de Pull Request",
+            "layout": "half",
+            "placeholder": "p. ej., 123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-En TradingGoose, la integración con GitHub permite a tus agentes interactuar directamente con repositorios y flujos de trabajo de GitHub. Esto posibilita potentes escenarios de automatización como asistencia en revisión de código, gestión de solicitudes de extracción, seguimiento de problemas y exploración de repositorios. Tus agentes pueden obtener datos del repositorio, analizar cambios en el código, publicar comentarios en solicitudes de extracción y realizar otras operaciones de GitHub de forma programática. Esta integración cierra la brecha entre tus flujos de trabajo de IA y tus procesos de desarrollo, permitiendo una colaboración fluida entre tus agentes y tu equipo de desarrollo.
-{/* MANUAL-CONTENT-END */}
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener detalles del PR (<code>github_pr</code>)</div>
 
-## Instrucciones de uso
+Obtener detalles del PR, incluyendo el diff y los archivos modificados
 
-Integra Github en el flujo de trabajo. Puede obtener detalles de PR, crear comentarios en PR, obtener información del repositorio y obtener el último commit. Requiere una clave API de token de Github. Se puede usar en modo de activación para iniciar un flujo de trabajo cuando se crea un PR, se comenta o se envía un commit.
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-## Herramientas
-
-### `github_pr`
-
-Obtener detalles de PR incluyendo diferencias y archivos modificados
-
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | Sí | Propietario del repositorio |
 | `repo` | string | Sí | Nombre del repositorio |
-| `pullNumber` | number | Sí | Número de la solicitud de extracción |
-| `apiKey` | string | Sí | Token de API de GitHub |
+| `pullNumber` | number | Sí | Número de pull request |
+| `apiKey` | string | Sí | Token de la API de GitHub |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `content` | string | Resumen de PR legible para humanos |
-| `metadata` | object | Metadatos detallados de PR incluyendo cambios en archivos |
+| `content` | string | Resumen legible del PR |
+| `number` | number | Número de pull request |
+| `title` | string | Título del PR |
+| `state` | string | Estado del PR \(open/closed/merged\) |
+| `html_url` | string | URL web de GitHub |
+| `diff_url` | string | URL del diff en crudo |
+| `created_at` | string | Marca de tiempo de creación |
+| `updated_at` | string | Marca de tiempo de última actualización |
+| `filename` | string | Ruta del archivo |
+| `additions` | number | Líneas añadidas |
+| `deletions` | number | Líneas eliminadas |
+| `changes` | number | Total de cambios |
+| `patch` | string | Parche diff del archivo |
+| `blob_url` | string | URL blob de GitHub |
+| `raw_url` | string | URL del archivo en crudo |
 
-### `github_comment`
+</div>
+
+---
+
+### Crear comentario en PR
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Obtener detalles del PR",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "Crear comentario en PR",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "Obtener información del repositorio",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "Obtener último commit",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_comment"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Ingrese el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Comentario",
+            "layout": "full",
+            "placeholder": "Ingrese el texto del comentario",
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "Número de pull request",
+            "layout": "half",
+            "placeholder": "ej., 123",
+            "required": true
+        },
+        {
+            "id": "commentType",
+            "type": "dropdown",
+            "title": "Tipo de comentario",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Comentario general del PR",
+                    "id": "pr_comment"
+                },
+                {
+                    "label": "Comentario específico de archivo",
+                    "id": "file_comment"
+                }
+            ]
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta del archivo",
+            "layout": "half",
+            "placeholder": "ej., src/main.ts"
+        },
+        {
+            "id": "line",
+            "type": "short-input",
+            "title": "Número de línea",
+            "layout": "half",
+            "placeholder": "ej., 42"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear comentario en PR (<code>github_comment</code>)</div>
 
 Crear comentarios en PRs de GitHub
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | Sí | Propietario del repositorio |
 | `repo` | string | Sí | Nombre del repositorio |
 | `body` | string | Sí | Contenido del comentario |
-| `pullNumber` | number | Sí | Número de la solicitud de extracción |
-| `path` | string | No | Ruta del archivo para el comentario de revisión |
-| `position` | number | No | Número de línea para el comentario de revisión |
+| `pullNumber` | number | Sí | Número del pull request |
+| `path` | string | No | Ruta del archivo para comentario de revisión |
+| `position` | number | No | Número de línea para comentario de revisión |
 | `commentType` | string | No | Tipo de comentario \(pr_comment o file_comment\) |
-| `line` | number | No | Número de línea para el comentario de revisión |
+| `line` | number | No | Número de línea para comentario de revisión |
 | `side` | string | No | Lado del diff \(LEFT o RIGHT\) |
 | `commitId` | string | No | El SHA del commit sobre el que comentar |
-| `apiKey` | string | Sí | Token de API de GitHub |
+| `apiKey` | string | Sí | Token de la API de GitHub |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `content` | string | Confirmación de comentario legible para humanos |
-| `metadata` | object | Metadatos del comentario |
+| `content` | string | Confirmación del comentario en formato legible |
 
-### `github_repo_info`
+</div>
 
-Recupera metadatos completos del repositorio de GitHub, incluyendo estrellas, bifurcaciones, problemas y lenguaje principal. Compatible con repositorios públicos y privados con autenticación opcional.
+---
 
-#### Entrada
+### Obtener información del repositorio
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Obtener detalles del PR",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "Crear comentario en PR",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "Obtener información del repositorio",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "Obtener último commit",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_repo_info"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener información del repositorio (<code>github_repo_info</code>)</div>
+
+Recupera metadatos completos del repositorio de GitHub, incluyendo estrellas, forks, issues y lenguaje principal. Compatible con repositorios públicos y privados con autenticación opcional.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | Sí | Propietario del repositorio \(usuario u organización\) |
 | `repo` | string | Sí | Nombre del repositorio |
 | `apiKey` | string | Sí | Token de acceso personal de GitHub |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `content` | string | Resumen del repositorio legible para humanos |
-| `metadata` | object | Metadatos del repositorio |
+| `content` | string | Resumen legible del repositorio |
+| `name` | string | Nombre del repositorio |
+| `description` | string | Descripción del repositorio |
+| `stars` | number | Número de estrellas |
+| `forks` | number | Número de forks |
+| `openIssues` | number | Número de issues abiertos |
 
-### `github_latest_commit`
+</div>
+
+---
+
+### Obtener el último commit
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    iconSvg={`<svg className="block-icon"    viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'>
+      <path
+        d='M13 0C11.2928 0 9.60235 0.336255 8.02511 0.989566C6.44788 1.64288 5.01477 2.60045 3.80761 3.80761C1.36964 6.24558 0 9.55219 0 13C0 18.746 3.731 23.621 8.892 25.35C9.542 25.454 9.75 25.051 9.75 24.7V22.503C6.149 23.283 5.382 20.761 5.382 20.761C4.784 19.253 3.939 18.85 3.939 18.85C2.756 18.044 4.03 18.07 4.03 18.07C5.33 18.161 6.019 19.409 6.019 19.409C7.15 21.385 9.061 20.8 9.802 20.488C9.919 19.643 10.257 19.071 10.621 18.746C7.735 18.421 4.706 17.303 4.706 12.35C4.706 10.907 5.2 9.75 6.045 8.827C5.915 8.502 5.46 7.15 6.175 5.395C6.175 5.395 7.267 5.044 9.75 6.721C10.777 6.435 11.895 6.292 13 6.292C14.105 6.292 15.223 6.435 16.25 6.721C18.733 5.044 19.825 5.395 19.825 5.395C20.54 7.15 20.085 8.502 19.955 8.827C20.8 9.75 21.294 10.907 21.294 12.35C21.294 17.316 18.252 18.408 15.353 18.733C15.821 19.136 16.25 19.929 16.25 21.138V24.7C16.25 25.051 16.458 25.467 17.121 25.35C22.282 23.608 26 18.746 26 13C26 11.2928 25.6637 9.60235 25.0104 8.02511C24.3571 6.44788 23.3995 5.01477 22.1924 3.80761C20.9852 2.60045 19.5521 1.64288 17.9749 0.989566C16.3977 0.336255 14.7072 0 13 0Z'
+        fill='currentColor'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Obtener detalles del PR",
+                    "id": "github_pr"
+                },
+                {
+                    "label": "Crear comentario en PR",
+                    "id": "github_comment"
+                },
+                {
+                    "label": "Obtener información del repositorio",
+                    "id": "github_repo_info"
+                },
+                {
+                    "label": "Obtener el último commit",
+                    "id": "github_latest_commit"
+                }
+            ],
+            "defaultValue": "github_latest_commit"
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "Ej.: microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "Ej.: vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Nombre de la rama",
+            "layout": "half",
+            "placeholder": "Ej.: main (dejar vacío para usar la predeterminada)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener el último commit (<code>github_latest_commit</code>)</div>
 
 Recupera el último commit de un repositorio de GitHub
 
-#### Entrada
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| Parámetro | Tipo | Obligatorio | Descripción |
+| Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `owner` | string | Sí | Propietario del repositorio \(usuario u organización\) |
 | `repo` | string | Sí | Nombre del repositorio |
 | `branch` | string | No | Nombre de la rama \(por defecto, la rama predeterminada del repositorio\) |
-| `apiKey` | string | Sí | Token de API de GitHub |
+| `apiKey` | string | Sí | Token de la API de GitHub |
 
-#### Salida
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
 | Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `content` | string | Resumen del commit legible para humanos |
-| `metadata` | object | Metadatos del commit |
+| `content` | string | Resumen del commit en formato legible |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra GitHub en el flujo de trabajo. Permite obtener detalles de PRs, crear comentarios en PRs, obtener información del repositorio y obtener el último commit. Puede utilizarse en modo trigger para activar un flujo de trabajo cuando se crea un PR, se comenta en uno o se realiza un push de un commit.
 
 ## Notas
 

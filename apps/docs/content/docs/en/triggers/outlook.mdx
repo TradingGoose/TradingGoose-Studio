@@ -1,0 +1,175 @@
+---
+title: Outlook Trigger
+description: Triggers when new emails are received in Outlook (requires Microsoft credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="outlook"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Triggers when new emails are received in Outlook (requires Microsoft credentials)
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook Email Trigger"
+    type="outlook_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires outlook credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "folderIds",
+            "type": "dropdown",
+            "title": "Outlook Folders to Monitor",
+            "placeholder": "Select Outlook folders to monitor for new emails",
+            "description": "Choose which Outlook folders to monitor. Leave empty to monitor all emails."
+        },
+        {
+            "id": "folderFilterBehavior",
+            "type": "dropdown",
+            "title": "Folder Filter Behavior",
+            "description": "Include only emails from selected folders, or exclude emails from selected folders",
+            "required": true,
+            "options": [
+                {
+                    "label": "INCLUDE",
+                    "id": "INCLUDE"
+                },
+                {
+                    "label": "EXCLUDE",
+                    "id": "EXCLUDE"
+                }
+            ]
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Mark as Read",
+            "description": "Automatically mark emails as read after processing"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Include Attachments",
+            "description": "Download and include email attachments in the trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Outlook message ID"
+              },
+              {
+                  "name": "conversationId",
+                  "type": "string",
+                  "description": "Outlook conversation ID"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Email subject line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Sender email address"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Recipient email address"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC recipients"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Email date in ISO format"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain text email body"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email body"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Whether email has attachments"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Array of email attachments as files (if includeAttachments is enabled)"
+              },
+              {
+                  "name": "isRead",
+                  "type": "boolean",
+                  "description": "Whether email is read"
+              },
+              {
+                  "name": "folderId",
+                  "type": "string",
+                  "description": "Outlook folder ID where email is located"
+              },
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "Message ID for threading"
+              },
+              {
+                  "name": "threadId",
+                  "type": "string",
+                  "description": "Thread ID for conversation threading"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Event timestamp"
+      }
+  ]}
+/>
+
+

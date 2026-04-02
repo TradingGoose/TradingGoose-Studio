@@ -1,0 +1,199 @@
+---
+title: Disparador de Grain
+description: Activa el flujo de trabajo cuando se actualiza una grabación en Grain
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="grain"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Activa el flujo de trabajo cuando se actualiza una grabación en Grain
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configure la URL del webhook en su servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Eventos
+
+### Grabación de Grain Actualizada
+
+Activa el flujo de trabajo cuando se actualiza una grabación en Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grabación de Grain Actualizada"
+    type="grain_recording_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese su clave API de Grain (Token de Acceso Personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a su flujo de trabajo. Acceda a los campos utilizando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Grabación de Grain Creada
+
+Activa el flujo de trabajo cuando se agrega una nueva grabación en Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Recording Created"
+    type="grain_recording_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain (Token de Acceso Personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Webhook de Grain
+
+Disparador de webhook genérico para todos los eventos de Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Webhook"
+    type="grain_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain (Token de Acceso Personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Highlight de Grain Actualizado
+
+Activa el flujo de trabajo cuando se actualiza un highlight/clip en Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Highlight Updated"
+    type="grain_highlight_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain (Token de Acceso Personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de Salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Historia de Grain Creada
+
+Activa el flujo de trabajo cuando se crea una nueva historia en Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Story Created"
+    type="grain_story_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain (Token de Acceso Personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---
+
+### Highlight de Grain creado
+
+Activar flujo de trabajo cuando se crea un nuevo highlight/clip en Grain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Highlight Created"
+    type="grain_highlight_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain (Token de acceso personal)",
+            "description": "Requerida para crear el webhook en Grain.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+El disparador pasa el payload completo del evento a tu flujo de trabajo. Accede a los campos usando la sintaxis `<trigger.fieldName>`.
+
+---

@@ -1,0 +1,195 @@
+---
+title: Trading Action
+description: Place buy/sell orders via Alpaca, Tradier, or Robinhood.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_action"
+  color="#ff766e"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trading Action"
+    type="trading_action"
+    color="#ff766e"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Broker",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "Environment",
+            "layout": "half",
+            "placeholder": "Select environment",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Live Trading",
+                    "id": "live"
+                }
+            ]
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Action",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "label": "Buy",
+                    "id": "buy"
+                },
+                {
+                    "label": "Sell",
+                    "id": "sell"
+                }
+            ]
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listing",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "Order Type",
+            "layout": "half",
+            "required": true
+        },
+        {
+            "id": "limitPrice",
+            "type": "short-input",
+            "title": "Limit Price",
+            "layout": "half",
+            "placeholder": "Required for limit/stop-limit and debit/credit/even orders",
+            "condition": {
+                "field": "orderType",
+                "value": [
+                    "limit",
+                    "stop_limit",
+                    "debit",
+                    "credit",
+                    "even"
+                ]
+            }
+        },
+        {
+            "id": "stopPrice",
+            "type": "short-input",
+            "title": "Stop Price",
+            "layout": "half",
+            "placeholder": "Required for stop/stop-limit orders",
+            "condition": {
+                "field": "orderType",
+                "value": [
+                    "stop",
+                    "stop_limit"
+                ]
+            }
+        },
+        {
+            "id": "trailPrice",
+            "type": "short-input",
+            "title": "Trail Price",
+            "layout": "half",
+            "placeholder": "Trailing stop price offset (use price or percent)",
+            "condition": {
+                "field": "orderType",
+                "value": "trailing_stop"
+            }
+        },
+        {
+            "id": "trailPercent",
+            "type": "short-input",
+            "title": "Trail Percent",
+            "layout": "half",
+            "placeholder": "Trailing stop percent offset (use percent or price)",
+            "condition": {
+                "field": "orderType",
+                "value": "trailing_stop"
+            }
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "Time in Force",
+            "layout": "half",
+            "placeholder": "Defaults vary by provider",
+            "options": [
+                {
+                    "label": "Day",
+                    "id": "day"
+                },
+                {
+                    "label": "Good Till Cancelled",
+                    "id": "gtc"
+                },
+                {
+                    "label": "Good For Day (GFD)",
+                    "id": "gfd"
+                },
+                {
+                    "label": "Immediate Or Cancel",
+                    "id": "ioc"
+                },
+                {
+                    "label": "Fill Or Kill",
+                    "id": "fok"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `trading_place_order`
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `summary` | string | Order submission status |
+| `provider` | string | Provider used |
+| `order` | json | Order payload and raw response |
+
+
+## Usage Instructions
+
+Unified trading action block that supports multiple brokerages with either OAuth or API-key authentication.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `trading_action`

@@ -1,0 +1,66 @@
+---
+title: 通用触发器
+description: 接收来自任意服务或 API 的 Webhook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+接收来自任意服务或 API 的 Webhook
+
+<Callout type="info">
+  这是一个基于 **Webhook** 的触发器。请在您的外部服务中配置 Webhook URL，以将事件发送至 TradingGoose。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "requireAuth",
+            "type": "switch",
+            "title": "需要身份验证",
+            "description": "要求所有 Webhook 请求进行身份验证"
+        },
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "身份验证令牌",
+            "placeholder": "输入身份验证令牌",
+            "description": "通过 Bearer 令牌或自定义请求头对 Webhook 请求进行身份验证的令牌",
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "密钥请求头名称（可选）",
+            "placeholder": "X-Secret-Key",
+            "description": "身份验证令牌的自定义 HTTP 请求头名称。若留空，则使用 \"Authorization: Bearer TOKEN\""
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "输入格式",
+            "description": "定义此 Webhook 的预期 JSON 输入模式（可选）。使用类型 \"files\" 进行文件上传。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出模式
+
+触发器将完整的事件载荷传递至您的工作流。使用 `<trigger.fieldName>` 语法访问各字段。

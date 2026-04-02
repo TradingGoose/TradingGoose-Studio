@@ -4,124 +4,200 @@ description: Read, write, and update data
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="microsoft_excel"
-  color="#E0E0E0"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      xmlns='http://www.w3.org/2000/svg'
-      version='1.1'
-      id='Livello_1'
-      x='0px'
-      y='0px'
-      viewBox='0 0 2289.75 2130'
-      enableBackground='new 0 0 2289.75 2130'
-    >
-      <path
-        fill='#185C37'
-        d='M1437.75,1011.75L532.5,852v1180.393c0,53.907,43.7,97.607,97.607,97.607l0,0h1562.036  c53.907,0,97.607-43.7,97.607-97.607l0,0V1597.5L1437.75,1011.75z'
-      />
-      <path
-        fill='#21A366'
-        d='M1437.75,0H630.107C576.2,0,532.5,43.7,532.5,97.607c0,0,0,0,0,0V532.5l905.25,532.5L1917,1224.75  L2289.75,1065V532.5L1437.75,0z'
-      />
-      <path fill='#107C41' d='M532.5,532.5h905.25V1065H532.5V532.5z' />
-      <path
-        opacity='0.1'
-        enableBackground='new'
-        d='M1180.393,426H532.5v1331.25h647.893c53.834-0.175,97.432-43.773,97.607-97.607  V523.607C1277.825,469.773,1234.227,426.175,1180.393,426z'
-      />
-      <path
-        opacity='0.2'
-        enableBackground='new'
-        d='M1127.143,479.25H532.5V1810.5h594.643  c53.834-0.175,97.432-43.773,97.607-97.607V576.857C1224.575,523.023,1180.977,479.425,1127.143,479.25z'
-      />
-      <path
-        opacity='0.2'
-        enableBackground='new'
-        d='M1127.143,479.25H532.5V1704h594.643c53.834-0.175,97.432-43.773,97.607-97.607  V576.857C1224.575,523.023,1180.977,479.425,1127.143,479.25z'
-      />
-      <path
-        opacity='0.2'
-        enableBackground='new'
-        d='M1073.893,479.25H532.5V1704h541.393c53.834-0.175,97.432-43.773,97.607-97.607  V576.857C1171.325,523.023,1127.727,479.425,1073.893,479.25z'
-      />
-      <linearGradient
-        id='SVGID_1_'
-        gradientUnits='userSpaceOnUse'
-        x1='203.5132'
-        y1='1729.0183'
-        x2='967.9868'
-        y2='404.9817'
-        gradientTransform='matrix(1 0 0 -1 0 2132)'
-      >
-        <stop offset='0' style={{ stopColor: '#18884F' }} />
-        <stop offset='0.5' style={{ stopColor: '#117E43' }} />
-        <stop offset='1' style={{ stopColor: '#0B6631' }} />
-      </linearGradient>
-      <path
-        fill='url(#SVGID_1_)'
-        d='M97.607,479.25h976.285c53.907,0,97.607,43.7,97.607,97.607v976.285  c0,53.907-43.7,97.607-97.607,97.607H97.607C43.7,1650.75,0,1607.05,0,1553.143V576.857C0,522.95,43.7,479.25,97.607,479.25z'
-      />
-      <path
-        fill='#FFFFFF'
-        d='M302.3,1382.264l205.332-318.169L319.5,747.683h151.336l102.666,202.35  c9.479,19.223,15.975,33.494,19.49,42.919h1.331c6.745-15.336,13.845-30.228,21.3-44.677L725.371,747.79h138.929l-192.925,314.548  L869.2,1382.263H721.378L602.79,1160.158c-5.586-9.45-10.326-19.376-14.164-29.66h-1.757c-3.474,10.075-8.083,19.722-13.739,28.755  l-122.102,223.011H302.3z'
-      />
-      <path
-        fill='#33C481'
-        d='M2192.143,0H1437.75v532.5h852V97.607C2289.75,43.7,2246.05,0,2192.143,0L2192.143,0z'
-      />
-      <path fill='#107C41' d='M1437.75,1065h852v532.5h-852V1065z' />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[Microsoft Teams](https://www.microsoft.com/en-us/microsoft-365/excel) is a powerful spreadsheet application that enables data management, analysis, and visualization. Through the Microsoft Excel integration in TradingGoose, you can programmatically read, write, and manipulate spreadsheet data to support your workflow automation needs.
+## Configuration
 
-With Microsoft Excel integration, you can:
+### Read Data
 
-- **Read Spreadsheet Data**: Access data from specific ranges, sheets, and cells
-- **Write and Update Data**: Add new data or modify existing spreadsheet content
-- **Manage Tables**: Create and manipulate tabular data structures
-- **Handle Multiple Sheets**: Work with multiple worksheets in a workbook
-- **Process Data**: Import, export, and transform spreadsheet data
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Data",
+                    "id": "read"
+                },
+                {
+                    "label": "Write/Update Data",
+                    "id": "write"
+                },
+                {
+                    "label": "Add to Table",
+                    "id": "table_add"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Account",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Select Sheet",
+            "layout": "full",
+            "placeholder": "Select a spreadsheet",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "Spreadsheet ID",
+            "layout": "full",
+            "placeholder": "Enter spreadsheet ID"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Range",
+            "layout": "full",
+            "placeholder": "Sheet name and cell range (e.g., Sheet1!A1:D10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-In TradingGoose, the Microsoft Excel integration provides seamless access to spreadsheet functionality through OAuth authentication. You can read data from specific ranges, write new information, update existing cells, and handle various data formats. The integration supports both reading and writing operations with flexible input and output options. This enables you to build workflows that can effectively manage spreadsheet data, whether you're extracting information for analysis, updating records automatically, or maintaining data consistency across your applications.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate Microsoft Excel into the workflow. Can read, write, update, and add to table.
-
-
-
-## Tools
-
-### `microsoft_excel_read`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Data (<code>microsoft_excel_read</code>)</div>
 
 Read data from a Microsoft Excel spreadsheet
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `spreadsheetId` | string | Yes | The ID of the spreadsheet to read from |
 | `range` | string | No | The range of cells to read from. Accepts "SheetName!A1:B2" for explicit ranges or just "SheetName" to read the used range of that sheet. If omitted, reads the used range of the first sheet. |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `data` | object | Range data from the spreadsheet |
+| `range` | string | The range that was read |
 
-### `microsoft_excel_write`
+</div>
+
+
+
+---
+
+### Write/Update Data
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Data",
+                    "id": "read"
+                },
+                {
+                    "label": "Write/Update Data",
+                    "id": "write"
+                },
+                {
+                    "label": "Add to Table",
+                    "id": "table_add"
+                }
+            ],
+            "defaultValue": "write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Account",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Select Sheet",
+            "layout": "full",
+            "placeholder": "Select a spreadsheet",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "Spreadsheet ID",
+            "layout": "full",
+            "placeholder": "Enter spreadsheet ID"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Range",
+            "layout": "full",
+            "placeholder": "Sheet name and cell range (e.g., Sheet1!A1:D10)"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Values",
+            "layout": "full",
+            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) or an array of objects (e.g., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "Value Input Option",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "User Entered (Parse formulas)",
+                    "id": "USER_ENTERED"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Write/Update Data (<code>microsoft_excel_write</code>)</div>
 
 Write data to a Microsoft Excel spreadsheet
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -131,7 +207,7 @@ Write data to a Microsoft Excel spreadsheet
 | `valueInputOption` | string | No | The format of the data to write |
 | `includeValuesInResponse` | boolean | No | Whether to include the written values in the response |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -139,13 +215,95 @@ Write data to a Microsoft Excel spreadsheet
 | `updatedRows` | number | Number of rows that were updated |
 | `updatedColumns` | number | Number of columns that were updated |
 | `updatedCells` | number | Number of cells that were updated |
-| `metadata` | object | Spreadsheet metadata |
+| `spreadsheetId` | string | The ID of the spreadsheet |
 
-### `microsoft_excel_table_add`
+</div>
+
+
+
+---
+
+### Add to Table
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Data",
+                    "id": "read"
+                },
+                {
+                    "label": "Write/Update Data",
+                    "id": "write"
+                },
+                {
+                    "label": "Add to Table",
+                    "id": "table_add"
+                }
+            ],
+            "defaultValue": "table_add"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Account",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Select Sheet",
+            "layout": "full",
+            "placeholder": "Select a spreadsheet",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "Spreadsheet ID",
+            "layout": "full",
+            "placeholder": "Enter spreadsheet ID"
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "layout": "full",
+            "placeholder": "Name of the Excel table",
+            "required": true
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Values",
+            "layout": "full",
+            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) or an array of objects (e.g., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add to Table (<code>microsoft_excel_table_add</code>)</div>
 
 Add new rows to a Microsoft Excel table
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -153,13 +311,24 @@ Add new rows to a Microsoft Excel table
 | `tableName` | string | Yes | The name of the table to add rows to |
 | `values` | array | Yes | The data to add to the table \(array of arrays or array of objects\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `index` | number | Index of the first row that was added |
 | `values` | array | Array of rows that were added to the table |
-| `metadata` | object | Spreadsheet metadata |
+| `spreadsheetId` | string | The ID of the spreadsheet |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Microsoft Excel into the workflow. Can read, write, update, and add to table.
 
 
 

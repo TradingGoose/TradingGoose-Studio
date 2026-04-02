@@ -1,0 +1,1006 @@
+---
+title: Grain
+description: Accede a grabaciones de reuniones, transcripciones y resúmenes de IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="grain"
+  color="#00B96C"
+  icon={true}
+  iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+/>
+
+## Configuración
+
+### Listar grabaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar tipos de reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_recordings"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor de paginación",
+            "placeholder": "Cursor para la siguiente página (opcional)"
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Fecha anterior",
+            "placeholder": "Marca de tiempo ISO8601 (p. ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "Fecha posterior",
+            "placeholder": "Marca de tiempo ISO8601 (p. ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Ámbito de participantes",
+            "options": [
+                {
+                    "label": "Interno",
+                    "id": "internal"
+                },
+                {
+                    "label": "Externo",
+                    "id": "external"
+                }
+            ]
+        },
+        {
+            "id": "titleSearch",
+            "type": "short-input",
+            "title": "Búsqueda por título",
+            "placeholder": "Buscar por título de grabación"
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "placeholder": "Filtrar por UUID de equipo (opcional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "ID de tipo de reunión",
+            "placeholder": "Filtrar por UUID de tipo de reunión (opcional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir resumen de IA"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Grabaciones (<code>grain_list_recordings</code>)</div>
+
+Lista grabaciones de Grain con filtros opcionales y paginación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Grain \(Token de Acceso Personal\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+| `beforeDatetime` | string | No | Solo grabaciones anteriores a esta marca de tiempo ISO8601 |
+| `afterDatetime` | string | No | Solo grabaciones posteriores a esta marca de tiempo ISO8601 |
+| `participantScope` | string | No | Filtro: "internal" o "external" |
+| `titleSearch` | string | No | Término de búsqueda para filtrar por título de grabación |
+| `teamId` | string | No | Filtrar por UUID de equipo |
+| `meetingTypeId` | string | No | Filtrar por UUID de tipo de reunión |
+| `includeHighlights` | boolean | No | Incluir destacados/clips en la respuesta |
+| `includeParticipants` | boolean | No | Incluir lista de participantes en la respuesta |
+| `includeAiSummary` | boolean | No | Incluir resumen generado por IA |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID de la grabación |
+| `title` | string | Título de la grabación |
+| `start_datetime` | string | Marca de tiempo de inicio ISO8601 |
+| `end_datetime` | string | Marca de tiempo de fin ISO8601 |
+| `duration_ms` | number | Duración en milisegundos |
+| `media_type` | string | audio, transcript o video |
+| `source` | string | Fuente de la grabación |
+| `url` | string | URL para ver en Grain |
+| `thumbnail_url` | string | URL de miniatura |
+| `tags` | array | Arreglo de etiquetas |
+| `teams` | array | Equipos a los que pertenece la grabación |
+
+</div>
+
+---
+
+### Obtener Grabación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener Grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener Transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar Equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar Tipos de Reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_get_recording"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "ID de Grabación",
+            "placeholder": "Ingrese el UUID de la grabación",
+            "required": true
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir Destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir Participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir Resumen de IA"
+        },
+        {
+            "id": "includeCalendarEvent",
+            "type": "switch",
+            "title": "Incluir Evento de Calendario"
+        },
+        {
+            "id": "includeHubspot",
+            "type": "switch",
+            "title": "Incluir Datos de HubSpot"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Grabación (<code>grain_get_recording</code>)</div>
+
+Obtener detalles de una grabación específica por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Grain \(Token de Acceso Personal\) |
+| `recordingId` | string | Sí | UUID de la grabación |
+| `includeHighlights` | boolean | No | Incluir highlights/clips |
+| `includeParticipants` | boolean | No | Incluir lista de participantes |
+| `includeAiSummary` | boolean | No | Incluir resumen de IA |
+| `includeCalendarEvent` | boolean | No | Incluir datos del evento de calendario |
+| `includeHubspot` | boolean | No | Incluir asociaciones de HubSpot |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID de la grabación |
+| `title` | string | Título de la grabación |
+| `start_datetime` | string | Marca de tiempo de inicio ISO8601 |
+| `end_datetime` | string | Marca de tiempo de fin ISO8601 |
+| `duration_ms` | number | Duración en milisegundos |
+| `media_type` | string | audio, transcript o video |
+| `source` | string | Fuente de la grabación \(zoom, meet, teams, etc.\) |
+| `url` | string | URL para ver en Grain |
+| `thumbnail_url` | string | URL de imagen en miniatura |
+| `tags` | array | Array de cadenas de etiquetas |
+| `teams` | array | Equipos a los que pertenece la grabación |
+| `meeting_type` | object | Información del tipo de reunión \(id, name, scope\) |
+| `highlights` | array | Highlights \(si se incluyen\) |
+| `participants` | array | Participantes \(si se incluyen\) |
+| `ai_summary` | object | Texto de resumen de IA \(si se incluye\) |
+| `calendar_event` | object | Datos del evento de calendario \(si se incluyen\) |
+
+</div>
+
+---
+
+### Obtener Transcripción
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener Grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener Transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar Equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar Tipos de Reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_get_transcript"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "ID de Grabación",
+            "placeholder": "Ingrese el UUID de la grabación",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Transcripción (<code>grain_get_transcript</code>)</div>
+
+Obtiene la transcripción completa de una grabación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de Acceso Personal\) |
+| `recordingId` | string | Sí | El UUID de la grabación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `participant_id` | string | UUID del participante \(nullable\) |
+| `speaker` | string | Nombre del orador |
+| `start` | number | Marca de tiempo de inicio en ms |
+| `end` | number | Marca de tiempo de fin en ms |
+
+</div>
+
+---
+
+### Listar Equipos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener Grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener Transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar Equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar Tipos de Reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_teams"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar equipos (<code>grain_list_teams</code>)</div>
+
+Listar todos los equipos en el espacio de trabajo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de acceso personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID del equipo |
+
+</div>
+
+---
+
+### Listar tipos de reunión
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar tipos de reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_meeting_types"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar tipos de reunión (<code>grain_list_meeting_types</code>)</div>
+
+Listar todos los tipos de reunión en el espacio de trabajo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de acceso personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID del tipo de reunión |
+| `name` | string | Nombre del tipo de reunión |
+
+</div>
+
+---
+
+### Crear Webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar tipos de reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_create_hook"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Fecha límite",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "Fecha desde",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Alcance de participantes",
+            "options": [
+                {
+                    "label": "Interno",
+                    "id": "internal"
+                },
+                {
+                    "label": "Externo",
+                    "id": "external"
+                }
+            ]
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "placeholder": "Filtrar por UUID de equipo (opcional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "ID de tipo de reunión",
+            "placeholder": "Filtrar por UUID de tipo de reunión (opcional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir resumen de IA"
+        },
+        {
+            "id": "hookUrl",
+            "type": "short-input",
+            "title": "URL del Webhook",
+            "placeholder": "Ingresa la URL del endpoint del webhook",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Webhook (<code>grain_create_hook</code>)</div>
+
+Crear un webhook para recibir eventos de grabación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de acceso personal\) |
+| `hookUrl` | string | Sí | URL del endpoint del webhook \(debe responder 2xx\) |
+| `filterBeforeDatetime` | string | No | Filtro: grabaciones anteriores a esta fecha |
+| `filterAfterDatetime` | string | No | Filtro: grabaciones posteriores a esta fecha |
+| `filterParticipantScope` | string | No | Filtro: "internal" o "external" |
+| `filterTeamId` | string | No | Filtro: UUID de equipo específico |
+| `filterMeetingTypeId` | string | No | Filtro: tipo de reunión específico |
+| `includeHighlights` | boolean | No | Incluir destacados en el payload del webhook |
+| `includeParticipants` | boolean | No | Incluir participantes en el payload del webhook |
+| `includeAiSummary` | boolean | No | Incluir resumen de IA en el payload del webhook |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID del hook |
+| `enabled` | boolean | Si el hook está activo |
+| `hook_url` | string | La URL del webhook |
+| `filter` | object | Filtros aplicados |
+| `include` | object | Campos incluidos |
+
+</div>
+
+---
+
+### Listar Webhooks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar tipos de reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_hooks"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Webhooks (<code>grain_list_hooks</code>)</div>
+
+Listar todos los webhooks de la cuenta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Grain \(Token de Acceso Personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID del hook |
+| `enabled` | boolean | Si el hook está activo |
+| `hook_url` | string | URL del webhook |
+| `filter` | object | Filtros aplicados |
+| `include` | object | Campos incluidos |
+
+</div>
+
+---
+
+### Eliminar Webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    iconSvg={`<svg className="block-icon"  xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34' fill='none'>
+      <path
+        fill='#00B96C'
+        d='M13.798.4a5.907 5.907 0 0 1 4.278 0c1.546.601 3.071 1.3 4.569 2.098.311.166.263.627-.07.743C14.383 6.108 8.508 13.906 8.508 23.077c0 2.856.57 5.58 1.603 8.063.146.35-.221.708-.558.532a42.262 42.262 0 0 1-6.922-4.52 5.907 5.907 0 0 1-2.139-3.705A42.261 42.261 0 0 1 0 17c0-2.193.168-4.346.492-6.447a5.907 5.907 0 0 1 2.14-3.705 42.261 42.261 0 0 1 5.336-3.65A42.263 42.263 0 0 1 13.798.4z'
+      />
+      <path
+        fill='#00B96C'
+        d='M29.243 6.849a42.393 42.393 0 0 0-.58-.458 1.847 1.847 0 0 0-1.461-.365c-8.9 1.625-15.647 9.419-15.647 18.788 0 2.912.651 5.672 1.817 8.142.18.382.514.668.913.808a5.907 5.907 0 0 0 3.791-.165c1.983-.77 3.931-1.7 5.83-2.797a42.258 42.258 0 0 0 5.337-3.65 5.907 5.907 0 0 0 2.139-3.704c.324-2.102.492-4.255.492-6.447 0-2.193-.168-4.346-.492-6.447a5.907 5.907 0 0 0-2.139-3.705z'
+      />
+    </svg>`}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Listar Grabaciones",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Obtener Grabación",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Obtener Transcripción",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "Listar Equipos",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "Listar Tipos de Reunión",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Crear Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "Listar Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Eliminar Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_delete_hook"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese su clave API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "hookId",
+            "type": "short-input",
+            "title": "ID de Webhook",
+            "placeholder": "Ingrese el UUID del webhook a eliminar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar Webhook (<code>grain_delete_hook</code>)</div>
+
+Eliminar un webhook por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Grain \(Token de Acceso Personal\) |
+| `hookId` | string | Sí | El UUID del hook a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulte las salidas del bloque para esta operación.
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integre Grain en su flujo de trabajo. Acceda a grabaciones de reuniones, transcripciones, momentos destacados y resúmenes generados por IA. También puede activar flujos de trabajo basados en eventos de webhook de Grain.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `grain`

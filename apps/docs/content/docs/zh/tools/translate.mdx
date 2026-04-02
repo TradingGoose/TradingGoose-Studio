@@ -4,50 +4,77 @@ description: 将文本翻译成任何语言
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="translate"
-  color="#FF4B4B"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon"
-      xmlns='http://www.w3.org/2000/svg'
-      
-      
-      viewBox='0 0 24 24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      
-    >
-      <path d='m5 8 6 6' />
-      <path d='m4 14 6-6 2-3' />
-      <path d='M2 5h12' />
-      <path d='M7 2h1' />
-      <path d='m22 22-5-10-5 10' />
-      <path d='M14 18h6' />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-翻译是一种工具，可以让您在不同语言之间翻译文本。
+## 配置
 
-使用翻译工具，您可以：
-
-- **翻译文本**：在不同语言之间翻译文本
-- **翻译文档**：在不同语言之间翻译文档
-- **翻译网站**：在不同语言之间翻译网站
-- **翻译图片**：在不同语言之间翻译图片
-- **翻译音频**：在不同语言之间翻译音频
-- **翻译视频**：在不同语言之间翻译视频
-- **翻译语音**：在不同语言之间翻译语音
-- **翻译文本**：在不同语言之间翻译文本
-{/* MANUAL-CONTENT-END */}
-
-## 使用说明
-
-将 Translate 集成到工作流程中。可以将文本翻译成任何语言。
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Translate"
+    type="translate"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "context",
+            "type": "long-input",
+            "title": "待翻译文本",
+            "layout": "full",
+            "placeholder": "请输入您要翻译的文本",
+            "required": true
+        },
+        {
+            "id": "targetLanguage",
+            "type": "short-input",
+            "title": "目标语言",
+            "layout": "full",
+            "placeholder": "请输入语言（如：西班牙语、法语等）",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "模型",
+            "layout": "half",
+            "placeholder": "输入或选择模型...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "请输入您的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Azure OpenAI 端点",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Azure API 版本",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
 ## 工具
 
@@ -55,7 +82,7 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 
 #### 输入
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 
 #### 输出
@@ -64,15 +91,13 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 | --------- | ---- | ----------- |
 | `content` | string | 翻译后的文本 |
 | `model` | string | 使用的模型 |
-| `tokens` | json | 令牌使用情况 |
-
-### `anthropic_chat`
+| `tokens` | json | Token 用量 |
 
 ### `google_chat`
 
 #### 输入
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 是否必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 
 #### 输出
@@ -81,7 +106,11 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 | --------- | ---- | ----------- |
 | `content` | string | 翻译后的文本 |
 | `model` | string | 使用的模型 |
-| `tokens` | json | Token 使用情况 |
+| `tokens` | json | Token 用量 |
+
+## 使用说明
+
+将翻译功能集成到工作流中，可将文本翻译为任意语言。
 
 ## 注意事项
 

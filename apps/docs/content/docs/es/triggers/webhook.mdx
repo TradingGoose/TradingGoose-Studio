@@ -1,126 +1,68 @@
 ---
 title: Webhooks
+description: Activa flujos de trabajo desde solicitudes HTTP externas mediante webhooks
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Video } from '@/components/ui/video'
 
-Los webhooks permiten que servicios externos activen la ejecución de flujos de trabajo desde webhooks externos mediante el envío de solicitudes HTTP a tu flujo de trabajo. TradingGoose admite dos enfoques para los disparadores basados en webhooks.
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
 
-## Disparador de webhook genérico
+Los webhooks permiten que servicios externos activen la ejecución de flujos de trabajo mediante el envío de solicitudes HTTP. TradingGoose admite dos enfoques para los disparadores basados en webhooks.
 
-El bloque de webhook genérico crea un punto de conexión flexible que puede recibir cualquier carga útil y activar tu flujo de trabajo:
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configura la URL del webhook en tu servicio externo para enviar eventos a TradingGoose.
+</Callout>
 
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="webhooks-1.mp4" width={700} height={450} />
-</div>
+## Configuración
 
-### Cómo funciona
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrl", "title": "URL del Webhook", "type": "short-input", "placeholder": "URL del webhook generada automáticamente", "description": "Copia esta URL y configúrala en tu servicio externo" },
+      { "id": "secret", "title": "Secreto del Webhook", "type": "short-input", "password": true, "placeholder": "Secreto opcional para validación de solicitudes" }
+    ]}
+  />
+</ShowcaseCard>
 
-1. **Añadir bloque de webhook genérico** - Arrastra el bloque de webhook genérico para iniciar tu flujo de trabajo
-2. **Configurar carga útil** - Configura la estructura de carga útil esperada (opcional)
-3. **Obtener URL del webhook** - Copia el punto de conexión único generado automáticamente
-4. **Integración externa** - Configura tu servicio externo para enviar solicitudes POST a esta URL
-5. **Ejecución del flujo de trabajo** - Cada solicitud a la URL del webhook activa el flujo de trabajo
+### Cómo Funciona
+
+1. **Agregar bloque Generic Webhook** — Arrastra el bloque Generic Webhook para iniciar tu flujo de trabajo
+2. **Obtener URL del webhook** — Copia el endpoint único generado automáticamente
+3. **Integración externa** — Configura tu servicio externo para enviar solicitudes POST a esta URL
+4. **Ejecución del flujo de trabajo** — Cada solicitud a la URL del webhook activa el flujo de trabajo
 
 ### Características
 
-- **Carga útil flexible**: Acepta cualquier estructura de carga útil JSON
-- **Análisis automático**: Los datos del webhook se analizan automáticamente y están disponibles para los bloques subsiguientes
-- **Autenticación**: Autenticación opcional mediante token bearer o encabezado personalizado
-- **Limitación de tasa**: Protección incorporada contra abusos
-- **Deduplicación**: Evita ejecuciones duplicadas de solicitudes repetidas
+- **Payload flexible** — Acepta cualquier estructura de payload JSON
+- **Análisis automático** — Los datos del webhook se analizan automáticamente y quedan disponibles para los bloques posteriores
+- **Autenticación** — Autenticación opcional mediante token bearer o cabecera personalizada
+- **Limitación de tasa** — Protección integrada contra el abuso
 
-<Callout type="info">
-El disparador de webhook genérico se activa cada vez que la URL del webhook recibe una solicitud, lo que lo hace perfecto para integraciones en tiempo real.
-</Callout>
+## Modo Disparador para Bloques de Servicio
 
-## Modo de disparador para bloques de servicio
+Alternativamente, puedes utilizar bloques de servicio específicos (como Slack, GitHub, etc.) en "modo disparador" para crear endpoints de webhook más especializados.
 
-Alternativamente, puedes usar bloques de servicio específicos (como Slack, GitHub, etc.) en "modo de disparador" para crear puntos de conexión de webhook más especializados:
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="slack-trigger.mp4" width={700} height={450} />
-</div>
-
-### Configuración del modo de activación
-
-1. **Añadir bloque de servicio** - Elige un bloque de servicio (p. ej., Slack, GitHub, Airtable)
-2. **Habilitar modo de activación** - Activa "Usar como activador" en la configuración del bloque
-3. **Configurar servicio** - Configura la autenticación y los filtros de eventos específicos para ese servicio
-4. **Registro del webhook** - El servicio registra automáticamente el webhook en la plataforma externa
-5. **Ejecución basada en eventos** - El flujo de trabajo se activa solo para eventos específicos de ese servicio
-
-### Cuándo usar cada enfoque
-
-**Usa webhook genérico cuando:**
+**Usa el Webhook Genérico cuando:**
 - Integres con aplicaciones o servicios personalizados
-- Necesites máxima flexibilidad en la estructura de la carga útil
+- Necesites máxima flexibilidad en la estructura del payload
 - Trabajes con servicios que no tienen bloques dedicados
-- Construyas integraciones internas
 
-**Usa el modo de activación cuando:**
+**Usa el Modo Trigger cuando:**
 - Trabajes con servicios compatibles (Slack, GitHub, etc.)
 - Quieras filtrado de eventos específico del servicio
 - Necesites registro automático de webhooks
-- Quieras manejo estructurado de datos para ese servicio
 
-## Servicios compatibles con el modo de activación
-
-Los siguientes bloques de servicio admiten el modo de activación:
-
-- **Slack** - Mensajes, menciones, reacciones
-- **GitHub** - Eventos de push, PR, issues  
-- **Airtable** - Cambios en registros
-- **Telegram** - Mensajes y comandos de bot
-- **Gmail** - Notificaciones de correo electrónico
-- **WhatsApp** - Eventos de mensajería
-- **Jira** - Actualizaciones de issues, comentarios
-- **Linear** - Cambios de estado de issues
-- **Notion** - Actualizaciones de páginas
-
-## Seguridad y mejores prácticas
-
-### Opciones de autenticación
-
-- **Tokens Bearer**: Incluye el encabezado `Authorization: Bearer <token>`
-- **Encabezados personalizados**: Define encabezados de autenticación personalizados
-
-### Manejo de carga útil
-
-- **Validación**: Valida las cargas útiles entrantes para prevenir datos mal formados
-- **Límites de tamaño**: Los webhooks tienen límites de tamaño de carga útil por seguridad
-- **Manejo de errores**: Configura respuestas de error para solicitudes no válidas
-
-### Pruebas de webhooks
-
-1. Utiliza herramientas como Postman o curl para probar tus endpoints de webhook
-2. Revisa los registros de ejecución del flujo de trabajo para depuración
-3. Verifica que la estructura de la carga útil coincida con tus expectativas
-4. Prueba escenarios de autenticación y errores
-
-<Callout type="warning">
-Siempre valida y desinfecta los datos entrantes de webhook antes de procesarlos en tus flujos de trabajo.
+<Callout>
+El trigger de Webhook Genérico se activa cada vez que la URL del webhook recibe una solicitud, lo que lo hace ideal para integraciones en tiempo real.
 </Callout>
-
-## Casos de uso comunes
-
-### Notificaciones en tiempo real
-- Mensajes de Slack que desencadenan respuestas automatizadas
-- Notificaciones por correo electrónico para eventos críticos
-
-### Integración CI/CD  
-- Pushes de GitHub que desencadenan flujos de trabajo de despliegue
-- Actualizaciones del estado de compilación
-- Canales automatizados de pruebas
-
-### Sincronización de datos
-- Cambios en Airtable que actualizan otros sistemas
-- Envíos de formularios que desencadenan acciones de seguimiento
-- Procesamiento de pedidos de comercio electrónico
-
-### Atención al cliente
-- Flujos de trabajo de creación de tickets de soporte
-- Procesos automatizados de escalamiento
-- Enrutamiento de comunicación multicanal

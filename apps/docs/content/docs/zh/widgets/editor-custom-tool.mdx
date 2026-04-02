@@ -1,0 +1,79 @@
+---
+title: 自定义工具编辑器
+description: 编辑工作区自定义工具。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **Key** | `editor_custom_tool` |
+| **Category** | Editor |
+
+自定义工具编辑器允许您定义和修改智能体在工作流中可调用的自定义工具。每个工具由两部分组成：声明工具名称、描述和参数的 JSON Schema，以及工具被调用时执行的 JavaScript 函数体。使用 [自定义工具列表](/utilities/custom-tools) 组件浏览和创建工具；编辑器是编写工具逻辑的主要工作区。
+
+## 功能特性
+
+- **双区域布局**，通过顶部栏中的 **Config** 和 **Code** 标签页进行切换。
+- **Config 区域** 提供 Monaco JSON 编辑器，用于编写 OpenAI 函数调用 Schema 格式。Schema 必须包含 `type: "function"`、`function.name`、`function.description`，以及包含 `type`、`properties` 和 `required` 的 `function.parameters`。实时验证功能会在您输入时即时高亮显示错误。
+- **Code 区域** 提供 Monaco JavaScript 编辑器，用于编写工具的函数体。代码在 `async function(params, environmentVariables)` 上下文中运行。使用 `<paramName>` 语法引用输入参数，使用 `{{VAR_NAME}}` 语法引用环境变量。
+- **AI 魔法棒** 在两个区域均可使用，允许您用自然语言描述需求，并将生成的 JSON Schema 或 JavaScript 代码直接流式写入编辑器。
+- **Schema 参数自动补全** 在代码编辑器中根据 JSON Schema 自动推断并建议参数名称。
+- **环境变量下拉菜单** 通过 `{{` 模式触发，允许您插入工作区密钥。
+- **标签下拉菜单** 通过标签模式触发，允许您引用工作流变量。
+- **保存按钮** 验证 Schema、检查工具名称是否重复，并持久化保存 Schema 和代码。若验证失败，编辑器将切换至 Config 区域并显示错误信息。
+- **工具选择器** 位于顶部栏，用于在自定义工具之间切换。当通过颜色链接配对时，它将与自定义工具列表组件同步。
+
+## 使用方法
+
+1. 从小组件选择器将该小组件添加到工作区。
+2. 从头部下拉菜单选择已有的自定义工具，或通过 [Custom Tool List](/utilities/custom-tools) 小组件新建一个。
+3. 在 **Config** 选项卡中，编写或生成定义工具名称、描述和参数的 JSON Schema。
+4. 切换至 **Code** 选项卡，编写 JavaScript 函数体。可直接使用 Schema 中定义的参数名——代码编辑器会自动补全。
+5. 点击 **Save** 保存工具。编辑器会先验证 Schema，并将所有错误以内联方式显示。
+
+### Schema 格式
+
+JSON Schema 必须遵循 OpenAI 函数调用格式：
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "myToolName",
+    "description": "What the tool does.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "paramName": {
+          "type": "string",
+          "description": "What this parameter is for."
+        }
+      },
+      "required": ["paramName"]
+    }
+  }
+}
+```
+
+<Callout>
+本小组件支持 **pairColor** 机制。将相同颜色分配给 Custom Tool Editor 和 [Custom Tool List](/utilities/custom-tools) 小组件，即可在列表中选中某工具时自动在编辑器中将其打开。
+</Callout>
+
+## 配置
+
+所选工具以 `customToolId` 的形式存储在小组件参数中，并在关联时通过 pair-color 存储进行同步。当前活动区域（Config 或 Code）通过自定义事件在头部选项卡与编辑器主体之间保持同步。
+
+## 相关内容
+
+<Cards>
+  <Card title="自定义工具指南" href="/utilities/custom-tools">
+    了解自定义工具的概念、Agent 如何调用它们以及最佳实践。
+  </Card>
+  <Card title="工作流编辑器" href="/widgets/editor-workflow">
+    用于构建和编辑工作流的画布界面。
+  </Card>
+</Cards>

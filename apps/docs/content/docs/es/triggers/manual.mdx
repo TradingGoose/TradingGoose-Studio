@@ -1,41 +1,45 @@
 ---
-title: Disparador manual
+title: Activador Manual
 description: Ejecuta un flujo de trabajo bajo demanda sin entradas
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Image } from '@/components/ui/image'
 
-## Descripción general
+<BlockInfoCard
+  type="manual_trigger"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
 
-El disparador manual añade un simple botón Ejecutar en la parte superior de tu flujo de trabajo. Úsalo cuando quieras ejecutar el flujo de trabajo inmediatamente sin recopilar datos adicionales.
+El activador Manual añade un botón Ejecutar a tu flujo de trabajo. Úsalo cuando desees ejecutar el flujo de trabajo de inmediato sin recopilar datos adicionales.
 
-## Cómo funciona
+<Callout type="info">
+  Este es un activador **manual**. No se requiere configuración — simplemente haz clic en Ejecutar.
+</Callout>
 
-<div className='flex justify-center my-6'>
-  <Image
-    src='/static/triggers/manual-run-light.png'
-    alt='Botón de ejecución del disparador manual'
-    width={400}
-    height={250}
-    className='rounded-xl border border-border shadow-sm'
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Manual Trigger"
+    type="manual_trigger"
+    hideHeader
+    subBlocks={[]}
   />
-</div>
+</ShowcaseCard>
 
-- Inicia el flujo de trabajo utilizando la instantánea de despliegue activa
-- No envía ninguna carga útil—los bloques posteriores solo ven lo que ya tienen configurado
-- Perfecto para comprobaciones rápidas, pruebas de humo o flujos que solo dependen de variables internas
+No se requiere configuración. El activador manual no tiene campos de entrada ni produce salidas.
 
-## Cuándo usarlo
+## Cuándo Usarlo
 
-- Inicia un flujo de trabajo después de publicar un nuevo despliegue para confirmar que todo sigue funcionando
-- Ejecuta tareas de mantenimiento que no requieren entrada externa
-- Activa flujos de trabajo secundarios que solo leen estado o variables de entorno
-
-## Comparación con el formulario de entrada
-
-¿Necesitas valores estructurados o validación de tipos en tiempo de ejecución? Cambia a un disparador de formulario de entrada en su lugar—el panel de ejecución recopilará esos campos antes de que comience el flujo de trabajo.
+- Verificaciones rápidas de integridad y pruebas de humo
+- Flujos de trabajo que dependen únicamente de variables internas o llamadas a API externas
+- Desarrollo y depuración
 
 <Callout>
-Las ejecuciones del disparador manual no sobrescriben tu historial de despliegue. Actualiza y vuelve a desplegar cuando los cambios en el lienzo necesiten entrar en producción.
+¿Necesitas una entrada estructurada? Utiliza un activador de Formulario de Entrada en su lugar.
 </Callout>

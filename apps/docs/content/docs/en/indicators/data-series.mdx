@@ -1,0 +1,121 @@
+---
+title: Data Series
+description: Built-in price data, time series, bar state, and symbol information
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+PineTS provides built-in data series that are available in every indicator without imports. These represent the current symbol's OHLCV data, time information, and bar state.
+
+## Price Data (OHLCV)
+
+| Series | Type | Description |
+|--------|------|-------------|
+| `open` | `series<number>` | Opening price of each bar |
+| `high` | `series<number>` | Highest price of each bar |
+| `low` | `series<number>` | Lowest price of each bar |
+| `close` | `series<number>` | Closing price of each bar |
+| `volume` | `series<number>` | Trading volume of each bar |
+
+### Computed Price Series
+
+| Series | Formula | Description |
+|--------|---------|-------------|
+| `hl2` | `(high + low) / 2` | Midpoint price |
+| `hlc3` | `(high + low + close) / 3` | Typical price |
+| `ohlc4` | `(open + high + low + close) / 4` | Average price |
+
+```javascript
+// Use any price series in calculations
+const typicalPrice = hlc3;
+const sma = ta.sma(typicalPrice, 20);
+plot(sma, 'SMA of Typical Price');
+```
+
+## Time Series
+
+| Series | Type | Description |
+|--------|------|-------------|
+| `openTime` | `series<number>` | Bar open time in milliseconds |
+| `closeTime` | `series<number>` | Bar close time in milliseconds |
+
+## Bar Information
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `bar_index` | `series<number>` | Index of the current bar (0-based) |
+| `last_bar_index` | `series<number>` | Index of the final bar in the dataset |
+| `last_bar_time` | `series<number>` | Timestamp of the final bar |
+
+```javascript
+// Only plot on the last 100 bars
+if (bar_index > last_bar_index - 100) {
+  plot(close, 'Recent Close');
+}
+```
+
+## Bar State
+
+The `barstate` object provides flags about the current bar's position in the dataset:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `barstate.isfirst` | `boolean` | True on the first bar |
+| `barstate.islast` | `boolean` | True on the last bar |
+| `barstate.ishistory` | `boolean` | True for historical bars |
+| `barstate.isrealtime` | `boolean` | True for live/streaming bars |
+| `barstate.isnew` | `boolean` | True on the first tick of a new bar |
+| `barstate.isconfirmed` | `boolean` | True when the bar is confirmed (closed) |
+| `barstate.islastconfirmedhistory` | `boolean` | True on the last confirmed historical bar |
+
+## Symbol Information
+
+The `syminfo` object provides details about the current symbol:
+
+| Property | Description |
+|----------|-------------|
+| `syminfo.ticker` | Symbol name (e.g., `"BTCUSDT"`) |
+| `syminfo.tickerid` | Full ticker ID |
+| `syminfo.description` | Symbol description |
+| `syminfo.type` | Asset type (e.g., `"crypto"`, `"stock"`) |
+| `syminfo.currency` | Quote currency |
+| `syminfo.basecurrency` | Base currency |
+| `syminfo.mintick` | Minimum price increment |
+| `syminfo.timezone` | Exchange timezone |
+
+## Special Values
+
+| Value | Description |
+|-------|-------------|
+| `na` | Represents "not available" — similar to `null`. Use to check if a value exists |
+| `nz(value, replacement?)` | Returns `replacement` (default `0`) if `value` is `na` |
+
+```javascript
+const prev = close[1];
+// na check
+if (!na(prev)) {
+  const change = close - prev;
+  plot(change, 'Change');
+}
+
+// nz shorthand — default to 0 if na
+const safeChange = nz(close - close[1], 0);
+```
+
+## Global Constants
+
+| Namespace | Description |
+|-----------|-------------|
+| `timeframe` | Current timeframe info (`timeframe.period`, `timeframe.multiplier`) |
+| `order` | Sort order constants (`order.ascending`, `order.descending`) |
+| `currency` | Currency code constants (59 currencies including `currency.BTC`, `currency.USD`) |
+| `display` | Display mode constants |
+| `shape` | Shape type constants for `plotshape()` |
+| `location` | Location constants (`location.abovebar`, `location.belowbar`, etc.) |
+| `size` | Size constants (`size.tiny`, `size.small`, `size.normal`, `size.large`, `size.huge`) |
+| `format` | Format constants (`format.price`, `format.volume`, `format.percent`) |
+| `dayofweek` | Day-of-week constants |
+
+<Callout type="info">
+  All data series support history access with bracket notation: `close[1]` returns the previous bar's close, `close[10]` returns 10 bars ago.
+</Callout>

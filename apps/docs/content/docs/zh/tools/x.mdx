@@ -1,119 +1,420 @@
 ---
 title: X
-description: 与 X 互动
+description: 与 X 交互
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="x"
-  color="#000000"
+  color=""
   icon={true}
-  iconSvg={`<svg className="block-icon" xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'   >
-      <path
-        d='M 5.9199219 6 L 20.582031 27.375 L 6.2304688 44 L 9.4101562 44 L 21.986328 29.421875 L 31.986328 44 L 44 44 L 28.681641 21.669922 L 42.199219 6 L 39.029297 6 L 27.275391 19.617188 L 17.933594 6 L 5.9199219 6 z M 9.7167969 8 L 16.880859 8 L 40.203125 42 L 33.039062 42 L 9.7167969 8 z'
-        fill='currentColor'
-        stroke='currentColor'
-        strokeWidth='0.5'
-      />
-    </svg>`}
+  iconSvg={``}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[X](https://x.com/)（前身为 Twitter）是一个流行的社交媒体平台，能够实现实时通信、内容分享以及与全球受众的互动。
+## 配置
 
-TradingGoose 中的 X 集成利用 OAuth 认证与 X API 安全连接，使您的代理能够以编程方式与该平台互动。此 OAuth 实现确保在维护用户隐私和安全的同时，安全访问 X 的功能。
+### 发布新推文
 
-通过 X 集成，您的代理可以：
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "发布新推文",
+                    "id": "x_write"
+                },
+                {
+                    "label": "获取推文详情",
+                    "id": "x_read"
+                },
+                {
+                    "label": "搜索推文",
+                    "id": "x_search"
+                },
+                {
+                    "label": "获取用户资料",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账户",
+            "layout": "full",
+            "placeholder": "选择 X 账户",
+            "provider": "x"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "推文内容",
+            "layout": "full",
+            "placeholder": "有什么新鲜事？",
+            "required": true
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "回复推文（推文 ID）",
+            "layout": "full",
+            "placeholder": "输入要回复的推文 ID"
+        },
+        {
+            "id": "mediaIds",
+            "type": "short-input",
+            "title": "媒体 ID",
+            "layout": "full",
+            "placeholder": "输入以逗号分隔的媒体 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-- **发布内容**：直接从您的工作流中创建新推文、回复现有对话或分享媒体
-- **监控对话**：跟踪提及、关键词或特定账户，了解相关讨论
-- **与受众互动**：自动回复提及、私信或特定触发器
-- **分析趋势**：从热门话题、标签或用户参与模式中收集洞察
-- **研究信息**：搜索特定内容、用户资料或对话，为代理决策提供信息
-
-在 TradingGoose 中，X 集成支持复杂的社交媒体自动化场景。您的代理可以监控品牌提及并作出适当回应，根据特定触发器安排和发布内容，进行市场研究的社交聆听，或创建跨越对话式 AI 和社交媒体互动的体验。通过 OAuth 将 TradingGoose 与 X 连接，您可以构建智能代理，在保持一致和响应迅速的社交媒体存在的同时，遵守平台政策和 API 使用的最佳实践。
-{/* MANUAL-CONTENT-END */}
-
-## 使用说明
-
-将 X 集成到工作流程中。可以发布新推文、获取推文详情、搜索推文以及获取用户资料。需要 OAuth。
-
-## 工具
-
-### `x_write`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发布新推文 (<code>x_write</code>)</div>
 
 在 X（Twitter）上发布新推文、回复推文或创建投票
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `text` | string | 是 | 推文的文本内容 |
+| `text` | string | 是 | 推文的文字内容 |
 | `replyTo` | string | 否 | 要回复的推文 ID |
 | `mediaIds` | array | 否 | 要附加到推文的媒体 ID 数组 |
 | `poll` | object | 否 | 推文的投票配置 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `tweet` | object | 新创建的推文数据 |
+| `id` | string | 推文 ID |
+| `text` | string | 推文正文内容 |
+| `createdAt` | string | 推文创建时间戳 |
+| `authorId` | string | 推文作者 ID |
+| `conversationId` | string | 会话线程 ID |
+| `mediaKeys` | array | 媒体附件键 |
 
-### `x_read`
+</div>
+
+---
+
+### 获取推文详情
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "发布新推文",
+                    "id": "x_write"
+                },
+                {
+                    "label": "获取推文详情",
+                    "id": "x_read"
+                },
+                {
+                    "label": "搜索推文",
+                    "id": "x_search"
+                },
+                {
+                    "label": "获取用户资料",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账户",
+            "layout": "full",
+            "placeholder": "选择 X 账户",
+            "provider": "x"
+        },
+        {
+            "id": "tweetId",
+            "type": "short-input",
+            "title": "推文 ID",
+            "layout": "full",
+            "placeholder": "输入要读取的推文 ID",
+            "required": true
+        },
+        {
+            "id": "includeReplies",
+            "type": "dropdown",
+            "title": "包含回复",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "true",
+                    "id": "true"
+                },
+                {
+                    "label": "false",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取推文详情（<code>x_read</code>）</div>
 
 读取推文详情，包括回复和对话上下文
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
 | `tweetId` | string | 是 | 要读取的推文 ID |
-| `includeReplies` | boolean | 否 | 是否包含推文的回复 |
+| `includeReplies` | boolean | 否 | 是否包含该推文的回复 |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `tweet` | object | 主推文数据 |
+| `id` | string | 推文 ID |
+| `text` | string | 推文正文内容 |
+| `createdAt` | string | 推文创建时间戳 |
 
-### `x_search`
+</div>
 
-使用关键词、标签或高级查询搜索推文
+---
 
-#### 输入
+### 搜索推文
 
-| 参数 | 类型 | 必需 | 描述 |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "发布新推文",
+                    "id": "x_write"
+                },
+                {
+                    "label": "获取推文详情",
+                    "id": "x_read"
+                },
+                {
+                    "label": "搜索推文",
+                    "id": "x_search"
+                },
+                {
+                    "label": "获取用户资料",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_search"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账户",
+            "layout": "full",
+            "placeholder": "选择 X 账户",
+            "provider": "x"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索词（支持 X 搜索运算符）",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "排序方式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "最新",
+                    "id": "recency"
+                },
+                {
+                    "label": "相关性",
+                    "id": "relevancy"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "endTime",
+            "type": "datetime-input",
+            "title": "结束时间",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索推文 (<code>x_search</code>)</div>
+
+使用关键词、话题标签或高级查询搜索推文
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `query` | string | 是 | 搜索查询（支持 X 搜索操作符） |
-| `maxResults` | number | 否 | 返回的最大结果数（默认：10，最大：100） |
-| `startTime` | string | 否 | 搜索的开始时间（ISO 8601 格式） |
-| `endTime` | string | 否 | 搜索的结束时间（ISO 8601 格式） |
-| `sortOrder` | string | 否 | 结果的排序顺序（按时间或相关性） |
+| `query` | string | 是 | 搜索查询 \(支持 X 搜索运算符\) |
+| `maxResults` | number | 否 | 返回结果的最大数量 \(默认值：10，最大值：100\) |
+| `startTime` | string | 否 | 搜索开始时间 \(ISO 8601 格式\) |
+| `endTime` | string | 否 | 搜索结束时间 \(ISO 8601 格式\) |
+| `sortOrder` | string | 否 | 结果排序方式 \(recency 或 relevancy\) |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `tweets` | 数组 | 符合搜索查询的推文数组 |
+| `id` | string | 推文 ID |
+| `text` | string | 推文内容 |
+| `createdAt` | string | 创建时间戳 |
 
-### `x_user`
+</div>
+
+---
+
+### 获取用户资料
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "发布新推文",
+                    "id": "x_write"
+                },
+                {
+                    "label": "获取推文详情",
+                    "id": "x_read"
+                },
+                {
+                    "label": "搜索推文",
+                    "id": "x_search"
+                },
+                {
+                    "label": "获取用户资料",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_user"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账户",
+            "layout": "full",
+            "placeholder": "选择 X 账户",
+            "provider": "x"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "输入用户名（不含 @）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户资料 (<code>x_user</code>)</div>
 
 获取用户资料信息
 
-#### 输入
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必需 | 描述 |
+| 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `username` | 字符串 | 是 | 要查找的用户名（不含 @ 符号） |
+| `username` | string | 是 | 要查询的用户名（不含 @ 符号） |
 
-#### 输出
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `user` | 对象 | X 用户资料信息 |
+| `id` | string | 用户 ID |
+| `username` | string | 不含 @ 符号的用户名 |
+| `name` | string | 显示名称 |
+| `description` | string | 用户简介/描述 |
+| `verified` | boolean | 是否为认证用户 |
+| `followersCount` | number | 粉丝数量 |
+| `followingCount` | number | 关注用户数量 |
 
-## 注意
+</div>
 
-- 分类：`tools`
+---
+
+## 使用说明
+
+将 X 集成到工作流中。可发布新推文、获取推文详情、搜索推文及获取用户资料。
+
+## 注意事项
+
+- 类别：`tools`
 - 类型：`x`

@@ -1,0 +1,2652 @@
+---
+title: Kalshi
+description: Access prediction markets and trade on Kalshi
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="kalshi"
+  color="#09C285"
+  icon={true}
+  iconSvg={``}
+/>
+
+## Configuration
+
+### Get Markets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_markets"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Status",
+            "options": [
+                {
+                    "label": "Unopened",
+                    "id": "unopened"
+                },
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Closed",
+                    "id": "closed"
+                },
+                {
+                    "label": "Settled",
+                    "id": "settled"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "Series Ticker",
+            "placeholder": "Filter by series ticker"
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Event Ticker",
+            "placeholder": "Event ticker"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Markets (<code>kalshi_get_markets</code>)</div>
+
+Retrieve a list of prediction markets from Kalshi with optional filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | No | Filter by status \(unopened, open, closed, settled\) |
+| `seriesTicker` | string | No | Filter by series ticker |
+| `eventTicker` | string | No | Filter by event ticker |
+| `limit` | string | No | Number of results \(1-1000, default: 100\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `markets` | array | Array of market objects |
+
+</div>
+
+
+
+---
+
+### Get Market
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_market"
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Market ticker (e.g., KXBTC-24DEC31)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Market (<code>kalshi_get_market</code>)</div>
+
+Retrieve details of a specific prediction market by ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | Yes | The market ticker \(e.g., "KXBTC-24DEC31"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Events
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_events"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Status",
+            "options": [
+                {
+                    "label": "Unopened",
+                    "id": "unopened"
+                },
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Closed",
+                    "id": "closed"
+                },
+                {
+                    "label": "Settled",
+                    "id": "settled"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "Series Ticker",
+            "placeholder": "Filter by series ticker"
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "Include Markets",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Events (<code>kalshi_get_events</code>)</div>
+
+Retrieve a list of events from Kalshi with optional filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | No | Filter by status \(open, closed, settled\) |
+| `seriesTicker` | string | No | Filter by series ticker |
+| `withNestedMarkets` | string | No | Include nested markets in response \(true/false\) |
+| `limit` | string | No | Number of results \(1-200, default: 200\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `events` | array | Array of event objects |
+
+</div>
+
+
+
+---
+
+### Get Event
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_event"
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Event Ticker",
+            "placeholder": "Event ticker"
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "Include Markets",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Event (<code>kalshi_get_event</code>)</div>
+
+Retrieve details of a specific event by ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `eventTicker` | string | Yes | The event ticker |
+| `withNestedMarkets` | string | No | Include nested markets in response \(true/false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Balance
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_balance"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Balance (<code>kalshi_get_balance</code>)</div>
+
+Retrieve your account balance and portfolio value from Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `balance` | number | Account balance in cents |
+
+</div>
+
+
+
+---
+
+### Get Positions
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_positions"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Event Ticker",
+            "placeholder": "Event ticker"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Filter by market ticker (optional)"
+        },
+        {
+            "id": "settlementStatus",
+            "type": "dropdown",
+            "title": "Settlement Status",
+            "options": [
+                {
+                    "label": "Unsettled",
+                    "id": "unsettled"
+                },
+                {
+                    "label": "Settled",
+                    "id": "settled"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Positions (<code>kalshi_get_positions</code>)</div>
+
+Retrieve your open positions from Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `ticker` | string | No | Filter by market ticker |
+| `eventTicker` | string | No | Filter by event ticker \(max 10 comma-separated\) |
+| `settlementStatus` | string | No | Filter by settlement status \(all, unsettled, settled\). Default: unsettled |
+| `limit` | string | No | Number of results \(1-1000, default: 100\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `positions` | array | Array of position objects |
+
+</div>
+
+
+
+---
+
+### Get Orders
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_orders"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Event Ticker",
+            "placeholder": "Event ticker"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Filter by market ticker (optional)"
+        },
+        {
+            "id": "orderStatus",
+            "type": "dropdown",
+            "title": "Order Status",
+            "options": [
+                {
+                    "label": "Resting",
+                    "id": "resting"
+                },
+                {
+                    "label": "Canceled",
+                    "id": "canceled"
+                },
+                {
+                    "label": "Executed",
+                    "id": "executed"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Orders (<code>kalshi_get_orders</code>)</div>
+
+Retrieve your orders from Kalshi with optional filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `ticker` | string | No | Filter by market ticker |
+| `eventTicker` | string | No | Filter by event ticker \(max 10 comma-separated\) |
+| `status` | string | No | Filter by status \(resting, canceled, executed\) |
+| `limit` | string | No | Number of results \(1-200, default: 100\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `orders` | array | Array of order objects |
+
+</div>
+
+
+
+---
+
+### Get Order
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_order"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "Order ID",
+            "placeholder": "Order ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Order (<code>kalshi_get_order</code>)</div>
+
+Retrieve details of a specific order by ID from Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `orderId` | string | Yes | The order ID to retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Orderbook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_orderbook"
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Market ticker (e.g., KXBTC-24DEC31)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Orderbook (<code>kalshi_get_orderbook</code>)</div>
+
+Retrieve the orderbook (yes and no bids) for a specific market
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | Yes | Market ticker \(e.g., KXBTC-24DEC31\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Trades
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_trades"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Trades (<code>kalshi_get_trades</code>)</div>
+
+Retrieve recent trades across all markets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Number of results \(1-1000, default: 100\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `trades` | array | Array of trade objects |
+
+</div>
+
+
+
+---
+
+### Get Candlesticks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_candlesticks"
+        },
+        {
+            "id": "seriesTickerCandlesticks",
+            "type": "short-input",
+            "title": "Series Ticker",
+            "placeholder": "Series ticker",
+            "required": true
+        },
+        {
+            "id": "tickerCandlesticks",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Market ticker (e.g., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "Start Timestamp",
+            "placeholder": "Start timestamp (Unix seconds)",
+            "required": true
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "End Timestamp",
+            "placeholder": "End timestamp (Unix seconds)",
+            "required": true
+        },
+        {
+            "id": "periodInterval",
+            "type": "dropdown",
+            "title": "Period Interval",
+            "required": true,
+            "options": [
+                {
+                    "label": "1 minute",
+                    "id": "1"
+                },
+                {
+                    "label": "1 hour",
+                    "id": "60"
+                },
+                {
+                    "label": "1 day",
+                    "id": "1440"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Candlesticks (<code>kalshi_get_candlesticks</code>)</div>
+
+Retrieve OHLC candlestick data for a specific market
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | Yes | Series ticker |
+| `ticker` | string | Yes | Market ticker \(e.g., KXBTC-24DEC31\) |
+| `startTs` | number | Yes | Start timestamp \(Unix seconds\) |
+| `endTs` | number | Yes | End timestamp \(Unix seconds\) |
+| `periodInterval` | number | Yes | Period interval: 1 \(1min\), 60 \(1hour\), or 1440 \(1day\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Fills
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_fills"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "minTs",
+            "type": "short-input",
+            "title": "Min Timestamp",
+            "placeholder": "Minimum timestamp (Unix milliseconds)"
+        },
+        {
+            "id": "maxTs",
+            "type": "short-input",
+            "title": "Max Timestamp",
+            "placeholder": "Maximum timestamp (Unix milliseconds)"
+        },
+        {
+            "id": "tickerFills",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Filter by market ticker (optional)"
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "Order ID",
+            "placeholder": "Filter by order ID (optional)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (1-1000, default: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Fills (<code>kalshi_get_fills</code>)</div>
+
+Retrieve your portfolio
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `ticker` | string | No | Filter by market ticker |
+| `orderId` | string | No | Filter by order ID |
+| `minTs` | number | No | Minimum timestamp \(Unix milliseconds\) |
+| `maxTs` | number | No | Maximum timestamp \(Unix milliseconds\) |
+| `limit` | string | No | Number of results \(1-1000, default: 100\) |
+| `cursor` | string | No | Pagination cursor for next page |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `fills` | array | Array of fill/trade objects |
+
+</div>
+
+
+
+---
+
+### Get Series by Ticker
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_series_by_ticker"
+        },
+        {
+            "id": "seriesTickerGet",
+            "type": "short-input",
+            "title": "Series Ticker",
+            "placeholder": "Series ticker",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Series by Ticker (<code>kalshi_get_series_by_ticker</code>)</div>
+
+Retrieve details of a specific market series by ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | Yes | Series ticker |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Exchange Status
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "get_exchange_status"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Exchange Status (<code>kalshi_get_exchange_status</code>)</div>
+
+Retrieve the current status of the Kalshi exchange (trading and exchange activity)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Create Order
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "create_order"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Market ticker (e.g., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Side",
+            "required": true,
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "yes"
+                },
+                {
+                    "label": "No",
+                    "id": "no"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "Action",
+            "required": true,
+            "options": [
+                {
+                    "label": "Buy",
+                    "id": "buy"
+                },
+                {
+                    "label": "Sell",
+                    "id": "sell"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Contracts",
+            "placeholder": "Number of contracts",
+            "required": true
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "Order Type",
+            "options": [
+                {
+                    "label": "Limit",
+                    "id": "limit"
+                },
+                {
+                    "label": "Market",
+                    "id": "market"
+                }
+            ]
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "Yes Price (cents)",
+            "placeholder": "Yes price in cents (1-99)"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "No Price (cents)",
+            "placeholder": "No price in cents (1-99)"
+        },
+        {
+            "id": "clientOrderId",
+            "type": "short-input",
+            "title": "Client Order ID",
+            "placeholder": "Custom order identifier (optional)"
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "Time in Force",
+            "options": [
+                {
+                    "label": "Good Till Canceled",
+                    "id": "good_till_canceled"
+                },
+                {
+                    "label": "Fill or Kill",
+                    "id": "fill_or_kill"
+                },
+                {
+                    "label": "Immediate or Cancel",
+                    "id": "immediate_or_cancel"
+                }
+            ]
+        },
+        {
+            "id": "expirationTs",
+            "type": "short-input",
+            "title": "Expiration",
+            "placeholder": "Unix timestamp for order expiration"
+        },
+        {
+            "id": "postOnly",
+            "type": "dropdown",
+            "title": "Post Only",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "reduceOnly",
+            "type": "dropdown",
+            "title": "Reduce Only",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Order (<code>kalshi_create_order</code>)</div>
+
+Create a new order on a Kalshi prediction market
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `ticker` | string | Yes | Market ticker \(e.g., KXBTC-24DEC31\) |
+| `side` | string | Yes | Side of the order: 'yes' or 'no' |
+| `action` | string | Yes | Action type: 'buy' or 'sell' |
+| `count` | string | Yes | Number of contracts \(minimum 1\) |
+| `type` | string | No | Order type: 'limit' or 'market' \(default: limit\) |
+| `yesPrice` | string | No | Yes price in cents \(1-99\) |
+| `noPrice` | string | No | No price in cents \(1-99\) |
+| `yesPriceDollars` | string | No | Yes price in dollars \(e.g., "0.56"\) |
+| `noPriceDollars` | string | No | No price in dollars \(e.g., "0.56"\) |
+| `clientOrderId` | string | No | Custom order identifier |
+| `expirationTs` | string | No | Unix timestamp for order expiration |
+| `timeInForce` | string | No | Time in force: 'fill_or_kill', 'good_till_canceled', 'immediate_or_cancel' |
+| `buyMaxCost` | string | No | Maximum cost in cents \(auto-enables fill_or_kill\) |
+| `postOnly` | string | No | Set to 'true' for maker-only orders |
+| `reduceOnly` | string | No | Set to 'true' for position reduction only |
+| `selfTradePreventionType` | string | No | Self-trade prevention: 'taker_at_cross' or 'maker' |
+| `orderGroupId` | string | No | Associated order group ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Cancel Order
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "cancel_order"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "Order ID",
+            "placeholder": "Order ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancel Order (<code>kalshi_cancel_order</code>)</div>
+
+Cancel an existing order on Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `orderId` | string | Yes | The order ID to cancel |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The canceled order object |
+
+</div>
+
+
+
+---
+
+### Amend Order
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    iconSvg={``}
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Balance",
+                    "id": "get_balance"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Orders",
+                    "id": "get_orders"
+                },
+                {
+                    "label": "Get Order",
+                    "id": "get_order"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                },
+                {
+                    "label": "Get Candlesticks",
+                    "id": "get_candlesticks"
+                },
+                {
+                    "label": "Get Fills",
+                    "id": "get_fills"
+                },
+                {
+                    "label": "Get Series by Ticker",
+                    "id": "get_series_by_ticker"
+                },
+                {
+                    "label": "Get Exchange Status",
+                    "id": "get_exchange_status"
+                },
+                {
+                    "label": "Create Order",
+                    "id": "create_order"
+                },
+                {
+                    "label": "Cancel Order",
+                    "id": "cancel_order"
+                },
+                {
+                    "label": "Amend Order",
+                    "id": "amend_order"
+                }
+            ],
+            "defaultValue": "amend_order"
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "Your Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Private Key",
+            "placeholder": "Your RSA Private Key (PEM format)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "Order ID",
+            "placeholder": "Order ID",
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "Market Ticker",
+            "placeholder": "Market ticker (e.g., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Side",
+            "required": true,
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "yes"
+                },
+                {
+                    "label": "No",
+                    "id": "no"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "Action",
+            "required": true,
+            "options": [
+                {
+                    "label": "Buy",
+                    "id": "buy"
+                },
+                {
+                    "label": "Sell",
+                    "id": "sell"
+                }
+            ]
+        },
+        {
+            "id": "countAmend",
+            "type": "short-input",
+            "title": "Contracts",
+            "placeholder": "Updated number of contracts (optional)"
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "Yes Price (cents)",
+            "placeholder": "Yes price in cents (1-99)"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "No Price (cents)",
+            "placeholder": "No price in cents (1-99)"
+        },
+        {
+            "id": "clientOrderIdAmend",
+            "type": "short-input",
+            "title": "Client Order ID",
+            "placeholder": "Original client order ID",
+            "required": true
+        },
+        {
+            "id": "updatedClientOrderId",
+            "type": "short-input",
+            "title": "New Client Order ID",
+            "placeholder": "New client order ID after amendment",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Amend Order (<code>kalshi_amend_order</code>)</div>
+
+Modify the price or quantity of an existing order on Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Yes | Your Kalshi API Key ID |
+| `privateKey` | string | Yes | Your RSA Private Key \(PEM format\) |
+| `orderId` | string | Yes | The order ID to amend |
+| `ticker` | string | Yes | Market ticker |
+| `side` | string | Yes | Side of the order: 'yes' or 'no' |
+| `action` | string | Yes | Action type: 'buy' or 'sell' |
+| `clientOrderId` | string | Yes | The original client-specified order ID |
+| `updatedClientOrderId` | string | Yes | The new client-specified order ID after amendment |
+| `count` | string | No | Updated quantity for the order |
+| `yesPrice` | string | No | Updated yes price in cents \(1-99\) |
+| `noPrice` | string | No | Updated no price in cents \(1-99\) |
+| `yesPriceDollars` | string | No | Updated yes price in dollars \(e.g., "0.56"\) |
+| `noPriceDollars` | string | No | Updated no price in dollars \(e.g., "0.56"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Kalshi prediction markets into the workflow. Can get markets, market, events, event, balance, positions, orders, orderbook, trades, candlesticks, fills, series, exchange status, and place/cancel/amend trades.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `kalshi`

@@ -1,0 +1,84 @@
+---
+title: Whatsapp Trigger
+description: Trigger workflow from WhatsApp messages and events via Business Platform webhooks
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="whatsapp"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Trigger workflow from WhatsApp messages and events via Business Platform webhooks
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WhatsApp Webhook"
+    type="whatsapp_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "verificationToken",
+            "type": "short-input",
+            "title": "Verification Token",
+            "placeholder": "Generate or enter a verification token",
+            "description": "Enter any secure token here. You'll need to provide the same token in your WhatsApp Business Platform dashboard.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "messageId",
+          "type": "string",
+          "description": "Unique message identifier"
+      },
+      {
+          "name": "from",
+          "type": "string",
+          "description": "Phone number of the message sender"
+      },
+      {
+          "name": "phoneNumberId",
+          "type": "string",
+          "description": "WhatsApp Business phone number ID that received the message"
+      },
+      {
+          "name": "text",
+          "type": "string",
+          "description": "Message text content"
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Message timestamp"
+      },
+      {
+          "name": "raw",
+          "type": "string",
+          "description": "Complete raw message object from WhatsApp as JSON string"
+      }
+  ]}
+/>
+
+

@@ -1,0 +1,182 @@
+---
+title: Disparador IMAP
+description: Se activa cuando se reciben nuevos correos electrónicos a través de
+  IMAP (funciona con cualquier proveedor de correo)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="imap"
+  color=""
+  icon={true}
+  iconSvg={``}
+/>
+
+Se activa cuando se reciben nuevos correos electrónicos a través de IMAP (funciona con cualquier proveedor de correo)
+
+<Callout type="info">
+  Este es un disparador **basado en sondeo**. TradingGoose verifica automáticamente la existencia de nuevos datos en intervalos regulares.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Disparador de Correo IMAP"
+    type="imap_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Servidor IMAP",
+            "placeholder": "imap.ejemplo.com",
+            "description": "Nombre de host del servidor IMAP (p. ej., imap.gmail.com, outlook.office365.com)",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "993",
+            "description": "Puerto IMAP (993 para SSL/TLS, 143 para STARTTLS)",
+            "required": true
+        },
+        {
+            "id": "secure",
+            "type": "switch",
+            "title": "Usar SSL/TLS",
+            "description": "Habilitar cifrado SSL/TLS (recomendado para el puerto 993)"
+        },
+        {
+            "id": "rejectUnauthorized",
+            "type": "switch",
+            "title": "Verificar Certificado TLS",
+            "description": "Verificar el certificado TLS del servidor. Deshabilitar para certificados autofirmados."
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "usuario@ejemplo.com",
+            "description": "Dirección de correo electrónico o nombre de usuario para la autenticación",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de aplicación o contraseña de correo",
+            "description": "Contraseña o contraseña específica de la aplicación (para Gmail, utilice una Contraseña de Aplicación)",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "mailbox",
+            "type": "dropdown",
+            "title": "Buzones a Monitorear",
+            "placeholder": "Seleccionar buzones a monitorear",
+            "description": "Seleccione qué buzón/carpeta(s) monitorear para nuevos correos. Dejar vacío para monitorear INBOX."
+        },
+        {
+            "id": "searchCriteria",
+            "type": "code",
+            "title": "Criterios de Búsqueda",
+            "placeholder": "{ \"unseen\": true }",
+            "description": "Criterios de búsqueda de ImapFlow como objeto JSON. Por defecto: solo mensajes no leídos."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como Leído",
+            "description": "Marcar automáticamente los correos como leídos (SEEN) después de procesarlos"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir Adjuntos",
+            "description": "Descargar e incluir los archivos adjuntos del correo en el payload del disparador"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "Encabezado RFC Message-ID"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Asunto del correo electrónico"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Dirección de correo del remitente"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Dirección de correo del destinatario"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "Destinatarios en copia"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Fecha del correo en formato ISO"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Cuerpo del correo en texto plano"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "Cuerpo del correo en HTML"
+              },
+              {
+                  "name": "mailbox",
+                  "type": "string",
+                  "description": "Buzón/carpeta donde se recibió el correo"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Indica si el correo tiene archivos adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Arreglo de archivos adjuntos del correo como archivos (si includeAttachments está habilitado)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Marca de tiempo del evento"
+      }
+  ]}
+/>
