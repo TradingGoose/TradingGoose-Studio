@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "email:dev": "email dev --dir components/emails",
+    "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
     "test:billing:suite": "bun run scripts/test-billing-suite.ts"
   },
@@ -173,8 +173,6 @@
     "sharp"
   ],
   "overrides": {
-    "next": "15.4.1",
-    "@next/env": "15.4.1",
     "drizzle-orm": "^0.44.5",
     "postgres": "^3.4.5"
   }

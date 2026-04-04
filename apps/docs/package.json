@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev --port 3001",
-    "build": "next build",
+    "build": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
     "start": "next start",
     "i18n": "bunx lingo.dev@latest run",
     "postinstall": "fumadocs-mdx",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-navigation-menu": "1.2.14",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-presence": "^1.1.5",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -29,6 +30,9 @@
     "next-themes": "^0.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "remark": "15.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-mdx": "3.1.1",
     "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
