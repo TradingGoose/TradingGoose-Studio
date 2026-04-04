@@ -11,7 +11,7 @@ const AUTH_ROUTES = new Set(['/login', '/signup'])
  * When running in hosted mode (tradinggoose.ai / staging), only landing pages
  * are served. Every other route gets a 404 so we can show "coming soon" only.
  */
-const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms'])
+const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms', '/changelog'])
 
 const HOSTED_HOSTNAMES = ['www.tradinggoose.ai', 'tradinggoose.ai', 'preview.tradinggoose.ai', 'staging.tradinggoose.ai']
 
