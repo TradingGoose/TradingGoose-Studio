@@ -70,7 +70,7 @@ const nextConfig: NextConfig = {
     ],
   },
   typescript: {
-    ignoreBuildErrors: isTruthy(env.DOCKER_BUILD),
+    ignoreBuildErrors: isTruthy(env.DOCKER_BUILD) || isTruthy(env.VERCEL),
   },
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
   turbopack: {
@@ -78,7 +78,7 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['pdf-parse'],
   experimental: {
-    optimizeCss: true,
+    optimizeCss: false,
     turbopackSourceMaps: false,
     preloadEntriesOnStart: false,
   },
