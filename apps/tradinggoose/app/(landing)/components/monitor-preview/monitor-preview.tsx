@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { fetchListings } from '@/components/listing-selector/fetchers'
+import { MarketListingRow } from '@/components/listing-selector/listing/row'
+import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -12,16 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-
-export type MonitorStock = {
-  ticker: string
-  name: string
-  iconUrl: string
-}
+import type { ListingOption } from '@/lib/listing/identity'
+import { sortMonitorListings } from '@/app/(landing)/components/monitor-preview/listing-preference'
 
 type MonitorEntry = {
   id: string
-  stock: MonitorStock
+  stock: ListingOption
   indicator: string
   indicatorColor: string
   workflow: string
@@ -61,14 +59,34 @@ const STATUS_CONFIG: Record<MonitorEntry['status'], { label: string; className: 
   },
 }
 
+const INITIAL_STATUSES: MonitorEntry['status'][] = [
+  'success',
+  'running',
+  'success',
+  'running',
+  'success',
+  'pending',
+]
+const RANDOM_STATUSES: MonitorEntry['status'][] = ['pending', 'pending', 'running']
+const INITIAL_ROWS = 6
 const MAX_ROWS = 20
 
-const RANDOM_STATUSES: MonitorEntry['status'][] = ['pending', 'pending', 'running']
+const MONITOR_REFRESH_QUERY = buildMarketSearchRequest({
+  rawQuery: 'a',
+  providerConfig: {
+    assetClasses: ['stock'],
+    marketCodes: [],
+    listingQuoteCodes: [],
+    cryptoQuoteCodes: [],
+    currencyQuoteCodes: [],
+  },
+}).queryParams
 
-function createRandomEntry(stocks: MonitorStock[], counter: number): MonitorEntry {
+function createRandomEntry(stocks: ListingOption[], counter: number): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
   const indicator = INDICATORS[Math.floor(Math.random() * INDICATORS.length)]
   const workflow = WORKFLOWS[Math.floor(Math.random() * WORKFLOWS.length)]
+
   return {
     id: `entry-${counter}`,
     stock,
@@ -81,7 +99,6 @@ function createRandomEntry(stocks: MonitorStock[], counter: number): MonitorEntr
 }
 
 function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
-  // Each status has a random chance to advance per tick
   if (status === 'pending') return Math.random() < 0.5 ? 'running' : 'pending'
   if (status === 'running') {
     if (Math.random() < 0.4) return 'success'
@@ -91,25 +108,46 @@ function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
   return status
 }
 
-export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
-  const [entries, setEntries] = useState<MonitorEntry[]>([])
-  const [mounted, setMounted] = useState(false)
+function seedEntries(stocks: ListingOption[]): MonitorEntry[] {
+  return Array.from({ length: Math.min(INITIAL_ROWS, stocks.length) }, (_, index) => ({
+    ...createRandomEntry(stocks, index),
+    status: INITIAL_STATUSES[index] as MonitorEntry['status'],
+  }))
+}
+
+function isFallbackStock(stock: ListingOption): boolean {
+  return stock.listing_id.startsWith('fallback-')
+}
+
+export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
+  const [liveStocks, setLiveStocks] = useState(stocks)
+  const [entries, setEntries] = useState<MonitorEntry[]>(() => seedEntries(stocks))
 
   useEffect(() => {
-    setEntries(
-      Array.from({ length: 6 }, (_, i) => {
-        const e = createRandomEntry(stocks, i)
-        e.status = ['success', 'running', 'success', 'running', 'success', 'pending'][
-          i
-        ] as MonitorEntry['status']
-        return e
-      })
-    )
-    setMounted(true)
+    setLiveStocks(stocks)
   }, [stocks])
 
   useEffect(() => {
-    if (!mounted) return
+    setEntries(seedEntries(liveStocks))
+  }, [liveStocks])
+
+  useEffect(() => {
+    if (!stocks.some(isFallbackStock)) return
+
+    const controller = new AbortController()
+
+    void fetchListings(MONITOR_REFRESH_QUERY, controller.signal)
+      .then((rows) => {
+        if (rows.length > 0) setLiveStocks(sortMonitorListings(rows).slice(0, MAX_ROWS))
+      })
+      .catch(() => {})
+
+    return () => controller.abort()
+  }, [stocks])
+
+  useEffect(() => {
+    if (liveStocks.length === 0) return
+
     let timeoutId: ReturnType<typeof setTimeout>
 
     const tick = () => {
@@ -118,16 +156,16 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
           ...entry,
           status: advanceStatus(entry.status),
         }))
-        const newEntries = [createRandomEntry(stocks, Date.now()), ...updated]
-        return newEntries.slice(0, MAX_ROWS)
+        const nextEntries = [createRandomEntry(liveStocks, Date.now()), ...updated]
+        return nextEntries.slice(0, MAX_ROWS)
       })
-      // Random interval between 1.5s and 7s
+
       timeoutId = setTimeout(tick, 1500 + Math.random() * 5500)
     }
 
     timeoutId = setTimeout(tick, 1500 + Math.random() * 5500)
     return () => clearTimeout(timeoutId)
-  }, [stocks, mounted])
+  }, [liveStocks])
 
   return (
     <div className='relative max-h-[420px] w-full overflow-hidden rounded-lg border bg-background/50 backdrop-blur-sm'>
@@ -145,6 +183,7 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
           <AnimatePresence initial={false}>
             {entries.map((entry) => {
               const statusConfig = STATUS_CONFIG[entry.status]
+
               return (
                 <motion.tr
                   key={entry.id}
@@ -153,25 +192,8 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
                   transition={{ duration: 0.3 }}
                   className='border-b transition-colors hover:bg-muted/50'
                 >
-                  <TableCell>
-                    <div className='flex items-center gap-3'>
-                      <Avatar className='size-7 rounded-sm bg-secondary/60'>
-                        {entry.stock.iconUrl && (
-                          <AvatarImage src={entry.stock.iconUrl} alt={entry.stock.ticker} />
-                        )}
-                        <AvatarFallback className='rounded-sm bg-secondary/60 font-medium text-[10px]'>
-                          {entry.stock.ticker.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className='flex flex-col'>
-                        <span className='font-medium font-mono text-sm leading-tight'>
-                          {entry.stock.ticker}
-                        </span>
-                        <span className='text-muted-foreground text-xs leading-tight'>
-                          {entry.stock.name}
-                        </span>
-                      </div>
-                    </div>
+                  <TableCell className='min-w-0'>
+                    <MarketListingRow listing={entry.stock} className='w-full min-w-0 pr-0' />
                   </TableCell>
                   <TableCell>
                     <div className='flex items-center gap-2'>

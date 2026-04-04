@@ -34,16 +34,17 @@ export default function Footer({ fullWidth = false }: FooterProps) {
   const maxWidthClass = fullWidth ? 'max-w-[90vw]' : 'max-w-7xl'
 
   return (
-    <footer className={soehne.className}>
+    <footer className={`${soehne.className} relative`}>
       <div
-        className={`mx-auto flex ${maxWidthClass} flex-col gap-6 px-4 pt-6 pb-6 sm:px-6 sm:pt-8 lg:px-8`}
+        className={`relative mx-auto flex ${maxWidthClass} flex-col gap-6 px-4 pt-6 pb-6 sm:px-6 sm:pt-8 lg:px-8`}
       >
-        <div className='flex flex-col gap-8 text-muted-foreground sm:gap-10 lg:flex-row lg:items-end lg:justify-between'>
+        <div className='relative z-10 flex flex-col gap-8 text-muted-foreground sm:gap-10 lg:flex-row lg:items-end lg:justify-between'>
           <div className='flex max-w-[30rem] flex-col gap-5 max-sm:items-center max-sm:text-center'>
             <Link
               href='/'
               aria-label='TradingGoose Studio home'
               className='flex items-center gap-3'
+              prefetch={false}
             >
               <Image
                 src='/icon.svg'
@@ -110,6 +111,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                   key={link.label}
                   href={link.href}
                   className='transition-colors duration-300 hover:text-foreground'
+                  prefetch={false}
                 >
                   {link.label}
                 </Link>
@@ -135,6 +137,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                     key={link.label}
                     href={link.href}
                     className='transition-colors duration-300 hover:text-foreground'
+                    prefetch={false}
                   >
                     {link.label}
                   </Link>
@@ -144,7 +147,10 @@ export default function Footer({ fullWidth = false }: FooterProps) {
           </div>
         </div>
 
-        <div className='-translate-x-1/2 absolute -translate-y-8 left-1/2 w-full max-w-70 overflow-hidden -pt-8 sm:-pt-16'>
+        <div
+          aria-hidden='true'
+          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 pointer-events-none absolute left-1/2 z-0 w-full max-w-70 overflow-hidden'
+        >
           <FooterHoverText text='HONK!' />
           <div
             className='pointer-events-none absolute inset-x-0 bottom-0 h-1/3'

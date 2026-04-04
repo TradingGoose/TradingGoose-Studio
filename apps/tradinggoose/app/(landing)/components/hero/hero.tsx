@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useRef } from 'react'
-
 import {
   ActivityIcon,
   BlocksIcon,
@@ -13,12 +12,14 @@ import {
   Workflow,
 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { PerplexityIcon } from '@/components/icons/icons'
 import { GeminiIcon } from '@/components/icons/provider-icons'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
+import { isHosted } from '@/lib/environment'
 
 const Hero = () => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -47,7 +48,10 @@ const Hero = () => {
       'I want to try TradingGoose-Studio (https://github.com/TradingGoose/TradingGoose-Studio) for my trading setup.',
     ]
     const actions = [
-      'How do I', 'Can you show me how to', 'What is the best way to', 'Walk me through how to',
+      'How do I',
+      'Can you show me how to',
+      'What is the best way to',
+      'Walk me through how to',
     ]
     const topics = [
       'automate a trading strategy end-to-end',
@@ -80,19 +84,18 @@ const Hero = () => {
           </Badge>
 
           <h1 className='relative z-10 text-2xl font-semibold sm:text-3xl lg:text-5xl lg:font-bold'>
-            <WordRotate words={['Build', 'Test', 'Run']} duration={4000} />
-            {' '}your{' '}
+            <WordRotate words={['Build', 'Test', 'Run']} duration={4000} /> your{' '}
             <WordRotate
               words={['Trading Analysis', 'Signal Detection', 'Risk Assessment']}
               className='underline underline-offset-3'
               duration={7000}
-            />
-            {' '}with TradingGoose
+            />{' '}
+            with TradingGoose
           </h1>
 
           <p className='relative z-10 text-muted-foreground max-w-3xl text-lg leading-relaxed'>
-            Connect your own data providers, write custom indicators to monitor market prices,
-            and wire them into workflows that trigger trade, sell, buy, or any action you define.
+            Connect your own data providers, write custom indicators to monitor market prices, and
+            wire them into workflows that trigger trade, sell, buy, or any action you define.
           </p>
 
           <div className='relative z-10 flex flex-wrap items-center justify-center gap-2'>
@@ -115,26 +118,46 @@ const Hero = () => {
           </div>
 
           <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
-            <Button
-              variant='outline'
-              className='bg-background'
-              size='sm'
-              onClick={handleAskClick('https://google.com/ai?q=')}
-            >
-              <GeminiIcon className='size-4 bg-background' />
-              Ask Google Gemini
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              className='bg-background'
-              onClick={handleAskClick('https://perplexity.ai?q=')}
-            >
-              <PerplexityIcon className='size-4 bg-background' />
-              Ask Perplexity
-            </Button>
+            {isHosted ? (
+              <>
+                <Button
+                  variant='outline'
+                  className='bg-background'
+                  size='sm'
+                  onClick={handleAskClick('https://google.com/ai?q=')}
+                >
+                  <GeminiIcon className='size-4 bg-background' />
+                  Ask Google Gemini
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='bg-background'
+                  onClick={handleAskClick('https://perplexity.ai?q=')}
+                >
+                  <PerplexityIcon className='size-4 bg-background' />
+                  Ask Perplexity
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size='lg' className='font-semibold' asChild>
+                  <Link href='/signup' prefetch={false}>
+                    Get Started
+                  </Link>
+                </Button>
+                <Button variant='outline' size='lg' className='font-semibold bg-background' asChild>
+                  <Link
+                    href='https://docs.tradinggoose.ai'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    Learn More
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
-
         </div>
 
         <div ref={containerRef} className='relative z-10 flex w-full flex-col items-center'>
@@ -171,10 +194,20 @@ const Hero = () => {
                 <span ref={spanRef3} className='size-0.5' />
                 <span ref={spanRef4} className='size-0.5' />
               </div>
-              <div ref={iconRef4} className='bg-secondary flex items-center justify-center rounded-xl border p-2'>
+              <div
+                ref={iconRef4}
+                className='bg-secondary flex items-center justify-center rounded-xl border p-2'
+              >
                 <div className='bg-primary flex size-16 items-center justify-center rounded-lg border-[1.5px] shadow-xl md:size-[5.75rem]'>
                   <div className='flex size-12 items-center justify-center rounded-md bg-background md:size-20'>
-                    <Image src='/icon.svg' alt='TradingGoose logo' width={64} height={64} className='h-12 w-12 md:h-20 md:w-20' priority />
+                    <Image
+                      src='/icon.svg'
+                      alt='TradingGoose logo'
+                      width={64}
+                      height={64}
+                      className='h-12 w-12 md:h-20 md:w-20'
+                      priority
+                    />
                   </div>
                 </div>
               </div>

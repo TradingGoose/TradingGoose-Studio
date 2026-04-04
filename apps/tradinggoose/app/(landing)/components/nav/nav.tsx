@@ -115,6 +115,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           aria-label={`${brand.name} home`}
           itemProp='url'
           className='flex items-center gap-2'
+          prefetch={false}
         >
           <span itemProp='name' className='sr-only'>
             {brand.name} Home
