@@ -66,11 +66,11 @@ bun install
 
 #### 2. Start PostgreSQL database
 ```
-docker run --name tradinggoose-db \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=tradinggoose \
-  -p 5432:5432 -d \
-  pgvector/pgvector:pg17
+docker run --name tradinggoose-db `
+  -e POSTGRES_PASSWORD=postgres `
+  -e POSTGRES_DB=tradinggoose `
+  -p 5432:5432 `
+  -d pgvector/pgvector:pg17
 ```
 #### 3. Setup environment variables
 ```
