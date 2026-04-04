@@ -17,7 +17,7 @@ import { getBaseUrl } from '@/lib/urls/utils'
 export async function renderOTPEmail(
   otp: string,
   email: string,
-  type: 'sign-in' | 'email-verification' | 'forget-password' = 'email-verification',
+  type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email' = 'email-verification',
   chatTitle?: string
 ): Promise<string> {
   return await render(OTPVerificationEmail({ otp, email, type, chatTitle }))
@@ -155,6 +155,7 @@ export function getEmailSubject(
     | 'email-verification'
     | 'forget-password'
     | 'reset-password'
+    | 'change-email'
     | 'invitation'
     | 'batch-invitation'
     | 'help-confirmation'
@@ -175,6 +176,8 @@ export function getEmailSubject(
       return `Reset your ${brandName} password`
     case 'reset-password':
       return `Reset your ${brandName} password`
+    case 'change-email':
+      return `Verify your new email for ${brandName}`
     case 'invitation':
       return `You've been invited to join a team on ${brandName}`
     case 'batch-invitation':

@@ -18,7 +18,7 @@ export type AppSession = {
   session?: {
     id?: string
     userId?: string
-    activeOrganizationId?: string
+    activeOrganizationId?: string | null
   }
 } | null
 
