@@ -305,6 +305,7 @@ export const WorkflowBlock = memo(
 
     // Portal tooltips into the canvas viewport so they scale with React Flow zoom
     useEffect(() => {
+      if (data.isPreview) return
       if (!blockRef.current) return
       const viewport = blockRef.current.closest('.react-flow__viewport') as HTMLElement | null
       const renderer = blockRef.current.closest('.react-flow__renderer') as HTMLElement | null
@@ -381,7 +382,7 @@ export const WorkflowBlock = memo(
           delete (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY]
         }
       }
-    }, [])
+    }, [data.isPreview])
 
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
@@ -718,6 +719,7 @@ export const WorkflowBlock = memo(
 
     // Add effect to observe size changes with debounced updates
     useEffect(() => {
+      if (data.isPreview) return
       if (!contentRef.current) return
 
       let rafId: number
@@ -753,7 +755,15 @@ export const WorkflowBlock = memo(
           cancelAnimationFrame(rafId)
         }
       }
-    }, [id, blockHeight, blockWidth, updateBlockLayoutMetrics, updateNodeInternals, debounce])
+    }, [
+      data.isPreview,
+      id,
+      blockHeight,
+      blockWidth,
+      updateBlockLayoutMetrics,
+      updateNodeInternals,
+      debounce,
+    ])
 
     // Subscribe to this block's subblock values to track changes for conditional rendering
     const blockSubBlockValues = useSubBlockStore(
@@ -814,7 +824,7 @@ export const WorkflowBlock = memo(
         isTriggerMode: effectiveTrigger,
         isPureTriggerBlock,
         availableTriggerIds: config.triggers?.available,
-        hideFromPreview: data.isPreview,
+        hideFromPreview: true,
       })
 
       // Return both rows and state for stable key generation
@@ -1067,14 +1077,16 @@ export const WorkflowBlock = memo(
                 />
               )}
               {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
-              {config.category !== 'triggers' && !displayTriggerMode && (!isReadOnlyBlock || data.isPreview) && (
-                <ConnectionBlocks
-                  blockId={id}
-                  setIsConnecting={setIsConnecting}
-                  isDisabled={!userPermissions.canEdit || isReadOnlyBlock}
-                  horizontalHandles={horizontalHandles}
-                />
-              )}
+              {config.category !== 'triggers' &&
+                !displayTriggerMode &&
+                (!isReadOnlyBlock || data.isPreview) && (
+                  <ConnectionBlocks
+                    blockId={id}
+                    setIsConnecting={setIsConnecting}
+                    isDisabled={!userPermissions.canEdit || isReadOnlyBlock}
+                    horizontalHandles={horizontalHandles}
+                  />
+                )}
 
               {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
               {config.category !== 'triggers' && !displayTriggerMode && (
@@ -1114,7 +1126,9 @@ export const WorkflowBlock = memo(
                   shouldRenderInNodeSubBlocks && 'border-b'
                 )}
                 onMouseDown={(e) => {
-                  e.stopPropagation()
+                  if (!data.isPreview) {
+                    e.stopPropagation()
+                  }
                 }}
               >
                 <div className='flex min-w-0 flex-1 items-center gap-3'>
@@ -1213,7 +1227,9 @@ export const WorkflowBlock = memo(
                   ref={contentRef}
                   className='cursor-pointer p-3 text-sm'
                   onMouseDown={(e) => {
-                    e.stopPropagation()
+                    if (!data.isPreview) {
+                      e.stopPropagation()
+                    }
                   }}
                 >
                   <div className='flex flex-col gap-2'>
@@ -1246,8 +1262,11 @@ export const WorkflowBlock = memo(
                           const jsonPreviewRows = isJsonCodeSubBlock
                             ? buildJsonPreviewFieldRows(rawValue)
                             : null
-                          const displayValue =
-                            subBlock.type === 'skill-input'
+                          const displayValue = subBlock.password
+                            ? rawValue === null || rawValue === undefined || rawValue === ''
+                              ? '-'
+                              : 'Configured'
+                            : subBlock.type === 'skill-input'
                               ? formatSkillInputValue(rawValue)
                               : formatSubBlockValue(rawValue)
 

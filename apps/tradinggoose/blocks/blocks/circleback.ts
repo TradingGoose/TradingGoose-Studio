@@ -9,7 +9,7 @@ export const CirclebackBlock: BlockConfig = {
   longDescription:
     'Receive meeting notes, action items, transcripts, and recordings when meetings are processed. Circleback uses webhooks to push data to your workflows.',
   category: 'tools',
-  bgColor: 'linear-gradient(180deg, #E0F7FA 0%, #FFFFFF 100%)',
+  bgColor: undefined,
   icon: CirclebackIcon,
   triggerAllowed: true,
 

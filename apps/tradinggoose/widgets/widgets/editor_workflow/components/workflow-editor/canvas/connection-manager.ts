@@ -24,6 +24,10 @@ function isContainerStartHandle(sourceHandle?: string | null): boolean {
   return sourceHandle === 'loop-start-source' || sourceHandle === 'parallel-start-source'
 }
 
+function isContainerEndTargetHandle(targetHandle?: string | null): boolean {
+  return targetHandle === 'loop-end-target' || targetHandle === 'parallel-end-target'
+}
+
 function isTriggerCategory(node: Node | undefined): boolean {
   if (!node) {
     return false
@@ -62,8 +66,11 @@ export function createConnectionEdge({
   }
 
   const sourceParentId =
-    blocks[source]?.data?.parentId || (isContainerStartHandle(connection.sourceHandle) ? source : undefined)
-  const targetParentId = blocks[target]?.data?.parentId
+    blocks[source]?.data?.parentId ||
+    (isContainerStartHandle(connection.sourceHandle) ? source : undefined)
+  const targetParentId =
+    blocks[target]?.data?.parentId ||
+    (isContainerEndTargetHandle(connection.targetHandle) ? target : undefined)
 
   const edge: Edge = {
     id: createEdgeId(),
@@ -74,7 +81,10 @@ export function createConnectionEdge({
     type: 'workflowEdge',
   }
 
-  if (isContainerStartHandle(connection.sourceHandle) && blocks[target]?.data?.parentId === source) {
+  if (
+    isContainerStartHandle(connection.sourceHandle) &&
+    blocks[target]?.data?.parentId === source
+  ) {
     return {
       ...edge,
       data: {

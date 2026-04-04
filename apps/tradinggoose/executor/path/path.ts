@@ -2,11 +2,17 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { BlockType } from '@/executor/consts'
 import { Routing } from '@/executor/routing/routing'
 import type { BlockState, ExecutionContext } from '@/executor/types'
-import { ConnectionUtils } from '@/executor/utils/connections'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedConnection, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('PathTracker')
+
+function isInternalContainerEndConnection(connection: SerializedConnection): boolean {
+  return (
+    connection.targetHandle === 'loop-end-target' ||
+    connection.targetHandle === 'parallel-end-target'
+  )
+}
 
 /**
  * Manages the active execution paths in the workflow.
@@ -80,14 +86,18 @@ export class PathTracker {
    * Get all incoming connections to a block
    */
   private getIncomingConnections(blockId: string): SerializedConnection[] {
-    return ConnectionUtils.getIncomingConnections(blockId, this.workflow.connections)
+    return this.workflow.connections.filter(
+      (connection) => connection.target === blockId && !isInternalContainerEndConnection(connection)
+    )
   }
 
   /**
    * Get all outgoing connections from a block
    */
   private getOutgoingConnections(blockId: string): SerializedConnection[] {
-    return ConnectionUtils.getOutgoingConnections(blockId, this.workflow.connections)
+    return this.workflow.connections.filter(
+      (connection) => connection.source === blockId && !isInternalContainerEndConnection(connection)
+    )
   }
 
   /**

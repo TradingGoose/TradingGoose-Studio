@@ -1124,7 +1124,10 @@ export class Executor {
         }
 
         const incomingConnections = this.actualWorkflow.connections.filter(
-          (conn) => conn.target === block.id
+          (conn) =>
+            conn.target === block.id &&
+            conn.targetHandle !== 'loop-end-target' &&
+            conn.targetHandle !== 'parallel-end-target'
         )
 
         const allDependenciesMet = this.checkDependencies(
@@ -1144,7 +1147,10 @@ export class Executor {
         }
 
         const incomingConnections = this.actualWorkflow.connections.filter(
-          (conn) => conn.target === block.id
+          (conn) =>
+            conn.target === block.id &&
+            conn.targetHandle !== 'loop-end-target' &&
+            conn.targetHandle !== 'parallel-end-target'
         )
 
         const allDependenciesMet = this.checkDependencies(
@@ -1432,7 +1438,10 @@ export class Executor {
 
       // Find dependencies within this iteration
       const incomingConnections = this.actualWorkflow.connections.filter(
-        (conn) => conn.target === nodeId
+        (conn) =>
+          conn.target === nodeId &&
+          conn.targetHandle !== 'loop-end-target' &&
+          conn.targetHandle !== 'parallel-end-target'
       )
 
       const dependencies: string[] = []

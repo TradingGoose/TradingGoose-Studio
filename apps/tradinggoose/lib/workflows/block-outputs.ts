@@ -1,7 +1,8 @@
+import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
-import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getTrigger } from '@/triggers'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
 /**
  * Get the effective outputs for a block, including dynamic outputs from inputFormat
@@ -17,7 +18,7 @@ export function getBlockOutputs(
 
   // If block is in trigger mode, use trigger outputs instead of block outputs
   if (triggerMode && blockConfig.triggers?.enabled) {
-    const triggerId = subBlocks?.triggerId?.value || blockConfig.triggers?.available?.[0]
+    const triggerId = resolveTriggerIdFromSubBlocks(subBlocks, blockConfig.triggers.available)
     if (triggerId) {
       const trigger = getTrigger(triggerId)
       if (trigger?.outputs) {

@@ -25,7 +25,6 @@ import {
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
-import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
@@ -403,7 +402,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     displayAdvancedOptions,
     hasAdvancedOnlyFields,
     isTriggerConfigurationView,
-    hasDeploymentManagedTriggerConfiguration,
   } = useMemo(() => {
     if (!selectedBlock || !blockConfig?.subBlocks) {
       return {
@@ -413,7 +411,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         displayAdvancedOptions: false,
         hasAdvancedOnlyFields: false,
         isTriggerConfigurationView: false,
-        hasDeploymentManagedTriggerConfiguration: false,
       }
     }
 
@@ -454,17 +451,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
       (subBlock) => subBlock.mode === 'advanced'
     )
-    const hasConfigurableDeployTriggerFields = buildSubBlockRows({
-      subBlocks: blockConfig.subBlocks,
-      stateToUse: blockStateForConditions,
-      isAdvancedMode: false,
-      isTriggerMode: effectiveTrigger,
-      isPureTriggerBlock,
-      availableTriggerIds: blockConfig.triggers?.available,
-      hideFromPreview: false,
-      triggerSubBlockOwner: 'deploy',
-    }).some((row) => row.some(isConfigurableTriggerDeploySubBlock))
-    const hasCustomDeployTriggerFlow = blockConfig.triggers?.available?.includes('chat') ?? false
 
     const regularRowsAccumulator = buildSubBlockRows({
       subBlocks: blockConfig.subBlocks,
@@ -492,8 +478,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
       displayAdvancedOptions: advancedVisibility,
       hasAdvancedOnlyFields: advancedRowsAccumulator.length > 0,
       isTriggerConfigurationView: effectiveTrigger,
-      hasDeploymentManagedTriggerConfiguration:
-        hasConfigurableDeployTriggerFields || hasCustomDeployTriggerFlow,
     }
   }, [
     resolvedWorkflowId,
@@ -507,47 +491,17 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   ])
 
   const emptyStateMessage = useMemo(() => {
-    if (isTriggerConfigurationView && hasDeploymentManagedTriggerConfiguration) {
-      if (userPermissions.canAdmin && !currentWorkflow.isDiffMode) {
-        return 'This trigger is configured in Deployment Settings. Use Deploy in the control bar to edit it.'
-      }
-
-      if (!userPermissions.canAdmin && userPermissions.canEdit && !currentWorkflow.isDiffMode) {
-        return 'This trigger is configured in Deployment Settings. A workspace admin can update it there.'
-      }
-
-      return 'This trigger is configured in Deployment Settings.'
-    }
-
     if (isTriggerConfigurationView) {
       return 'This trigger has no editable fields in the panel.'
     }
 
     return 'No editable fields for this block.'
-  }, [
-    currentWorkflow.isDiffMode,
-    hasDeploymentManagedTriggerConfiguration,
-    isTriggerConfigurationView,
-    userPermissions.canAdmin,
-    userPermissions.canEdit,
-  ])
+  }, [isTriggerConfigurationView])
 
   if (!selectedNodeId) return null
 
   if (!selectedBlock) {
-    return (
-      <Panel
-        position='top-right'
-        className='allow-scroll max-h-[calc(100%-1rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
-        onMouseDown={stopPanelEvent}
-        onPointerDown={stopPanelEvent}
-        onClick={stopPanelEvent}
-        onWheel={stopPanelEvent}
-        onTouchStart={stopPanelEvent}
-      >
-        <div className='text-sm'>Node not found</div>
-      </Panel>
-    )
+    return null
   }
 
   if (selectedBlock.type === 'note') return null
