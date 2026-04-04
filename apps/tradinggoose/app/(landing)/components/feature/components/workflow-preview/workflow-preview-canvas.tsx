@@ -28,8 +28,14 @@ import {
 import { resizeContainerNodes } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/node-position-utils'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
-const nodeTypes = importedNodeTypes
-const edgeTypes = importedEdgeTypes
+// importedNodeTypes / importedEdgeTypes are module-level constants in
+// block-registry.ts. In dev, Turbopack HMR re-evaluates that module on any
+// edit to its transitive imports, producing a new object identity which
+// trips React Flow's nodeTypes-changed warning. In production these remain
+// stable. Kept aliased for call-site readability; actual stabilization
+// happens via useMemo inside WorkflowPreviewFlow.
+const nodeTypesImport = importedNodeTypes
+const edgeTypesImport = importedEdgeTypes
 
 const LANDING_WORKSPACE_ID = 'landing-preview'
 const LANDING_WORKFLOW_ID = 'landing-workflow'
@@ -253,6 +259,11 @@ type WorkflowPreviewCanvasProps = {
 type WorkflowPreviewFlowProps = Omit<WorkflowPreviewCanvasProps, 'workflowKey'>
 
 function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowProps) {
+  // Capture types once per mount so the ref stays identical across re-renders
+  // even if HMR rebuilds block-registry and swaps the imported object.
+  const nodeTypes = useMemo(() => nodeTypesImport, [])
+  const edgeTypes = useMemo(() => edgeTypesImport, [])
+
   const previewSeed = useMemo(() => {
     const initialBlocks = workflowState.blocks
     const initialNodes = buildPreviewNodes(workflowState)

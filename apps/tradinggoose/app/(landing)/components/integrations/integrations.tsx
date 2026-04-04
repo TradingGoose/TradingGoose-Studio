@@ -125,12 +125,16 @@ export default function Integrations() {
 
   return (
     <section id='integrations' className='py-8 sm:py-16 lg:py-24'>
-      <div className='mx-auto px-20 sm:px-32 lg:px-48'>
+      <div className='mx-auto px-4 sm:px-6 lg:px-48'>
         <div className='flex items-start justify-between gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>
           {/* Header */}
           <MotionPreset fade slide={{ direction: 'up', offset: 32 }} transition={{ duration: 0.5 }}>
-            <div className='card group relative overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out'>
+            <div
+              suppressHydrationWarning
+              className='card group relative overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out'
+            >
               <div
+                suppressHydrationWarning
                 className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
                 style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
               />
