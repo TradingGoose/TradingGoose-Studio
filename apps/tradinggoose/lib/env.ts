@@ -1,17 +1,45 @@
 import { createEnv } from '@t3-oss/env-nextjs'
-import { env as runtimeEnv } from 'next-runtime-env'
 import { z } from 'zod'
 
 /**
  * Universal environment variable getter that works in both client and server contexts.
  * - Client-side: Uses next-runtime-env for runtime injection (supports Docker runtime vars)
  * - Server-side: Falls back to process.env when runtimeEnv returns undefined
- * - Provides seamless Docker runtime variable support for NEXT_PUBLIC_ vars
+ * - Non-Next.js (e.g. React Email preview): Falls back to process.env directly
+ *
+ * next-runtime-env is loaded lazily to avoid crashes in non-Next.js contexts
+ * where its internal `next/cache` dependency is unavailable.
  */
-const getEnv = (variable: string) => runtimeEnv(variable) ?? process.env[variable]
+let _runtimeEnv: ((key: string) => string | undefined) | null | false = false
 
-// biome-ignore format: keep alignment for readability
-export const env = createEnv({
+const getEnv = (variable: string) => {
+  // Lazy-load next-runtime-env on first call
+  if (_runtimeEnv === false) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      _runtimeEnv = require('next-runtime-env').env
+    } catch {
+      _runtimeEnv = null
+    }
+  }
+
+  if (_runtimeEnv) {
+    try {
+      return _runtimeEnv(variable) ?? process.env[variable]
+    } catch {
+      return process.env[variable]
+    }
+  }
+
+  return process.env[variable]
+}
+
+// Wrap createEnv in a function so non-Next.js consumers (e.g. React Email preview)
+// get a safe fallback instead of a top-level crash.
+function safeCreateEnv() {
+  try {
+    // biome-ignore format: keep alignment for readability
+    return createEnv({
   skipValidation: true,
 
   server: {
@@ -279,7 +307,7 @@ export const env = createEnv({
     // Analytics & Tracking
     NEXT_PUBLIC_GOOGLE_API_KEY: z.string().optional(),                  // Google API key for client-side API calls
     NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: z.string().optional(),                  // Google project number for Drive picker
-    NEXT_PUBLIC_POSTHOG_ENABLED: z.boolean().optional(),                 // Enable PostHog analytics (client-side)
+    NEXT_PUBLIC_POSTHOG_DISABLED: z.string().optional(),                 // Set to "1" to disable PostHog analytics
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),                  // PostHog project API key
 
     // UI Branding & Whitelabeling
@@ -337,12 +365,25 @@ export const env = createEnv({
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
     NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED: process.env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED,
     NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: process.env.NEXT_PUBLIC_COPILOT_TRAINING_ENABLED,
-    NEXT_PUBLIC_POSTHOG_ENABLED: process.env.NEXT_PUBLIC_POSTHOG_ENABLED,
+    NEXT_PUBLIC_POSTHOG_DISABLED: process.env.NEXT_PUBLIC_POSTHOG_DISABLED,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED,
   },
 })
+  } catch {
+    // Non-Next.js context (e.g. React Email preview) — return a proxy
+    // that reads from process.env directly.
+    return new Proxy({} as any, {
+      get(_, prop) {
+        if (typeof prop === 'string') return process.env[prop]
+        return undefined
+      },
+    })
+  }
+}
+
+export const env = safeCreateEnv()
 
 // Need this utility because t3-env is returning string for boolean values.
 export const isTruthy = (value: string | boolean | number | undefined) =>

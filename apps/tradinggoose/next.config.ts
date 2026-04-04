@@ -83,6 +83,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
     turbopackSourceMaps: false,
+    preloadEntriesOnStart: false,
   },
   ...(isDev && {
     allowedDevOrigins: [

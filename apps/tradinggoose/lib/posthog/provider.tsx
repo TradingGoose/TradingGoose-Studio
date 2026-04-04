@@ -7,10 +7,10 @@ import { getEnv, isTruthy } from '../env'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const posthogEnabled = getEnv('NEXT_PUBLIC_POSTHOG_ENABLED')
-    const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY')
+    const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY') || 'phc_wekVf2yb9Ua9UV6uwRsUHVhbc2p7hccEJsQTZ2wCCX6N'
+    const disabled = getEnv('NEXT_PUBLIC_POSTHOG_DISABLED') === '1'
 
-    if (isTruthy(posthogEnabled) && posthogKey && !posthog.__loaded) {
+    if (!disabled && posthogKey && !posthog.__loaded) {
       posthog.init(posthogKey, {
         api_host: '/ingest',
         ui_host: 'https://us.posthog.com',
