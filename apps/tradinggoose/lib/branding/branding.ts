@@ -25,7 +25,7 @@ export interface BrandConfig {
  */
 const defaultConfig: BrandConfig = {
   name: 'TradingGoose Studio',
-  logoUrl: 'https://avatars.githubusercontent.com/u/226357056',
+  logoUrl: undefined,
   faviconUrl: '/favicon/favicon.ico',
   customCssUrl: undefined,
   supportEmail: 'support@tradinggoose.ai',

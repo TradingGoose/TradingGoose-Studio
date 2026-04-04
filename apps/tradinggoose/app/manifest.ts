@@ -5,10 +5,13 @@ export default function manifest(): MetadataRoute.Manifest {
   const brand = getBrandConfig()
 
   return {
-    name: brand.name === 'TradingGoose' ? 'TradingGoose - AI Agent Workflow Builder' : brand.name,
+    name:
+      brand.name === 'TradingGoose'
+        ? 'TradingGoose - Visual Workflow Platform for LLM Trading'
+        : brand.name,
     short_name: brand.name,
     description:
-      'Open-source AI agent workflow builder. 30,000+ developers build and deploy agentic workflows on TradingGoose. Visual drag-and-drop interface for creating AI automations. SOC2 and HIPAA compliant.',
+      'Open-source visual workflow platform for technical LLM-driven trading. Build custom indicators, monitor live markets, and trigger AI agent workflows on signals.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
@@ -31,12 +34,12 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/png',
       },
     ],
-    categories: ['productivity', 'developer', 'business'],
+    categories: ['finance', 'productivity', 'developer'],
     shortcuts: [
       {
-        name: 'Create Workflow',
+        name: 'Create Trading Workflow',
         short_name: 'New',
-        description: 'Create a new AI workflow',
+        description: 'Create a new trading workflow',
         url: '/workspace',
       },
     ],
