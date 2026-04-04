@@ -1,5 +1,8 @@
 import { getEnv, isTruthy } from '@/lib/env'
 import type { SubBlockConfig } from '@/blocks/types'
+import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
+import { getTrigger } from '@/triggers'
+import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
 
 interface BuildSubBlockRowsParams {
   subBlocks: SubBlockConfig[]
@@ -9,6 +12,7 @@ interface BuildSubBlockRowsParams {
   isPureTriggerBlock: boolean
   availableTriggerIds?: string[]
   hideFromPreview?: boolean
+  triggerSubBlockOwner?: 'editor' | 'deploy'
 }
 
 type ConditionValue = string | number | boolean | Array<string | number | boolean>
@@ -56,18 +60,24 @@ export function buildSubBlockRows({
   isPureTriggerBlock,
   availableTriggerIds,
   hideFromPreview = false,
+  triggerSubBlockOwner = 'editor',
 }: BuildSubBlockRowsParams): SubBlockConfig[][] {
-  const selectedTriggerId = stateToUse.selectedTriggerId?.value
-  const triggerIdFromState = stateToUse.triggerId?.value
+  const resolvedParams = buildConfiguredSubBlockParams({
+    subBlockConfigs: subBlocks,
+    subBlocks: stateToUse,
+  })
+  const selectedTriggerId = resolvedParams.selectedTriggerId
+  const triggerIdFromState = resolvedParams.triggerId
   const activeTriggerId =
     typeof selectedTriggerId === 'string'
       ? selectedTriggerId
       : typeof triggerIdFromState === 'string'
         ? triggerIdFromState
         : availableTriggerIds?.[0]
+  const hasTriggerDefinition = !!(activeTriggerId && getTrigger(activeTriggerId))
 
   const getConditionFieldValue = (field: string) => {
-    const normalizedValue = normalizeValue(stateToUse[field]?.value)
+    const normalizedValue = normalizeValue(resolvedParams[field])
     if (
       field === 'selectedTriggerId' &&
       (normalizedValue === undefined || normalizedValue === null || normalizedValue === '')
@@ -95,6 +105,16 @@ export function buildSubBlockRows({
       }
     } else if (subBlock.mode === 'trigger') {
       return false
+    }
+
+    if (isTriggerMode && subBlock.mode === 'trigger' && hasTriggerDefinition) {
+      const isDeployManaged = isDeployManagedTriggerSubBlock(subBlock.id)
+      if (triggerSubBlockOwner === 'editor' && isDeployManaged) {
+        return false
+      }
+      if (triggerSubBlockOwner === 'deploy' && !isDeployManaged) {
+        return false
+      }
     }
 
     if (subBlock.mode === 'basic' && isAdvancedMode) return false

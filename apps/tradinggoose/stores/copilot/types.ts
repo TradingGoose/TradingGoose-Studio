@@ -1,5 +1,6 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export type ToolState = ClientToolCallState
 
@@ -9,6 +10,7 @@ export interface CopilotToolCall {
   state: ClientToolCallState
   params?: Record<string, any>
   display?: ClientToolDisplay
+  result?: any
   // Immutable execution provenance captured when the tool call is created.
   provenance?: CopilotToolExecutionProvenance
 }
@@ -46,19 +48,9 @@ export interface CopilotMessage {
 
 // Contexts attached to a user message
 export type ChatContext =
-  | { kind: 'past_chat'; chatId: string; label: string }
+  | { kind: 'past_chat'; reviewSessionId: string; label: string }
   | { kind: 'workflow'; workflowId: string; label: string }
   | { kind: 'current_workflow'; workflowId: string; label: string }
-  | {
-      kind: 'current_targets'
-      label: string
-      workflowId?: string
-      skillId?: string
-      customToolId?: string
-      mcpServerId?: string
-      indicatorId?: string
-      pineIndicatorId?: string
-    }
   | { kind: 'blocks'; blockIds: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
@@ -67,12 +59,15 @@ export type ChatContext =
   | { kind: 'docs'; label: string }
 
 export interface CopilotChat {
-  id: string
+  reviewSessionId: string
+  workspaceId: string | null
+  entityKind: ReviewEntityKind
+  entityId: string | null
+  draftSessionId: string | null
   title: string | null
-  model: string
+  reviewModel: string
   messages: CopilotMessage[]
   messageCount: number
-  previewYaml: string | null
   conversationId?: string | null
   createdAt: Date
   updatedAt: Date
@@ -80,7 +75,12 @@ export interface CopilotChat {
 
 export interface CopilotToolExecutionProvenance {
   channelId: string
-  workflowId: string
+  workflowId?: string
+  reviewSessionId?: string
+  entityKind?: ReviewEntityKind
+  entityId?: string
+  draftSessionId?: string
+  workspaceId?: string
 }
 
 export interface CopilotState {
@@ -106,20 +106,14 @@ export interface CopilotState {
   messages: CopilotMessage[]
   workflowId: string | null
 
-  checkpoints: any[]
-  messageCheckpoints: Record<string, any[]>
-
   isLoading: boolean
   isLoadingChats: boolean
-  isLoadingCheckpoints: boolean
   isSendingMessage: boolean
   isSaving: boolean
-  isRevertingCheckpoint: boolean
   isAborting: boolean
 
   error: string | null
   saveError: string | null
-  checkpointError: string | null
 
   abortController: AbortController | null
 
@@ -167,7 +161,7 @@ export interface CopilotActions {
   areChatsFresh: (workflowId: string) => boolean
   selectChat: (chat: CopilotChat) => Promise<void>
   createNewChat: () => Promise<void>
-  deleteChat: (chatId: string) => Promise<void>
+  deleteChat: (reviewSessionId: string) => Promise<void>
 
   sendMessage: (
     message: string,
@@ -187,18 +181,9 @@ export interface CopilotActions {
   sendDocsMessage: (query: string, options?: { stream?: boolean; topK?: number }) => Promise<void>
   saveChatMessages: (chatId: string) => Promise<void>
 
-  loadCheckpoints: (chatId: string) => Promise<void>
-  loadMessageCheckpoints: (chatId: string) => Promise<void>
-  revertToCheckpoint: (checkpointId: string) => Promise<void>
-  getCheckpointsForMessage: (messageId: string) => any[]
-
-  setPreviewYaml: (yamlContent: string) => Promise<void>
-  clearPreviewYaml: () => Promise<void>
-
   clearMessages: () => void
   clearError: () => void
   clearSaveError: () => void
-  clearCheckpointError: () => void
   retrySave: (chatId: string) => Promise<void>
   cleanup: () => void
   reset: () => void
@@ -218,7 +203,7 @@ export interface CopilotActions {
     isContinuation?: boolean,
     triggerUserMessageId?: string
   ) => Promise<void>
-  handleNewChatCreation: (newChatId: string) => Promise<void>
+  handleNewReviewSessionCreation: (newReviewSessionId: string) => Promise<void>
   updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>
   updateDiffStoreWithWorkflowState: (workflowState: any, toolName?: string) => Promise<void>
 

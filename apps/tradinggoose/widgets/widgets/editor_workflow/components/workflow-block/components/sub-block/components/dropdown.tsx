@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils'
 import type { SubBlockConfig } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -106,10 +106,17 @@ export function Dropdown({
     state.getActiveWorkflowId(resolvedChannelId)
   )
   const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
-  const blockContextValues = useSubBlockStore((state) => {
+  const allBlocks = useWorkflowBlocks()
+  const blockContextValues = useMemo(() => {
     if (!resolvedWorkflowId) return undefined
-    return (state.workflowValues[resolvedWorkflowId] as Record<string, any> | undefined)?.[blockId]
-  })
+    const block = allBlocks[blockId]
+    if (!block?.subBlocks) return undefined
+    const values: Record<string, any> = {}
+    for (const [key, sb] of Object.entries(block.subBlocks)) {
+      values[key] = sb.value
+    }
+    return values
+  }, [allBlocks, blockId, resolvedWorkflowId])
 
   const { finalDisabled, dependencyValues, dependsOn } = useDependsOnGate(blockId, resolvedConfig, {
     disabled: disabled ?? false,

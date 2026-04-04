@@ -9,6 +9,7 @@ import {
   shouldAutoExecuteIntegrationTool,
 } from '@/lib/copilot/access-policy'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
+import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
@@ -37,21 +38,12 @@ import type {
   CopilotMessage,
   CopilotStore,
   CopilotToolCall,
+  CopilotToolExecutionProvenance,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+
 
 const logger = createLogger('CopilotStore')
-
-// On module load, clear any lingering diff preview (fresh page refresh)
-try {
-  const diffStore = useWorkflowDiffStore.getState()
-  if (diffStore?.isShowingDiff || diffStore?.diffWorkflow) {
-    diffStore.clearDiff()
-  }
-} catch {}
 
 // Constants
 const TEXT_BLOCK_TYPE = 'text'
@@ -59,22 +51,61 @@ const THINKING_BLOCK_TYPE = 'thinking'
 const DATA_PREFIX = 'data: '
 const DATA_PREFIX_LENGTH = 6
 
+/** All valid ClientToolCallState values accepted when normalizing persisted messages. */
+const VALID_TOOL_CALL_STATES = new Set<string>(Object.values(ClientToolCallState))
+
+/**
+ * Build tool execution provenance from a chat and optional workflow context.
+ * Returns `undefined` when there is insufficient context to build provenance.
+ */
+function buildToolProvenance(
+  channelId: string | undefined,
+  workflowId: string | null | undefined,
+  chat: CopilotChat | null | undefined
+): CopilotToolExecutionProvenance | undefined {
+  const resolvedWorkflowId =
+    workflowId ??
+    (chat?.entityKind === 'workflow' ? (chat.entityId ?? undefined) : undefined)
+
+  if (!resolvedWorkflowId && !chat) {
+    return undefined
+  }
+
+  const provenance: CopilotToolExecutionProvenance = {
+    channelId: channelId || DEFAULT_COPILOT_CHANNEL_ID,
+  }
+
+  if (resolvedWorkflowId) provenance.workflowId = resolvedWorkflowId
+  if (chat?.reviewSessionId) provenance.reviewSessionId = chat.reviewSessionId
+  if (chat?.entityKind) provenance.entityKind = chat.entityKind
+  if (chat?.entityId ?? resolvedWorkflowId) provenance.entityId = chat?.entityId ?? resolvedWorkflowId
+  if (chat?.draftSessionId) provenance.draftSessionId = chat.draftSessionId
+  if (chat?.workspaceId) provenance.workspaceId = chat.workspaceId
+
+  return provenance
+}
+
+/**
+ * Attach immutable execution provenance to a tool call if not already present.
+ */
 function withPinnedToolExecutionProvenance(
   toolCall: CopilotToolCall,
-  workflowId?: string | null,
-  channelId = DEFAULT_COPILOT_CHANNEL_ID
+  opts: {
+    channelId: string | undefined
+    workflowId: string | null | undefined
+    chat: CopilotChat | null | undefined
+  }
 ): CopilotToolCall {
-  if (toolCall.provenance || !workflowId) {
+  if (toolCall.provenance) {
     return toolCall
   }
 
-  return {
-    ...toolCall,
-    provenance: {
-      channelId,
-      workflowId,
-    },
+  const provenance = buildToolProvenance(opts.channelId, opts.workflowId, opts.chat)
+  if (!provenance) {
+    return toolCall
   }
+
+  return { ...toolCall, provenance }
 }
 
 // Helper: abort all in-progress client tools and update inline blocks
@@ -165,32 +196,24 @@ function normalizeMessagesForUI(messages: CopilotMessage[]): CopilotMessage[] {
               // Ensure client tool instance is registered for this tool call
               ensureClientToolInstance(b.toolCall?.name, b.toolCall?.id)
 
+              const nextState =
+                typeof b.toolCall?.state === 'string' &&
+                VALID_TOOL_CALL_STATES.has(b.toolCall.state)
+                  ? b.toolCall.state
+                  : ClientToolCallState.rejected
+
               return {
                 ...b,
                 toolCall: {
                   ...b.toolCall,
-                  state:
-                    isRejectedState(b.toolCall?.state) ||
-                    isReviewState(b.toolCall?.state) ||
-                    isBackgroundState(b.toolCall?.state) ||
-                    b.toolCall?.state === ClientToolCallState.success ||
-                    b.toolCall?.state === ClientToolCallState.error ||
-                    b.toolCall?.state === ClientToolCallState.aborted
-                      ? b.toolCall.state
-                      : ClientToolCallState.rejected,
+                  state: nextState,
                   display: resolveToolDisplay(
                     b.toolCall?.name,
-                    (isRejectedState(b.toolCall?.state) ||
-                    isReviewState(b.toolCall?.state) ||
-                    isBackgroundState(b.toolCall?.state) ||
-                    b.toolCall?.state === ClientToolCallState.success ||
-                    b.toolCall?.state === ClientToolCallState.error ||
-                    b.toolCall?.state === ClientToolCallState.aborted
-                      ? (b.toolCall?.state as any)
-                      : ClientToolCallState.rejected) as any,
+                    nextState,
                     b.toolCall?.id,
                     b.toolCall?.params
                   ),
+                  ...(b.toolCall?.result !== undefined ? { result: b.toolCall.result } : {}),
                 },
               }
             }
@@ -204,30 +227,17 @@ function normalizeMessagesForUI(messages: CopilotMessage[]): CopilotMessage[] {
             // Ensure client tool instance is registered for this tool call
             ensureClientToolInstance(tc?.name, tc?.id)
 
+            const nextState =
+              typeof tc?.state === 'string' &&
+              VALID_TOOL_CALL_STATES.has(tc.state)
+                ? tc.state
+                : ClientToolCallState.rejected
+
             return {
               ...tc,
-              state:
-                isRejectedState(tc?.state) ||
-                isReviewState(tc?.state) ||
-                isBackgroundState(tc?.state) ||
-                tc?.state === ClientToolCallState.success ||
-                tc?.state === ClientToolCallState.error ||
-                tc?.state === ClientToolCallState.aborted
-                  ? tc.state
-                  : ClientToolCallState.rejected,
-              display: resolveToolDisplay(
-                tc?.name,
-                (isRejectedState(tc?.state) ||
-                isReviewState(tc?.state) ||
-                isBackgroundState(tc?.state) ||
-                tc?.state === ClientToolCallState.success ||
-                tc?.state === ClientToolCallState.error ||
-                tc?.state === ClientToolCallState.aborted
-                  ? (tc?.state as any)
-                  : ClientToolCallState.rejected) as any,
-                tc?.id,
-                tc?.params
-              ),
+              state: nextState,
+              display: resolveToolDisplay(tc?.name, nextState as any, tc?.id, tc?.params),
+              ...(tc?.result !== undefined ? { result: tc.result } : {}),
             }
           })
         : (message as any).toolCalls
@@ -245,6 +255,82 @@ function normalizeMessagesForUI(messages: CopilotMessage[]): CopilotMessage[] {
   } catch {
     return messages
   }
+}
+
+function updateMessagesForToolCallState(
+  messages: CopilotMessage[],
+  toolCallId: string,
+  nextState: ClientToolCallState,
+  options?: { result?: any }
+): CopilotMessage[] {
+  let found = false
+  const result: CopilotMessage[] = new Array(messages.length)
+  for (let i = 0; i < messages.length; i++) {
+    if (found) {
+      result[i] = messages[i]
+      continue
+    }
+
+    const message = messages[i]
+    if (message.role !== 'assistant') {
+      result[i] = message
+      continue
+    }
+
+    let blocksChanged = false
+    const contentBlocks = Array.isArray(message.contentBlocks)
+      ? message.contentBlocks.map((block: any) => {
+          if (block?.type !== 'tool_call' || block.toolCall?.id !== toolCallId) {
+            return block
+          }
+
+          blocksChanged = true
+          return {
+            ...block,
+            toolCall: {
+              ...block.toolCall,
+              state: nextState,
+              display: resolveToolDisplay(
+                block.toolCall?.name,
+                nextState,
+                toolCallId,
+                block.toolCall?.params
+              ),
+              ...(options?.result !== undefined ? { result: options.result } : {}),
+            },
+          }
+        })
+      : message.contentBlocks
+
+    const toolCalls = Array.isArray((message as any).toolCalls)
+      ? (message as any).toolCalls.map((toolCall: any) => {
+          if (toolCall?.id !== toolCallId) {
+            return toolCall
+          }
+
+          blocksChanged = true
+          return {
+            ...toolCall,
+            state: nextState,
+            display: resolveToolDisplay(toolCall?.name, nextState, toolCallId, toolCall?.params),
+            ...(options?.result !== undefined ? { result: options.result } : {}),
+          }
+        })
+      : (message as any).toolCalls
+
+    if (!blocksChanged) {
+      result[i] = message
+      continue
+    }
+
+    found = true
+    result[i] = {
+      ...message,
+      ...(contentBlocks ? { contentBlocks } : {}),
+      ...(toolCalls ? { toolCalls } : {}),
+    }
+  }
+  return result
 }
 
 // Simple object pool for content blocks
@@ -408,12 +494,26 @@ function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
 }
 
 const sseHandlers: Record<string, SSEHandler> = {
-  chat_id: async (data, context, get) => {
-    context.newChatId = data.chatId
+  review_session_id: async (data, context, get) => {
+    context.newReviewSessionId = data.reviewSessionId
     const { currentChat } = get()
-    if (!currentChat && context.newChatId) {
-      await get().handleNewChatCreation(context.newChatId)
+    if (!currentChat && context.newReviewSessionId) {
+      await get().handleNewReviewSessionCreation(context.newReviewSessionId)
     }
+  },
+  title_updated: (data, _context, get, set) => {
+    const title = typeof data?.title === 'string' ? data.title : ''
+    if (!title) return
+
+    const { currentChat, chats } = get()
+    if (!currentChat) return
+
+    set({
+      currentChat: { ...currentChat, title },
+      chats: (chats || []).map((chat) =>
+        chat.reviewSessionId === currentChat.reviewSessionId ? { ...chat, title } : chat
+      ),
+    })
   },
   start: (data, _context, get, set) => {
     const conversationId = data?.data?.conversationId
@@ -424,7 +524,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     set({
       currentChat: { ...currentChat, conversationId },
       chats: (chats || []).map((chat) =>
-        chat.id === currentChat.id ? { ...chat, conversationId } : chat
+        chat.reviewSessionId === currentChat.reviewSessionId ? { ...chat, conversationId } : chat
       ),
     })
   },
@@ -606,8 +706,7 @@ const sseHandlers: Record<string, SSEHandler> = {
           state: initialState,
           display: resolveToolDisplay(toolName, initialState, toolCallId),
         },
-        context.workflowId,
-        context.channelId
+        { channelId: context.channelId, workflowId: context.workflowId, chat: get().currentChat }
       )
       const updated = { ...toolCallsById, [toolCallId]: tc }
       set({ toolCallsById: updated })
@@ -655,8 +754,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         }
     const next: CopilotToolCall = withPinnedToolExecutionProvenance(
       nextBase,
-      context.workflowId,
-      context.channelId
+      { channelId: context.channelId, workflowId: context.workflowId, chat: get().currentChat }
     )
     const updated = { ...toolCallsById, [id]: next }
     set({ toolCallsById: updated })
@@ -686,8 +784,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     const executionContext = createExecutionContext({
       toolCallId: id,
       toolName: name || 'unknown_tool',
-      channelId: provenance.channelId,
-      workflowId: provenance.workflowId,
+      provenance,
     })
 
     try {
@@ -1003,18 +1100,13 @@ const initialState = {
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotMessage[],
-  checkpoints: [] as any[],
-  messageCheckpoints: {} as Record<string, any[]>,
   isLoading: false,
   isLoadingChats: false,
-  isLoadingCheckpoints: false,
   isSendingMessage: false,
   isSaving: false,
-  isRevertingCheckpoint: false,
   isAborting: false,
   error: null as string | null,
   saveError: null as string | null,
-  checkpointError: null as string | null,
   workflowId: null as string | null,
   abortController: null as AbortController | null,
   chatsLastLoadedAt: null as Date | null,
@@ -1048,9 +1140,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         // Abort all in-progress tools and clear any diff preview
         abortAllInProgressTools(set, get)
-        try {
-          useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
 
         set({
           ...initialState,
@@ -1063,9 +1152,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
       // Chats (minimal implementation for visibility)
       validateCurrentChat: () => {
-        const { currentChat, workflowId, chats } = get()
-        if (!currentChat || !workflowId) return false
-        const chatExists = chats.some((c) => c.id === currentChat.id)
+        const { currentChat, chats } = get()
+        if (!currentChat) return false
+        const chatExists = chats.some((c) => c.reviewSessionId === currentChat.reviewSessionId)
         if (!chatExists) {
           set({ currentChat: null, messages: [] })
           return false
@@ -1074,17 +1163,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       selectChat: async (chat: CopilotChat) => {
-        const { isSendingMessage, currentChat, workflowId } = get()
-        if (!workflowId) {
-          return
-        }
-        if (currentChat && currentChat.id !== chat.id && isSendingMessage) get().abortMessage()
+        const { isSendingMessage, currentChat } = get()
+        if (currentChat && currentChat.reviewSessionId !== chat.reviewSessionId && isSendingMessage) get().abortMessage()
 
         // Abort in-progress tools and clear diff when changing chats
         abortAllInProgressTools(set, get)
-        try {
-          useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
 
         // Capture previous chat/messages for optimistic background save
         const previousChat = currentChat
@@ -1102,25 +1185,31 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         // Background-save the previous chat's latest messages before switching (optimistic)
         try {
-          if (previousChat && previousChat.id !== chat.id) {
+          if (previousChat && previousChat.reviewSessionId !== chat.reviewSessionId) {
             const dbMessages = validateMessagesForLLM(previousMessages)
             fetch('/api/copilot/chat/update-messages', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chatId: previousChat.id, messages: dbMessages }),
+              body: JSON.stringify({ reviewSessionId: previousChat.reviewSessionId, messages: dbMessages }),
             }).catch(() => {})
           }
         } catch {}
 
         // Refresh selected chat from server to ensure we have latest messages/tool calls
         try {
-          const response = await fetch(`/api/copilot/chat?workflowId=${workflowId}`)
+          const reviewSessionId = chat.reviewSessionId
+          const response = await fetch(
+            `/api/copilot/chat?reviewSessionId=${encodeURIComponent(reviewSessionId)}`
+          )
           if (!response.ok) throw new Error(`Failed to fetch latest chat data: ${response.status}`)
           const data = await response.json()
           if (data.success && Array.isArray(data.chats)) {
-            const latestChat = data.chats.find((c: CopilotChat) => c.id === chat.id)
+            const latestChat =
+              data.chats.find((c: CopilotChat) => c.reviewSessionId === chat.reviewSessionId) ?? data.chats[0] ?? null
             if (latestChat) {
               const normalizedMessages = normalizeMessagesForUI(latestChat.messages || [])
+              const latestWorkflowId =
+                latestChat.entityKind === 'workflow' ? (latestChat.entityId ?? undefined) : undefined
 
               // Build toolCallsById map from all tool calls in normalized messages
               const toolCallsById: Record<string, CopilotToolCall> = {}
@@ -1129,9 +1218,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   for (const block of msg.contentBlocks as any[]) {
                     if (block?.type === 'tool_call' && block.toolCall?.id) {
                       toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
-                        block.toolCall,
-                        workflowId,
-                        storeChannelId
+                          block.toolCall,
+                          { channelId: storeChannelId, workflowId: latestWorkflowId, chat: latestChat }
                       )
                     }
                   }
@@ -1142,17 +1230,16 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 currentChat: latestChat,
                 messages: normalizedMessages,
                 chats: (get().chats || []).map((c: CopilotChat) =>
-                  c.id === chat.id ? latestChat : c
+                  c.reviewSessionId === chat.reviewSessionId ? latestChat : c
                 ),
                 contextUsage: null,
                 toolCallsById,
               })
-              try {
-                await get().loadMessageCheckpoints(latestChat.id)
-              } catch {}
               // Fetch context usage for the selected chat
-              logger.info('[Context Usage] Chat selected, fetching usage')
-              await get().fetchContextUsage()
+              if (latestChat.entityKind === 'workflow') {
+                logger.info('[Context Usage] Chat selected, fetching usage')
+                await get().fetchContextUsage()
+              }
             }
           }
         } catch {}
@@ -1164,9 +1251,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         // Abort in-progress tools and clear diff on new chat
         abortAllInProgressTools(set, get)
-        try {
-          useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
 
         // Background-save the current chat before clearing (optimistic)
         try {
@@ -1177,7 +1261,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             fetch('/api/copilot/chat/update-messages', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
+              body: JSON.stringify({ reviewSessionId: currentChat.reviewSessionId, messages: dbMessages }),
             }).catch(() => {})
           }
         } catch {}
@@ -1186,7 +1270,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         set({
           currentChat: null,
           messages: [],
-          messageCheckpoints: {},
           planTodos: [],
           showPlanTodos: false,
           suppressAutoSelect: true,
@@ -1194,13 +1277,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         })
       },
 
-      deleteChat: async (chatId: string) => {
+      deleteChat: async (reviewSessionId: string) => {
         try {
           // Call delete API
           const response = await fetch('/api/copilot/chat/delete', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId }),
+            body: JSON.stringify({ reviewSessionId }),
           })
 
           if (!response.ok) {
@@ -1209,13 +1292,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           // Remove from local state
           set((state) => ({
-            chats: state.chats.filter((c) => c.id !== chatId),
+            chats: state.chats.filter((c) => c.reviewSessionId !== reviewSessionId),
             // If deleted chat was current, clear it
-            currentChat: state.currentChat?.id === chatId ? null : state.currentChat,
-            messages: state.currentChat?.id === chatId ? [] : state.messages,
+            currentChat: state.currentChat?.reviewSessionId === reviewSessionId ? null : state.currentChat,
+            messages: state.currentChat?.reviewSessionId === reviewSessionId ? [] : state.messages,
           }))
 
-          logger.info('Chat deleted', { chatId })
+          logger.info('Chat deleted', { reviewSessionId })
         } catch (error) {
           logger.error('Failed to delete chat:', error)
           throw error
@@ -1225,9 +1308,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       areChatsFresh: (_workflowId: string) => false,
 
       loadChats: async (_forceRefresh = false) => {
-        const { workflowId } = get()
+        const { workflowId, currentChat } = get()
         if (!workflowId) {
-          set({ chats: [], isLoadingChats: false })
+          set({
+            chats: currentChat ? [currentChat] : [],
+            isLoadingChats: false,
+            chatsLoadedForWorkflow: null,
+          })
           return
         }
 
@@ -1251,11 +1338,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             if (data.chats.length > 0) {
               const { currentChat, isSendingMessage, suppressAutoSelect } = get()
               const currentChatStillExists =
-                currentChat && data.chats.some((c: CopilotChat) => c.id === currentChat.id)
+                currentChat && data.chats.some((c: CopilotChat) => c.reviewSessionId === currentChat.reviewSessionId)
 
               if (currentChatStillExists) {
                 const updatedCurrentChat = data.chats.find(
-                  (c: CopilotChat) => c.id === currentChat!.id
+                  (c: CopilotChat) => c.reviewSessionId === currentChat!.reviewSessionId
                 )!
                 if (isSendingMessage) {
                   set({ currentChat: { ...updatedCurrentChat, messages: get().messages } })
@@ -1271,10 +1358,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                       for (const block of msg.contentBlocks as any[]) {
                         if (block?.type === 'tool_call' && block.toolCall?.id) {
                           toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
-                            block.toolCall,
-                            workflowId,
-                            storeChannelId
-                          )
+                          block.toolCall,
+                          { channelId: storeChannelId, workflowId, chat: updatedCurrentChat }
+                        )
                         }
                       }
                     }
@@ -1286,9 +1372,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     toolCallsById,
                   })
                 }
-                try {
-                  await get().loadMessageCheckpoints(updatedCurrentChat.id)
-                } catch {}
               } else if (!isSendingMessage && !suppressAutoSelect) {
                 const mostRecentChat: CopilotChat = data.chats[0]
                 const normalizedMessages = normalizeMessagesForUI(mostRecentChat.messages || [])
@@ -1301,8 +1384,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                       if (block?.type === 'tool_call' && block.toolCall?.id) {
                         toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
                           block.toolCall,
-                          workflowId,
-                          storeChannelId
+                          { channelId: storeChannelId, workflowId, chat: mostRecentChat }
                         )
                       }
                     }
@@ -1314,9 +1396,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   messages: normalizedMessages,
                   toolCallsById,
                 })
-                try {
-                  await get().loadMessageCheckpoints(mostRecentChat.id)
-                } catch {}
               }
             } else {
               set({ currentChat: null, messages: [] })
@@ -1347,7 +1426,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           contexts?: ChatContext[]
           messageId?: string
         }
-        if (!workflowId) return
+        if (!currentChat && !workflowId) return
 
         const abortController = new AbortController()
         set({ isSendingMessage: true, error: null, abortController })
@@ -1395,6 +1474,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
 
         try {
+          const requestWorkflowId =
+            currentChat?.entityKind === 'workflow'
+              ? (currentChat.entityId ?? workflowId ?? undefined)
+              : workflowId ?? undefined
+          const requestReviewSessionId = currentChat?.reviewSessionId
+          const requestModel = (currentChat?.reviewModel ??
+            get().selectedModel) as CopilotStore['selectedModel']
+
           // Debug: log contexts presence before sending
           try {
             logger.info('sendMessage: preparing request', {
@@ -1403,7 +1490,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               contextsPreview: Array.isArray(contexts)
                 ? contexts.map((c: any) => ({
                     kind: c?.kind,
-                    chatId: (c as any)?.chatId,
+                    reviewSessionId: (c as any)?.reviewSessionId,
                     workflowId: (c as any)?.workflowId,
                     label: (c as any)?.label,
                   }))
@@ -1414,11 +1501,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           const result = await sendStreamingMessage({
             message,
             userMessageId: userMessage.id,
-            chatId: currentChat?.id,
-            workflowId,
-            model: get().selectedModel,
+            reviewSessionId: requestReviewSessionId,
+            workflowId:
+              currentChat?.entityKind === 'workflow' || !currentChat ? requestWorkflowId : undefined,
+            entityKind: currentChat?.entityKind,
+            entityId: currentChat?.entityId ?? undefined,
+            draftSessionId: currentChat?.draftSessionId ?? undefined,
+            workspaceId: currentChat?.workspaceId ?? undefined,
+            model: requestModel,
             prefetch: get().agentPrefetch,
-            createNewChat: !currentChat,
             stream,
             fileAttachments,
             contexts,
@@ -1521,7 +1612,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               fetch('/api/copilot/chat/update-messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
+                body: JSON.stringify({ reviewSessionId: currentChat.reviewSessionId, messages: dbMessages }),
               }).catch(() => {})
             } catch {}
           }
@@ -1549,7 +1640,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           // Preserve rejected state from being overridden
           if (
             isRejectedState(current.state) &&
-            (newState === 'success' || newState === (ClientToolCallState as any).success)
+            (newState === 'success' || newState === ClientToolCallState.success)
           ) {
             return
           }
@@ -1615,7 +1706,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Do not override a rejected tool with success
         if (
           isRejectedState(current.state) &&
-          targetState === (ClientToolCallState as any).success
+          targetState === ClientToolCallState.success
         ) {
           return
         }
@@ -1708,110 +1799,25 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         await get().sendMessage(query)
       },
 
-      saveChatMessages: async (_chatId: string) => {},
+      saveChatMessages: async (chatId: string) => {
+        const { currentChat, messages } = get()
+        const targetChatId = chatId || currentChat?.reviewSessionId
+        if (!targetChatId) return
+        if (currentChat?.reviewSessionId && currentChat.reviewSessionId !== targetChatId) return
 
-      loadCheckpoints: async (_chatId: string) => set({ checkpoints: [] }),
-
-      loadMessageCheckpoints: async (chatId: string) => {
-        const { workflowId } = get()
-        if (!workflowId) return
-        set({ isLoadingCheckpoints: true, checkpointError: null })
         try {
-          const response = await fetch(`/api/copilot/checkpoints?chatId=${chatId}`)
-          if (!response.ok) throw new Error(`Failed to load checkpoints: ${response.statusText}`)
-          const data = await response.json()
-          if (data.success && Array.isArray(data.checkpoints)) {
-            const grouped = data.checkpoints.reduce((acc: Record<string, any[]>, cp: any) => {
-              const key = cp.messageId || '__no_message__'
-              acc[key] = acc[key] || []
-              acc[key].push(cp)
-              return acc
-            }, {})
-            set({ messageCheckpoints: grouped, isLoadingCheckpoints: false })
-          } else {
-            throw new Error('Invalid checkpoints response')
-          }
-        } catch (error) {
-          set({
-            isLoadingCheckpoints: false,
-            checkpointError: error instanceof Error ? error.message : 'Failed to load checkpoints',
-          })
-        }
-      },
-
-      // Revert to a specific checkpoint and apply state locally
-      revertToCheckpoint: async (checkpointId: string) => {
-        const { workflowId } = get()
-        if (!workflowId) return
-        set({ isRevertingCheckpoint: true, checkpointError: null })
-        try {
-          const response = await fetch('/api/copilot/checkpoints/revert', {
+          const dbMessages = validateMessagesForLLM(messages)
+          await fetch('/api/copilot/chat/update-messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ checkpointId }),
+            body: JSON.stringify({ reviewSessionId: targetChatId, messages: dbMessages }),
           })
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => '')
-            throw new Error(errorText || `Failed to revert: ${response.statusText}`)
-          }
-          const result = await response.json()
-          const reverted = result?.checkpoint?.workflowState || null
-          if (reverted) {
-            // Clear any active diff preview
-            try {
-              useWorkflowDiffStore.getState().clearDiff()
-            } catch {}
-
-            // Apply to main workflow store
-            useWorkflowStore.setState({
-              blocks: reverted.blocks || {},
-              edges: reverted.edges || [],
-              loops: reverted.loops || {},
-              parallels: reverted.parallels || {},
-              lastSaved: reverted.lastSaved || Date.now(),
-              isDeployed: !!reverted.isDeployed,
-              ...(reverted.deployedAt ? { deployedAt: new Date(reverted.deployedAt) } : {}),
-              deploymentStatuses: reverted.deploymentStatuses || {},
-            })
-
-            // Extract and apply subblock values
-            const values: Record<string, Record<string, any>> = {}
-            Object.entries(reverted.blocks || {}).forEach(([blockId, block]: [string, any]) => {
-              values[blockId] = {}
-              Object.entries((block as any).subBlocks || {}).forEach(
-                ([subId, sub]: [string, any]) => {
-                  values[blockId][subId] = (sub as any)?.value
-                }
-              )
-            })
-            const subState = useSubBlockStore.getState()
-            useSubBlockStore.setState({
-              workflowValues: {
-                ...subState.workflowValues,
-                [workflowId]: values,
-              },
-            })
-          }
-          set({ isRevertingCheckpoint: false })
         } catch (error) {
-          set({
-            isRevertingCheckpoint: false,
-            checkpointError: error instanceof Error ? error.message : 'Failed to revert checkpoint',
+          logger.warn('Failed to persist copilot chat messages', {
+            chatId: targetChatId,
+            error: error instanceof Error ? error.message : String(error),
           })
-          throw error
         }
-      },
-      getCheckpointsForMessage: (messageId: string) => {
-        const { messageCheckpoints } = get()
-        return messageCheckpoints[messageId] || []
-      },
-
-      // Preview YAML (stubbed/no-op)
-      setPreviewYaml: async (_yamlContent: string) => {},
-      clearPreviewYaml: async () => {
-        set((state) => ({
-          currentChat: state.currentChat ? { ...state.currentChat, previewYaml: null } : null,
-        }))
       },
 
       // Handle streaming response
@@ -1892,8 +1898,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             currentUserMessageId: null,
           }))
 
-          if (context.newChatId && !get().currentChat) {
-            await get().handleNewChatCreation(context.newChatId)
+          if (context.newReviewSessionId && !get().currentChat) {
+            await get().handleNewReviewSessionCreation(context.newReviewSessionId)
           }
 
           // Persist full message state (including contentBlocks) to database
@@ -1905,7 +1911,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               await fetch('/api/copilot/chat/update-messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
+                body: JSON.stringify({ reviewSessionId: currentChat.reviewSessionId, messages: dbMessages }),
               })
             } catch {}
           }
@@ -1925,23 +1931,23 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       // Handle new chat creation from stream
-      handleNewChatCreation: async (newChatId: string) => {
+      handleNewReviewSessionCreation: async (newReviewSessionId: string) => {
         const newChat: CopilotChat = {
-          id: newChatId,
+          reviewSessionId: newReviewSessionId,
+          workspaceId: null,
+          entityKind: ENTITY_KIND_WORKFLOW,
+          entityId: get().workflowId,
+          draftSessionId: null,
           title: null,
-          model: 'gpt-4',
+          reviewModel: get().selectedModel,
           messages: get().messages,
           messageCount: get().messages.length,
-          previewYaml: null,
           conversationId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
         // Abort any in-progress tools and clear diff on new chat creation
         abortAllInProgressTools(set, get)
-        try {
-          useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
 
         set({
           currentChat: newChat,
@@ -1957,7 +1963,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       // Utilities
       clearError: () => set({ error: null }),
       clearSaveError: () => set({ saveError: null }),
-      clearCheckpointError: () => set({ checkpointError: null }),
       retrySave: async (_chatId: string) => {},
 
       cleanup: () => {
@@ -1965,9 +1970,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (isSendingMessage) get().abortMessage()
         resetStreamingQueue()
         // Clear any diff on cleanup
-        try {
-          useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
       },
 
       reset: () => {
@@ -2013,20 +2015,33 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         try {
           const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel, workflowId } = get()
+          const activeWorkflowId =
+            currentChat?.entityKind === 'workflow'
+              ? (currentChat.entityId ?? workflowId ?? null)
+              : null
           logger.info('[Context Usage] Starting fetch', {
             hasConversationId: !!currentChat?.conversationId,
-            hasWorkflowId: !!workflowId,
+            hasWorkflowId: !!activeWorkflowId,
             conversationId: currentChat?.conversationId,
-            workflowId,
+            workflowId: activeWorkflowId,
             model: selectedModel,
             bill,
             assistantMessageId,
           })
 
-          if (!currentChat?.conversationId || !workflowId) {
+          if (!currentChat || currentChat.entityKind !== 'workflow') {
+            set({ contextUsage: null })
+            logger.info('[Context Usage] Skipping for non-workflow target', {
+              entityKind: currentChat?.entityKind,
+            })
+            return
+          }
+
+          if (!currentChat.conversationId || !activeWorkflowId) {
+            set({ contextUsage: null })
             logger.info('[Context Usage] Skipping: missing conversationId or workflow', {
               hasConversationId: !!currentChat?.conversationId,
-              hasWorkflowId: !!workflowId,
+              hasWorkflowId: !!activeWorkflowId,
             })
             return
           }
@@ -2034,7 +2049,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           const requestPayload: Record<string, any> = {
             conversationId: currentChat.conversationId,
             model: selectedModel,
-            workflowId,
+            workflowId: activeWorkflowId,
           }
           if (bill && assistantMessageId) {
             requestPayload.bill = true
@@ -2091,15 +2106,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       executeCopilotToolCall: async (toolCallId: string) => {
         const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
-        const workflowId = toolCall?.provenance?.workflowId
-        if (!toolCall || !workflowId) return
+        const provenance = toolCall?.provenance
+        if (!toolCall || !provenance) return
 
         const { id, name, params } = toolCall
         const executionContext = createExecutionContext({
           toolCallId: id,
           toolName: name,
-          channelId: toolCall.provenance?.channelId || DEFAULT_COPILOT_CHANNEL_ID,
-          workflowId,
+          provenance: { ...provenance, channelId: provenance.channelId || DEFAULT_COPILOT_CHANNEL_ID },
         })
         const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
 
@@ -2232,7 +2246,30 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         try {
           bindClientToolExecutionContext(id, executionContext)
-          if (instance.getInterruptDisplays?.() && typeof instance.handleAccept === 'function') {
+          const shouldStageEditWorkflow =
+            name === 'edit_workflow' && toolCall.state !== ClientToolCallState.review
+          const hasPersistedEditWorkflowState =
+            name === 'edit_workflow' && !!(toolCall as any)?.result?.workflowState
+
+          if (name === 'edit_workflow' && toolCall.state === ClientToolCallState.review) {
+            if (!hasPersistedEditWorkflowState) {
+              await instance.execute(preparedArgs)
+              const latestState = get().toolCallsById[id]?.state
+              if (
+                latestState !== ClientToolCallState.review &&
+                latestState !== ClientToolCallState.executing &&
+                latestState !== ClientToolCallState.pending
+              ) {
+                return
+              }
+            }
+
+            await instance.handleAccept(preparedArgs)
+          } else if (
+            instance.getInterruptDisplays?.() &&
+            typeof instance.handleAccept === 'function' &&
+            !shouldStageEditWorkflow
+          ) {
             await instance.handleAccept(preparedArgs)
           } else {
             await instance.execute(preparedArgs)
@@ -2500,7 +2537,7 @@ export function useCopilotStoreApi(channelId?: string) {
 
 // Sync class-based tool instance state changes back into the store map
 try {
-  registerToolStateSync((toolCallId: string, nextState: any) => {
+  registerToolStateSync((toolCallId: string, nextState: any, options?: { result?: any }) => {
     const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
     const state = targetStore.getState()
     const current = state.toolCallsById[toolCallId]
@@ -2513,8 +2550,8 @@ try {
     else if (nextState === 'error' || nextState === 'errored') mapped = ClientToolCallState.error
     else if (nextState === 'rejected') mapped = ClientToolCallState.rejected
     else if (nextState === 'aborted') mapped = ClientToolCallState.aborted
-    else if (nextState === 'review') mapped = (ClientToolCallState as any).review
-    else if (nextState === 'background') mapped = (ClientToolCallState as any).background
+    else if (nextState === 'review') mapped = ClientToolCallState.review
+    else if (nextState === 'background') mapped = ClientToolCallState.background
     else if (typeof nextState === 'number') mapped = nextState as unknown as ClientToolCallState
 
     // Store-authoritative gating: ignore invalid/downgrade transitions
@@ -2523,8 +2560,8 @@ try {
       s === ClientToolCallState.error ||
       s === ClientToolCallState.rejected ||
       s === ClientToolCallState.aborted ||
-      (s as any) === (ClientToolCallState as any).review ||
-      (s as any) === (ClientToolCallState as any).background
+      s === ClientToolCallState.review ||
+      s === ClientToolCallState.background
 
     // If we've already reached a terminal state, ignore any further non-terminal updates
     if (isTerminal(current.state) && !isTerminal(mapped)) {
@@ -2534,20 +2571,55 @@ try {
     if (
       (current.state === ClientToolCallState.executing && mapped === ClientToolCallState.pending) ||
       (current.state === ClientToolCallState.pending &&
-        mapped === (ClientToolCallState as any).generating)
+        mapped === ClientToolCallState.generating)
     ) {
       return
     }
-    // No-op if unchanged
-    if (mapped === current.state) return
+    const hasResultUpdate = options?.result !== undefined
+    // No-op if unchanged and there is no staged-result update to persist
+    if (mapped === current.state && !hasResultUpdate) return
     const updated = {
       ...state.toolCallsById,
       [toolCallId]: {
         ...current,
         state: mapped,
         display: resolveToolDisplay(current.name, mapped, toolCallId, current.params),
+        ...(options?.result !== undefined ? { result: options.result } : {}),
       },
     }
-    targetStore.setState({ toolCallsById: updated })
+    const updatedMessages = updateMessagesForToolCallState(
+      state.messages,
+      toolCallId,
+      mapped,
+      options
+    )
+    const nextCurrentChat = state.currentChat
+      ? {
+          ...state.currentChat,
+          messages: updatedMessages,
+        }
+      : state.currentChat
+    targetStore.setState({
+      toolCallsById: updated,
+      messages: updatedMessages,
+      ...(nextCurrentChat ? { currentChat: nextCurrentChat } : {}),
+    })
+
+    // Only persist on terminal/meaningful state transitions to avoid redundant DB writes.
+    // Intermediate states (generating, pending, executing) carry no new persisted data.
+    const shouldPersist =
+      mapped === ClientToolCallState.success ||
+      mapped === ClientToolCallState.error ||
+      mapped === ClientToolCallState.aborted ||
+      mapped === ClientToolCallState.rejected ||
+      mapped === ClientToolCallState.review ||
+      mapped === ClientToolCallState.background
+
+    if (shouldPersist) {
+      const currentChat = targetStore.getState().currentChat
+      if (currentChat?.reviewSessionId) {
+        void targetStore.getState().saveChatMessages(currentChat.reviewSessionId)
+      }
+    }
   })
 } catch {}

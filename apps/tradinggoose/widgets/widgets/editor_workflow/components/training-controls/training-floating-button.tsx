@@ -14,8 +14,7 @@ interface TrainingFloatingButtonProps {
 }
 
 /**
- * Floating button positioned above the diff controls
- * Shows training state and allows starting/stopping training
+ * Floating button for starting or stopping copilot training capture.
  */
 export function TrainingFloatingButton({
   channelId,

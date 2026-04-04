@@ -7,9 +7,12 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { saveWorkflowToNormalizedTables, toISOStringOrUndefined } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { getVariablesSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { getExistingDocument } from '@/socket-server/yjs/upstream-utils'
 
 const logger = createLogger('WorkflowStateAPI')
 
@@ -39,6 +42,11 @@ const SubBlockStateSchema = z.object({
 
 const BlockOutputSchema = z.any()
 
+const BlockLayoutSchema = z.object({
+  measuredWidth: z.number().optional(),
+  measuredHeight: z.number().optional(),
+})
+
 const BlockStateSchema = z.object({
   id: z.string(),
   type: z.string(),
@@ -53,6 +61,7 @@ const BlockStateSchema = z.object({
   advancedMode: z.boolean().optional(),
   triggerMode: z.boolean().optional(),
   data: BlockDataSchema.optional(),
+  layout: BlockLayoutSchema.optional(),
 })
 
 const EdgeSchema = z.object({
@@ -100,6 +109,7 @@ const WorkflowStateSchema = z.object({
   lastSaved: z.number().optional(),
   isDeployed: z.boolean().optional(),
   deployedAt: z.coerce.date().optional(),
+  variables: z.record(z.any()).optional(),
 })
 
 /**
@@ -139,7 +149,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       accessContext?.isOwner ||
       (workflowData.workspaceId
         ? accessContext?.workspacePermission === 'write' ||
-        accessContext?.workspacePermission === 'admin'
+          accessContext?.workspacePermission === 'admin'
         : false)
 
     if (!canUpdate) {
@@ -152,8 +162,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Sanitize custom tools in agent blocks before saving
     const { blocks: sanitizedBlocks, warnings } = sanitizeAgentToolsInBlocks(state.blocks as any)
 
-    // Save to normalized tables
-    // Ensure all required fields are present for WorkflowState type
     // Filter out blocks without type or name before saving
     const filteredBlocks = Object.entries(sanitizedBlocks).reduce(
       (acc, [blockId, block]: [string, any]) => {
@@ -162,7 +170,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           return acc
         }
 
-        // Ensure all required fields are present
         acc[blockId] = {
           ...block,
           id: block.id || blockId,
@@ -185,9 +192,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       edges: state.edges,
       loops: state.loops || {},
       parallels: state.parallels || {},
-      lastSaved: state.lastSaved || Date.now(),
+      lastSaved: toISOStringOrUndefined(state.lastSaved) ?? new Date().toISOString(),
       isDeployed: state.isDeployed || false,
-      deployedAt: state.deployedAt,
+      deployedAt: toISOStringOrUndefined(state.deployedAt),
+    }
+
+    // Prefer explicit request variables, otherwise fall back to the live Yjs doc.
+    // If the doc is not mounted locally, preserve the current canonical row value.
+    //
+    // Note: getExistingDocument and the subsequent getDocument call inside
+    // tryApplyWorkflowState both hit the same in-memory docs Map, so the
+    // second lookup is an O(1) cache hit rather than a network round-trip.
+    let variables = state.variables
+    if (variables === undefined) {
+      const liveDoc = await getExistingDocument(workflowId)
+      if (liveDoc) {
+        variables = getVariablesSnapshot(liveDoc)
+      } else {
+        variables = (workflowData.variables as Record<string, any> | null) ?? undefined
+      }
     }
 
     const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState as any)
@@ -199,6 +222,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         { status: 500 }
       )
     }
+
+    // Apply the validated state to the Yjs doc only after the canonical save succeeds.
+    await tryApplyWorkflowState(workflowId, workflowState as WorkflowSnapshot, variables)
 
     // Extract and persist custom tools to database
     try {
@@ -219,12 +245,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       logger.error(`[${requestId}] Failed to persist custom tools`, { error, workflowId })
     }
 
-    // Update workflow's lastSynced timestamp
+    // Update workflow metadata and persist variables
     await db
       .update(workflow)
       .set({
         lastSynced: new Date(),
         updatedAt: new Date(),
+        ...(variables ? { variables } : {}),
       })
       .where(eq(workflow.id, workflowId))
 

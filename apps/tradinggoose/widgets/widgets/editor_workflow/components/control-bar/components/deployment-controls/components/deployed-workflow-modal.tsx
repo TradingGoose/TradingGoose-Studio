@@ -16,9 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { DeployedWorkflowCard } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { useWorkflowBlocks, useWorkflowEdges, useWorkflowLoops, useWorkflowParallels } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('DeployedWorkflowModal')
 
@@ -53,12 +52,11 @@ export function DeployedWorkflowModal({
   const resolvedWorkflowId = workflowId
 
   // Get current workflow state to compare with deployed state
-  const currentWorkflowState = useWorkflowStore((state) => ({
-    blocks: resolvedWorkflowId ? mergeSubblockState(state.blocks, resolvedWorkflowId) : state.blocks,
-    edges: state.edges,
-    loops: state.loops,
-    parallels: state.parallels,
-  }))
+  const blocks = useWorkflowBlocks()
+  const edges = useWorkflowEdges()
+  const loops = useWorkflowLoops()
+  const parallels = useWorkflowParallels()
+  const currentWorkflowState = { blocks, edges, loops, parallels }
 
   const handleRevert = async () => {
     if (!resolvedWorkflowId) {

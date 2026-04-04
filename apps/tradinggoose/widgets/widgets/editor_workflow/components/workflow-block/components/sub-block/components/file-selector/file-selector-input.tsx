@@ -17,9 +17,9 @@ import { useForeignCredential } from '@/widgets/widgets/editor_workflow/componen
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface FileSelectorInputProps {
   blockId: string
@@ -34,7 +34,7 @@ export function FileSelectorInput({
   disabled,
   contextValues,
 }: FileSelectorInputProps) {
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
+  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const registryWorkflowId = useWorkflowRegistry((state) =>

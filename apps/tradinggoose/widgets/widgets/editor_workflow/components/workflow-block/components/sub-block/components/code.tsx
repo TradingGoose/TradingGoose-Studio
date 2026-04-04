@@ -9,15 +9,20 @@ import { CodeLanguage } from '@/lib/execution/languages'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
+import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { GenerationType } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import {
+  useSubBlockValue as useYjsSubBlockValue,
+  useWorkflowTextField,
+} from '@/lib/yjs/use-workflow-doc'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('Code')
@@ -66,7 +71,6 @@ export function Code({
   wandConfig,
 }: CodeProps) {
   const workspaceId = useWorkspaceId()
-  const workflowId = useWorkflowId()
 
   const aiPromptPlaceholder = useMemo(() => {
     switch (generationType) {
@@ -79,7 +83,7 @@ export function Code({
     }
   }, [generationType])
 
-  const [code, setCode] = useState<string>('')
+  const [streamingLock, setStreamingLock] = useState(false)
   const [showTags, setShowTags] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -90,12 +94,10 @@ export function Code({
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const collapsedStateKey = `${subBlockId}_collapsed`
-  const collapsedStoreValue = useSubBlockStore((state) =>
-    state.getValue(blockId, collapsedStateKey, workflowId)
-  ) as boolean | null
+  const collapsedStoreValue = useYjsSubBlockValue(blockId, collapsedStateKey) as boolean | null
   const isCollapsed = collapsedStoreValue ?? defaultCollapsed ?? false
 
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
+  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
   const setCollapsedValue = (blockId: string, subblockId: string, value: any) => {
     collaborativeSetSubblockValue(blockId, subblockId, value)
   }
@@ -106,42 +108,11 @@ export function Code({
     }
   }, [blockId, collapsedStateKey, collapsedStoreValue, defaultCollapsed])
 
-  const allowCollapse =
-    typeof collapsible === 'boolean'
-      ? collapsible
-      : subBlockId === 'responseFormat' || subBlockId === 'code'
-  const showCollapseButton = allowCollapse && code.split('\n').length > 5
-
-  const isValidJson = useMemo(() => {
-    if (subBlockId !== 'responseFormat' || !code.trim()) {
-      return true
-    }
-    try {
-      JSON.parse(code)
-      return true
-    } catch {
-      return false
-    }
-  }, [subBlockId, code])
-
-  useEffect(() => {
-    if (onValidationChange && subBlockId === 'responseFormat') {
-      const timeoutId = setTimeout(() => {
-        onValidationChange(isValidJson)
-      }, 150)
-      return () => clearTimeout(timeoutId)
-    }
-  }, [isValidJson, onValidationChange, subBlockId])
-
   const editorRef = useRef<MonacoEditorHandle | null>(null)
 
   const toggleCollapsed = () => {
     setCollapsedValue(blockId, collapsedStateKey, !isCollapsed)
   }
-
-  const handleStreamStartRef = useRef<() => void>(() => { })
-  const handleGeneratedContentRef = useRef<(generatedCode: string) => void>(() => { })
-  const handleStreamChunkRef = useRef<(chunk: string) => void>(() => { })
 
   const [languageValue] = useSubBlockValue<string>(blockId, 'language')
   const isPythonLanguage = languageValue === CodeLanguage.Python
@@ -184,6 +155,101 @@ IMPORTANT FORMATTING RULES:
     return wandConfig
   }, [wandConfig, isPythonLanguage])
 
+  const [storeValue] = useSubBlockValue(blockId, subBlockId, false, {
+    isStreaming: streamingLock,
+    onStreamingEnd: () => {
+      logger.debug('AI streaming ended, value persisted', { blockId, subBlockId })
+    },
+  })
+
+  const emitTagSelection = useTagSelection(blockId, subBlockId)
+
+  const shouldUseStoreValue = propValue === undefined
+  const rawValue = shouldUseStoreValue ? storeValue : propValue
+  const resolvedValue = useMemo(() => {
+    const resolvedValue = resolveDisplayedSubBlockValue(
+      {
+        readOnly,
+        defaultValue,
+      },
+      rawValue
+    )
+
+    if (typeof resolvedValue === 'string') {
+      return resolvedValue
+    }
+
+    if (resolvedValue === null || resolvedValue === undefined) {
+      return ''
+    }
+
+    try {
+      return JSON.stringify(resolvedValue, null, 2)
+    } catch {
+      return String(resolvedValue)
+    }
+  }, [defaultValue, rawValue, readOnly])
+
+  const isReadOnly = readOnly || disabled
+  const useSharedTextField = shouldUseStoreValue && !isReadOnly
+  const workflowSession = useOptionalWorkflowSession()
+  const {
+    value: textFieldValue,
+    yText: sharedYText,
+    setValue: setTextFieldValue,
+  } = useWorkflowTextField(
+    blockId,
+    subBlockId,
+    resolvedValue,
+    {
+      enabled: useSharedTextField,
+      autoCreate: useSharedTextField,
+      mirrorDelayMs: useSharedTextField ? 650 : null,
+    }
+  )
+
+  const yText = useSharedTextField ? sharedYText : null
+  const code = useSharedTextField ? textFieldValue : resolvedValue
+  const persistValue = useCallback(
+    (nextValue: string, emitTag = false) => {
+      if (!shouldUseStoreValue || isReadOnly) {
+        return
+      }
+      setTextFieldValue(nextValue)
+      if (emitTag) {
+        emitTagSelection(nextValue)
+      }
+    },
+    [emitTagSelection, isReadOnly, setTextFieldValue, shouldUseStoreValue]
+  )
+
+  const allowCollapse =
+    typeof collapsible === 'boolean'
+      ? collapsible
+      : subBlockId === 'responseFormat' || subBlockId === 'code'
+  const showCollapseButton = allowCollapse && code.split('\n').length > 5
+
+  const isValidJson = useMemo(() => {
+    if (subBlockId !== 'responseFormat' || !code.trim()) {
+      return true
+    }
+    try {
+      JSON.parse(code)
+      return true
+    } catch {
+      return false
+    }
+  }, [subBlockId, code])
+
+  useEffect(() => {
+    if (onValidationChange && subBlockId === 'responseFormat') {
+      const timeoutId = setTimeout(() => {
+        onValidationChange(isValidJson)
+      }, 150)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isValidJson, onValidationChange, subBlockId])
+
   const handleCopy = async () => {
     if (!code) return
     try {
@@ -196,75 +262,40 @@ IMPORTANT FORMATTING RULES:
   }
 
   const wandHook = useWand({
-    wandConfig: readOnly
-      ? { ...(wandConfig || { enabled: false, prompt: '' }), enabled: false }
-      : wandConfig || { enabled: false, prompt: '' },
+    wandConfig: readOnly ? { ...wandConfig, enabled: false } : wandConfig,
     currentValue: code,
-    onStreamStart: () => handleStreamStartRef.current?.(),
-    onStreamChunk: (chunk: string) => handleStreamChunkRef.current?.(chunk),
-    onGeneratedContent: (content: string) => handleGeneratedContentRef.current?.(content),
-  })
-
-  const isAiLoading = wandHook?.isLoading || false
-  const isAiStreaming = wandHook?.isStreaming || false
-  const generateCodeStream = wandHook?.generateStream || (() => { })
-  const isPromptVisible = wandHook?.isPromptVisible || false
-  const showPromptInline = wandHook?.showPromptInline || (() => { })
-  const hidePromptInline = wandHook?.hidePromptInline || (() => { })
-  const promptInputValue = wandHook?.promptInputValue || ''
-  const updatePromptValue = wandHook?.updatePromptValue || (() => { })
-  const cancelGeneration = wandHook?.cancelGeneration || (() => { })
-
-  const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: isAiStreaming,
-    onStreamingEnd: () => {
-      logger.debug('AI streaming ended, value persisted', { blockId, subBlockId })
-    },
-  })
-
-  const emitTagSelection = useTagSelection(blockId, subBlockId)
-  const persistValue = useCallback(
-    (nextValue: string, emitTag = false) => {
-      setStoreValue(nextValue)
-      if (emitTag) {
-        emitTagSelection(nextValue)
+    onStreamStart: () => {
+      setStreamingLock(true)
+      if (shouldUseStoreValue) {
+        setTextFieldValue('')
       }
     },
-    [emitTagSelection, setStoreValue]
-  )
-
-  const shouldUseStoreValue = propValue === undefined
-  const rawValue = shouldUseStoreValue ? storeValue : propValue ?? code
-  const value = rawValue ?? defaultValue ?? ''
-
-  const isReadOnly = readOnly || disabled
-
-  useEffect(() => {
-    handleStreamStartRef.current = () => {
-      setCode('')
-    }
-
-    handleGeneratedContentRef.current = (generatedCode: string) => {
-      setCode(generatedCode)
+    onGeneratedContent: (generatedCode: string) => {
       if (!disabled && !readOnly) {
         persistValue(generatedCode)
       }
-    }
-  }, [disabled, readOnly, persistValue])
+    },
+  })
+
+  const isAiLoading = wandHook.isLoading
+  const isAiStreaming = wandHook.isStreaming
+  const generateCodeStream = wandHook.generateStream
+  const isPromptVisible = wandHook.isPromptVisible
+  const showPromptInline = wandHook.showPromptInline
+  const hidePromptInline = wandHook.hidePromptInline
+  const promptInputValue = wandHook.promptInputValue
+  const updatePromptValue = wandHook.updatePromptValue
+  const cancelGeneration = wandHook.cancelGeneration
 
   useEffect(() => {
-    if (isAiStreaming) return
-    const valueString = value?.toString() ?? ''
-    if (valueString !== code) {
-      setCode(valueString)
+    if (!isAiStreaming) {
+      setStreamingLock(false)
     }
-  }, [value, code, isAiStreaming])
+  }, [isAiStreaming])
 
   const handleEditorChange = useCallback(
     (newCode: string) => {
       if (isCollapsed || isAiStreaming || isReadOnly) return
-      setCode(newCode)
-      persistValue(newCode)
 
       const cursorPos = editorRef.current?.getCursorOffset() ?? 0
       setCursorPosition(cursorPos)
@@ -279,7 +310,7 @@ IMPORTANT FORMATTING RULES:
       setShowEnvVars(envVarTrigger.show)
       setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
     },
-    [isCollapsed, isAiStreaming, isReadOnly, persistValue]
+    [isCollapsed, isAiStreaming, isReadOnly]
   )
 
   const handleCursorChange = useCallback(
@@ -330,7 +361,6 @@ IMPORTANT FORMATTING RULES:
 
   const handleTagSelect = (newValue: string) => {
     if (!isReadOnly) {
-      setCode(newValue)
       persistValue(newValue, true)
     }
     setShowTags(false)
@@ -343,8 +373,7 @@ IMPORTANT FORMATTING RULES:
 
   const handleEnvVarSelect = (newValue: string) => {
     if (!isReadOnly) {
-      setCode(newValue)
-      persistValue(newValue, true)
+      persistValue(newValue)
     }
     setShowEnvVars(false)
 
@@ -491,6 +520,8 @@ IMPORTANT FORMATTING RULES:
             language={effectiveLanguage ?? 'javascript'}
             placeholder={isCollapsed ? '' : dynamicPlaceholder}
             decorations={decorations}
+            yText={yText}
+            awareness={workflowSession?.awareness ?? null}
             autoHeight
             minHeight={106}
             className={cn(

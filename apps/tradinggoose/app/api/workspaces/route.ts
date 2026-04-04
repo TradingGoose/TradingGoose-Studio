@@ -7,6 +7,8 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('Workspaces')
 const createWorkspaceSchema = z.object({
@@ -144,7 +146,19 @@ async function createWorkspace(userId: string, name: string) {
     })
 
     const { workflowState } = buildDefaultWorkflowArtifacts()
-    const seedResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+
+    // Seed the Yjs doc and persist to normalized tables in parallel
+    const [, seedResult] = await Promise.all([
+      tryApplyWorkflowState(workflowId, createWorkflowSnapshot({
+        blocks: workflowState.blocks,
+        edges: workflowState.edges,
+        loops: workflowState.loops,
+        parallels: workflowState.parallels,
+        lastSaved: new Date().toISOString(),
+        isDeployed: false,
+      })),
+      saveWorkflowToNormalizedTables(workflowId, workflowState),
+    ])
 
     if (!seedResult.success) {
       throw new Error(seedResult.error || 'Failed to seed default workflow state')

@@ -10,27 +10,18 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn, validateName } from '@/lib/utils'
-import { type DiffStatus, hasDiffStatus } from '@/lib/workflows/diff/types'
+import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
+import { useBlock, useBlockProtection, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useCurrentWorkflow } from '@/hooks/workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowRegistry } from '@/stores/workflows/registry/types'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
-import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import {
-  useOptionalWorkflowRoute,
+  useWorkflowChannelId,
   useWorkflowId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ActionBar } from './components/action-bar/action-bar'
@@ -385,94 +376,52 @@ export const WorkflowBlock = memo(
     }, [data.isPreview])
 
     // Use the clean abstraction for current workflow state
-    const currentWorkflow = useCurrentWorkflow()
     const userPermissions = useUserPermissionsContext()
-    const currentBlock = currentWorkflow.getBlockById(id)
+    const currentBlock = useBlock(id)
+    const isCurrentBlockProtected = useBlockProtection(id)
     const isReadOnlyBlock = Boolean(data.isPreview || data.readOnly)
     const isLocked = data.isPreview
       ? (data.blockState?.locked ?? false)
       : (currentBlock?.locked ?? false)
-    const isProtectedByLock =
-      data.isPreview || !currentBlock
-        ? isLocked
-        : isBlockProtected(currentBlock.id, currentWorkflow.blocks)
+    const isProtectedByLock = data.isPreview || !currentBlock ? isLocked : isCurrentBlockProtected
     const disableInNodeEditing =
-      (CANONICAL_SIDE_PANEL_TYPES.has(type) && !isReadOnlyBlock && !currentWorkflow.isDiffMode) ||
-      isProtectedByLock
+      (CANONICAL_SIDE_PANEL_TYPES.has(type) && !isReadOnlyBlock) || isProtectedByLock
 
     // In preview mode, use the blockState provided; otherwise use current workflow state
     const isEnabled = data.isPreview
       ? (data.blockState?.enabled ?? true)
       : (currentBlock?.enabled ?? true)
 
-    // Get diff status from the block itself (set by diff engine)
-    const diffStatus: DiffStatus =
-      currentWorkflow.isDiffMode && currentBlock && hasDiffStatus(currentBlock)
-        ? currentBlock.is_diff
-        : undefined
+    // Read block properties from Yjs doc
+    const yjsMutations = useWorkflowMutations()
+    const currentYjsBlock = currentBlock
+    const workflowChannelId = useWorkflowChannelId()
 
-    // Optimized: Single diff store subscription for all diff-related data
-    const { diffAnalysis, isShowingDiff } = useWorkflowDiffStore(
-      useCallback(
-        (state) => ({
-          diffAnalysis: state.diffAnalysis,
-          isShowingDiff: state.isShowingDiff,
-        }),
-        []
-      )
-    )
-    const isDeletedBlock = !isShowingDiff && diffAnalysis?.deleted_blocks?.includes(id)
-
-    // Removed debug logging for performance
-    const workflowRoute = useOptionalWorkflowRoute()
-    const workflowChannelId = workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-    const routeWorkflowId = workflowRoute?.workflowId ?? null
-
-    const resolveActiveWorkflowId = useCallback(
-      (state?: WorkflowRegistry) => {
-        const sourceState = state ?? useWorkflowRegistry.getState()
-        return sourceState.getActiveWorkflowId(workflowChannelId)
-      },
-      [workflowChannelId]
-    )
-
-    // Optimized: Single store subscription for all block properties
+    // Derive block properties from Yjs blocks
     const {
       storeHorizontalHandles,
       storeBlockHeight,
       storeBlockLayout,
       storeBlockAdvancedMode,
       storeBlockTriggerMode,
-    } = useWorkflowStore(
-      useCallback(
-        (state) => {
-          const block = state.blocks[id]
-          return {
-            storeHorizontalHandles: block?.horizontalHandles ?? true,
-            storeBlockHeight: block?.height ?? 0,
-            storeBlockLayout: block?.layout,
-            storeBlockAdvancedMode: block?.advancedMode ?? false,
-            storeBlockTriggerMode: block?.triggerMode ?? false,
-          }
-        },
-        [id]
-      )
-    )
+    } = useMemo(() => {
+      const block = currentYjsBlock
+      return {
+        storeHorizontalHandles: block?.horizontalHandles ?? true,
+        storeBlockHeight: block?.height ?? 0,
+        storeBlockLayout: block?.layout,
+        storeBlockAdvancedMode: block?.advancedMode ?? false,
+        storeBlockTriggerMode: block?.triggerMode ?? false,
+      }
+    }, [currentYjsBlock])
 
-    // Get block properties from currentWorkflow when in diff mode, otherwise from workflow store
     const horizontalHandles = data.isPreview
-      ? (data.blockState?.horizontalHandles ?? true) // In preview mode, use blockState and default to horizontal
-      : currentWorkflow.isDiffMode
-        ? (currentWorkflow.blocks[id]?.horizontalHandles ?? true)
-        : storeHorizontalHandles
+      ? (data.blockState?.horizontalHandles ?? true)
+      : storeHorizontalHandles
 
-    const blockHeight = currentWorkflow.isDiffMode
-      ? (currentWorkflow.blocks[id]?.height ?? 0)
-      : storeBlockHeight
+    const blockHeight = storeBlockHeight
 
-    const blockWidth = currentWorkflow.isDiffMode
-      ? (currentWorkflow.blocks[id]?.layout?.measuredWidth ?? 0)
-      : (storeBlockLayout?.measuredWidth ?? 0)
+    const blockWidth = storeBlockLayout?.measuredWidth ?? 0
 
     const tooltipPortalContainer = tooltipContainer ?? undefined
     const popoverPortalContainer = popoverContainer ?? undefined
@@ -492,40 +441,25 @@ export const WorkflowBlock = memo(
       [normalizedViewportScale, popoverPortalContainer]
     )
 
-    // Get per-block webhook status by checking if webhook is configured
-    const activeWorkflowId = useWorkflowRegistry(resolveActiveWorkflowId)
-    const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
+    // Get per-block webhook status by checking if webhook is configured (from Yjs blocks)
+    const blockWebhookStatus = useMemo(() => {
+      const subBlocks = currentYjsBlock?.subBlocks
+      if (!subBlocks) return false
 
-    // Optimized: Single SubBlockStore subscription for webhook info
-    const blockWebhookStatus = useSubBlockStore(
-      useCallback(
-        (state) => {
-          const blockValues = resolvedWorkflowId
-            ? state.workflowValues[resolvedWorkflowId]?.[id]
-            : null
-          if (!blockValues) return false
-
-          const hasLegacyWebhookConfig = Boolean(
-            blockValues.webhookProvider && (blockValues.webhookPath || blockValues.triggerPath)
-          )
-          const hasTriggerManagedWebhookConfig = Boolean(
-            blockValues.triggerPath && (blockValues.webhookId || blockValues.triggerId)
-          )
-
-          return hasLegacyWebhookConfig || hasTriggerManagedWebhookConfig
-        },
-        [resolvedWorkflowId, id]
+      const getVal = (key: string) => subBlocks[key]?.value
+      const hasLegacyWebhookConfig = Boolean(
+        getVal('webhookProvider') && (getVal('webhookPath') || getVal('triggerPath'))
       )
-    )
+      const hasTriggerManagedWebhookConfig = Boolean(
+        getVal('triggerPath') && (getVal('webhookId') || getVal('triggerId'))
+      )
 
-    const blockAdvancedMode = currentWorkflow.isDiffMode
-      ? (currentWorkflow.blocks[id]?.advancedMode ?? false)
-      : storeBlockAdvancedMode
+      return hasLegacyWebhookConfig || hasTriggerManagedWebhookConfig
+    }, [currentYjsBlock?.subBlocks])
 
-    // Get triggerMode from currentWorkflow blocks when in diff mode, otherwise from workflow store
-    const blockTriggerMode = currentWorkflow.isDiffMode
-      ? (currentWorkflow.blocks[id]?.triggerMode ?? false)
-      : storeBlockTriggerMode
+    const blockAdvancedMode = storeBlockAdvancedMode
+
+    const blockTriggerMode = storeBlockTriggerMode
 
     const displayAdvancedMode = data.isPreview
       ? (data.blockState?.advancedMode ?? false)
@@ -537,35 +471,31 @@ export const WorkflowBlock = memo(
 
     // Collaborative workflow actions
     const { collaborativeUpdateBlockName, collaborativeSetSubblockValue } =
-      useCollaborativeWorkflow()
+      useWorkflowEditorActions()
 
     // Clear credential-dependent fields when credential changes
     const prevCredRef = useRef<string | undefined>(undefined)
     useEffect(() => {
-      if (isReadOnlyBlock || !userPermissions.canEdit || currentWorkflow.isDiffMode) return
-      const workflowIdForBlock = resolveActiveWorkflowId() ?? routeWorkflowId
-      if (!workflowIdForBlock) return
-      const current = useSubBlockStore.getState().workflowValues[workflowIdForBlock]?.[id]
-      if (!current) return
-      const cred = current.credential?.value as string | undefined
+      if (isReadOnlyBlock || !userPermissions.canEdit) return
+      const subBlocks = currentYjsBlock?.subBlocks
+      if (!subBlocks) return
+      const cred = subBlocks.credential?.value as string | undefined
       if (prevCredRef.current !== cred) {
         prevCredRef.current = cred
-        const keys = Object.keys(current)
+        const keys = Object.keys(subBlocks)
         const dependentKeys = keys.filter((k) => k !== 'credential')
         dependentKeys.forEach((k) => collaborativeSetSubblockValue(id, k, ''))
       }
     }, [
       id,
       collaborativeSetSubblockValue,
-      resolveActiveWorkflowId,
+      currentYjsBlock?.subBlocks,
       isReadOnlyBlock,
       userPermissions.canEdit,
-      currentWorkflow.isDiffMode,
-      routeWorkflowId,
     ])
 
-    // Workflow store actions
-    const updateBlockLayoutMetrics = useWorkflowStore((state) => state.updateBlockLayoutMetrics)
+    // Workflow store actions - use Yjs mutations
+    const updateBlockLayoutMetrics = yjsMutations.updateBlockLayoutMetrics
 
     // Execution store
     const isActiveBlock = useExecutionStore((state) => state.activeBlockIds.has(id))
@@ -765,16 +695,8 @@ export const WorkflowBlock = memo(
       debounce,
     ])
 
-    // Subscribe to this block's subblock values to track changes for conditional rendering
-    const blockSubBlockValues = useSubBlockStore(
-      useCallback(
-        (state) => {
-          if (!resolvedWorkflowId) return {}
-          return state.workflowValues[resolvedWorkflowId]?.[id] || {}
-        },
-        [resolvedWorkflowId, id]
-      )
-    )
+    // Subscribe to this block's subblock values from Yjs for conditional rendering
+    const blockSubBlockValues = currentYjsBlock?.subBlocks || {}
 
     const getSubBlockStableKey = useCallback(
       (subBlock: SubBlockConfig, stateToUse: Record<string, any>): string => {
@@ -801,18 +723,9 @@ export const WorkflowBlock = memo(
       if (data.isPreview && data.subBlockValues) {
         // In preview mode, use the preview values
         stateToUse = data.subBlockValues
-      } else if (currentWorkflow.isDiffMode && currentBlock) {
-        // In diff mode, use the diff workflow's subblock values
-        stateToUse = currentBlock.subBlocks || {}
       } else {
-        // In normal mode, start from the rendered block state and overlay subblock-store values.
-        // This keeps node previews populated on first paint before any panel interaction.
-        const mergedState = currentBlock
-          ? resolvedWorkflowId
-            ? mergeSubblockState({ [id]: currentBlock }, resolvedWorkflowId, id)[id]
-            : currentBlock
-          : undefined
-        stateToUse = mergedState?.subBlocks || currentBlock?.subBlocks || {}
+        // In normal mode, use Yjs blocks which already contain the merged subblock state.
+        stateToUse = currentBlock?.subBlocks || {}
       }
 
       const isPureTriggerBlock = config.category === 'triggers'
@@ -836,11 +749,8 @@ export const WorkflowBlock = memo(
       displayTriggerMode,
       data.isPreview,
       data.subBlockValues,
-      currentWorkflow.isDiffMode,
       currentBlock,
       blockSubBlockValues,
-      activeWorkflowId,
-      resolvedWorkflowId,
     ])
 
     // Extract rows and state from the memoized value
@@ -1023,8 +933,7 @@ export const WorkflowBlock = memo(
     }, [childWorkflowId])
 
     const blockAccentColor = config.bgColor || 'hsl(var(--foreground))'
-    const hasPriorityRing =
-      isActive || isPending || diffStatus === 'new' || diffStatus === 'edited' || isDeletedBlock
+    const hasPriorityRing = isActive || isPending
 
     return (
       <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
@@ -1039,12 +948,6 @@ export const WorkflowBlock = memo(
                 !isEnabled && 'shadow-sm',
                 isActive && 'animate-pulse-ring ring-2 ring-blue-500',
                 isPending && 'ring-2 ring-yellow-500',
-                // Diff highlighting
-                diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
-                diffStatus === 'edited' &&
-                  'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
-                // Deleted block highlighting (in original workflow)
-                isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
                 !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]',
                 'z-[20]'
               )}
@@ -1134,14 +1037,11 @@ export const WorkflowBlock = memo(
                 <div className='flex min-w-0 flex-1 items-center gap-3'>
                   <div
                     className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
-                    style={{
-                      backgroundColor: isEnabled
-                        ? config.bgColor
-                          ? `${config.bgColor}20`
-                          : undefined
-                        : 'gray',
-                      color: isEnabled ? config.bgColor || undefined : 'white',
-                    }}
+                    style={
+                      isEnabled
+                        ? getIconTileStyle(config.bgColor)
+                        : { backgroundColor: 'gray', color: 'white' }
+                    }
                   >
                     <config.icon className={'h-5 w-5'} />
                   </div>
@@ -1252,11 +1152,13 @@ export const WorkflowBlock = memo(
                         ))
                       : flattenedSubBlocks.map((subBlock, index) => {
                           const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
-                          const rawValue =
-                            subBlockState[subBlock.id]?.value ??
-                            (typeof subBlock.defaultValue === 'function'
-                              ? undefined
-                              : subBlock.defaultValue)
+                          const rawValue = resolveDisplayedSubBlockValue(
+                            {
+                              readOnly: subBlock.readOnly,
+                              defaultValue: subBlock.defaultValue,
+                            },
+                            subBlockState[subBlock.id]?.value
+                          )
                           const isJsonCodeSubBlock =
                             subBlock.type === 'code' && subBlock.language === 'json'
                           const jsonPreviewRows = isJsonCodeSubBlock

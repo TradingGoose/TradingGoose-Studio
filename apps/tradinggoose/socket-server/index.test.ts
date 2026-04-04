@@ -3,12 +3,11 @@
  *
  * @vitest-environment node
  */
-import { createServer } from 'http'
+import { createServer, request as httpRequest } from 'http'
 import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createSocketIOServer } from '@/socket-server/config/socket'
-import { RoomManager } from '@/socket-server/rooms/manager'
 import { createHttpHandler } from '@/socket-server/routes/http'
 
 vi.mock('@/lib/auth', () => ({
@@ -29,6 +28,35 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
+vi.mock('@tradinggoose/db/schema', () => ({
+  workflowBlocks: {
+    id: 'workflowBlocks.id',
+    workflowId: 'workflowBlocks.workflowId',
+  },
+  workflowEdges: {
+    id: 'workflowEdges.id',
+    sourceBlockId: 'workflowEdges.sourceBlockId',
+    targetBlockId: 'workflowEdges.targetBlockId',
+    workflowId: 'workflowEdges.workflowId',
+  },
+}))
+
+vi.mock('postgres', () => ({
+  default: vi.fn(() => ({})),
+}))
+
+vi.mock('drizzle-orm/postgres-js', () => ({
+  drizzle: vi.fn(() => ({
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        leftJoin: vi.fn(() => ({
+          where: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
+  })),
+}))
+
 vi.mock('@/socket-server/middleware/auth', () => ({
   authenticateSocket: vi.fn((socket, next) => {
     socket.userId = 'test-user-id'
@@ -38,29 +66,35 @@ vi.mock('@/socket-server/middleware/auth', () => ({
   }),
 }))
 
-vi.mock('@/socket-server/middleware/permissions', () => ({
-  verifyWorkflowAccess: vi.fn().mockResolvedValue({
-    hasAccess: true,
-    role: 'admin',
-  }),
-  checkRolePermission: vi.fn().mockReturnValue({
-    allowed: true,
-  }),
-}))
+function sendHttpRequest(port: number, path: string, method = 'GET') {
+  return new Promise<{ statusCode: number | undefined; body: string }>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method,
+      },
+      (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode, body })
+        })
+      }
+    )
 
-vi.mock('@/socket-server/database/operations', () => ({
-  getWorkflowState: vi.fn().mockResolvedValue({
-    id: 'test-workflow',
-    name: 'Test Workflow',
-    lastModified: Date.now(),
-  }),
-  persistWorkflowOperation: vi.fn().mockResolvedValue(undefined),
-}))
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
-  let roomManager: RoomManager
   let logger: any
   let PORT: number
 
@@ -78,11 +112,8 @@ describe('Socket Server Index Integration', () => {
     // Create Socket.IO server using extracted config
     io = createSocketIOServer(httpServer)
 
-    // Initialize room manager after io is created
-    roomManager = new RoomManager(io)
-
     // Configure HTTP request handler
-    const httpHandler = createHttpHandler(roomManager, logger)
+    const httpHandler = createHttpHandler(logger)
     httpServer.on('request', httpHandler)
 
     // Start server with timeout handling
@@ -133,18 +164,29 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should handle health check endpoint', async () => {
-      try {
-        const response = await fetch(`http://localhost:${PORT}/health`)
-        expect(response.status).toBe(200)
+      const response = await sendHttpRequest(PORT, '/health')
 
-        const data = await response.json()
-        expect(data).toHaveProperty('status', 'ok')
-        expect(data).toHaveProperty('timestamp')
-        expect(data).toHaveProperty('connections')
-      } catch (error) {
-        // Skip this test if fetch fails (likely due to test environment)
-        console.warn('Health check test skipped due to fetch error:', error)
-      }
+      expect(response.statusCode).toBe(200)
+
+      const data = JSON.parse(response.body)
+      expect(data).toHaveProperty('status', 'ok')
+      expect(data).toHaveProperty('timestamp')
+      expect(data).toHaveProperty('connections')
+    })
+
+    it('should not expose retired workflow sync bridge endpoints', async () => {
+      const [workflowUpdated, copilotWorkflowEdit, workflowDeleted, workflowReverted] =
+        await Promise.all([
+          sendHttpRequest(PORT, '/api/workflow-updated', 'POST'),
+          sendHttpRequest(PORT, '/api/copilot-workflow-edit', 'POST'),
+          sendHttpRequest(PORT, '/api/workflow-deleted', 'POST'),
+          sendHttpRequest(PORT, '/api/workflow-reverted', 'POST'),
+        ])
+
+      expect(workflowUpdated.statusCode).toBe(404)
+      expect(copilotWorkflowEdit.statusCode).toBe(404)
+      expect(workflowDeleted.statusCode).toBe(404)
+      expect(workflowReverted.statusCode).toBe(404)
     })
   })
 
@@ -166,64 +208,6 @@ describe('Socket Server Index Integration', () => {
       const transports = io.engine.opts.transports
       expect(transports).toContain('polling')
       expect(transports).toContain('websocket')
-    })
-  })
-
-  describe('Room Manager Integration', () => {
-    it('should create room manager successfully', () => {
-      expect(roomManager).toBeDefined()
-      expect(roomManager.getTotalActiveConnections()).toBe(0)
-    })
-
-    it('should create workflow rooms', () => {
-      const workflowId = 'test-workflow-123'
-      const room = roomManager.createWorkflowRoom(workflowId)
-      roomManager.setWorkflowRoom(workflowId, room)
-
-      expect(roomManager.hasWorkflowRoom(workflowId)).toBe(true)
-      const retrievedRoom = roomManager.getWorkflowRoom(workflowId)
-      expect(retrievedRoom).toBeDefined()
-      expect(retrievedRoom?.workflowId).toBe(workflowId)
-    })
-
-    it('should manage user sessions', () => {
-      const socketId = 'test-socket-123'
-      const workflowId = 'test-workflow-456'
-      const session = { userId: 'user-123', userName: 'Test User' }
-
-      roomManager.setWorkflowForSocket(socketId, workflowId)
-      roomManager.setUserSession(socketId, session)
-
-      expect(roomManager.getWorkflowIdForSocket(socketId)).toBe(workflowId)
-      expect(roomManager.getUserSession(socketId)).toEqual(session)
-    })
-
-    it('should clean up rooms properly', () => {
-      const workflowId = 'test-workflow-789'
-      const socketId = 'test-socket-789'
-
-      const room = roomManager.createWorkflowRoom(workflowId)
-      roomManager.setWorkflowRoom(workflowId, room)
-
-      // Add user to room
-      room.users.set(socketId, {
-        userId: 'user-789',
-        workflowId,
-        userName: 'Test User',
-        socketId,
-        joinedAt: Date.now(),
-        lastActivity: Date.now(),
-        role: 'admin',
-      })
-      room.activeConnections = 1
-
-      roomManager.setWorkflowForSocket(socketId, workflowId)
-
-      // Clean up user
-      roomManager.cleanupUserFromRoom(socketId, workflowId)
-
-      expect(roomManager.hasWorkflowRoom(workflowId)).toBe(false)
-      expect(roomManager.getWorkflowIdForSocket(socketId)).toBeUndefined()
     })
   })
 
@@ -253,32 +237,18 @@ describe('Socket Server Index Integration', () => {
       // Test that all modules can be imported without errors
       const { createSocketIOServer } = await import('@/socket-server/config/socket')
       const { createHttpHandler } = await import('@/socket-server/routes/http')
-      const { RoomManager } = await import('@/socket-server/rooms/manager')
       const { authenticateSocket } = await import('@/socket-server/middleware/auth')
-      const { verifyWorkflowAccess } = await import('@/socket-server/middleware/permissions')
-      const { getWorkflowState } = await import('@/socket-server/database/operations')
       const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
 
       expect(createSocketIOServer).toBeTypeOf('function')
       expect(createHttpHandler).toBeTypeOf('function')
-      expect(RoomManager).toBeTypeOf('function')
       expect(authenticateSocket).toBeTypeOf('function')
-      expect(verifyWorkflowAccess).toBeTypeOf('function')
-      expect(getWorkflowState).toBeTypeOf('function')
       expect(WorkflowOperationSchema).toBeDefined()
     })
 
-    it.concurrent('should maintain all original functionality after refactoring', () => {
-      // Verify that the main components are properly instantiated
+    it.concurrent('should keep the remaining socket runtime available after refactoring', () => {
       expect(httpServer).toBeDefined()
       expect(io).toBeDefined()
-      expect(roomManager).toBeDefined()
-
-      // Verify core methods exist and are callable
-      expect(typeof roomManager.createWorkflowRoom).toBe('function')
-      expect(typeof roomManager.cleanupUserFromRoom).toBe('function')
-      expect(typeof roomManager.handleWorkflowDeletion).toBe('function')
-      expect(typeof roomManager.validateWorkflowConsistency).toBe('function')
     })
   })
 

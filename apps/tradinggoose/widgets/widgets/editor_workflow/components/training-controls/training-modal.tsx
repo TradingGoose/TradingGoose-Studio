@@ -31,8 +31,9 @@ import { cn } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import { formatEditSequence } from '@/lib/workflows/training/compute-edit-sequence'
 import { useCurrentWorkflow } from '@/hooks/workflow/use-current-workflow'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { EMPTY_CHANNEL_TRAINING_STATE, useCopilotTrainingStore } from '@/stores/copilot-training/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 /**
  * Modal for starting training sessions and viewing/exporting datasets
@@ -323,7 +324,15 @@ export function TrainingModal({ channelId, isOpen, onClose }: TrainingModalProps
     setSendingLiveWorkflow(true)
 
     try {
-      const sanitizedWorkflow = sanitizeForCopilot(currentWorkflow.workflowState)
+      const sanitizedWorkflow = sanitizeForCopilot({
+        blocks: currentWorkflow.blocks,
+        edges: currentWorkflow.edges,
+        loops: currentWorkflow.loops,
+        parallels: currentWorkflow.parallels,
+        lastSaved: currentWorkflow.lastSaved,
+        isDeployed: currentWorkflow.isDeployed,
+        deployedAt: currentWorkflow.deployedAt,
+      } as WorkflowState)
 
       const response = await fetch('/api/copilot/training/examples', {
         method: 'POST',

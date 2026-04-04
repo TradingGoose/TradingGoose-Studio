@@ -2,10 +2,7 @@
 
 import { useMemo } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useBlock } from '@/lib/yjs/use-workflow-doc'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -20,13 +17,7 @@ export function useDependsOnGate(
   const disabledProp = opts?.disabled ?? false
   const contextValues = opts?.contextValues
 
-  const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const routeWorkflowId = routeContext?.workflowId ?? null
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
+  const block = useBlock(blockId)
 
   // Use only explicit dependsOn from block config. No inference.
   const dependsOn: string[] = (subBlock.dependsOn as string[] | undefined) || []
@@ -48,18 +39,16 @@ export function useDependsOnGate(
     return rawValue
   }
 
-  const dependencyValues = useSubBlockStore((state) => {
+  const dependencyValues = useMemo(() => {
     if (dependsOn.length === 0) return [] as any[]
 
     if (contextValues) {
       return dependsOn.map((depKey) => normalizeDependencyValue(contextValues[depKey]) ?? null)
     }
 
-    if (!resolvedWorkflowId) return dependsOn.map(() => null)
-    const workflowValues = state.workflowValues[resolvedWorkflowId] || {}
-    const blockValues = (workflowValues as any)[blockId] || {}
-    return dependsOn.map((depKey) => normalizeDependencyValue((blockValues as any)[depKey]) ?? null)
-  }) as any[]
+    if (!block?.subBlocks) return dependsOn.map(() => null)
+    return dependsOn.map((depKey) => normalizeDependencyValue(block.subBlocks[depKey]?.value) ?? null)
+  }, [dependsOn, contextValues, block]) as any[]
 
   const depsSatisfied = useMemo(() => {
     if (dependsOn.length === 0) return true

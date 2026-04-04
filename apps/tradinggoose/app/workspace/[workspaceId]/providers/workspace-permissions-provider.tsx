@@ -4,7 +4,6 @@ import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
@@ -71,16 +70,6 @@ export function WorkspacePermissionsProvider({
     setHasRedirected(false)
   }, [workspaceId])
 
-  // Get operation error state from collaborative workflow
-  const { hasOperationError } = useCollaborativeWorkflow()
-
-  // Set offline mode when there are operation errors
-  useEffect(() => {
-    if (hasOperationError) {
-      setIsOfflineMode(true)
-    }
-  }, [hasOperationError])
-
   // Fetch workspace permissions and loading state
   const {
     permissions: workspacePermissions,
@@ -96,9 +85,6 @@ export function WorkspacePermissionsProvider({
     permissionsLoading,
     permissionsError
   )
-
-  // Note: Connection-based error detection removed - only rely on operation timeouts
-  // The 5-second operation timeout system will handle all error cases
 
   // Create connection-aware permissions that override user permissions when offline
   const userPermissions = useMemo((): WorkspaceUserPermissions & { isOfflineMode?: boolean } => {

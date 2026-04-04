@@ -1,6 +1,9 @@
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import { normalizeOptionalString } from '@/lib/utils'
+import type { PairReviewTarget } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
+import { normalizeWorkflowCopilotWidgetParams } from '@/widgets/widgets/workflow_copilot/review-target-params'
 
 export type WidgetInstance = {
   key: string
@@ -14,9 +17,8 @@ export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
   listing?: ListingIdentity | null
-  copilotChatId?: string | null
+  reviewTarget?: PairReviewTarget
   indicatorId?: string | null
-  pineIndicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
   skillId?: string | null
@@ -148,50 +150,43 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       continue
     }
 
-    const workflowId =
-      typeof (raw as { workflowId?: unknown }).workflowId === 'string' &&
-      ((raw as { workflowId?: unknown }).workflowId as string).trim().length > 0
-        ? ((raw as { workflowId?: unknown }).workflowId as string)
-        : null
-    const copilotChatId =
-      typeof (raw as { copilotChatId?: unknown }).copilotChatId === 'string' &&
-      ((raw as { copilotChatId?: unknown }).copilotChatId as string).trim().length > 0
-        ? ((raw as { copilotChatId?: unknown }).copilotChatId as string)
-        : null
+    const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
+
+    const rawTarget = (raw as { reviewTarget?: unknown }).reviewTarget
+    const isNestedTarget = rawTarget && typeof rawTarget === 'object'
+
+    const reviewTarget: PairReviewTarget = {
+      reviewSessionId: normalizeOptionalString(
+        isNestedTarget ? (rawTarget as any).reviewSessionId : (raw as any).reviewSessionId
+      ),
+      reviewEntityKind: normalizeOptionalString(
+        isNestedTarget ? (rawTarget as any).reviewEntityKind : (raw as any).reviewEntityKind
+      ),
+      reviewEntityId: normalizeOptionalString(
+        isNestedTarget ? (rawTarget as any).reviewEntityId : (raw as any).reviewEntityId
+      ),
+      reviewDraftSessionId: normalizeOptionalString(
+        isNestedTarget ? (rawTarget as any).reviewDraftSessionId : (raw as any).reviewDraftSessionId
+      ),
+      reviewModel: normalizeOptionalString(
+        isNestedTarget ? (rawTarget as any).reviewModel : (raw as any).reviewModel
+      ),
+    }
+
+    const hasReviewTarget = Object.values(reviewTarget).some(v => v != null)
+
     const listing = normalizeListingWithResolvedFields((raw as { listing?: unknown }).listing)
-    const indicatorId =
-      typeof (raw as { indicatorId?: unknown }).indicatorId === 'string' &&
-      ((raw as { indicatorId?: unknown }).indicatorId as string).trim().length > 0
-        ? ((raw as { indicatorId?: unknown }).indicatorId as string)
-        : null
-    const pineIndicatorId =
-      typeof (raw as { pineIndicatorId?: unknown }).pineIndicatorId === 'string' &&
-      ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string).trim().length > 0
-        ? ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string)
-        : null
-    const mcpServerId =
-      typeof (raw as { mcpServerId?: unknown }).mcpServerId === 'string' &&
-      ((raw as { mcpServerId?: unknown }).mcpServerId as string).trim().length > 0
-        ? ((raw as { mcpServerId?: unknown }).mcpServerId as string)
-        : null
-    const customToolId =
-      typeof (raw as { customToolId?: unknown }).customToolId === 'string' &&
-      ((raw as { customToolId?: unknown }).customToolId as string).trim().length > 0
-        ? ((raw as { customToolId?: unknown }).customToolId as string)
-        : null
-    const skillId =
-      typeof (raw as { skillId?: unknown }).skillId === 'string' &&
-      ((raw as { skillId?: unknown }).skillId as string).trim().length > 0
-        ? ((raw as { skillId?: unknown }).skillId as string)
-        : null
+    const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
+    const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
+    const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
+    const skillId = normalizeOptionalString((raw as { skillId?: unknown }).skillId)
 
     normalized.push({
       color: rawColor,
       workflowId,
       listing,
-      copilotChatId,
+      ...(hasReviewTarget ? { reviewTarget } : {}),
       indicatorId,
-      pineIndicatorId,
       mcpServerId,
       customToolId,
       skillId,
@@ -281,9 +276,16 @@ function normalizeWidgetInstance(widget: WidgetInstance): WidgetInstance {
 
   const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
 
+  let params = widget.params ?? null
+  if (widget.key === 'workflow_copilot') {
+    const normalized = normalizeWorkflowCopilotWidgetParams(params)
+    params = Object.keys(normalized).length > 0 ? normalized : null
+  }
+
   return {
     ...widget,
     pairColor,
+    params,
   }
 }
 

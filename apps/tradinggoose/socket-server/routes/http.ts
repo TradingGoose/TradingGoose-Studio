@@ -1,7 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'http'
+import * as Y from 'yjs'
 import { env } from '@/lib/env'
+import {
+  buildReviewTargetDescriptorFromEnvelope,
+  parseYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
-import type { RoomManager } from '@/socket-server/rooms/manager'
+import { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } from '@/lib/yjs/server/bootstrap-review-target'
+import { getState } from '@/socket-server/yjs/persistence'
+import { getExistingDocument } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
   info: (message: string, ...args: any[]) => void
@@ -26,6 +33,7 @@ type MonitorRuntimeHealth = {
 
 type HttpHandlerOptions = {
   getMonitorRuntimeHealth?: () => MonitorRuntimeHealth
+  getConnectionCount?: () => number
   onIndicatorMonitorsReconcile?: () => Promise<void> | void
 }
 
@@ -82,29 +90,20 @@ function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
   }
 }
 
-/**
- * Creates an HTTP request handler for the socket server
- * @param roomManager - RoomManager instance for managing workflow rooms and state
- * @param logger - Logger instance for logging requests and errors
- * @param options - Optional health status providers for runtime internals
- * @returns HTTP request handler function
- */
 export function createHttpHandler(
-  roomManager: RoomManager,
   logger: Logger,
   options?: HttpHandlerOptions
 ) {
   const resolveMonitorRuntimeHealth =
     options?.getMonitorRuntimeHealth ?? getDefaultMonitorRuntimeHealth
+  const resolveConnectionCount = options?.getConnectionCount ?? (() => 0)
   const triggerIndicatorMonitorsReconcile = options?.onIndicatorMonitorsReconcile
 
   return async (req: IncomingMessage, res: ServerResponse) => {
-    // If the response is already handled (e.g., by Socket.IO), bail out to avoid double writes
     if (res.writableEnded || res.headersSent) {
       return
     }
 
-    // Let Socket.IO own its transport endpoints entirely
     if (req.url?.startsWith('/socket.io')) {
       return
     }
@@ -115,7 +114,7 @@ export function createHttpHandler(
         JSON.stringify({
           status: 'ok',
           timestamp: new Date().toISOString(),
-          connections: roomManager.getTotalActiveConnections(),
+          connections: resolveConnectionCount(),
           monitorRuntime: resolveMonitorRuntimeHealth(),
         })
       )
@@ -138,96 +137,54 @@ export function createHttpHandler(
       return
     }
 
-    // Handle workflow deletion notifications from the main API
-    if (req.method === 'POST' && req.url === '/api/workflow-deleted') {
-      if (rejectUnauthorizedRequest(req, res, logger)) return
+    if (req.method === 'GET' && req.url) {
+      const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+      const yjsSnapshotMatch = parsedUrl.pathname.match(/^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/)
 
-      let body = ''
-      req.on('data', (chunk) => {
-        body += chunk.toString()
-      })
-      req.on('end', () => {
+      if (yjsSnapshotMatch) {
+        if (rejectUnauthorizedRequest(req, res, logger)) return
+
+        const sessionId = decodeURIComponent(yjsSnapshotMatch[1])
+        const queryParams: Record<string, string | undefined> = {}
+        parsedUrl.searchParams.forEach((value, key) => {
+          queryParams[key] = value
+        })
+
         try {
-          const { workflowId } = JSON.parse(body)
-          roomManager.handleWorkflowDeletion(workflowId)
+          const envelope = parseYjsTransportEnvelope(queryParams)
+          if (envelope.sessionId !== sessionId) {
+            res.writeHead(409, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: 'Session ID mismatch', sessionId }))
+            return
+          }
+
+          const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+          const liveDoc = await getExistingDocument(sessionId)
+          const state = liveDoc ? Y.encodeStateAsUpdate(liveDoc) : await getState(sessionId)
+
+          if (!state) {
+            res.writeHead(404, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: 'Session not found', sessionId }))
+            return
+          }
+
+          const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : getRuntimeStateFromUpdate(state)
+
           res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ success: true }))
+          res.end(
+            JSON.stringify({
+              snapshotBase64: Buffer.from(state).toString('base64'),
+              descriptor,
+              runtime,
+            })
+          )
         } catch (error) {
-          logger.error('Error handling workflow deletion notification:', error)
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Failed to process deletion notification' }))
+          logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
+          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'Failed to get snapshot' }))
         }
-      })
-      return
-    }
-
-    // Handle workflow update notifications from the main API
-    if (req.method === 'POST' && req.url === '/api/workflow-updated') {
-      if (rejectUnauthorizedRequest(req, res, logger)) return
-
-      let body = ''
-      req.on('data', (chunk) => {
-        body += chunk.toString()
-      })
-      req.on('end', () => {
-        try {
-          const { workflowId } = JSON.parse(body)
-          roomManager.handleWorkflowUpdate(workflowId)
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ success: true }))
-        } catch (error) {
-          logger.error('Error handling workflow update notification:', error)
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Failed to process update notification' }))
-        }
-      })
-      return
-    }
-
-    // Handle copilot workflow edit notifications from the main API
-    if (req.method === 'POST' && req.url === '/api/copilot-workflow-edit') {
-      if (rejectUnauthorizedRequest(req, res, logger)) return
-
-      let body = ''
-      req.on('data', (chunk) => {
-        body += chunk.toString()
-      })
-      req.on('end', () => {
-        try {
-          const { workflowId, description } = JSON.parse(body)
-          roomManager.handleCopilotWorkflowEdit(workflowId, description)
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ success: true }))
-        } catch (error) {
-          logger.error('Error handling copilot workflow edit notification:', error)
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Failed to process copilot edit notification' }))
-        }
-      })
-      return
-    }
-
-    // Handle workflow revert notifications from the main API
-    if (req.method === 'POST' && req.url === '/api/workflow-reverted') {
-      if (rejectUnauthorizedRequest(req, res, logger)) return
-
-      let body = ''
-      req.on('data', (chunk) => {
-        body += chunk.toString()
-      })
-      req.on('end', () => {
-        try {
-          const { workflowId, timestamp } = JSON.parse(body)
-          roomManager.handleWorkflowRevert(workflowId, timestamp)
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ success: true }))
-        } catch (error) {
-          logger.error('Error handling workflow revert notification:', error)
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Failed to process revert notification' }))
-        }
-      })
-      return
+        return
+      }
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' })

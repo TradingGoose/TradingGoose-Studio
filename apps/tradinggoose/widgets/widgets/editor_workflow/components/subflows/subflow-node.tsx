@@ -5,7 +5,6 @@ import { Handle, type NodeProps, Position, useReactFlow, useUpdateNodeInternals 
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { type DiffStatus, hasDiffStatus } from '@/lib/workflows/diff/types'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { ActionBar } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/action-bar/action-bar'
@@ -82,10 +81,6 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
 
   const currentWorkflow = useCurrentWorkflow()
   const currentBlock = currentWorkflow.getBlockById(id)
-  const diffStatus: DiffStatus =
-    currentWorkflow.isDiffMode && currentBlock && hasDiffStatus(currentBlock)
-      ? currentBlock.is_diff
-      : undefined
 
   const isPreview = data?.isPreview || false
   const isEnabled = currentBlock?.enabled ?? true
@@ -98,8 +93,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const blockColor = isLoop ? '#00ccff' : '#ffdd00'
   const blockName = data.name || (isLoop ? 'Loop' : 'Parallel')
   const BlockIcon = isLoop ? RepeatIcon : SplitIcon
-  const hasPriorityRing =
-    Boolean(data?.hasNestedError) || diffStatus === 'new' || diffStatus === 'edited'
+  const hasPriorityRing = Boolean(data?.hasNestedError)
 
   const getHandleClasses = (position: 'left' | 'right') => {
     const baseClasses =
@@ -139,9 +133,6 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
             'z-[20]',
             !isEnabled && 'shadow-sm',
             data?.hasNestedError && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
-            diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
-            diffStatus === 'edited' &&
-              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
             !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]'
           )}
           style={

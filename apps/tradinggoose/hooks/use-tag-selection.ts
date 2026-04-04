@@ -1,12 +1,12 @@
 import { useCallback } from 'react'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 
 /**
  * Hook for handling immediate tag dropdown selections
  * Uses the collaborative workflow system but with immediate processing
  */
 export function useTagSelection(blockId: string, subblockId: string) {
-  const { collaborativeSetTagSelection } = useCollaborativeWorkflow()
+  const { collaborativeSetTagSelection } = useWorkflowEditorActions()
 
   const emitTagSelectionValue = useCallback(
     (value: any) => {

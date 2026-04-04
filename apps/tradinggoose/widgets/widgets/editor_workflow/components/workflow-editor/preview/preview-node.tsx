@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react'
 import { Handle, type NodeProps, Position } from 'reactflow'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import type { PreviewNodeData } from './preview-payload-adapter'
@@ -89,11 +90,7 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
       <div className='flex items-center gap-3 px-3 py-2'>
         <div
           className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary'
-          style={{
-            backgroundColor:
-              isEnabled && blockConfig.bgColor ? `${blockConfig.bgColor}20` : undefined,
-            color: isEnabled ? blockConfig.bgColor || undefined : undefined,
-          }}
+          style={isEnabled ? getIconTileStyle(blockConfig.bgColor) : undefined}
         >
           <Icon className='h-4 w-4' />
         </div>

@@ -1,23 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
 import CopilotApp from './components/copilot-app'
 
 const COPILOT_WIDGET_KEY = 'workflow-copilot'
 
+const WorkflowCopilotHeaderActionSlot = ({
+  channelId,
+  widget,
+}: {
+  channelId: string
+  widget: WidgetInstance
+}) => {
+  return <CopilotHeaderActions channelId={channelId} />
+}
+
 const CopilotWidgetBody = ({
-  params,
   context,
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
+
   const {
     channelId,
     resolvedPairColor,
@@ -31,8 +41,8 @@ const CopilotWidgetBody = ({
     pairColor,
     widget,
     panelId,
-    params,
-    onWidgetParamsChange,
+    params: null,
+    onWidgetParamsChange: undefined,
     fallbackWidgetKey: COPILOT_WIDGET_KEY,
     loggerScope: 'workflow copilot widget',
     activateWorkflow: true,
@@ -41,37 +51,11 @@ const CopilotWidgetBody = ({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
   const fallbackPanelWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
-  const chatIdFromParams =
-    params && typeof params === 'object' && 'chatId' in params && params.chatId
-      ? String(params.chatId)
-      : null
-  const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
-  const copilotChannelId =
-    resolvedPairColor !== 'gray' ? `${channelId}-${normalizedPanelId}` : channelId
 
-  const handleChatIdChange = useCallback(
-    (nextChatId: string | null) => {
-      if (!onWidgetParamsChange) return
-
-      const normalizedCurrentId = chatIdFromParams ?? null
-      const normalizedNextId = nextChatId ?? null
-      if (normalizedCurrentId === normalizedNextId) return
-
-      const baseParams = (params ?? {}) as Record<string, unknown>
-      const { chatId: _chatId, ...nextParams } = baseParams
-      if (normalizedNextId) {
-        nextParams.chatId = normalizedNextId
-      }
-
-      if (resolvedWorkflowId) {
-        nextParams.workflowId = resolvedWorkflowId
-      }
-
-      const hasKeys = Object.keys(nextParams).length > 0
-      onWidgetParamsChange(hasKeys ? nextParams : null)
-    },
-    [chatIdFromParams, onWidgetParamsChange, params, resolvedWorkflowId]
-  )
+  // Generic copilot history follows the linked pair channel when paired, and
+  // the concrete panel channel when unlinked. The active workflow/entity is
+  // still sent separately as live context on each turn.
+  const copilotChannelId = channelId
 
   useEffect(() => {
     const handleResize = () => {
@@ -121,9 +105,7 @@ const CopilotWidgetBody = ({
         panelWidth={panelWidth || fallbackPanelWidth}
         channelId={channelId}
         copilotChannelId={copilotChannelId}
-        chatId={chatIdFromParams}
         pairColor={resolvedPairColor}
-        onChatChange={handleChatIdChange}
       />
     </div>
   )
@@ -149,13 +131,11 @@ export const copilotWidget: DashboardWidgetDefinition = {
       panelId,
       fallbackWidgetKey: COPILOT_WIDGET_KEY,
     })
-    const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
-    const copilotChannelId =
-      resolvedPairColor !== 'gray' ? `${channelId}-${normalizedPanelId}` : channelId
+    const copilotChannelId = channelId
 
     return {
       left: <CopilotHeader channelId={copilotChannelId} />,
-      right: <CopilotHeaderActions channelId={copilotChannelId} />,
+      right: <WorkflowCopilotHeaderActionSlot channelId={copilotChannelId} widget={widget} />,
     }
   },
 }

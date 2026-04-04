@@ -6,10 +6,10 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import {
+  resolveWorkflowIdFromExecutionContext,
+  serializeLiveWorkflowSnapshot,
+} from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 
 interface PreviewEditWorkflowOperation {
   operation_type: 'add' | 'edit' | 'delete'
@@ -54,15 +54,7 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
       const executionContext = this.requireExecutionContext()
 
       // Resolve workflowId
-      const workflowId = args?.workflowId ?? executionContext.workflowId
-      if (!workflowId) {
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No active workflow found')
-        return
-      }
-      const registryState = useWorkflowRegistry.getState()
-      const channelIdForWorkflow =
-        registryState.getPrimaryLoadedChannelForWorkflow?.(workflowId) || executionContext.channelId
+      const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
 
       const operations = args?.operations || []
       if (!operations.length) {
@@ -71,63 +63,18 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Prepare currentUserWorkflow JSON from stores to preserve block IDs
+      // Build the preview baseline from the live Yjs workflow doc.
       let currentUserWorkflow = args?.currentUserWorkflow
-      const diffStoreState = useWorkflowDiffStore.getState()
-      const canUseScopedDiff =
-        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === channelIdForWorkflow
-      let usedDiffWorkflow = false
 
-      if (
-        !currentUserWorkflow &&
-        canUseScopedDiff &&
-        diffStoreState.isDiffReady &&
-        diffStoreState.diffWorkflow
-      ) {
+      if (!currentUserWorkflow) {
         try {
-          const diffWorkflow = diffStoreState.diffWorkflow
-          const normalizedDiffWorkflow = {
-            ...diffWorkflow,
-            blocks: diffWorkflow.blocks || {},
-            edges: diffWorkflow.edges || [],
-            loops: diffWorkflow.loops || {},
-            parallels: diffWorkflow.parallels || {},
-          }
-          currentUserWorkflow = JSON.stringify(normalizedDiffWorkflow)
-          usedDiffWorkflow = true
-          logger.info('Using diff workflow state as base for preview_edit_workflow', {
-            toolCallId: this.toolCallId,
-            blocksCount: Object.keys(normalizedDiffWorkflow.blocks).length,
-            edgesCount: normalizedDiffWorkflow.edges.length,
-          })
+          currentUserWorkflow = serializeLiveWorkflowSnapshot(
+            executionContext,
+            workflowId
+          ).currentUserWorkflow
         } catch (e) {
-          logger.warn(
-            'Failed to serialize diff workflow state; falling back to active workflow',
-            e as any
-          )
-        }
-      }
-
-      if (!currentUserWorkflow && !usedDiffWorkflow) {
-        try {
-          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
-          const fullState = workflowStore.getWorkflowState()
-          let merged = fullState
-          if (merged?.blocks) {
-            merged = { ...merged, blocks: mergeSubblockState(merged.blocks, workflowId as any) }
-          }
-          if (merged) {
-            if (!merged.loops) merged.loops = {}
-            if (!merged.parallels) merged.parallels = {}
-            if (!merged.edges) merged.edges = []
-            if (!merged.blocks) merged.blocks = {}
-            currentUserWorkflow = JSON.stringify(merged)
-          }
-        } catch (e) {
-          logger.warn(
-            'Failed to build currentUserWorkflow from stores; proceeding without it',
-            e as any
-          )
+          logger.warn('Failed to build currentUserWorkflow from Yjs session', e as any)
+          throw new Error('No active workflow session found')
         }
       }
 

@@ -1,6 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import {
+  copilotReviewItems,
+  copilotReviewSessions,
+  copilotReviewTurns,
+} from '@tradinggoose/db/schema'
+import { and, asc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
@@ -10,12 +14,20 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
+import {
+  deriveReviewTurnsAndItems,
+  mapReviewItemToApi,
+  REVIEW_ITEM_KINDS,
+} from '@/lib/copilot/review-sessions/thread-history'
+import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CopilotChatUpdateAPI')
+type ReviewMessageApi = ReturnType<typeof mapReviewItemToApi>
 
 const UpdateMessagesSchema = z.object({
-  chatId: z.string(),
+  reviewSessionId: z.string(),
   messages: z.array(
     z.object({
       id: z.string(),
@@ -24,6 +36,8 @@ const UpdateMessagesSchema = z.object({
       timestamp: z.string(),
       toolCalls: z.array(z.any()).optional(),
       contentBlocks: z.array(z.any()).optional(),
+      contexts: z.array(z.any()).optional(),
+      citations: z.array(z.any()).optional(),
       fileAttachments: z
         .array(
           z.object({
@@ -39,6 +53,18 @@ const UpdateMessagesSchema = z.object({
   ),
 })
 
+function mergeSharedSessionMessages(
+  currentMessages: ReviewMessageApi[],
+  incomingMessages: z.infer<typeof UpdateMessagesSchema>['messages']
+): z.infer<typeof UpdateMessagesSchema>['messages'] {
+  const incomingIds = new Set(incomingMessages.map((message) => message.id))
+  const preservedMessages = currentMessages.filter((message) => !incomingIds.has(message.id))
+
+  return [...incomingMessages, ...preservedMessages] as z.infer<
+    typeof UpdateMessagesSchema
+  >['messages']
+}
+
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
 
@@ -49,39 +75,85 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { chatId, messages } = UpdateMessagesSchema.parse(body)
+    const { reviewSessionId, messages } = UpdateMessagesSchema.parse(body)
 
-    // Verify that the chat belongs to the user
-    const [chat] = await db
-      .select()
-      .from(copilotChats)
-      .where(and(eq(copilotChats.id, chatId), eq(copilotChats.userId, userId)))
-      .limit(1)
-
-    if (!chat) {
-      return createNotFoundResponse('Chat not found or unauthorized')
+    const session = await loadReviewSessionForUser(reviewSessionId, userId, { requireWrite: true })
+    if (!session) {
+      return createNotFoundResponse('Review session not found or unauthorized')
     }
 
-    // Update chat with new messages
-    await db
-      .update(copilotChats)
-      .set({
-        messages: messages,
-        updatedAt: new Date(),
-      })
-      .where(eq(copilotChats.id, chatId))
+    let persistedMessageCount = messages.length
 
-    logger.info(`[${tracker.requestId}] Successfully updated chat messages`, {
-      chatId,
-      newMessageCount: messages.length,
+    // Full delete-then-reinsert strategy: review turns and items have strict
+    // ordering constraints (sequence columns) and parent-child relationships
+    // (turn -> items) that make partial upserts fragile.  Reordering, merging
+    // concurrent edits, or deleting middle messages all invalidate the existing
+    // sequence values.  A full replace inside one transaction is the simplest
+    // approach that guarantees consistency.  The typical message count per
+    // session is low (< 200), so the overhead is acceptable.  If performance
+    // becomes a concern, consider an incremental diff that recomputes sequences.
+    await db.transaction(async (tx) => {
+      const currentItems = await tx
+        .select()
+        .from(copilotReviewItems)
+        .where(
+          and(
+            eq(copilotReviewItems.sessionId, reviewSessionId),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sequence))
+
+      const currentMessages = currentItems.map(mapReviewItemToApi)
+      const shouldPreserveConcurrentHistory =
+        session.entityKind !== ENTITY_KIND_WORKFLOW && session.userId !== userId
+      const nextMessages = shouldPreserveConcurrentHistory
+        ? mergeSharedSessionMessages(currentMessages, messages)
+        : messages
+      persistedMessageCount = nextMessages.length
+
+      // Short-circuit: skip the expensive delete/reinsert if nothing changed.
+      const unchanged =
+        currentMessages.length === nextMessages.length &&
+        currentMessages.every(
+          (cur, i) => cur.id === nextMessages[i].id && cur.content === nextMessages[i].content
+        )
+      if (unchanged) {
+        return
+      }
+
+      await tx.delete(copilotReviewItems).where(eq(copilotReviewItems.sessionId, reviewSessionId))
+      await tx.delete(copilotReviewTurns).where(eq(copilotReviewTurns.sessionId, reviewSessionId))
+
+      const nextHistory = deriveReviewTurnsAndItems(reviewSessionId, nextMessages)
+
+      if (nextHistory.turns.length > 0) {
+        await tx.insert(copilotReviewTurns).values(nextHistory.turns)
+      }
+
+      if (nextHistory.items.length > 0) {
+        await tx.insert(copilotReviewItems).values(nextHistory.items)
+      }
+
+      await tx
+        .update(copilotReviewSessions)
+        .set({
+          updatedAt: new Date(),
+        })
+        .where(eq(copilotReviewSessions.id, reviewSessionId))
+    })
+
+    logger.info(`[${tracker.requestId}] Successfully updated review session messages`, {
+      reviewSessionId,
+      newMessageCount: persistedMessageCount,
     })
 
     return NextResponse.json({
       success: true,
-      messageCount: messages.length,
+      messageCount: persistedMessageCount,
     })
   } catch (error) {
-    logger.error(`[${tracker.requestId}] Error updating chat messages:`, error)
+    logger.error(`[${tracker.requestId}] Error updating review session messages:`, error)
     return createInternalServerErrorResponse('Failed to update chat messages')
   }
 }

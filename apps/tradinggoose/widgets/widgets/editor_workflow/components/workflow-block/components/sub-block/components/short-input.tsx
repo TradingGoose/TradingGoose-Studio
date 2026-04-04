@@ -14,8 +14,10 @@ import { useWebhookManagement } from '@/hooks/use-webhook-management'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
+import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('ShortInput')
 
@@ -70,10 +72,8 @@ export function ShortInput({
   enableTags = true,
   forceEnvVarDropdown = false,
 }: ShortInputProps) {
-  // Local state for immediate UI updates during streaming
-  const [localContent, setLocalContent] = useState<string>('')
-  const setStoreValueRef = useRef<((value: string) => void) | null>(null)
   const [isFocused, setIsFocused] = useState(false)
+  const [streamingLock, setStreamingLock] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -84,37 +84,16 @@ export function ShortInput({
     useWebhookUrl,
   })
 
-  // Wand functionality (only if wandConfig is enabled)
-  const wandHook = config.wandConfig?.enabled
-    ? useWand({
-        wandConfig: config.wandConfig,
-        currentValue: localContent,
-        onStreamStart: () => {
-          // Clear the content when streaming starts
-          setLocalContent('')
-        },
-        onStreamChunk: (chunk) => {
-          // Update local content with each chunk as it arrives
-          setLocalContent((current) => current + chunk)
-        },
-        onGeneratedContent: (content) => {
-          // Final content update
-          setLocalContent(content)
-          if (!disabled) {
-            // Persist the generated content to the store after streaming
-            setStoreValueRef.current?.(content)
-          }
-        },
-      })
-    : null
+  const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
+  const isWorkflowManaged = onChange === undefined
+
   // State management - useSubBlockValue with explicit streaming control
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: wandHook?.isStreaming || false,
+    isStreaming: streamingLock,
     onStreamingEnd: () => {
       logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
     },
   })
-  setStoreValueRef.current = setStoreValue
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -131,12 +110,52 @@ export function ShortInput({
   const reactFlowInstance = useOptionalReactFlow()
 
   const baseValue = propValue !== undefined ? propValue : storeValue
+  const baseValueString = baseValue?.toString() ?? ''
+  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+    blockId,
+    subBlockId,
+    baseValueString,
+    {
+      enabled: isWorkflowManaged,
+      autoCreate: isWorkflowManaged && !readOnly && !disabled,
+      mirrorDelayMs: isWorkflowManaged ? 300 : null,
+    }
+  )
+  const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
+  const commitValue = isWorkflowManaged ? setTextFieldValue : (onChange ?? setStoreValue)
+  const {
+    value: localContent,
+    setValueLocal: setLocalContent,
+    setValueDebounced,
+    commitNow,
+    cancelScheduledCommit,
+  } = useBufferedStringValue({
+    externalValue: persistedValue,
+    onCommit: commitValue,
+    delayMs: 300,
+    suspendExternalSync: streamingLock || isFocused,
+    commitOnUnmount: isWorkflowManaged,
+  })
 
-  // During streaming, use local content; otherwise use base value
-  const value = wandHook?.isStreaming ? localContent : baseValue
-
+  const wandHook = useWand({
+    wandConfig: resolvedWandConfig,
+    currentValue: localContent,
+    onStreamStart: () => {
+      setStreamingLock(true)
+      setLocalContent('')
+    },
+    onStreamChunk: (chunk) => {
+      setLocalContent((current) => current + chunk)
+    },
+    onGeneratedContent: (content) => {
+      setLocalContent(content)
+      if (!disabled) {
+        commitValue(content)
+      }
+    },
+  })
   const effectiveValue =
-    useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : value
+    useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : localContent
 
   const isNumericInput = config.inputType === 'number'
   const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
@@ -145,24 +164,19 @@ export function ShortInput({
       ? 'numeric'
       : 'decimal'
 
-  // Sync local content with base value when not streaming
   useEffect(() => {
-    if (!wandHook?.isStreaming) {
-      const baseValueString = baseValue?.toString() ?? ''
-      if (baseValueString !== localContent) {
-        setLocalContent(baseValueString)
-      }
-    }
-  }, [baseValue, wandHook?.isStreaming])
-
-  // Update store value during streaming (but won't persist until streaming ends)
-  useEffect(() => {
-    if (wandHook?.isStreaming && localContent !== '') {
+    if (wandHook.isStreaming && localContent !== '') {
       if (!disabled) {
-        setStoreValue(localContent)
+        commitValue(localContent)
       }
     }
-  }, [localContent, wandHook?.isStreaming, disabled, setStoreValue])
+  }, [commitValue, disabled, localContent, wandHook.isStreaming])
+
+  useEffect(() => {
+    if (!wandHook.isStreaming) {
+      setStreamingLock(false)
+    }
+  }, [wandHook.isStreaming])
 
   // Check if this input is API key related
   const isApiKeyField = useMemo(() => {
@@ -204,12 +218,7 @@ export function ShortInput({
 
     const newValue = e.target.value
     const newCursorPosition = e.target.selectionStart ?? 0
-
-    if (onChange) {
-      onChange(newValue)
-    } else {
-      setStoreValue(newValue)
-    }
+    setValueDebounced(newValue)
 
     setCursorPosition(newCursorPosition)
 
@@ -248,7 +257,7 @@ export function ShortInput({
     if (inputRef.current && overlayRef.current) {
       overlayRef.current.scrollLeft = inputRef.current.scrollLeft
     }
-  }, [value])
+  }, [effectiveValue])
 
   // Handle paste events to ensure long values are handled correctly
   const handlePaste = (_e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -327,10 +336,10 @@ export function ShortInput({
       if (data.type !== 'connectionBlock') return
 
       // Get current cursor position or append to end
-      const dropPosition = inputRef.current?.selectionStart ?? value?.toString().length ?? 0
+      const dropPosition = inputRef.current?.selectionStart ?? localContent.length
 
       // Insert '<' at drop position to trigger the dropdown
-      const currentValue = value?.toString() ?? ''
+      const currentValue = localContent
       const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
 
       // Focus the input first
@@ -338,11 +347,11 @@ export function ShortInput({
 
       // Update all state in a single batch
       Promise.resolve().then(() => {
-        // Update value through onChange if provided, otherwise use store
+        setLocalContent(newValue)
         if (onChange) {
           onChange(newValue)
         } else {
-          setStoreValue(newValue)
+          setValueDebounced(newValue)
         }
 
         setCursorPosition(dropPosition + 1)
@@ -383,7 +392,7 @@ export function ShortInput({
       isApiKeyField &&
       (e.key === 'Delete' || e.key === 'Backspace') &&
       inputRef.current?.selectionStart === 0 &&
-      inputRef.current?.selectionEnd === value?.toString().length
+      inputRef.current?.selectionEnd === displayValue.length
     ) {
       setTimeout(() => setShowEnvVars(true), 0)
     }
@@ -405,6 +414,8 @@ export function ShortInput({
     if (onChange) {
       onChange(newValue)
     } else {
+      setLocalContent(newValue)
+      cancelScheduledCommit()
       emitTagSelection(newValue)
     }
   }
@@ -414,6 +425,8 @@ export function ShortInput({
       onChange(newValue)
       return
     }
+    setLocalContent(newValue)
+    cancelScheduledCommit()
     emitTagSelection(newValue)
   }
 
@@ -434,18 +447,14 @@ export function ShortInput({
   return (
     <>
       <WandPromptBar
-        isVisible={wandHook?.isPromptVisible || false}
-        isLoading={wandHook?.isLoading || false}
-        isStreaming={wandHook?.isStreaming || false}
-        promptValue={wandHook?.promptInputValue || ''}
-        onSubmit={(prompt: string) => wandHook?.generateStream({ prompt }) || undefined}
-        onCancel={
-          wandHook?.isStreaming
-            ? wandHook?.cancelGeneration
-            : wandHook?.hidePromptInline || (() => {})
-        }
-        onChange={(value: string) => wandHook?.updatePromptValue?.(value)}
-        placeholder={config.wandConfig?.placeholder || 'Describe what you want to generate...'}
+        isVisible={wandHook.isPromptVisible}
+        isLoading={wandHook.isLoading}
+        isStreaming={wandHook.isStreaming}
+        promptValue={wandHook.promptInputValue}
+        onSubmit={(prompt: string) => wandHook.generateStream({ prompt })}
+        onCancel={wandHook.isStreaming ? wandHook.cancelGeneration : wandHook.hidePromptInline}
+        onChange={(value: string) => wandHook.updatePromptValue(value)}
+        placeholder={resolvedWandConfig.placeholder || 'Describe what you want to generate...'}
       />
 
       <div className='group relative w-full'>
@@ -457,7 +466,7 @@ export function ShortInput({
             isConnecting &&
               config?.connectionDroppable !== false &&
               'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
-            showCopyButton && wandHook ? 'pr-20' : showCopyButton ? 'pr-12' : undefined
+            showCopyButton && resolvedWandConfig.enabled ? 'pr-20' : showCopyButton ? 'pr-12' : undefined
           )}
           placeholder={placeholder ?? ''}
           inputMode={isNumericInput ? numericInputMode : undefined}
@@ -475,7 +484,7 @@ export function ShortInput({
               setSearchTerm('')
 
               // Set cursor position to the end of the input
-              const inputLength = value?.toString().length ?? 0
+              const inputLength = displayValue.length
               setCursorPosition(inputLength)
             } else {
               setShowEnvVars(false)
@@ -484,6 +493,9 @@ export function ShortInput({
             }
           }}
           onBlur={() => {
+            if (!disabled && !readOnly && !wandHook.isStreaming) {
+              commitNow()
+            }
             setIsFocused(false)
             setShowEnvVars(false)
           }}
@@ -532,7 +544,7 @@ export function ShortInput({
           )}
 
           {/* Wand Button */}
-          {wandHook && !wandHook.isStreaming && !readOnly && (
+          {resolvedWandConfig.enabled && !wandHook.isStreaming && !readOnly && (
             <Button
               variant='ghost'
               size='icon'
@@ -548,13 +560,13 @@ export function ShortInput({
           )}
         </div>
 
-        {!wandHook?.isStreaming && (
+        {!wandHook.isStreaming && (
           <>
             <EnvVarDropdown
               visible={showEnvVars}
               onSelect={handleEnvVarSelect}
               searchTerm={searchTerm}
-              inputValue={value?.toString() ?? ''}
+              inputValue={localContent}
               cursorPosition={cursorPosition}
               workspaceId={resolvedWorkspaceId}
               onClose={() => {
@@ -568,7 +580,7 @@ export function ShortInput({
                 onSelect={handleTagSelect}
                 blockId={blockId}
                 activeSourceBlockId={activeSourceBlockId}
-                inputValue={value?.toString() ?? ''}
+                inputValue={localContent}
                 cursorPosition={cursorPosition}
                 onClose={() => {
                   setShowTags(false)

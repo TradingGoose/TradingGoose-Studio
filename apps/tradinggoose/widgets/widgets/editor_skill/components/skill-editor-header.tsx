@@ -1,14 +1,21 @@
 'use client'
 
 import { Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
-import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
+import {
+  EntityEditorHeaderButton,
+  EntityEditorRedoButton,
+  EntityEditorUndoButton,
+} from '@/widgets/widgets/components/entity-editor-buttons'
+import {
+  buildPersistedPairContext,
+  readEntitySelectionState,
+  SKILL_EDITOR_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
 
 interface SkillEditorSelectorProps {
   workspaceId?: string
@@ -16,6 +23,7 @@ interface SkillEditorSelectorProps {
   skillId?: string | null
   pairColor?: PairColor
   widgetKey?: string
+  params?: Record<string, unknown> | null
 }
 
 export function SkillEditorSelector({
@@ -24,6 +32,7 @@ export function SkillEditorSelector({
   skillId,
   pairColor = 'gray',
   widgetKey,
+  params,
 }: SkillEditorSelectorProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
@@ -37,7 +46,15 @@ export function SkillEditorSelector({
   const handleSkillChange = (nextSkillId: string | null) => {
     if (isLinkedToColorPair) {
       if (pairContext?.skillId === nextSkillId) return
-      setPairContext(resolvedPairColor, { skillId: nextSkillId })
+      setPairContext(
+        resolvedPairColor,
+        buildPersistedPairContext({
+          existing: pairContext,
+          legacyIdKey: 'skillId',
+          descriptor: null,
+          legacyEntityId: nextSkillId,
+        })
+      )
       return
     }
 
@@ -65,6 +82,7 @@ interface SkillEditorActionButtonProps {
   panelId?: string
   widgetKey?: string
   pairColor?: PairColor
+  params?: Record<string, unknown> | null
 }
 
 export function SkillEditorSaveButton({
@@ -73,42 +91,88 @@ export function SkillEditorSaveButton({
   panelId,
   widgetKey,
   pairColor = 'gray',
+  params,
 }: SkillEditorActionButtonProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? skillId ?? null)
-    : (skillId ?? null)
-  const saveDisabled = !workspaceId || !resolvedSkillId
-
-  const handleSave = () => {
-    emitSkillEditorAction({
-      action: 'save',
-      panelId,
-      widgetKey,
-    })
-  }
+  const selectionState = readEntitySelectionState({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+    legacyIdKey: 'skillId',
+  })
+  const resolvedSkillId = selectionState.legacyEntityId ?? skillId ?? null
+  const saveDisabled =
+    !workspaceId &&
+    !resolvedSkillId &&
+    !selectionState.reviewSessionId &&
+    !selectionState.reviewDraftSessionId
+  const disabled =
+    !workspaceId ||
+    (!resolvedSkillId &&
+      !selectionState.reviewSessionId &&
+      !selectionState.reviewDraftSessionId)
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='default'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={handleSave}
-            disabled={saveDisabled}
-          >
-            <Save className='h-4 w-4' />
-            <span className='sr-only'>Save skill</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>Save skill</TooltipContent>
-    </Tooltip>
+    <EntityEditorHeaderButton
+      tooltip='Save skill'
+      label='Save skill'
+      icon={Save}
+      disabled={disabled || saveDisabled}
+      variant='default'
+      onClick={() => emitSkillEditorAction({ action: 'save', panelId, widgetKey })}
+    />
+  )
+}
+
+export function SkillEditorUndoButton(props: SkillEditorActionButtonProps) {
+  const resolvedPairColor = (props.pairColor ?? 'gray') as PairColor
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const selectionState = readEntitySelectionState({
+    params: props.params,
+    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
+    legacyIdKey: 'skillId',
+  })
+
+  return (
+    <EntityEditorUndoButton
+      reviewSessionId={selectionState.reviewSessionId}
+      onAction={() =>
+        emitSkillEditorAction({ action: 'undo', panelId: props.panelId, widgetKey: props.widgetKey })
+      }
+    />
+  )
+}
+
+export function SkillEditorRedoButton(props: SkillEditorActionButtonProps) {
+  const resolvedPairColor = (props.pairColor ?? 'gray') as PairColor
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const selectionState = readEntitySelectionState({
+    params: props.params,
+    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
+    legacyIdKey: 'skillId',
+  })
+
+  return (
+    <EntityEditorRedoButton
+      reviewSessionId={selectionState.reviewSessionId}
+      onAction={() =>
+        emitSkillEditorAction({ action: 'redo', panelId: props.panelId, widgetKey: props.widgetKey })
+      }
+    />
+  )
+}
+
+/**
+ * Consolidated header actions for the skill editor.
+ * Receives the shared props once and renders undo, redo, and save buttons.
+ */
+export function SkillEditorHeaderActions(props: SkillEditorActionButtonProps) {
+  return (
+    <div className='flex items-center gap-1'>
+      <SkillEditorUndoButton {...props} />
+      <SkillEditorRedoButton {...props} />
+      <SkillEditorSaveButton {...props} />
+    </div>
   )
 }

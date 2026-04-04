@@ -1,6 +1,7 @@
 import type { Edge } from 'reactflow'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -299,7 +300,7 @@ export class Serializer {
         name: block.name,
         description: blockConfig.description,
         category: blockConfig.category,
-        color: blockConfig.bgColor,
+        color: sanitizeSolidIconColor(blockConfig.bgColor),
       },
       enabled: block.enabled,
     }

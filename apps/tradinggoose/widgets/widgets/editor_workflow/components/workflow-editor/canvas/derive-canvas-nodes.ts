@@ -34,7 +34,7 @@ export function getStableBlocksHash(
   const hash = Object.values(blocks)
     .map(
       (block) =>
-        `${block.id}:${block.type}:${block.name}:${block.position.x.toFixed(0)}:${block.position.y.toFixed(0)}:${block.height}:${block.data?.parentId || ''}`
+        `${block.id}:${block.type}:${block.name}:${block.position.x.toFixed(0)}:${block.position.y.toFixed(0)}:${block.height}:${block.locked ? 1 : 0}:${block.data?.parentId || ''}:${block.data?.width || ''}:${block.data?.height || ''}:${block.data?.extent || ''}`
     )
     .join('|')
 

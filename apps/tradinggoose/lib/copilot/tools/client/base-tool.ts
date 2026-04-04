@@ -1,5 +1,6 @@
 // Lazy require in setState to avoid circular init issues
 import { createLogger } from '@/lib/logs/console/logger'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { LucideIcon } from 'lucide-react'
 
 const baseToolLogger = createLogger('BaseClientTool')
@@ -57,7 +58,12 @@ export interface ClientToolExecutionContext {
   toolCallId: string
   toolName: string
   channelId: string
-  workflowId: string
+  workflowId?: string
+  reviewSessionId?: string
+  entityKind?: ReviewEntityKind
+  entityId?: string
+  draftSessionId?: string
+  workspaceId?: string
   log?: (
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,

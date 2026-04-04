@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks/registry'
 
@@ -265,10 +266,12 @@ export function TemplateCard({
   // Filter out trigger blocks in both cases and sort for consistent rendering
   const blockTypes = state
     ? extractBlockTypesFromState(state)
-    : blocks.filter((blockType) => {
-      const block = getBlock(blockType)
-      return block?.category !== 'triggers'
-    }).sort()
+    : blocks
+        .filter((blockType) => {
+          const block = getBlock(blockType)
+          return block?.category !== 'triggers'
+        })
+        .sort()
 
   // Get the icon component
   const iconComponent = getIconComponent(icon)
@@ -463,7 +466,7 @@ export function TemplateCard({
                   <div
                     className='flex flex-shrink-0 items-center justify-center rounded-sm'
                     style={{
-                      backgroundColor: blockConfig.bgColor || 'gray',
+                      backgroundColor: sanitizeSolidIconColor(blockConfig.bgColor) || 'gray',
                       width: '30px',
                       height: '30px',
                     }}
@@ -494,7 +497,7 @@ export function TemplateCard({
                 <div
                   className='flex flex-shrink-0 items-center justify-center rounded-sm'
                   style={{
-                    backgroundColor: blockConfig.bgColor || 'gray',
+                    backgroundColor: sanitizeSolidIconColor(blockConfig.bgColor) || 'gray',
                     width: '30px',
                     height: '30px',
                   }}

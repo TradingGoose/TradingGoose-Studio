@@ -4,33 +4,52 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getEntityFields, setEntityField } from '@/lib/yjs/entity-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createEntityDynamicText,
+  createEntityToolExecutor,
+  requireActiveEntitySession,
+  type EntityToolArgs,
+} from '@/lib/copilot/tools/client/workflow/entity-review-tool-utils'
+import { ENTITY_KIND_MCP_SERVER } from '@/lib/copilot/review-sessions/types'
 
 interface McpServerConfig {
-  name: string
-  transport: 'streamable-http'
+  name?: string
+  description?: string | null
+  transport?: 'http' | 'sse' | 'streamable-http'
   url?: string
   headers?: Record<string, string>
+  command?: string | null
+  args?: string[]
+  env?: Record<string, string>
   timeout?: number
+  retries?: number
   enabled?: boolean
 }
 
-interface ManageMcpToolArgs {
-  operation: 'add' | 'edit' | 'delete' | 'list'
+interface ManageMcpToolArgs extends EntityToolArgs {
   serverId?: string
   config?: McpServerConfig
 }
 
 const API_ENDPOINT = '/api/mcp/servers'
 
-/**
- * Client tool for creating, editing, and deleting MCP tool servers via the copilot.
- */
 export class ManageMcpToolClientTool extends BaseClientTool {
   static readonly id = 'manage_mcp_tool'
   private currentArgs?: ManageMcpToolArgs
+
+  private readonly orchestration = createEntityToolExecutor<ManageMcpToolArgs>({
+    entityLabel: 'MCP tool',
+    loggerName: 'ManageMcpToolClientTool',
+    getLogDetails: (args) => ({
+      serverId: args.serverId,
+      serverName: args.config?.name,
+    }),
+    list: (workspaceId) => this.listMcpServers(workspaceId),
+    add: (args) => this.addMcpServer(args),
+    edit: (args) => this.editMcpServer(args),
+  })
 
   constructor(toolCallId: string) {
     super(toolCallId, ManageMcpToolClientTool.id, ManageMcpToolClientTool.metadata)
@@ -59,86 +78,20 @@ export class ManageMcpToolClientTool extends BaseClientTool {
       accept: { text: 'Allow', icon: Check },
       reject: { text: 'Skip', icon: XCircle },
     },
-    getDynamicText: (params, state) => {
-      const operation = params?.operation as 'add' | 'edit' | 'delete' | 'list' | undefined
-
-      if (!operation) return undefined
-
-      const serverName = params?.config?.name || params?.name || params?.serverName
-
-      const getActionText = (verb: 'present' | 'past' | 'gerund') => {
-        switch (operation) {
-          case 'add':
-            return verb === 'present' ? 'Add' : verb === 'past' ? 'Added' : 'Adding'
-          case 'edit':
-            return verb === 'present' ? 'Edit' : verb === 'past' ? 'Edited' : 'Editing'
-          case 'delete':
-            return verb === 'present' ? 'Delete' : verb === 'past' ? 'Deleted' : 'Deleting'
-          case 'list':
-            return verb === 'present' ? 'List' : verb === 'past' ? 'Listed' : 'Listing'
-        }
-      }
-
-      const shouldShowServerName = (currentState: ClientToolCallState) => {
-        if (operation === 'list') {
-          return false
-        }
-        if (operation === 'add') {
-          return currentState === ClientToolCallState.success
-        }
-        return true
-      }
-
-      const nameText =
-        operation === 'list'
-          ? ' MCP servers'
-          : shouldShowServerName(state) && serverName
-            ? ` ${serverName}`
-            : ' MCP tool'
-
-      switch (state) {
-        case ClientToolCallState.success:
-          return `${getActionText('past')}${nameText}`
-        case ClientToolCallState.executing:
-          return `${getActionText('gerund')}${nameText}`
-        case ClientToolCallState.generating:
-          return `${getActionText('gerund')}${nameText}`
-        case ClientToolCallState.pending:
-          return `${getActionText('present')}${nameText}?`
-        case ClientToolCallState.error:
-          return `Failed to ${getActionText('present')?.toLowerCase()}${nameText}`
-        case ClientToolCallState.aborted:
-          return `Aborted ${getActionText('gerund')?.toLowerCase()}${nameText}`
-        case ClientToolCallState.rejected:
-          return `Skipped ${getActionText('gerund')?.toLowerCase()}${nameText}`
-      }
-      return undefined
-    },
+    getDynamicText: createEntityDynamicText({
+      entityNoun: 'MCP tool',
+      entityNounPlural: 'MCP servers',
+      nameExtractor: (params) => params?.config?.name || params?.name || params?.serverName,
+      addVerbs: { present: 'Add', past: 'Added', gerund: 'Adding' },
+    }),
   }
 
-  /**
-   * Gets the tool call args from the copilot store (needed before execute() is called)
-   */
-  private getArgsFromStore(): ManageMcpToolArgs | undefined {
-    try {
-      const { toolCallsById } = getCopilotStoreForToolCall(this.toolCallId).getState()
-      const toolCall = toolCallsById[this.toolCallId]
-      return (toolCall as any)?.params as ManageMcpToolArgs | undefined
-    } catch {
-      return undefined
-    }
-  }
-
-  /**
-   * Require confirmation for any mutating operation.
-   */
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
-    const args = this.currentArgs || this.getArgsFromStore()
-    const operation = args?.operation
-    if (operation && operation !== 'list') {
-      return this.metadata.interrupt
-    }
-    return undefined
+    return this.orchestration.getInterruptDisplays(
+      this.currentArgs,
+      this.toolCallId,
+      this.metadata
+    )
   }
 
   async handleReject(): Promise<void> {
@@ -147,15 +100,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
   }
 
   async handleAccept(args?: ManageMcpToolArgs): Promise<void> {
-    const logger = createLogger('ManageMcpToolClientTool')
-    try {
-      this.setState(ClientToolCallState.executing)
-      await this.executeOperation(args, logger)
-    } catch (e: any) {
-      logger.error('execute failed', { message: e?.message })
-      this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to manage MCP tool')
-    }
+    await this.orchestration.handleAccept(this, args, this.requireExecutionContext())
   }
 
   async execute(args?: ManageMcpToolArgs): Promise<void> {
@@ -165,215 +110,115 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     }
   }
 
-  /**
-   * Executes the MCP tool operation (add, edit, or delete)
-   */
-  private async executeOperation(
-    args: ManageMcpToolArgs | undefined,
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    if (!args?.operation) {
-      throw new Error('Operation is required')
-    }
-
-    const { operation, serverId, config } = args
-
-    const { workflowId: activeWorkflowId } = this.requireExecutionContext()
-    const registryState = useWorkflowRegistry.getState()
-    const workspaceId = registryState.workflows[activeWorkflowId]?.workspaceId
-    if (!workspaceId) {
-      throw new Error('No active workspace found')
-    }
-
-    logger.info(`Executing MCP tool operation: ${operation}`, {
-      operation,
-      serverId,
-      serverName: config?.name,
-      workspaceId,
-    })
-
-    switch (operation) {
-      case 'list':
-        await this.listMcpServers(workspaceId, logger)
-        break
-      case 'add':
-        await this.addMcpServer({ config, workspaceId }, logger)
-        break
-      case 'edit':
-        await this.editMcpServer({ serverId, config, workspaceId }, logger)
-        break
-      case 'delete':
-        await this.deleteMcpServer({ serverId, workspaceId }, logger)
-        break
-      default:
-        throw new Error(`Unknown operation: ${operation}`)
-    }
-  }
-
-  /**
-   * Creates a new MCP server
-   */
-  private async addMcpServer(
-    params: {
-      config?: McpServerConfig
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { config, workspaceId } = params
-
-    if (!config) {
-      throw new Error('Config is required for adding an MCP server')
-    }
-    if (!config.name) {
-      throw new Error('Server name is required')
-    }
-    if (!config.url) {
-      throw new Error('Server URL is required for streamable-http transport')
-    }
-
-    const serverData = {
-      ...config,
-      workspaceId,
-      transport: config.transport || 'streamable-http',
-      timeout: config.timeout || 30000,
-      enabled: config.enabled !== false,
-    }
-
-    const response = await fetch(API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(serverData),
-    })
-
-    const data = await response.json()
+  private async listMcpServers(workspaceId: string): Promise<void> {
+    const response = await fetch(`${API_ENDPOINT}?workspaceId=${encodeURIComponent(workspaceId)}`)
+    const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to create MCP tool')
+      throw new Error(data?.error || `Failed to list MCP servers: ${response.status}`)
     }
 
-    const serverId = data.data?.serverId
-    logger.info(`Created MCP tool: ${config.name}`, { serverId })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Created MCP tool "${config.name}"`, {
-      success: true,
-      operation: 'add',
-      serverId,
-      name: config.name,
-      serverName: config.name,
+    const servers = Array.isArray(data?.data?.servers) ? data.data.servers : []
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'list',
+        servers,
+        count: servers.length,
+      },
     })
-  }
-
-  /**
-   * Updates an existing MCP server
-   */
-  private async editMcpServer(
-    params: {
-      serverId?: string
-      config?: McpServerConfig
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { serverId, config, workspaceId } = params
-
-    if (!serverId) {
-      throw new Error('Server ID is required for editing an MCP server')
-    }
-
-    if (!config) {
-      throw new Error('Config is required for editing an MCP server')
-    }
-
-    const updateData = {
-      ...config,
-      workspaceId,
-    }
-
-    const response = await fetch(`${API_ENDPOINT}/${serverId}?workspaceId=${workspaceId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to update MCP tool')
-    }
-
-    const serverName = config.name || data.data?.server?.name || serverId
-    logger.info(`Updated MCP tool: ${serverName}`, { serverId })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Updated MCP tool "${serverName}"`, {
-      success: true,
-      operation: 'edit',
-      serverId,
-      name: serverName,
-      serverName,
-    })
-  }
-
-  /**
-   * Deletes an MCP server
-   */
-  private async deleteMcpServer(
-    params: {
-      serverId?: string
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { serverId, workspaceId } = params
-
-    if (!serverId) {
-      throw new Error('Server ID is required for deleting an MCP server')
-    }
-
-    const url = `${API_ENDPOINT}?serverId=${serverId}&workspaceId=${workspaceId}`
-    const response = await fetch(url, {
-      method: 'DELETE',
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to delete MCP tool')
-    }
-
-    logger.info(`Deleted MCP tool: ${serverId}`)
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Deleted MCP tool`, {
-      success: true,
-      operation: 'delete',
-      serverId,
-    })
-  }
-
-  private async listMcpServers(
-    workspaceId: string,
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to fetch MCP servers')
-    }
-
-    const servers = Array.isArray(data.data?.servers) ? data.data.servers : []
-
-    logger.info(`Listed MCP servers for workspace ${workspaceId}`, { count: servers.length })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Found ${servers.length} MCP server(s)`, {
+    await this.markToolComplete(200, 'Listed MCP servers', {
       success: true,
       operation: 'list',
       servers,
       count: servers.length,
+      workspaceId,
+    })
+  }
+
+  private async addMcpServer(args: ManageMcpToolArgs): Promise<void> {
+    const config = args.config
+    if (!config?.name) {
+      throw new Error('Server name is required')
+    }
+
+    const session = requireActiveEntitySession(this.requireExecutionContext(), ENTITY_KIND_MCP_SERVER)
+    session.doc.transact(() => {
+      setEntityField(session.doc, 'name', config.name)
+      setEntityField(session.doc, 'description', config.description ?? '')
+      setEntityField(session.doc, 'transport', config.transport ?? 'streamable-http')
+      setEntityField(session.doc, 'url', config.url ?? '')
+      setEntityField(session.doc, 'headers', config.headers ?? {})
+      setEntityField(session.doc, 'command', config.command ?? '')
+      setEntityField(session.doc, 'args', config.args ?? [])
+      setEntityField(session.doc, 'env', config.env ?? {})
+      setEntityField(session.doc, 'timeout', config.timeout ?? 30000)
+      setEntityField(session.doc, 'retries', config.retries ?? 3)
+      setEntityField(session.doc, 'enabled', config.enabled ?? true)
+    }, YJS_ORIGINS.COPILOT_TOOL)
+
+    const nextFields = getEntityFields(session.doc, ENTITY_KIND_MCP_SERVER)
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'add',
+        serverId: session.descriptor.entityId ?? undefined,
+        name: nextFields.name,
+        serverName: nextFields.name,
+      },
+    })
+    await this.markToolComplete(200, `Updated MCP draft "${nextFields.name}"`, {
+      success: true,
+      operation: 'add',
+      serverId: session.descriptor.entityId ?? undefined,
+      name: nextFields.name,
+      serverName: nextFields.name,
+      reviewSessionId: session.descriptor.reviewSessionId,
+      draftSessionId: session.descriptor.draftSessionId,
+    })
+  }
+
+  private async editMcpServer(args: ManageMcpToolArgs): Promise<void> {
+    const config = args.config
+    if (!config) {
+      throw new Error('Config is required for edit')
+    }
+
+    const session = requireActiveEntitySession(this.requireExecutionContext(), ENTITY_KIND_MCP_SERVER)
+    session.doc.transact(() => {
+      if (config.name !== undefined) setEntityField(session.doc, 'name', config.name)
+      if (config.description !== undefined) {
+        setEntityField(session.doc, 'description', config.description ?? '')
+      }
+      if (config.transport !== undefined) setEntityField(session.doc, 'transport', config.transport)
+      if (config.url !== undefined) setEntityField(session.doc, 'url', config.url)
+      if (config.headers !== undefined) setEntityField(session.doc, 'headers', config.headers)
+      if (config.command !== undefined) setEntityField(session.doc, 'command', config.command ?? '')
+      if (config.args !== undefined) setEntityField(session.doc, 'args', config.args)
+      if (config.env !== undefined) setEntityField(session.doc, 'env', config.env)
+      if (config.timeout !== undefined) setEntityField(session.doc, 'timeout', config.timeout)
+      if (config.retries !== undefined) setEntityField(session.doc, 'retries', config.retries)
+      if (config.enabled !== undefined) setEntityField(session.doc, 'enabled', config.enabled)
+    }, YJS_ORIGINS.COPILOT_TOOL)
+
+    const nextFields = getEntityFields(session.doc, ENTITY_KIND_MCP_SERVER)
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'edit',
+        serverId: session.descriptor.entityId ?? undefined,
+        name: nextFields.name,
+        serverName: nextFields.name,
+      },
+    })
+    await this.markToolComplete(200, `Updated MCP server "${nextFields.name}"`, {
+      success: true,
+      operation: 'edit',
+      serverId: session.descriptor.entityId ?? undefined,
+      name: nextFields.name,
+      serverName: nextFields.name,
+      reviewSessionId: session.descriptor.reviewSessionId,
+      draftSessionId: session.descriptor.draftSessionId,
     })
   }
 }

@@ -5,7 +5,7 @@ import { getEnv, isTruthy } from '@/lib/env'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { EMPTY_CHANNEL_TRAINING_STATE, useCopilotTrainingStore } from '@/stores/copilot-training/store'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { TrainingFloatingButton } from './training-floating-button'
 import { TrainingModal } from './training-modal'
 

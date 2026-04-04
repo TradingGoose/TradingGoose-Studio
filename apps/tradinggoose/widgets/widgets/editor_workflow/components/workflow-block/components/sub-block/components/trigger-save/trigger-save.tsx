@@ -13,10 +13,16 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useTriggerConfigAggregation } from '@/hooks/use-trigger-config-aggregation'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import {
+  useBlock,
+  useSubBlockValue as useYjsSubBlockValue,
+  useWorkflowMutations,
+} from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { getWorkflowMap, YJS_KEYS } from '@/lib/yjs/workflow-session'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { getTrigger, isTriggerValid } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
@@ -46,20 +52,20 @@ export function TriggerSave({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const workflowId = useWorkflowId()
 
+  const selectedTriggerIdValue = useYjsSubBlockValue(blockId, 'selectedTriggerId')
   const effectiveTriggerId = useMemo(() => {
     if (triggerId && isTriggerValid(triggerId)) {
       return triggerId
     }
-    const selectedTriggerId = useSubBlockStore
-      .getState()
-      .getValue(blockId, 'selectedTriggerId', workflowId)
-    if (typeof selectedTriggerId === 'string' && isTriggerValid(selectedTriggerId)) {
-      return selectedTriggerId
+    if (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)) {
+      return selectedTriggerIdValue
     }
     return triggerId
-  }, [blockId, triggerId, workflowId])
+  }, [triggerId, selectedTriggerIdValue])
 
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
+  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
+  const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
+  const { doc } = useWorkflowSession()
 
   const { webhookId, saveConfig, deleteConfig, isLoading } = useWebhookManagement({
     blockId,
@@ -67,9 +73,7 @@ export function TriggerSave({
     useWebhookUrl: true,
   })
 
-  const triggerCredentials = useSubBlockStore((state) =>
-    state.getValue(blockId, 'triggerCredentials', workflowId)
-  )
+  const triggerCredentials = useYjsSubBlockValue(blockId, 'triggerCredentials')
 
   const triggerDef =
     effectiveTriggerId && isTriggerValid(effectiveTriggerId) ? getTrigger(effectiveTriggerId) : null
@@ -116,22 +120,19 @@ export function TriggerSave({
       .map((sb) => sb.id)
   }, [triggerDef])
 
-  const subscribedSubBlockValues = useSubBlockStore(
-    useCallback(
-      (state) => {
-        if (!triggerDef) return {}
-        const values: Record<string, any> = {}
-        requiredSubBlockIds.forEach((subBlockId) => {
-          const value = state.getValue(blockId, subBlockId, workflowId)
-          if (value !== null && value !== undefined && value !== '') {
-            values[subBlockId] = value
-          }
-        })
-        return values
-      },
-      [blockId, triggerDef, requiredSubBlockIds, workflowId]
-    )
-  )
+  const currentBlock = useBlock(blockId)
+  const subscribedSubBlockValues = useMemo(() => {
+    if (!triggerDef) return {}
+    const values: Record<string, any> = {}
+    const block = currentBlock
+    requiredSubBlockIds.forEach((subBlockId) => {
+      const value = block?.subBlocks?.[subBlockId]?.value ?? null
+      if (value !== null && value !== undefined && value !== '') {
+        values[subBlockId] = value
+      }
+    })
+    return values
+  }, [currentBlock, triggerDef, requiredSubBlockIds])
 
   const previousValuesRef = useRef<Record<string, any>>({})
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -163,7 +164,7 @@ export function TriggerSave({
       )
 
       if (aggregatedConfig) {
-        useSubBlockStore.getState().setValue(blockId, 'triggerConfig', aggregatedConfig, workflowId)
+        yjsSetSubBlockValue(blockId, 'triggerConfig', aggregatedConfig)
       }
 
       const validation = validateRequiredFields(aggregatedConfig)
@@ -199,7 +200,7 @@ export function TriggerSave({
     subscribedSubBlockValues,
     saveStatus,
     validateRequiredFields,
-    workflowId,
+    yjsSetSubBlockValue,
   ])
 
   const handleSave = async () => {
@@ -216,7 +217,7 @@ export function TriggerSave({
       )
 
       if (aggregatedConfig) {
-        useSubBlockStore.getState().setValue(blockId, 'triggerConfig', aggregatedConfig, workflowId)
+        yjsSetSubBlockValue(blockId, 'triggerConfig', aggregatedConfig)
         logger.debug('Stored aggregated trigger config', {
           blockId,
           triggerId: effectiveTriggerId,
@@ -239,23 +240,23 @@ export function TriggerSave({
       setSaveStatus('saved')
       setErrorMessage(null)
 
-      const savedWebhookId = useSubBlockStore
-        .getState()
-        .getValue(blockId, 'webhookId', workflowId)
-      const savedTriggerPath = useSubBlockStore
-        .getState()
-        .getValue(blockId, 'triggerPath', workflowId)
-      const savedTriggerId = useSubBlockStore
-        .getState()
-        .getValue(blockId, 'triggerId', workflowId)
-      const savedTriggerConfig = useSubBlockStore
-        .getState()
-        .getValue(blockId, 'triggerConfig', workflowId)
+      const savedBlock = doc
+        ? (((getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined) ?? {})[
+            blockId
+          ] ?? null)
+        : null
 
-      collaborativeSetSubblockValue(blockId, 'webhookId', savedWebhookId)
-      collaborativeSetSubblockValue(blockId, 'triggerPath', savedTriggerPath)
-      collaborativeSetSubblockValue(blockId, 'triggerId', savedTriggerId)
-      collaborativeSetSubblockValue(blockId, 'triggerConfig', savedTriggerConfig)
+      if (savedBlock) {
+        const savedWebhookId = savedBlock?.subBlocks?.['webhookId']?.value ?? null
+        const savedTriggerPath = savedBlock?.subBlocks?.['triggerPath']?.value ?? null
+        const savedTriggerId = savedBlock?.subBlocks?.['triggerId']?.value ?? null
+        const savedTriggerConfig = savedBlock?.subBlocks?.['triggerConfig']?.value ?? null
+
+        collaborativeSetSubblockValue(blockId, 'webhookId', savedWebhookId)
+        collaborativeSetSubblockValue(blockId, 'triggerPath', savedTriggerPath)
+        collaborativeSetSubblockValue(blockId, 'triggerId', savedTriggerId)
+        collaborativeSetSubblockValue(blockId, 'triggerConfig', savedTriggerConfig)
+      }
 
       setTimeout(() => {
         setSaveStatus('idle')

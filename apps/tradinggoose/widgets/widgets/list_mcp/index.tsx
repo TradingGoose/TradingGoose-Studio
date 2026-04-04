@@ -32,6 +32,7 @@ import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/draft-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import {
   widgetHeaderButtonGroupClassName,
@@ -41,15 +42,15 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import {
+  buildPersistedPairContext,
+  resolveMcpServerId,
+} from '@/widgets/widgets/_shared/mcp/utils'
 
 const DEFAULT_MCP_SERVER = {
+  ...MCP_SERVER_DEFAULTS,
   name: 'New MCP Server',
   transport: 'streamable-http' as const,
-  url: '',
-  timeout: 30000,
-  headers: {},
-  enabled: true,
 }
 
 const WidgetMessage = ({ message }: { message: string }) => (
@@ -116,43 +117,51 @@ const ListMcpHeaderRightContent = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const { createServer, isLoading } = useMcpServersStore(
-    (state) => ({
-      createServer: state.createServer,
-      isLoading: state.isLoading,
-    }),
-    shallow
-  )
+  const createServer = useMcpServersStore((state) => state.createServer)
 
-  const handleCreateServer = useCallback(async () => {
-    if (!workspaceId || !permissions.canEdit || isLoading) return
+  const handleCreateServer = useCallback(() => {
+    if (!workspaceId || !permissions.canEdit) return
 
-    try {
-      const created = await createServer(workspaceId, DEFAULT_MCP_SERVER)
-      if (!created?.id) return
+    void createServer(workspaceId, DEFAULT_MCP_SERVER)
+      .then((createdServer) => {
+        const createdServerId =
+          createdServer && typeof createdServer.id === 'string' ? createdServer.id : null
 
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { mcpServerId: created.id })
-        return
-      }
+        if (!createdServerId) {
+          throw new Error('Created MCP server is missing an id')
+        }
 
-      emitMcpSelectionChange({
-        serverId: created.id,
-        panelId,
-        widgetKey: 'list_mcp',
+        if (isLinkedToColorPair) {
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'mcpServerId',
+              descriptor: null,
+              legacyEntityId: createdServerId,
+            })
+          )
+          return
+        }
+
+        emitMcpSelectionChange({
+          serverId: createdServerId,
+          panelId,
+          widgetKey: 'list_mcp',
+        })
+        emitMcpSelectionChange({
+          serverId: createdServerId,
+          panelId,
+          widgetKey: 'editor_mcp',
+        })
       })
-      emitMcpSelectionChange({
-        serverId: created.id,
-        panelId,
-        widgetKey: 'editor_mcp',
+      .catch((error) => {
+        console.error('Failed to create MCP server from list widget', error)
       })
-    } catch (error) {
-      console.error('Failed to create MCP server', error)
-    }
   }, [
     createServer,
     isLinkedToColorPair,
-    isLoading,
+    pairContext,
     panelId,
     permissions.canEdit,
     resolvedPairColor,
@@ -162,7 +171,7 @@ const ListMcpHeaderRightContent = ({
 
   return (
     <McpCreateMenu
-      disabled={!workspaceId || !permissions.canEdit || isLoading}
+      disabled={!workspaceId || !permissions.canEdit}
       onCreateServer={handleCreateServer}
     />
   )
@@ -265,7 +274,15 @@ const ListMcpWidgetContent = ({
     onServerSelect: (serverId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
+      setPairContext(
+        resolvedPairColor,
+        buildPersistedPairContext({
+          existing: pairContext,
+          legacyIdKey: 'mcpServerId',
+          descriptor: null,
+          legacyEntityId: serverId,
+        })
+      )
     },
   })
 
@@ -279,7 +296,15 @@ const ListMcpWidgetContent = ({
 
     if (isLinkedToColorPair) {
       if (pairContext?.mcpServerId !== null) {
-        setPairContext(resolvedPairColor, { mcpServerId: null })
+        setPairContext(
+          resolvedPairColor,
+          buildPersistedPairContext({
+            existing: pairContext,
+            legacyIdKey: 'mcpServerId',
+            descriptor: null,
+            legacyEntityId: null,
+          })
+        )
       }
       return
     }
@@ -310,7 +335,15 @@ const ListMcpWidgetContent = ({
     (serverId: string | null) => {
       if (isLinkedToColorPair) {
         if (pairContext?.mcpServerId !== serverId) {
-          setPairContext(resolvedPairColor, { mcpServerId: serverId })
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'mcpServerId',
+              descriptor: null,
+              legacyEntityId: serverId,
+            })
+          )
         }
         return
       }
@@ -331,11 +364,12 @@ const ListMcpWidgetContent = ({
     },
     [
       isLinkedToColorPair,
-      onWidgetParamsChange,
-      panelId,
-      pairContext?.mcpServerId,
-      params,
-      resolvedPairColor,
+    onWidgetParamsChange,
+    panelId,
+    pairContext?.mcpServerId,
+    pairContext,
+    params,
+    resolvedPairColor,
       setPairContext,
     ]
   )

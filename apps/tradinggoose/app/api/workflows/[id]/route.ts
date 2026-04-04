@@ -6,12 +6,13 @@ import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { verifyInternalToken } from '@/lib/auth/internal'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
+import { deleteSession } from '@/socket-server/yjs/persistence'
+import { removeDocument } from '@/socket-server/yjs/upstream-utils'
 
 const logger = createLogger('WorkflowByIdAPI')
 
@@ -278,39 +279,15 @@ export async function DELETE(
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
 
+    // removeDocument is synchronous (in-memory doc cleanup); deleteSession is
+    // async (persistence layer).  Both are independent of each other but since
+    // removeDocument returns void there is no parallelism to gain from
+    // Promise.all -- the sync call finishes instantly before the await.
+    removeDocument(workflowId)
+    await deleteSession(workflowId)
+
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
-
-    // Notify Socket.IO system to disconnect users from this workflow's room
-    // This prevents "Block not found" errors when collaborative updates try to process
-    // after the workflow has been deleted
-    try {
-      const socketUrl = env.SOCKET_SERVER_URL || 'http://localhost:3002'
-      const socketResponse = await fetch(`${socketUrl}/api/workflow-deleted`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Secret': env.INTERNAL_API_SECRET,
-        },
-        body: JSON.stringify({ workflowId }),
-      })
-
-      if (socketResponse.ok) {
-        logger.info(
-          `[${requestId}] Notified Socket.IO server about workflow ${workflowId} deletion`
-        )
-      } else {
-        logger.warn(
-          `[${requestId}] Failed to notify Socket.IO server about workflow ${workflowId} deletion`
-        )
-      }
-    } catch (error) {
-      logger.warn(
-        `[${requestId}] Error notifying Socket.IO server about workflow ${workflowId} deletion:`,
-        error
-      )
-      // Don't fail the deletion if Socket.IO notification fails
-    }
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error: any) {

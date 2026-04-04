@@ -4,13 +4,17 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
-import { useSkillsStore } from '@/stores/skills/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getEntityFields, setEntityField } from '@/lib/yjs/entity-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createEntityDynamicText,
+  createEntityToolExecutor,
+  requireActiveEntitySession,
+  type EntityToolArgs,
+} from '@/lib/copilot/tools/client/workflow/entity-review-tool-utils'
+import { ENTITY_KIND_SKILL } from '@/lib/copilot/review-sessions/types'
 
-interface ManageSkillArgs {
-  operation: 'add' | 'edit' | 'delete' | 'list'
+interface ManageSkillArgs extends EntityToolArgs {
   skillId?: string
   name?: string
   description?: string
@@ -22,6 +26,18 @@ const API_ENDPOINT = '/api/skills'
 export class ManageSkillClientTool extends BaseClientTool {
   static readonly id = 'manage_skill'
   private currentArgs?: ManageSkillArgs
+
+  private readonly orchestration = createEntityToolExecutor<ManageSkillArgs>({
+    entityLabel: 'skill',
+    loggerName: 'ManageSkillClientTool',
+    getLogDetails: (args) => ({
+      skillId: args.skillId,
+      name: args.name,
+    }),
+    list: (workspaceId) => this.listSkills(workspaceId),
+    add: (args) => this.addSkill(args),
+    edit: (args) => this.editSkill(args),
+  })
 
   constructor(toolCallId: string) {
     super(toolCallId, ManageSkillClientTool.id, ManageSkillClientTool.metadata)
@@ -50,86 +66,19 @@ export class ManageSkillClientTool extends BaseClientTool {
       accept: { text: 'Allow', icon: Check },
       reject: { text: 'Skip', icon: XCircle },
     },
-    getDynamicText: (params, state) => {
-      const operation = params?.operation as 'add' | 'edit' | 'delete' | 'list' | undefined
-      if (!operation) return undefined
-
-      let skillName = params?.name
-      if (!skillName && params?.skillId) {
-        try {
-          const skill = useSkillsStore.getState().getSkill(params.skillId)
-          skillName = skill?.name
-        } catch {
-          // Ignore store lookup failures for display-only metadata
-        }
-      }
-
-      const getActionText = (verb: 'present' | 'past' | 'gerund') => {
-        switch (operation) {
-          case 'add':
-            return verb === 'present' ? 'Create' : verb === 'past' ? 'Created' : 'Creating'
-          case 'edit':
-            return verb === 'present' ? 'Edit' : verb === 'past' ? 'Edited' : 'Editing'
-          case 'delete':
-            return verb === 'present' ? 'Delete' : verb === 'past' ? 'Deleted' : 'Deleting'
-          case 'list':
-            return verb === 'present' ? 'List' : verb === 'past' ? 'Listed' : 'Listing'
-        }
-      }
-
-      const shouldShowSkillName = (currentState: ClientToolCallState) => {
-        if (operation === 'list') {
-          return false
-        }
-        if (operation === 'add') {
-          return currentState === ClientToolCallState.success
-        }
-        return true
-      }
-
-      const nameText =
-        operation === 'list'
-          ? ' skills'
-          : shouldShowSkillName(state) && skillName
-            ? ` ${skillName}`
-            : ' skill'
-
-      switch (state) {
-        case ClientToolCallState.success:
-          return `${getActionText('past')}${nameText}`
-        case ClientToolCallState.executing:
-        case ClientToolCallState.generating:
-          return `${getActionText('gerund')}${nameText}`
-        case ClientToolCallState.pending:
-          return `${getActionText('present')}${nameText}?`
-        case ClientToolCallState.error:
-          return `Failed to ${getActionText('present')?.toLowerCase()}${nameText}`
-        case ClientToolCallState.aborted:
-          return `Aborted ${getActionText('gerund')?.toLowerCase()}${nameText}`
-        case ClientToolCallState.rejected:
-          return `Skipped ${getActionText('gerund')?.toLowerCase()}${nameText}`
-      }
-      return undefined
-    },
-  }
-
-  private getArgsFromStore(): ManageSkillArgs | undefined {
-    try {
-      const { toolCallsById } = getCopilotStoreForToolCall(this.toolCallId).getState()
-      const toolCall = toolCallsById[this.toolCallId]
-      return (toolCall as any)?.params as ManageSkillArgs | undefined
-    } catch {
-      return undefined
-    }
+    getDynamicText: createEntityDynamicText({
+      entityNoun: 'skill',
+      entityNounPlural: 'skills',
+      nameExtractor: (params) => params?.name,
+    }),
   }
 
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
-    const args = this.currentArgs || this.getArgsFromStore()
-    const operation = args?.operation
-    if (operation && operation !== 'list') {
-      return this.metadata.interrupt
-    }
-    return undefined
+    return this.orchestration.getInterruptDisplays(
+      this.currentArgs,
+      this.toolCallId,
+      this.metadata
+    )
   }
 
   async handleReject(): Promise<void> {
@@ -138,15 +87,7 @@ export class ManageSkillClientTool extends BaseClientTool {
   }
 
   async handleAccept(args?: ManageSkillArgs): Promise<void> {
-    const logger = createLogger('ManageSkillClientTool')
-    try {
-      this.setState(ClientToolCallState.executing)
-      await this.executeOperation(args, logger)
-    } catch (error: any) {
-      logger.error('execute failed', { message: error?.message })
-      this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, error?.message || 'Failed to manage skill')
-    }
+    await this.orchestration.handleAccept(this, args, this.requireExecutionContext())
   }
 
   async execute(args?: ManageSkillArgs): Promise<void> {
@@ -156,223 +97,102 @@ export class ManageSkillClientTool extends BaseClientTool {
     }
   }
 
-  private async executeOperation(
-    args: ManageSkillArgs | undefined,
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    if (!args?.operation) {
-      throw new Error('Operation is required')
-    }
-
-    const { operation, skillId, name, description, content } = args
-
-    const { workflowId: activeWorkflowId } = this.requireExecutionContext()
-    const registryState = useWorkflowRegistry.getState()
-    const workspaceId = registryState.workflows[activeWorkflowId]?.workspaceId
-    if (!workspaceId) {
-      throw new Error('No active workspace found')
-    }
-
-    logger.info(`Executing skill operation: ${operation}`, {
-      operation,
-      skillId,
-      name,
-      workspaceId,
-    })
-
-    switch (operation) {
-      case 'list':
-        await this.listSkills(workspaceId, logger)
-        break
-      case 'add':
-        await this.addSkill({ name, description, content, workspaceId }, logger)
-        break
-      case 'edit':
-        await this.editSkill({ skillId, name, description, content, workspaceId }, logger)
-        break
-      case 'delete':
-        await this.deleteSkill({ skillId, workspaceId }, logger)
-        break
-      default:
-        throw new Error(`Unknown operation: ${operation}`)
-    }
-  }
-
-  private async addSkill(
-    params: {
-      name?: string
-      description?: string
-      content?: string
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { name, description, content, workspaceId } = params
-
-    if (!name) {
+  private async addSkill(args: ManageSkillArgs): Promise<void> {
+    if (!args.name) {
       throw new Error('Name is required for adding a skill')
     }
-    if (!description) {
+    if (!args.description) {
       throw new Error('Description is required for adding a skill')
     }
-    if (!content) {
+    if (!args.content) {
       throw new Error('Content is required for adding a skill')
     }
 
-    const response = await fetch(API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        skills: [{ name, description, content }],
-        workspaceId,
-      }),
+    const executionContext = this.requireExecutionContext()
+    const session = requireActiveEntitySession(executionContext, ENTITY_KIND_SKILL)
+    session.doc.transact(() => {
+      setEntityField(session.doc, 'name', args.name)
+      setEntityField(session.doc, 'description', args.description)
+      setEntityField(session.doc, 'content', args.content)
+    }, YJS_ORIGINS.COPILOT_TOOL)
+
+    const nextFields = getEntityFields(session.doc, ENTITY_KIND_SKILL)
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'add',
+        skillId: session.descriptor.entityId ?? undefined,
+        name: nextFields.name,
+      },
     })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to create skill')
-    }
-
-    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
-      throw new Error('Invalid API response: missing skill data')
-    }
-
-    const createdSkill = data.data[0]
-    logger.info(`Created skill: ${name}`, { skillId: createdSkill.id })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Created skill "${name}"`, {
+    await this.markToolComplete(200, `Updated skill draft "${nextFields.name}"`, {
       success: true,
       operation: 'add',
-      skillId: createdSkill.id,
-      name,
+      skillId: session.descriptor.entityId ?? undefined,
+      name: nextFields.name,
+      reviewSessionId: session.descriptor.reviewSessionId,
+      draftSessionId: session.descriptor.draftSessionId,
     })
   }
 
-  private async editSkill(
-    params: {
-      skillId?: string
-      name?: string
-      description?: string
-      content?: string
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { skillId, name, description, content, workspaceId } = params
+  private async editSkill(args: ManageSkillArgs): Promise<void> {
+    const executionContext = this.requireExecutionContext()
+    const session = requireActiveEntitySession(executionContext, ENTITY_KIND_SKILL)
 
-    if (!skillId) {
-      throw new Error('Skill ID is required for editing a skill')
-    }
+    session.doc.transact(() => {
+      if (args.name !== undefined) {
+        setEntityField(session.doc, 'name', args.name)
+      }
+      if (args.description !== undefined) {
+        setEntityField(session.doc, 'description', args.description)
+      }
+      if (args.content !== undefined) {
+        setEntityField(session.doc, 'content', args.content)
+      }
+    }, YJS_ORIGINS.COPILOT_TOOL)
 
-    if (!name && !description && !content) {
-      throw new Error('At least one of name, description, or content must be provided for editing')
-    }
-
-    const existingResponse = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
-    const existingData = await existingResponse.json()
-
-    if (!existingResponse.ok) {
-      throw new Error(existingData.error || 'Failed to fetch existing skills')
-    }
-
-    const existingSkill = existingData.data?.find((skill: any) => skill.id === skillId)
-    if (!existingSkill) {
-      throw new Error(`Skill with ID ${skillId} not found`)
-    }
-
-    const updatedSkill = {
-      id: skillId,
-      name: name ?? existingSkill.name,
-      description: description ?? existingSkill.description,
-      content: content ?? existingSkill.content,
-    }
-
-    const response = await fetch(API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        skills: [updatedSkill],
-        workspaceId,
-      }),
+    const nextFields = getEntityFields(session.doc, ENTITY_KIND_SKILL)
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'edit',
+        skillId: session.descriptor.entityId ?? undefined,
+        name: nextFields.name,
+      },
     })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to update skill')
-    }
-
-    logger.info(`Updated skill: ${updatedSkill.name}`, { skillId })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Updated skill "${updatedSkill.name}"`, {
+    await this.markToolComplete(200, `Updated skill "${nextFields.name}"`, {
       success: true,
       operation: 'edit',
-      skillId,
-      name: updatedSkill.name,
+      skillId: session.descriptor.entityId ?? undefined,
+      name: nextFields.name,
+      reviewSessionId: session.descriptor.reviewSessionId,
+      draftSessionId: session.descriptor.draftSessionId,
     })
   }
 
-  private async deleteSkill(
-    params: {
-      skillId?: string
-      workspaceId: string
-    },
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const { skillId, workspaceId } = params
-
-    if (!skillId) {
-      throw new Error('Skill ID is required for deleting a skill')
-    }
-
-    const skill = useSkillsStore.getState().getSkill(skillId, workspaceId)
-    const skillName = skill?.name
-
-    const response = await fetch(`${API_ENDPOINT}?id=${skillId}&workspaceId=${workspaceId}`, {
-      method: 'DELETE',
-    })
-
-    const data = await response.json()
+  private async listSkills(workspaceId: string): Promise<void> {
+    const response = await fetch(`${API_ENDPOINT}?workspaceId=${encodeURIComponent(workspaceId)}`)
+    const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to delete skill')
+      throw new Error(data?.error || `Failed to list skills: ${response.status}`)
     }
 
-    logger.info(`Deleted skill: ${skillName || skillId}`, { skillId })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Deleted skill "${skillName || skillId}"`, {
-      success: true,
-      operation: 'delete',
-      skillId,
-      name: skillName,
+    const skills = Array.isArray(data?.data) ? data.data : []
+    this.setState(ClientToolCallState.success, {
+      result: {
+        success: true,
+        operation: 'list',
+        skills,
+        count: skills.length,
+      },
     })
-  }
-
-  private async listSkills(
-    workspaceId: string,
-    logger: ReturnType<typeof createLogger>
-  ): Promise<void> {
-    const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to fetch skills')
-    }
-
-    const skills = Array.isArray(data.data) ? data.data : []
-
-    logger.info(`Listed skills for workspace ${workspaceId}`, { count: skills.length })
-
-    this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Found ${skills.length} skill(s)`, {
+    await this.markToolComplete(200, 'Listed skills', {
       success: true,
       operation: 'list',
       skills,
       count: skills.length,
+      workspaceId,
     })
   }
 }

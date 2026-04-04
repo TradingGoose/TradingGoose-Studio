@@ -6,7 +6,6 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChatStore } from '@/stores/chat/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
@@ -148,25 +147,23 @@ function ChatOutputsHeader({
   )
 
   return (
-    <WorkflowStoreProvider channelId={channelId} workflowId={workflowId ?? undefined}>
-      <div className='flex min-w-0 items-center gap-2'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='min-w-[220px]'>
-              <OutputSelect
-                workflowId={workflowId}
-                selectedOutputs={selectedOutputs}
-                onOutputSelect={handleSelect}
-                disabled={!workflowId}
-                placeholder='Select outputs'
-                triggerClassName={triggerClassName}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side='top'>Select workflow outputs</TooltipContent>
-        </Tooltip>
-      </div>
-    </WorkflowStoreProvider>
+    <div className='flex min-w-0 items-center gap-2'>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className='min-w-[220px]'>
+            <OutputSelect
+              workflowId={workflowId}
+              selectedOutputs={selectedOutputs}
+              onOutputSelect={handleSelect}
+              disabled={!workflowId}
+              placeholder='Select outputs'
+              triggerClassName={triggerClassName}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side='top'>Select workflow outputs</TooltipContent>
+      </Tooltip>
+    </div>
   )
 }
 

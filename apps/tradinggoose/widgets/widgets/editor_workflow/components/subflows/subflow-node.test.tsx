@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubflowNodeComponent } from '@/widgets/widgets/editor_workflow/components/subflows/subflow-node'
 
 const mockGetNodes = vi.fn()
+const mockRemoveBlock = vi.fn()
 
 // Mocks
+vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
+  useWorkflowEditorActions: vi.fn(() => ({
+    collaborativeRemoveBlock: mockRemoveBlock,
+  })),
+}))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),

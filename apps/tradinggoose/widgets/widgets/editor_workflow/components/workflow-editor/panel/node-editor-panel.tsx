@@ -12,24 +12,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
+import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/use-workflow-doc'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useCurrentWorkflow } from '@/hooks/workflow'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
-import { isBlockProtected } from '@/stores/workflows/workflow/utils'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
 import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
@@ -38,6 +31,67 @@ interface NodeEditorPanelProps {
 type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
 type ParallelType = 'count' | 'collection'
 type SubflowNodeType = 'loop' | 'parallel'
+
+function readStateValue(stateEntry: any) {
+  if (stateEntry && typeof stateEntry === 'object' && 'value' in stateEntry) {
+    return stateEntry.value
+  }
+
+  return stateEntry
+}
+
+function resolveActiveTriggerId(
+  stateToUse: Record<string, any>,
+  availableTriggerIds?: string[]
+): string | null {
+  const selectedTriggerId = readStateValue(stateToUse.selectedTriggerId)
+  if (typeof selectedTriggerId === 'string' && selectedTriggerId.trim().length > 0) {
+    return selectedTriggerId
+  }
+
+  const triggerId = readStateValue(stateToUse.triggerId)
+  if (typeof triggerId === 'string' && triggerId.trim().length > 0) {
+    return triggerId
+  }
+
+  return availableTriggerIds?.[0] ?? null
+}
+
+function hasResolvedStateValue(stateToUse: Record<string, any>, field: string): boolean {
+  const value = readStateValue(stateToUse[field])
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
+
+  return value !== undefined && value !== null
+}
+
+function withResolvedTriggerState(
+  stateToUse: Record<string, any>,
+  activeTriggerId: string | null
+): Record<string, any> {
+  if (!activeTriggerId) {
+    return stateToUse
+  }
+
+  let nextState = stateToUse
+
+  if (!hasResolvedStateValue(nextState, 'selectedTriggerId')) {
+    nextState = {
+      ...nextState,
+      selectedTriggerId: { value: activeTriggerId },
+    }
+  }
+
+  if (!hasResolvedStateValue(nextState, 'triggerId')) {
+    nextState = {
+      ...nextState,
+      triggerId: { value: activeTriggerId },
+    }
+  }
+
+  return nextState
+}
 
 const LOOP_TYPE_OPTIONS: Array<{ value: LoopType; label: string }> = [
   { value: 'for', label: 'For Loop' },
@@ -54,7 +108,8 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
 function getSubBlockStableKey(
   blockId: string,
   subBlock: SubBlockConfig,
-  stateToUse: Record<string, any>
+  stateToUse: Record<string, any>,
+  availableTriggerIds?: string[]
 ) {
   if (subBlock.type === 'mcp-dynamic-args') {
     const serverValue = stateToUse.server?.value || 'no-server'
@@ -67,84 +122,41 @@ function getSubBlockStableKey(
     return `${blockId}-${subBlock.id}-${serverValue}`
   }
 
+  if (subBlock.mode === 'trigger') {
+    const activeTriggerId = resolveActiveTriggerId(stateToUse, availableTriggerIds) || 'no-trigger'
+    return `${blockId}-${subBlock.id}-${activeTriggerId}`
+  }
+
   return `${blockId}-${subBlock.id}`
 }
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
-  const currentWorkflow = useCurrentWorkflow()
   const userPermissions = useUserPermissionsContext()
-  const workflowRoute = useOptionalWorkflowRoute()
-  const workflowChannelId = workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const routeWorkflowId = workflowRoute?.workflowId ?? null
+  const selectedBlock = useBlock(selectedNodeId ?? '')
+  const selectedLoop = useLoop(selectedNodeId ?? '')
+  const selectedParallel = useParallel(selectedNodeId ?? '')
+  const isSelectedBlockProtected = useBlockProtection(selectedNodeId ?? '')
 
-  const activeWorkflowId = useWorkflowRegistry(
-    useCallback((state) => state.getActiveWorkflowId(workflowChannelId), [workflowChannelId])
-  )
-  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
-
-  const storeBlockState = useWorkflowStore(
-    useCallback(
-      (state) => {
-        const workflowBlock = selectedNodeId ? state.blocks[selectedNodeId] : undefined
-        return {
-          advancedMode: workflowBlock?.advancedMode ?? false,
-          triggerMode: workflowBlock?.triggerMode ?? false,
-          blocks: state.blocks,
-        }
-      },
-      [selectedNodeId]
-    )
-  )
-
-  const selectedSubflowState = useWorkflowStore(
-    useCallback(
-      (state) => {
-        if (!selectedNodeId) {
-          return {
-            blockData: undefined,
-            loop: undefined,
-            parallel: undefined,
-          }
-        }
-
-        const block = state.blocks[selectedNodeId]
-        return {
-          blockData: block?.data,
-          loop: block ? state.loops[block.id] : undefined,
-          parallel: block ? state.parallels[block.id] : undefined,
-        }
-      },
-      [selectedNodeId]
-    )
-  )
-
-  const selectedBlock = useMemo(() => {
-    if (!selectedNodeId) {
-      return null
+  const selectedSubflowState = useMemo(() => {
+    if (!selectedBlock) {
+      return {
+        blockData: undefined,
+        loop: undefined,
+        parallel: undefined,
+      }
     }
 
-    return currentWorkflow.getBlockById(selectedNodeId)
-  }, [currentWorkflow, selectedNodeId])
-
-  useSubBlockStore(
-    useCallback(
-      (state) => {
-        if (!resolvedWorkflowId || !selectedNodeId) return {}
-        return state.workflowValues[resolvedWorkflowId]?.[selectedNodeId] || {}
-      },
-      [resolvedWorkflowId, selectedNodeId]
-    )
-  )
+    return {
+      blockData: selectedBlock.data,
+      loop: selectedLoop ?? undefined,
+      parallel: selectedParallel ?? undefined,
+    }
+  }, [selectedBlock, selectedLoop, selectedParallel])
 
   const blockConfig = useMemo(
     () => (selectedBlock ? getBlock(selectedBlock.type) : undefined),
     [selectedBlock]
   )
-
-  const isSelectedBlockProtected = useMemo(() => {
-    if (!selectedNodeId) return false
-    return isBlockProtected(selectedNodeId, storeBlockState.blocks)
-  }, [selectedNodeId, storeBlockState.blocks])
 
   const isSubflow = selectedBlock?.type === 'loop' || selectedBlock?.type === 'parallel'
   const subflowConfig = useMemo(() => {
@@ -154,8 +166,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return null
   }, [selectedBlock])
 
-  const shouldDisableWrite =
-    !userPermissions.canEdit || currentWorkflow.isDiffMode || isSelectedBlockProtected
+  const shouldDisableWrite = !userPermissions.canEdit || isSelectedBlockProtected
   const {
     collaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName,
@@ -163,7 +174,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     collaborativeUpdateIterationCount,
     collaborativeUpdateLoopType,
     collaborativeUpdateParallelType,
-  } = useCollaborativeWorkflow()
+  } = useWorkflowEditorActions()
 
   const [tempIterationValue, setTempIterationValue] = useState<string | null>(null)
 
@@ -402,6 +413,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     displayAdvancedOptions,
     hasAdvancedOnlyFields,
     isTriggerConfigurationView,
+    hasDeploymentManagedTriggerConfiguration,
   } = useMemo(() => {
     if (!selectedBlock || !blockConfig?.subBlocks) {
       return {
@@ -411,31 +423,21 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         displayAdvancedOptions: false,
         hasAdvancedOnlyFields: false,
         isTriggerConfigurationView: false,
+        hasDeploymentManagedTriggerConfiguration: false,
       }
     }
 
-    let blockStateForConditions: Record<string, any> = {}
-    const blockFromCurrentWorkflow = currentWorkflow.getBlockById(selectedBlock.id)
-
-    if (currentWorkflow.isDiffMode && blockFromCurrentWorkflow) {
-      blockStateForConditions = blockFromCurrentWorkflow.subBlocks || {}
-    } else {
-      const mergedBlock = resolvedWorkflowId
-        ? mergeSubblockState(storeBlockState.blocks, resolvedWorkflowId, selectedBlock.id)[
-            selectedBlock.id
-          ]
-        : storeBlockState.blocks[selectedBlock.id]
-      blockStateForConditions = mergedBlock?.subBlocks || selectedBlock.subBlocks || {}
-    }
+    const blockStateForConditions = selectedBlock.subBlocks || {}
 
     const isPureTriggerBlock = blockConfig.category === 'triggers'
-    const effectiveTrigger =
-      (currentWorkflow.isDiffMode
-        ? Boolean(blockFromCurrentWorkflow?.triggerMode)
-        : storeBlockState.triggerMode) || isPureTriggerBlock
-    const effectiveAdvanced = currentWorkflow.isDiffMode
-      ? Boolean(blockFromCurrentWorkflow?.advancedMode)
-      : storeBlockState.advancedMode
+    const effectiveTrigger = Boolean(selectedBlock.triggerMode) || isPureTriggerBlock
+    const activeTriggerId = effectiveTrigger
+      ? resolveActiveTriggerId(blockStateForConditions, blockConfig.triggers?.available)
+      : null
+    const normalizedConditionState = effectiveTrigger
+      ? withResolvedTriggerState(blockStateForConditions, activeTriggerId)
+      : blockStateForConditions
+    const effectiveAdvanced = Boolean(selectedBlock.advancedMode)
     const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
       if (subBlock.mode !== 'advanced') return false
       const value = blockStateForConditions[subBlock.id]?.value
@@ -451,10 +453,21 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
       (subBlock) => subBlock.mode === 'advanced'
     )
+    const hasConfigurableDeployTriggerFields = buildSubBlockRows({
+      subBlocks: blockConfig.subBlocks,
+      stateToUse: normalizedConditionState,
+      isAdvancedMode: false,
+      isTriggerMode: effectiveTrigger,
+      isPureTriggerBlock,
+      availableTriggerIds: blockConfig.triggers?.available,
+      hideFromPreview: false,
+      triggerSubBlockOwner: 'deploy',
+    }).some((row) => row.some(isConfigurableTriggerDeploySubBlock))
+    const hasCustomDeployTriggerFlow = activeTriggerId === 'chat'
 
     const regularRowsAccumulator = buildSubBlockRows({
       subBlocks: blockConfig.subBlocks,
-      stateToUse: blockStateForConditions,
+      stateToUse: normalizedConditionState,
       isAdvancedMode: false,
       isTriggerMode: effectiveTrigger,
       isPureTriggerBlock,
@@ -463,7 +476,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     })
     const advancedRowsAccumulator = buildSubBlockRows({
       subBlocks: advancedOnlySubBlocks,
-      stateToUse: blockStateForConditions,
+      stateToUse: normalizedConditionState,
       isAdvancedMode: true,
       isTriggerMode: effectiveTrigger,
       isPureTriggerBlock,
@@ -474,34 +487,56 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return {
       regularRows: regularRowsAccumulator,
       advancedRows: advancedRowsAccumulator,
-      stateToUse: blockStateForConditions,
+      stateToUse: normalizedConditionState,
       displayAdvancedOptions: advancedVisibility,
       hasAdvancedOnlyFields: advancedRowsAccumulator.length > 0,
       isTriggerConfigurationView: effectiveTrigger,
+      hasDeploymentManagedTriggerConfiguration:
+        hasConfigurableDeployTriggerFields || hasCustomDeployTriggerFlow,
     }
-  }, [
-    resolvedWorkflowId,
-    blockConfig,
-    currentWorkflow,
-    selectedBlock,
-    shouldDisableWrite,
-    storeBlockState.advancedMode,
-    storeBlockState.blocks,
-    storeBlockState.triggerMode,
-  ])
+  }, [blockConfig, selectedBlock, shouldDisableWrite])
 
   const emptyStateMessage = useMemo(() => {
+    if (isTriggerConfigurationView && hasDeploymentManagedTriggerConfiguration) {
+      if (userPermissions.canAdmin) {
+        return 'This trigger is configured in Deployment Settings. Use Deploy in the control bar to edit it.'
+      }
+
+      if (userPermissions.canEdit) {
+        return 'This trigger is configured in Deployment Settings. A workspace admin can update it there.'
+      }
+
+      return 'This trigger is configured in Deployment Settings.'
+    }
+
     if (isTriggerConfigurationView) {
       return 'This trigger has no editable fields in the panel.'
     }
 
     return 'No editable fields for this block.'
-  }, [isTriggerConfigurationView])
+  }, [
+    hasDeploymentManagedTriggerConfiguration,
+    isTriggerConfigurationView,
+    userPermissions.canAdmin,
+    userPermissions.canEdit,
+  ])
 
   if (!selectedNodeId) return null
 
   if (!selectedBlock) {
-    return null
+    return (
+      <Panel
+        position='top-right'
+        className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
+        onMouseDown={stopPanelEvent}
+        onPointerDown={stopPanelEvent}
+        onClick={stopPanelEvent}
+        onWheel={stopPanelEvent}
+        onTouchStart={stopPanelEvent}
+      >
+        <div className='text-sm'>Node not found</div>
+      </Panel>
+    )
   }
 
   if (selectedBlock.type === 'note') return null
@@ -510,7 +545,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
-        className='allow-scroll max-h-[calc(100%-1rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
+        className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
         onClick={stopPanelEvent}
@@ -529,7 +564,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   return (
     <Panel
       position='top-right'
-      className='allow-scroll max-h-[calc(100%-1rem)] w-96 overflow-y-auto rounded-lg border bg-card px-4 pb-4 shadow-md'
+      className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card px-4 pb-4 shadow-md'
       onMouseDown={stopPanelEvent}
       onPointerDown={stopPanelEvent}
       onClick={stopPanelEvent}
@@ -542,16 +577,11 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             <div className='flex min-w-0 flex-1 items-center gap-2'>
               <div
                 className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
-                style={{
-                  backgroundColor: isEnabled
-                    ? (isSubflow ? subflowConfig?.bgColor : blockConfig?.bgColor)
-                      ? `${(isSubflow ? subflowConfig?.bgColor : blockConfig?.bgColor) || ''}20`
-                      : undefined
-                    : 'gray',
-                  color: isEnabled
-                    ? (isSubflow ? subflowConfig?.bgColor : blockConfig?.bgColor) || undefined
-                    : 'white',
-                }}
+                style={
+                  isEnabled
+                    ? getIconTileStyle(isSubflow ? subflowConfig?.bgColor : blockConfig?.bgColor)
+                    : { backgroundColor: 'gray', color: 'white' }
+                }
               >
                 {(() => {
                   const Icon = isSubflow ? subflowConfig?.icon : blockConfig?.icon
@@ -687,7 +717,12 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             {regularRows.map((row, rowIndex) => (
               <div key={`panel-row-${rowIndex}`} className='flex gap-3'>
                 {row.map((subBlock) => {
-                  const stableKey = getSubBlockStableKey(selectedBlock.id, subBlock, stateToUse)
+                  const stableKey = getSubBlockStableKey(
+                    selectedBlock.id,
+                    subBlock,
+                    stateToUse,
+                    blockConfig?.triggers?.available
+                  )
                   return (
                     <div
                       key={stableKey}
@@ -737,7 +772,12 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               advancedRows.map((row, rowIndex) => (
                 <div key={`panel-advanced-row-${rowIndex}`} className='flex gap-3'>
                   {row.map((subBlock) => {
-                    const stableKey = getSubBlockStableKey(selectedBlock.id, subBlock, stateToUse)
+                    const stableKey = getSubBlockStableKey(
+                      selectedBlock.id,
+                      subBlock,
+                      stateToUse,
+                      blockConfig?.triggers?.available
+                    )
                     return (
                       <div
                         key={stableKey}

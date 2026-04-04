@@ -5,11 +5,8 @@ import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { Chat } from './chat/chat'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { SocketProvider } from '@/contexts/socket-context'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  WorkflowStoreProvider,
-} from '@/stores/workflows/workflow/store-client'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface WorkflowChatAppProps {
   workspaceId: string
@@ -35,23 +32,25 @@ const WorkflowChatApp = ({
 
   return (
     <Providers workspaceId={workspaceId}>
-      <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <div className='flex h-full w-full flex-col overflow-y-auto'>
-              <Chat
-                chatMessage={chatMessage}
-                setChatMessage={setChatMessage}
-                hideScrollbar={false}
-              />
-            </div>
-          </WorkflowStoreProvider>
+          <div className='flex h-full w-full flex-col overflow-y-auto'>
+            <Chat
+              chatMessage={chatMessage}
+              setChatMessage={setChatMessage}
+              hideScrollbar={false}
+            />
+          </div>
         </WorkflowRouteProvider>
-      </SocketProvider>
+      </WorkflowSessionProvider>
     </Providers>
   )
 }

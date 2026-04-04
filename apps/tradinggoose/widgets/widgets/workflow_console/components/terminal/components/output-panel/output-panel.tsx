@@ -15,20 +15,14 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn, redactApiKeys } from '@/lib/utils'
-import { CodeDisplay } from '../../../code-display/code-display'
-import { JSONView } from '../../../json-view/json-view'
-import { StructuredOutput } from './components/structured-output'
 import { getBlock } from '@/blocks'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { useGeneralStore } from '@/stores/settings/general/store'
-
-const sanitizeHexColor = (value?: string) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
-}
+import { CodeDisplay } from '../../../code-display/code-display'
+import { JSONView } from '../../../json-view/json-view'
+import { StructuredOutput } from './components/structured-output'
 
 const logger = createLogger('OutputPanel')
 
@@ -416,7 +410,7 @@ export function OutputPanel({
   const BlockIcon = entry.blockType === 'serializer' ? AlertTriangle : blockConfig?.icon
   const defaultBlockColor = '#6B7280'
   const rawBlockColor = entry.blockType === 'serializer' ? '#EF4444' : blockConfig?.bgColor
-  const sanitizedBlockColor = sanitizeHexColor(rawBlockColor) ?? defaultBlockColor
+  const sanitizedBlockColor = sanitizeSolidIconColor(rawBlockColor) ?? defaultBlockColor
   const iconBackgroundColor = sanitizedBlockColor ? `${sanitizedBlockColor}20` : undefined
 
   // Handle image load error callback
@@ -447,8 +441,9 @@ export function OutputPanel({
       {/* Duration tag | Time tag | Input/Output tags */}
       <div className='flex flex-wrap items-center gap-2'>
         <div
-          className={`flex h-5 items-center rounded-lg px-2 ${entry.error ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
-            }`}
+          className={`flex h-5 items-center rounded-lg px-2 ${
+            entry.error ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
+          }`}
         >
           {entry.error ? (
             <div className='flex items-center gap-1'>
@@ -462,7 +457,9 @@ export function OutputPanel({
               Running
             </span>
           ) : isCanceled ? (
-            <span className='font-normal text-muted-foreground text-xs leading-normal'>Canceled</span>
+            <span className='font-normal text-muted-foreground text-xs leading-normal'>
+              Canceled
+            </span>
           ) : (
             <span className='font-normal text-muted-foreground text-xs leading-normal'>
               {entry.durationMs ?? 0}ms
@@ -489,19 +486,21 @@ export function OutputPanel({
           <>
             <button
               onClick={() => setShowInput(false)}
-              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${!showInput
-                ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
-                : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
-                }`}
+              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${
+                !showInput
+                  ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
+                  : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
+              }`}
             >
               <span className='font-normal text-xs leading-normal'>Output</span>
             </button>
             <button
               onClick={() => setShowInput(true)}
-              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${showInput
-                ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
-                : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
-                }`}
+              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${
+                showInput
+                  ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
+                  : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
+              }`}
             >
               <span className='font-normal text-xs leading-normal'>Input</span>
             </button>

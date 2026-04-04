@@ -4,9 +4,8 @@ import { SquareFunction } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/editor-indicator-body'
 import {
-  IndicatorEditorSaveButton,
+  IndicatorEditorHeaderActions,
   IndicatorEditorSelector,
-  IndicatorEditorVerifyButton,
 } from '@/widgets/widgets/editor_indicator/components/indicator-editor-header'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
@@ -18,10 +17,12 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
   description: 'Edit PineTS indicators in one workspace.',
   component: (props) => <EditorIndicatorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
-    const indicatorId = getIndicatorIdFromParams(
+    const params =
       widget?.params && typeof widget.params === 'object'
         ? (widget.params as Record<string, unknown>)
         : null
+    const indicatorId = getIndicatorIdFromParams(
+      params
     )
 
     return {
@@ -32,27 +33,19 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
           indicatorId={indicatorId}
           pairColor={widget?.pairColor}
           widgetKey={widget?.key}
+          params={params}
         />
       ),
       right: (
-        <div className='flex items-center gap-1'>
-          <IndicatorEditorVerifyButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-          <IndicatorEditorSaveButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-        </div>
+        <IndicatorEditorHeaderActions
+          workspaceId={context?.workspaceId}
+          indicatorId={indicatorId}
+          panelId={panelId}
+          widgetKey={widget?.key}
+          pairColor={widget?.pairColor}
+          params={params}
+        />
       ),
     }
   },
 }
-

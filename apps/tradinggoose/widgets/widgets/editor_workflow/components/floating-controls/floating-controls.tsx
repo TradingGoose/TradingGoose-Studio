@@ -1,17 +1,12 @@
 'use client'
 
-import { useCallback } from 'react'
 import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { useReactFlow, useStore } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useSession } from '@/lib/auth-client'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { cn } from '@/lib/utils'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { useUndoRedoStore } from '@/stores/undo-redo'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface FloatingControlsProps {
   constrainToContainer?: boolean
@@ -23,22 +18,8 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
   const zoom = useStore((s: any) =>
     Array.isArray(s.transform) ? s.transform[2] : s.viewport?.zoom
   )
-  const { undo, redo } = useCollaborativeWorkflow()
+  const workflowSession = useOptionalWorkflowSession()
   const { showFloatingControls } = useGeneralStore()
-  const workflowRoute = useOptionalWorkflowRoute()
-  const channelId = workflowRoute?.channelId
-  const activeWorkflowId = useWorkflowRegistry(
-    useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
-  )
-  const { data: session } = useSession()
-  const userId = session?.user?.id || 'unknown'
-  const stacks = useUndoRedoStore((s) => s.stacks)
-
-  const undoRedoSizes = (() => {
-    const key = activeWorkflowId && userId ? `${activeWorkflowId}:${userId}` : ''
-    const stack = (key && stacks[key]) || { undo: [], redo: [] }
-    return { undoSize: stack.undo.length, redoSize: stack.redo.length }
-  })()
   const currentZoom = Math.round(((zoom as number) || 1) * 100)
 
   if (!showFloatingControls) return null
@@ -107,8 +88,8 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
             <Button
               variant='ghost'
               size='icon'
-              onClick={undo}
-              disabled={undoRedoSizes.undoSize === 0}
+              onClick={() => workflowSession?.undo()}
+              disabled={!workflowSession?.canUndo}
               className={cn(
                 'h-7 w-7 rounded-sm',
                 'hover:bg-background',
@@ -131,8 +112,8 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
             <Button
               variant='ghost'
               size='icon'
-              onClick={redo}
-              disabled={undoRedoSizes.redoSize === 0}
+              onClick={() => workflowSession?.redo()}
+              disabled={!workflowSession?.canRedo}
               className={cn(
                 'h-7 w-7 rounded-sm',
                 'hover:bg-background',

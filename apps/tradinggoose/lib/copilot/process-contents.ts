@@ -1,7 +1,16 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats, document, knowledgeBase, templates } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import {
+  copilotReviewItems,
+  copilotReviewSessions,
+  document,
+  knowledgeBase,
+  templates,
+} from '@tradinggoose/db/schema'
+import { and, asc, eq, isNull } from 'drizzle-orm'
+import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
@@ -10,7 +19,6 @@ export type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
-  | 'current_targets'
   | 'blocks'
   | 'logs'
   | 'knowledge'
@@ -26,61 +34,6 @@ export interface AgentContext {
 
 const logger = createLogger('ProcessContents')
 
-export async function processContexts(
-  contexts: ChatContext[] | undefined
-): Promise<AgentContext[]> {
-  if (!Array.isArray(contexts) || contexts.length === 0) return []
-  const tasks = contexts.map(async (ctx) => {
-    try {
-      if (ctx.kind === 'past_chat') {
-        return await processPastChatViaApi(ctx.chatId, ctx.label ? `@${ctx.label}` : '@')
-      }
-      if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
-        return await processWorkflowFromDb(
-          ctx.workflowId,
-          ctx.label ? `@${ctx.label}` : '@',
-          ctx.kind
-        )
-      }
-      if (ctx.kind === 'current_targets') {
-        return processCurrentTargetsContext(ctx)
-      }
-      if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
-        return await processKnowledgeFromDb(
-          (ctx as any).knowledgeId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'blocks' && (ctx as any).blockId) {
-        return await processBlockMetadata((ctx as any).blockId, ctx.label ? `@${ctx.label}` : '@')
-      }
-      if (ctx.kind === 'templates' && (ctx as any).templateId) {
-        return await processTemplateFromDb(
-          (ctx as any).templateId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'logs' && (ctx as any).executionId) {
-        return await processExecutionLogFromDb(
-          (ctx as any).executionId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'workflow_block' && ctx.workflowId && (ctx as any).blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, (ctx as any).blockId, ctx.label)
-      }
-      // Other kinds can be added here: workflow, blocks, logs, knowledge, templates, docs
-      return null
-    } catch (error) {
-      logger.error('Failed processing context', { ctx, error })
-      return null
-    }
-  })
-
-  const results = await Promise.all(tasks)
-  return results.filter((r): r is AgentContext => !!r) as AgentContext[]
-}
-
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
   contexts: ChatContext[] | undefined,
@@ -90,8 +43,12 @@ export async function processContextsServer(
   if (!Array.isArray(contexts) || contexts.length === 0) return []
   const tasks = contexts.map(async (ctx) => {
     try {
-      if (ctx.kind === 'past_chat' && ctx.chatId) {
-        return await processPastChatFromDb(ctx.chatId, userId, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
+        return await processPastChatFromDb(
+          ctx.reviewSessionId,
+          userId,
+          ctx.label ? `@${ctx.label}` : '@'
+        )
       }
       if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
         return await processWorkflowFromDb(
@@ -99,9 +56,6 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@',
           ctx.kind
         )
-      }
-      if (ctx.kind === 'current_targets') {
-        return processCurrentTargetsContext(ctx)
       }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
@@ -160,37 +114,6 @@ export async function processContextsServer(
   return filtered
 }
 
-function processCurrentTargetsContext(
-  ctx: Extract<ChatContext, { kind: 'current_targets' }>
-): AgentContext | null {
-  const targetEntries = [
-    ['workflowId', ctx.workflowId],
-    ['skillId', ctx.skillId],
-    ['customToolId', ctx.customToolId],
-    ['mcpServerId', ctx.mcpServerId],
-    ['indicatorId', ctx.indicatorId],
-    ['pineIndicatorId', ctx.pineIndicatorId],
-  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
-
-  if (targetEntries.length === 0) {
-    return null
-  }
-
-  return {
-    type: 'current_targets',
-    tag: ctx.label ? `@${ctx.label}` : '@',
-    content: [
-      'Default current edit/review targets for this copilot context:',
-      ...targetEntries.map(([key, value]) => `${key}: ${value}`),
-      'Use these only when the user does not explicitly specify a different target.',
-    ].join('\n'),
-  }
-}
-
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | undefined): string {
   if (!rawMessage) return ''
   if (!Array.isArray(contexts) || contexts.length === 0) {
@@ -239,23 +162,53 @@ function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | un
 }
 
 async function processPastChatFromDb(
-  chatId: string,
+  reviewSessionId: string,
   userId: string,
   tag: string
 ): Promise<AgentContext | null> {
   try {
-    const rows = await db
-      .select({ messages: copilotChats.messages })
-      .from(copilotChats)
-      .where(and(eq(copilotChats.id, chatId), eq(copilotChats.userId, userId)))
-      .limit(1)
-    const messages = Array.isArray(rows?.[0]?.messages) ? (rows[0] as any).messages : []
-    const content = messages
-      .map((m: any) => {
+    // Run ownership check and message load in parallel since they are independent
+    const [sessionRows, messageRows] = await Promise.all([
+      db
+        .select({ id: copilotReviewSessions.id })
+        .from(copilotReviewSessions)
+        .where(
+          and(
+            eq(copilotReviewSessions.id, reviewSessionId),
+            eq(copilotReviewSessions.userId, userId)
+          )
+        )
+        .limit(1),
+      db
+        .select({
+          role: copilotReviewItems.messageRole,
+          content: copilotReviewItems.content,
+          contentBlocks: copilotReviewItems.contentBlocks,
+        })
+        .from(copilotReviewItems)
+        .where(
+          and(
+            eq(copilotReviewItems.sessionId, reviewSessionId),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sequence)),
+    ])
+
+    if (!sessionRows.length) {
+      logger.warn('Past chat review session not found or not owned by user', {
+        reviewSessionId,
+        userId,
+      })
+      return null
+    }
+
+    const content = messageRows
+      .map((m) => {
         const role = m.role || 'user'
         let text = ''
-        if (Array.isArray(m.contentBlocks) && m.contentBlocks.length > 0) {
-          text = m.contentBlocks
+        if (Array.isArray(m.contentBlocks) && (m.contentBlocks as any[]).length > 0) {
+          text = (m.contentBlocks as any[])
             .filter((b: any) => b?.type === 'text')
             .map((b: any) => String(b.content || ''))
             .join('')
@@ -266,14 +219,15 @@ async function processPastChatFromDb(
       })
       .filter((s: string) => s.length > 0)
       .join('\n')
+
     logger.info('Processed past_chat context from DB', {
-      chatId,
+      reviewSessionId,
       length: content.length,
       lines: content ? content.split('\n').length : 0,
     })
     return { type: 'past_chat', tag, content }
   } catch (error) {
-    logger.error('Error processing past chat from db', { chatId, error })
+    logger.error('Error processing past chat from db', { reviewSessionId, error })
     return null
   }
 }
@@ -309,46 +263,6 @@ async function processWorkflowFromDb(
     logger.error('Error processing workflow context', { workflowId, error })
     return null
   }
-}
-
-async function processPastChat(chatId: string, tagOverride?: string): Promise<AgentContext | null> {
-  try {
-    const resp = await fetch(`/api/copilot/chat/${encodeURIComponent(chatId)}`)
-    if (!resp.ok) {
-      logger.error('Failed to fetch past chat', { chatId, status: resp.status })
-      return null
-    }
-    const data = await resp.json()
-    const messages = Array.isArray(data?.chat?.messages) ? data.chat.messages : []
-    const content = messages
-      .map((m: any) => {
-        const role = m.role || 'user'
-        // Prefer contentBlocks text if present (joins text blocks), else use content
-        let text = ''
-        if (Array.isArray(m.contentBlocks) && m.contentBlocks.length > 0) {
-          text = m.contentBlocks
-            .filter((b: any) => b?.type === 'text')
-            .map((b: any) => String(b.content || ''))
-            .join('')
-            .trim()
-        }
-        if (!text && typeof m.content === 'string') text = m.content
-        return `${role}: ${text}`.trim()
-      })
-      .filter((s: string) => s.length > 0)
-      .join('\n')
-    logger.info('Processed past_chat context via API', { chatId, length: content.length })
-
-    return { type: 'past_chat', tag: tagOverride || '@', content }
-  } catch (error) {
-    logger.error('Error processing past chat', { chatId, error })
-    return null
-  }
-}
-
-// Back-compat alias; used by processContexts above
-async function processPastChatViaApi(chatId: string, tag?: string) {
-  return processPastChat(chatId, tag)
 }
 
 async function processKnowledgeFromDb(
@@ -414,7 +328,7 @@ async function processBlockMetadata(blockId: string, tag: string): Promise<Agent
         description: blockConfig.description || '',
         longDescription: blockConfig.longDescription,
         category: blockConfig.category,
-        bgColor: blockConfig.bgColor,
+        bgColor: sanitizeSolidIconColor(blockConfig.bgColor),
         inputs: blockConfig.inputs || {},
         outputs: blockConfig.outputs || {},
         tools: blockConfig.tools?.access || [],

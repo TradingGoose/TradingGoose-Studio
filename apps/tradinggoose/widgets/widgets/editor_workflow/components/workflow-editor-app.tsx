@@ -6,11 +6,10 @@ import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context
 import {
   type WorkflowCanvasUIConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
-import { SocketProvider } from '@/contexts/socket-context'
 import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
-  WorkflowStoreProvider,
-} from '@/stores/workflows/workflow/store-client'
+} from '@/stores/workflows/workflow/types'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Workflow from '@/widgets/widgets/editor_workflow/components/workflow'
 
 interface WorkflowEditorAppProps {
@@ -41,26 +40,30 @@ const WorkflowEditorApp = ({
       email: session.data.user.email,
     }
     : undefined
+  const workflowRenderKey = `${channelId}:${workflowId}`
 
   return (
     <Providers workspaceId={workspaceId}>
-      <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <Workflow
-              channelId={channelId}
-              toolbarScopeId={toolbarScopeId}
-              ui={ui}
-              disableNavigation={disableNavigation}
-              viewportBounds={viewportBounds}
-            />
-          </WorkflowStoreProvider>
+          <Workflow
+            key={workflowRenderKey}
+            channelId={channelId}
+            toolbarScopeId={toolbarScopeId}
+            ui={ui}
+            disableNavigation={disableNavigation}
+            viewportBounds={viewportBounds}
+          />
         </WorkflowRouteProvider>
-      </SocketProvider>
+      </WorkflowSessionProvider>
     </Providers>
   )
 }

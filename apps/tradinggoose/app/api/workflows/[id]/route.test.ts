@@ -18,6 +18,8 @@ describe('Workflow By ID API Route', () => {
 
   const mockGetWorkflowById = vi.fn()
   const mockGetWorkflowAccessContext = vi.fn()
+  const mockDeleteSession = vi.fn()
+  const mockRemoveDocument = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -36,6 +38,17 @@ describe('Workflow By ID API Route', () => {
 
     mockGetWorkflowById.mockReset()
     mockGetWorkflowAccessContext.mockReset()
+    mockDeleteSession.mockReset()
+    mockDeleteSession.mockResolvedValue(undefined)
+    mockRemoveDocument.mockReset()
+
+    vi.doMock('@/socket-server/yjs/persistence', () => ({
+      deleteSession: mockDeleteSession,
+    }))
+
+    vi.doMock('@/socket-server/yjs/upstream-utils', () => ({
+      removeDocument: mockRemoveDocument,
+    }))
 
     vi.doMock('@/lib/workflows/utils', async () => {
       const actual =
@@ -379,6 +392,8 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
+      expect(mockRemoveDocument).toHaveBeenCalledWith('workflow-123')
+      expect(mockDeleteSession).toHaveBeenCalledWith('workflow-123')
     })
 
     it('should allow admin to delete workspace workflow', async () => {

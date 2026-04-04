@@ -1,10 +1,15 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import type { Edge } from 'reactflow'
-import { shallow } from 'zustand/shallow'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import type { DeploymentStatus } from '@/stores/workflows/registry/types'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
+import { resolveStoredDateValue } from '@/lib/time-format'
+import {
+  useWorkflowBlocks,
+  useWorkflowEdges,
+  useWorkflowLoops,
+  useWorkflowParallels,
+  useWorkflowDoc,
+} from '@/lib/yjs/use-workflow-doc'
+import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 /**
  * Interface for the current workflow abstraction
@@ -18,16 +23,6 @@ export interface CurrentWorkflow {
   lastSaved?: number
   isDeployed?: boolean
   deployedAt?: Date
-  deploymentStatuses?: Record<string, DeploymentStatus>
-  needsRedeployment?: boolean
-
-  // Mode information
-  isDiffMode: boolean
-  isNormalMode: boolean
-
-  // Full workflow state (for cases that need the complete object)
-  workflowState: WorkflowState
-
   // Helper methods
   getBlockById: (blockId: string) => BlockState | undefined
   getBlockCount: () => number
@@ -38,64 +33,72 @@ export interface CurrentWorkflow {
 
 /**
  * Clean abstraction for accessing the current workflow state.
- * Automatically handles diff vs normal mode without exposing the complexity to consumers.
+ * Always returns the normal workflow state (diff store has been retired).
+ * Now reads directly from the Yjs document via use-workflow-doc hooks.
  */
 export function useCurrentWorkflow(): CurrentWorkflow {
-  // Get normal workflow state - optimized with shallow comparison
-  // This prevents re-renders when only subblock values change (not block structure)
-  const normalWorkflow = useWorkflowStore((state) => {
-    const workflow = state.getWorkflowState()
-    return {
-      blocks: workflow.blocks,
-      edges: workflow.edges,
-      loops: workflow.loops,
-      parallels: workflow.parallels,
-      lastSaved: workflow.lastSaved,
-      isDeployed: workflow.isDeployed,
-      deployedAt: workflow.deployedAt,
-      deploymentStatuses: workflow.deploymentStatuses,
-      needsRedeployment: workflow.needsRedeployment,
-    }
-  }, shallow)
+  const blocks = useWorkflowBlocks()
+  const edges = useWorkflowEdges()
+  const loops = useWorkflowLoops()
+  const parallels = useWorkflowParallels()
+  const { isDeployed, deployedAt: rawDeployedAt, lastSaved: rawLastSaved } = useWorkflowDoc()
 
-  // Get diff state - now including isDiffReady
-  const { isShowingDiff, isDiffReady, diffWorkflow } = useWorkflowDiffStore()
+  // Keep refs in sync so stable callbacks always read current data
+  const blocksRef = useLatestRef(blocks)
+  const edgesRef = useLatestRef(edges)
+
+  // Stable helper callbacks that read from refs — their identity never changes
+  const getBlockById = useCallback(
+    (blockId: string) => blocksRef.current?.[blockId],
+    []
+  )
+  const getBlockCount = useCallback(
+    () => Object.keys(blocksRef.current || {}).length,
+    []
+  )
+  const getEdgeCount = useCallback(
+    () => (edgesRef.current || []).length,
+    []
+  )
+  const hasBlocks = useCallback(
+    () => Object.keys(blocksRef.current || {}).length > 0,
+    []
+  )
+  const hasEdges = useCallback(
+    () => (edgesRef.current || []).length > 0,
+    []
+  )
 
   // Create the abstracted interface - optimized to prevent unnecessary re-renders
+  // Note: stable callbacks (getBlockById, etc.) are intentionally omitted from deps
+  // since their identity never changes (empty dep arrays on useCallback).
   const currentWorkflow = useMemo((): CurrentWorkflow => {
-    // Determine which workflow to use - only use diff if it's ready
-    const hasDiffBlocks =
-      !!diffWorkflow && Object.keys((diffWorkflow as any).blocks || {}).length > 0
-    const shouldUseDiff = isShowingDiff && isDiffReady && hasDiffBlocks
-    const activeWorkflow = shouldUseDiff ? diffWorkflow : normalWorkflow
+    const lastSaved = resolveStoredDateValue(rawLastSaved)?.getTime()
+    const deployedAt = resolveStoredDateValue(rawDeployedAt)
+
+    const resolvedBlocks = blocks || {}
+    const resolvedEdges = edges || []
+    const resolvedLoops = loops || {}
+    const resolvedParallels = parallels || {}
 
     return {
       // Current workflow state
-      blocks: activeWorkflow.blocks || {},
-      edges: activeWorkflow.edges || [],
-      loops: activeWorkflow.loops || {},
-      parallels: activeWorkflow.parallels || {},
-      lastSaved: activeWorkflow.lastSaved,
-      isDeployed: activeWorkflow.isDeployed,
-      deployedAt: activeWorkflow.deployedAt,
-      deploymentStatuses: activeWorkflow.deploymentStatuses,
-      needsRedeployment: activeWorkflow.needsRedeployment,
-
-      // Mode information - update to reflect ready state
-      isDiffMode: shouldUseDiff,
-      isNormalMode: !shouldUseDiff,
-
-      // Full workflow state (for cases that need the complete object)
-      workflowState: activeWorkflow as WorkflowState,
-
-      // Helper methods
-      getBlockById: (blockId: string) => activeWorkflow.blocks?.[blockId],
-      getBlockCount: () => Object.keys(activeWorkflow.blocks || {}).length,
-      getEdgeCount: () => (activeWorkflow.edges || []).length,
-      hasBlocks: () => Object.keys(activeWorkflow.blocks || {}).length > 0,
-      hasEdges: () => (activeWorkflow.edges || []).length > 0,
+      blocks: resolvedBlocks,
+      edges: resolvedEdges,
+      loops: resolvedLoops,
+      parallels: resolvedParallels,
+      lastSaved,
+      isDeployed,
+      deployedAt,
+      // Helper methods — stable references from useCallback above
+      getBlockById,
+      getBlockCount,
+      getEdgeCount,
+      hasBlocks,
+      hasEdges,
     }
-  }, [normalWorkflow, isShowingDiff, isDiffReady, diffWorkflow])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable callbacks (getBlockById, etc.) never change
+  }, [blocks, edges, loops, parallels, rawLastSaved, rawDeployedAt, isDeployed])
 
   return currentWorkflow
 }

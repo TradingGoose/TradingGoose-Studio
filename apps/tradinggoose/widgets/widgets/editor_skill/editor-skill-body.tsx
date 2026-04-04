@@ -1,110 +1,122 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useSkills } from '@/hooks/queries/skills'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
+import { ENTITY_KIND_SKILL, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import {
+  useEntitySession,
+} from '@/lib/copilot/review-sessions/entity-session-host'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
-import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
+import {
+  buildPersistedPairContext,
+  buildPersistedReviewParams,
+  readEntitySelectionState,
+  SKILL_EDITOR_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
+import {
+  EntityEditorShell,
+  type EntityEditorShellConfig,
+} from '@/widgets/widgets/components/entity-editor-shell'
+import { useGuardedUndoRedo } from '@/widgets/widgets/entity_review/use-guarded-undo-redo'
+
+const SKILL_SHELL_CONFIG: EntityEditorShellConfig = {
+  entityKind: ENTITY_KIND_SKILL,
+  fallbackWidgetKey: SKILL_EDITOR_WIDGET_KEY,
+  legacyIdKey: 'skillId',
+  buildWidgetParams: buildPersistedReviewParams,
+  buildPairContext: buildPersistedPairContext,
+  readEntitySelectionState,
+  noWorkspaceMessage: 'Select a workspace to edit skills.',
+  noSelectionMessage: 'Select a skill to edit.',
+}
 
 type EditorSkillWidgetBodyProps = WidgetComponentProps
 
-export function EditorSkillWidgetBody({
-  params,
-  context,
-  pairColor = 'gray',
+export function EditorSkillWidgetBody(props: EditorSkillWidgetBodyProps) {
+  return (
+    <EntityEditorShell
+      {...props}
+      config={SKILL_SHELL_CONFIG}
+      useSelectionPersistence={({
+        resolvedPairColor,
+        isLinkedToColorPair,
+        pairContext,
+        setPairContext,
+        onWidgetParamsChange,
+        panelId,
+        params,
+      }) => {
+        useSkillSelectionPersistence({
+          onWidgetParamsChange,
+          panelId,
+          params,
+          pairColor: resolvedPairColor,
+          scopeKey: SKILL_EDITOR_WIDGET_KEY,
+          onSkillSelect: (skillId) => {
+            if (!isLinkedToColorPair) {
+              return
+            }
+
+            if (pairContext?.skillId === skillId) {
+              return
+            }
+
+            setPairContext(
+              resolvedPairColor,
+              buildPersistedPairContext({
+                existing: pairContext,
+                legacyIdKey: 'skillId',
+                descriptor: null,
+                legacyEntityId: skillId,
+              })
+            )
+          },
+        })
+      }}
+    >
+      {({ workspaceId, descriptor, persistDescriptor, panelId, widget }) => (
+        <SkillEditorSession
+          workspaceId={workspaceId}
+          panelId={panelId}
+          widget={widget}
+          descriptor={descriptor}
+          onReviewTargetChange={persistDescriptor}
+        />
+      )}
+    </EntityEditorShell>
+  )
+}
+
+function SkillEditorSession({
+  workspaceId,
   panelId,
   widget,
-  onWidgetParamsChange,
-}: EditorSkillWidgetBodyProps) {
-  const workspaceId = context?.workspaceId ?? null
-  const { data: skills = [], isLoading, error } = useSkills(workspaceId ?? '')
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  descriptor,
+  onReviewTargetChange,
+}: {
+  workspaceId: string
+  panelId?: string
+  widget?: WidgetComponentProps['widget']
+  descriptor: ReviewTargetDescriptor
+  onReviewTargetChange: (descriptor: ReviewTargetDescriptor | null) => void
+}) {
   const saveRef = useRef<() => void>(() => {})
-
-  const paramsSkillId = getSkillIdFromParams(params)
-  const requestedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? paramsSkillId)
-    : paramsSkillId
-  const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
-  const hasRequestedSkill =
-    normalizedRequestedSkillId.length > 0 &&
-    skills.some((skill) => skill.id === normalizedRequestedSkillId)
-  const skillId = hasRequestedSkill ? normalizedRequestedSkillId : (skills[0]?.id ?? null)
-  const skill = skillId ? (skills.find((candidate) => candidate.id === skillId) ?? null) : null
-
-  useEffect(() => {
-    if (!skillId) {
-      return
-    }
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.skillId === skillId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { skillId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsSkillId === skillId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      skillId,
-    })
-  }, [
-    isLinkedToColorPair,
-    onWidgetParamsChange,
-    pairContext?.skillId,
-    params,
-    paramsSkillId,
-    resolvedPairColor,
-    setPairContext,
-    skillId,
-  ])
-
-  useSkillSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    onSkillSelect: (nextSkillId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.skillId === nextSkillId) return
-      setPairContext(resolvedPairColor, { skillId: nextSkillId })
-    },
-  })
+  const { doc, isLoading, error, undo, redo, runtime, canUndo, canRedo } = useEntitySession()
+  const { handleUndo, handleRedo } = useGuardedUndoRedo({ runtime, undo, redo, canUndo, canRedo })
 
   useSkillEditorActions({
     panelId,
     widget,
-    onSave: () => saveRef.current(),
+    save: () => saveRef.current(),
+    undo: handleUndo,
+    redo: handleRedo,
   })
 
-  if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to edit skills.' />
-  }
-
-  if (error && skills.length === 0) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : 'Failed to load skills.'}
-      />
-    )
-  }
-
-  if (isLoading && skills.length === 0) {
+  if (isLoading || !doc) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -112,25 +124,18 @@ export function EditorSkillWidgetBody({
     )
   }
 
-  if (!skillId) {
-    return <WidgetStateMessage message='Select a skill to edit.' />
-  }
-
-  if (!skill) {
-    return <WidgetStateMessage message='Skill not found.' />
+  if (error) {
+    return <WidgetStateMessage message={error} />
   }
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <SkillEditor
         workspaceId={workspaceId}
+        descriptor={descriptor}
         saveRef={saveRef}
-        initialValues={{
-          id: skill.id,
-          name: skill.name,
-          description: skill.description,
-          content: skill.content,
-        }}
+        yjsDoc={doc}
+        onReviewTargetChange={onReviewTargetChange}
       />
     </div>
   )

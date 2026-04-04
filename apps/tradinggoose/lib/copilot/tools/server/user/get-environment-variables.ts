@@ -1,4 +1,4 @@
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
+import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { getEnvironmentVariableKeys } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'

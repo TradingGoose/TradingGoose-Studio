@@ -3,8 +3,9 @@ import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/s
 import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { normalizeOptionalString } from '@/lib/utils'
+import { parseListingFilter } from '@/app/api/logs/log-utils'
 import { buildLogFilters, getOrderBy } from '@/app/api/v1/logs/filters'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
 import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware'
@@ -66,25 +67,6 @@ function decodeCursor(cursor: string): CursorData | null {
   }
 }
 
-const normalizeOptionalString = (value: string | undefined) => {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-const parseListingFilter = (
-  value: string | undefined
-): ListingIdentity | undefined | null => {
-  const normalized = normalizeOptionalString(value)
-  if (!normalized) return undefined
-
-  try {
-    const parsed = JSON.parse(normalized)
-    return toListingValueObject(parsed)
-  } catch {
-    return null
-  }
-}
 
 export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 8)
@@ -108,11 +90,11 @@ export async function GET(request: NextRequest) {
     }
 
     const params = validationResult.data
-    const monitorId = normalizeOptionalString(params.monitorId)
+    const monitorId = normalizeOptionalString(params.monitorId) ?? undefined
     const listing = parseListingFilter(params.listing)
-    const indicatorId = normalizeOptionalString(params.indicatorId)
-    const providerId = normalizeOptionalString(params.providerId)
-    const interval = normalizeOptionalString(params.interval)
+    const indicatorId = normalizeOptionalString(params.indicatorId) ?? undefined
+    const providerId = normalizeOptionalString(params.providerId) ?? undefined
+    const interval = normalizeOptionalString(params.interval) ?? undefined
     const triggerSource = params.triggerSource
     if (listing === null) {
       return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })

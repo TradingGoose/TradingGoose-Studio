@@ -6,7 +6,6 @@ import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { usePairColorStore } from '@/stores/dashboard/pair-store'
-import { useVariablesStore } from '@/stores/variables/store'
 import type {
   ChannelHydrationState,
   DeploymentStatus,
@@ -14,8 +13,6 @@ import type {
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import { isPairColor, type PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
@@ -264,47 +261,9 @@ const mapRegistryMetadata = (rows: any[]) => {
   return { workflows, deploymentStatuses }
 }
 
-const applyRegistryVariables = (rows: any[]) => {
-  rows.forEach((workflow) => {
-    const { id, variables } = workflow
-    if (!variables || typeof variables !== 'object') {
-      return
-    }
-
-    useVariablesStore.setState((state) => {
-      const withoutWorkflow = Object.fromEntries(
-        Object.entries(state.variables).filter(([, v]: any) => v.workflowId !== id)
-      )
-      return {
-        variables: { ...withoutWorkflow, ...variables },
-      }
-    })
-  })
-}
-
 // Track workspace transitions to prevent race conditions
 let isWorkspaceTransitioning = false
 const TRANSITION_TIMEOUT = 5000 // 5 seconds maximum for workspace transitions
-
-// Resets workflow and subblock stores to prevent data leakage between workspaces
-function resetWorkflowStores() {
-  // Reset the workflow store to prevent data leakage between workspaces
-  useWorkflowStore.setState({
-    blocks: {},
-    edges: [],
-    loops: {},
-    parallels: {},
-    isDeployed: false,
-    deployedAt: undefined,
-    deploymentStatuses: {}, // Reset deployment statuses map
-    lastSaved: Date.now(),
-  })
-
-  // Reset the subblock store
-  useSubBlockStore.setState({
-    workflowValues: {},
-  })
-}
 
 /**
  * Handles workspace transition state tracking
@@ -517,7 +476,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             return
           }
 
-          applyRegistryVariables(rows)
           hasInitiallyLoaded = true
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error'
@@ -588,7 +546,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           hasInitiallyLoaded = false
 
           // Clear current workspace state
-          resetWorkflowStores()
           workflowCache.clear()
 
           set((state) => {
@@ -683,29 +640,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           },
         }))
 
-        // Also update the workflow store if this is the active workflow
-        const activeWorkflowId = getActiveWorkflowIdFromState(get())
-        if (workflowId === activeWorkflowId) {
-          // Update the workflow store for backward compatibility
-          useWorkflowStore.setState((state) => ({
-            isDeployed,
-            deployedAt: deployedAt || (isDeployed ? new Date() : undefined),
-            needsRedeployment: isDeployed ? false : state.needsRedeployment,
-            deploymentStatuses: {
-              ...state.deploymentStatuses,
-              [workflowId as string]: {
-                isDeployed,
-                deployedAt: deployedAt || (isDeployed ? new Date() : undefined),
-                apiKey,
-                needsRedeployment: isDeployed
-                  ? false
-                  : ((state.deploymentStatuses?.[workflowId as string] as any)?.needsRedeployment ??
-                    false),
-              },
-            },
-          }))
-        }
-
         // Note: Socket.IO handles real-time sync automatically
       },
 
@@ -732,11 +666,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
         })
 
-        // Only update the global flag if this is the active workflow
-        const activeWorkflowId = getActiveWorkflowIdFromState(get())
-        if (workflowId === activeWorkflowId) {
-          useWorkflowStore.getState().setNeedsRedeploymentFlag(needsRedeployment)
-        }
+        // Note: needsRedeployment is now computed server-side via /api/workflows/{id}/status
       },
 
       setActiveWorkflow: async ({ workflowId, channelId }: { workflowId: string; channelId?: string }) => {
@@ -750,14 +680,11 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           throw new Error(`Workflow not found: ${workflowId}`)
         }
 
-        const workflowStoreState = useWorkflowStore.getState(channelKey)
-        const hasWorkflowData = Object.keys(workflowStoreState.blocks).length > 0
         const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(state, channelKey)
         const hydration = getHydrationFromState(state, channelKey)
 
         const shouldSkip =
           activeWorkflowIdForChannel === workflowId &&
-          hasWorkflowData &&
           state.loadedWorkflowIds[channelKey] === true &&
           hydration.phase === 'ready'
 
@@ -910,10 +837,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         })
 
         syncPairContextForChannel(channelKey, workflowId)
-        useWorkflowStore.setStateForChannel(workflowState, channelKey, undefined, workflowId)
-        useSubBlockStore
-          .getState()
-          .initializeFromWorkflow(workflowId, (workflowState as any).blocks || {})
 
         window.dispatchEvent(
           new CustomEvent('active-workflow-changed', {
@@ -997,27 +920,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             error: null,
           }))
 
-          // Initialize subblock values if this is a marketplace import
-          if (options.marketplaceId && options.marketplaceState?.blocks) {
-            useSubBlockStore
-              .getState()
-              .initializeFromWorkflow(serverWorkflowId, options.marketplaceState.blocks)
-          }
-
-          // Initialize subblock values to ensure they're available for sync
-          if (!options.marketplaceId) {
-            // For non-marketplace workflows, initialize empty subblock values
-            const subblockValues: Record<string, Record<string, any>> = {}
-
-            // Update the subblock store with the initial values
-            useSubBlockStore.setState((state) => ({
-              workflowValues: {
-                ...state.workflowValues,
-                [serverWorkflowId]: subblockValues,
-              },
-            }))
-          }
-
           // Don't set as active workflow here - let the navigation/URL change handle that
           // This prevents race conditions and flickering
           logger.info(
@@ -1075,11 +977,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           error: null,
         }))
 
-        // Initialize subblock values from state blocks
-        if (state.blocks) {
-          useSubBlockStore.getState().initializeFromWorkflow(id, state.blocks)
-        }
-
         // Set as active workflow (default channel) and update store
         set((state) => {
           const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
@@ -1107,7 +1004,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
           }
         })
-        useWorkflowStore.setState(initialState)
 
         // Immediately persist the marketplace workflow to the database
         const persistWorkflow = async () => {
@@ -1221,16 +1117,20 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           // Do not copy marketplace data
         }
 
-        // Get the current workflow state to copy from
-        const currentWorkflowState = useWorkflowStore.getState()
+        // Get the current workflow state from the Yjs session
+        const { getRegisteredWorkflowSession: getYjsSession } = require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
+        const { getWorkflowSnapshot: getYjsSnapshot } = require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
+        const yjsSession = getYjsSession(sourceId)
+        const currentWorkflowState = yjsSession?.doc
+          ? getYjsSnapshot(yjsSession.doc)
+          : null
 
         // If we're duplicating the active workflow, use current state
         // Otherwise, we need to fetch it from DB or use empty state
         let sourceState: any
-        let defaultSubblockValues: Record<string, Record<string, any>> | null = null
 
-        if (sourceId === getActiveWorkflowIdFromState(get())) {
-          // Source is the active workflow, copy current state
+        if (sourceId === getActiveWorkflowIdFromState(get()) && currentWorkflowState) {
+          // Source is the active workflow, copy current state from Yjs
           sourceState = {
             blocks: currentWorkflowState.blocks || {},
             edges: currentWorkflowState.edges || [],
@@ -1239,7 +1139,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
         } else {
           const defaultArtifacts = buildDefaultWorkflowArtifacts()
-          defaultSubblockValues = defaultArtifacts.subBlockValues
           sourceState = {
             blocks: defaultArtifacts.workflowState.blocks,
             edges: defaultArtifacts.workflowState.edges,
@@ -1269,33 +1168,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           },
           error: null,
         }))
-
-        // Copy subblock values if duplicating active workflow (default channel)
-        if (sourceId === getActiveWorkflowIdFromState(get())) {
-          const sourceSubblockValues = useSubBlockStore.getState().workflowValues[sourceId] || {}
-          useSubBlockStore.setState((state) => ({
-            workflowValues: {
-              ...state.workflowValues,
-              [id]: sourceSubblockValues,
-            },
-          }))
-        } else {
-          const subblockValues = defaultSubblockValues || {}
-
-          useSubBlockStore.setState((state) => ({
-            workflowValues: {
-              ...state.workflowValues,
-              [id]: subblockValues,
-            },
-          }))
-        }
-
-        try {
-          await useVariablesStore.getState().loadForWorkflow(id)
-        } catch (error) {
-          logger.warn(`Error hydrating variables for duplicated workflow ${id}:`, error)
-        }
-
         logger.info(
           `Duplicated workflow ${sourceId} to ${id} in workspace ${workspaceId || 'none'}`
         )
@@ -1348,13 +1220,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           const newWorkflows = { ...state.workflows }
           delete newWorkflows[id]
 
-          // Clean up subblock values for this workflow
-          useSubBlockStore.setState((subBlockState) => {
-            const newWorkflowValues = { ...subBlockState.workflowValues }
-            delete newWorkflowValues[id]
-            return { workflowValues: newWorkflowValues }
-          })
-
           // If deleting active workflow, clear active workflow ID immediately
           // Don't automatically switch to another workflow to prevent race conditions
           const newActiveWorkflowIds = { ...state.activeWorkflowIds }
@@ -1374,17 +1239,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           const wasDefaultActive = state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] === id
 
           if (wasDefaultActive) {
-            // Clear workflow store state immediately when deleting active workflow
-            useWorkflowStore.setState({
-              blocks: {},
-              edges: [],
-              loops: {},
-              parallels: {},
-              isDeployed: false,
-              deployedAt: undefined,
-              lastSaved: Date.now(),
-            })
-
             clearedActiveWorkflow = true
           }
 
@@ -1499,8 +1353,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         logger.info('Logging out - clearing all workflow data')
 
         // Clear all state
-        resetWorkflowStores()
-
         set({
           workflows: {},
           activeWorkflowIds: {},

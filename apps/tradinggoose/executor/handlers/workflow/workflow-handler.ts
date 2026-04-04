@@ -14,6 +14,7 @@ import type {
 } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { SerializedBlock } from '@/serializer/types'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('WorkflowBlockHandler')
@@ -242,7 +243,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       true // Enable validation during execution
     )
 
-    const workflowVariables = (workflowData.variables as Record<string, any>) || {}
+    const workflowVariables = normalizeVariables(workflowData.variables)
 
     if (Object.keys(workflowVariables).length > 0) {
       logger.info(
@@ -336,7 +337,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       true
     )
 
-    const workflowVariables = (wfData?.variables as Record<string, any>) || {}
+    const workflowVariables = normalizeVariables(wfData?.variables)
 
     return {
       name: wfData?.name || 'Workflow',

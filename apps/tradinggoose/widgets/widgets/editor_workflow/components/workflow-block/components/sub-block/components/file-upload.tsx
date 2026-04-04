@@ -18,10 +18,7 @@ import { Progress } from '@/components/ui/progress'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import {
   useOptionalWorkflowRoute,
@@ -109,7 +106,6 @@ export function FileUpload({
     } else {
       setStoreValue(files[0] || null)
     }
-    useWorkflowStore.getState().triggerUpdate()
   }
 
   // Load workspace files function

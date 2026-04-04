@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
+import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils'
@@ -14,7 +14,7 @@ interface SetEnvironmentVariablesParams {
 
 const EnvVarSchema = z.object({ variables: z.record(z.string()) })
 
-function normalizeVariables(
+function normalizeEnvVarInput(
   input: Record<string, any> | Array<{ name: string; value: string }>
 ): Record<string, string> {
   if (Array.isArray(input)) {
@@ -67,7 +67,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
 
       const userId = authenticatedUserId
 
-      const normalized = normalizeVariables(variables || {})
+      const normalized = normalizeEnvVarInput(variables || {})
       const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
       const variableEntries = Object.entries(validatedVariables)
 

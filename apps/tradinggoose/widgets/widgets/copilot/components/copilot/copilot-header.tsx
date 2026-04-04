@@ -114,7 +114,7 @@ function ChatHistoryItem({
         event.preventDefault()
         void onSelect(chat)
       }}
-      onMouseEnter={() => onHoverChat(chat.id)}
+      onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
       onMouseLeave={() => onHoverChat(null)}
     >
       <div className='min-w-0'>
@@ -130,7 +130,7 @@ function ChatHistoryItem({
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          void onDelete(chat.id)
+          void onDelete(chat.reviewSessionId)
         }}
         disabled={isSendingMessage}
         aria-label='Delete chat'
@@ -162,12 +162,12 @@ function ChatHistoryGroup({
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
-            key={chat.id}
+            key={chat.reviewSessionId}
             chat={chat}
             onSelect={onSelect}
             onDelete={onDelete}
             isSendingMessage={isSendingMessage}
-            isHovered={hoveredChatId === chat.id}
+            isHovered={hoveredChatId === chat.reviewSessionId}
             onHoverChat={onHoverChat}
           />
         ))}
@@ -189,7 +189,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   const grouped = groupChats(chats || [])
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (currentChat?.id === chat.id) return
+    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
     try {
       await store.getState().selectChat(chat)
     } catch {}
@@ -206,7 +206,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   }
 
   const title = currentChat?.title || 'New Chat'
-  const deleteChat = deleteChatId ? chats.find((chat) => chat.id === deleteChatId) : null
+  const deleteChat = deleteChatId ? chats.find((chat) => chat.reviewSessionId === deleteChatId) : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
       return <div className='p-3 text-sm text-muted-foreground'>Loading…</div>
@@ -307,7 +307,14 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   )
 }
 
-export function CopilotHeaderActions({ channelId }: { channelId: string }) {
+export function CopilotHeaderActions({
+  channelId,
+  isEntityMode = false,
+}: {
+  channelId: string
+  /** When true the active target is an entity review session (not a workflow). Hide New Chat. */
+  isEntityMode?: boolean
+}) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
 
   const subscribe = useCallback(store.subscribe, [store])
@@ -317,6 +324,11 @@ export function CopilotHeaderActions({ channelId }: { channelId: string }) {
   const handleNewChat = async () => {
     if (!workflowId) return
     await store.getState().createNewChat()
+  }
+
+  // Hide the New Chat button when the copilot is targeting an entity review session
+  if (isEntityMode) {
+    return null
   }
 
   return (

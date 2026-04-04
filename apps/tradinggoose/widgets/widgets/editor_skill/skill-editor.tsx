@@ -1,44 +1,51 @@
 import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ENTITY_KIND_SKILL, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isValidSkillName, useUpdateSkill } from '@/hooks/queries/skills'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { isValidSkillName, skillsKeys } from '@/hooks/queries/skills'
 import { useSkillsStore } from '@/stores/skills/store'
+import { SaveErrorAlert } from '@/widgets/widgets/components/save-error-alert'
 
 const logger = createLogger('SkillEditor')
 
-interface SkillInitialValues {
-  id: string
-  name: string
-  description: string
-  content: string
-}
-
 interface SkillEditorProps {
   workspaceId: string
-  initialValues: SkillInitialValues
+  descriptor: ReviewTargetDescriptor
   saveRef: MutableRefObject<() => void>
+  yjsDoc: Y.Doc
+  onReviewTargetChange?: (descriptor: ReviewTargetDescriptor | null) => void
 }
 
-export function SkillEditor({ workspaceId, initialValues, saveRef }: SkillEditorProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [content, setContent] = useState('')
+export function SkillEditor({
+  workspaceId,
+  descriptor,
+  saveRef,
+  yjsDoc,
+  onReviewTargetChange,
+}: SkillEditorProps) {
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
 
-  const updateSkillMutation = useUpdateSkill()
+  const [name, setName] = useYjsStringField(yjsDoc, 'name', '')
+  const [description, setDescription] = useYjsStringField(yjsDoc, 'description', '')
+  const [content, setContent] = useYjsStringField(yjsDoc, 'content', '')
 
   useEffect(() => {
-    setName(initialValues.name)
-    setDescription(initialValues.description)
-    setContent(initialValues.content)
     setError(null)
-  }, [initialValues.content, initialValues.description, initialValues.id, initialValues.name])
+  }, [descriptor.reviewSessionId])
 
   const handleSave = useCallback(async () => {
+    if (!descriptor.reviewSessionId) {
+      setError('Missing review session.')
+      return
+    }
+
     const trimmedName = name.trim()
     const trimmedDescription = description.trim()
     const trimmedContent = content.trim()
@@ -65,7 +72,7 @@ export function SkillEditor({ workspaceId, initialValues, saveRef }: SkillEditor
 
     const existingSkills = useSkillsStore.getState().getAllSkills(workspaceId)
     const isDuplicate = existingSkills.some((skill) => {
-      if (skill.id === initialValues.id) {
+      if (descriptor.entityId && skill.id === descriptor.entityId) {
         return false
       }
 
@@ -81,23 +88,53 @@ export function SkillEditor({ workspaceId, initialValues, saveRef }: SkillEditor
     setError(null)
 
     try {
-      await updateSkillMutation.mutateAsync({
-        workspaceId,
-        skillId: initialValues.id,
-        updates: {
-          name: trimmedName,
-          description: trimmedDescription,
-          content: trimmedContent,
-        },
+      const response = await fetch('/api/copilot/review-entities/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entityKind: ENTITY_KIND_SKILL,
+          workspaceId,
+          reviewSessionId: descriptor.reviewSessionId,
+          draftSessionId: descriptor.draftSessionId ?? undefined,
+          skill: {
+            id: descriptor.entityId ?? undefined,
+            name: trimmedName,
+            description: trimmedDescription,
+            content: trimmedContent,
+          },
+        }),
       })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to save skill.')
+      }
+
+      queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
+      if (payload?.reviewTarget) {
+        onReviewTargetChange?.(payload.reviewTarget as ReviewTargetDescriptor)
+      }
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Failed to save skill.'
-      logger.error('Failed to save skill', { error: saveError, skillId: initialValues.id })
+      logger.error('Failed to save skill', {
+        error: saveError,
+        reviewSessionId: descriptor.reviewSessionId,
+      })
       setError(message)
     } finally {
       setIsSaving(false)
     }
-  }, [content, description, initialValues.id, name, updateSkillMutation, workspaceId])
+  }, [
+    content,
+    descriptor.draftSessionId,
+    descriptor.entityId,
+    descriptor.reviewSessionId,
+    name,
+    description,
+    onReviewTargetChange,
+    queryClient,
+    workspaceId,
+  ])
 
   useEffect(() => {
     saveRef.current = () => {
@@ -148,12 +185,7 @@ export function SkillEditor({ workspaceId, initialValues, saveRef }: SkillEditor
           />
         </div>
 
-        {error ? (
-          <div className='flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm'>
-            <AlertTriangle className='mt-0.5 h-4 w-4 shrink-0' />
-            <span>{error}</span>
-          </div>
-        ) : null}
+        <SaveErrorAlert error={error} />
       </div>
     </div>
   )

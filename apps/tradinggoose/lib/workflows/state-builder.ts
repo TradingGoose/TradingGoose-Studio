@@ -1,27 +1,23 @@
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
+import { extractPersistedStateFromDoc, type PersistedDocState } from '@/lib/yjs/workflow-session'
 
 /**
- * Build workflow state in the same format as the deployment process
- * This utility ensures consistent state format between template creation and deployment
+ * Build workflow state in the same format as the deployment process.
+ * Includes variables so templates and exports preserve the full workflow.
+ * Reads from the live Yjs session.
  */
-export function buildWorkflowStateForTemplate(_workflowId: string) {
-  const workflowStore = useWorkflowStore.getState()
-
-  // Get current workflow state
-  const { blocks, edges } = workflowStore
-
-  // Generate loops and parallels in the same format as deployment
-  const loops = workflowStore.generateLoopBlocks()
-  const parallels = workflowStore.generateParallelBlocks()
-
-  // Build the state object in the same format as deployment
-  const state = {
-    blocks,
-    edges,
-    loops,
-    parallels,
-    lastSaved: Date.now(),
+export function buildWorkflowStateForTemplate(workflowId: string): PersistedDocState {
+  const session = getRegisteredWorkflowSession(workflowId)
+  if (!session?.doc) {
+    return {
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {},
+      lastSaved: Date.now(),
+    }
   }
 
-  return state
+  return extractPersistedStateFromDoc(session.doc)
 }

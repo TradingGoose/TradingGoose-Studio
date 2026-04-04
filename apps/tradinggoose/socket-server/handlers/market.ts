@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
-import type { RoomManager } from '@/socket-server/rooms/manager'
 import {
   type MarketSubscribePayload,
   type MarketUnsubscribePayload,
@@ -9,7 +8,7 @@ import {
 
 const logger = createLogger('MarketHandlers')
 
-export function setupMarketHandlers(socket: AuthenticatedSocket, _deps: RoomManager) {
+export function setupMarketHandlers(socket: AuthenticatedSocket) {
   socket.on('market-subscribe', async (payload: MarketSubscribePayload) => {
     try {
       const subscription = await marketStreamManager.subscribe(socket, payload)

@@ -1,4 +1,6 @@
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotAPI')
 
@@ -21,19 +23,26 @@ export interface CopilotMessage {
   content: string
   timestamp: string
   citations?: Citation[]
+  toolCalls?: any[]
+  contentBlocks?: any[]
+  fileAttachments?: any[]
+  contexts?: any[]
 }
 
 /**
  * Chat interface for copilot conversations
  */
 export interface CopilotChat {
-  id: string
+  reviewSessionId: string
+  workspaceId: string | null
+  entityKind: ReviewEntityKind
+  entityId: string | null
+  draftSessionId: string | null
   conversationId?: string | null
   title: string | null
-  model: string
+  reviewModel: string
   messages: CopilotMessage[]
   messageCount: number
-  previewYaml: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -55,8 +64,12 @@ export interface MessageFileAttachment {
 export interface SendMessageRequest {
   message: string
   userMessageId?: string // ID from frontend for the user message
-  chatId?: string
+  reviewSessionId?: string
   workflowId?: string
+  entityKind?: ReviewEntityKind
+  entityId?: string
+  draftSessionId?: string
+  workspaceId?: string
   model?:
     | 'gpt-5-fast'
     | 'gpt-5'
@@ -70,17 +83,10 @@ export interface SendMessageRequest {
     | 'claude-4.5-sonnet'
     | 'claude-4.1-opus'
   prefetch?: boolean
-  createNewChat?: boolean
   stream?: boolean
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
-  contexts?: Array<{
-    kind: string
-    label?: string
-    chatId?: string
-    workflowId?: string
-    executionId?: string
-  }>
+  contexts?: ChatContext[]
 }
 
 /**
@@ -124,7 +130,7 @@ export async function sendStreamingMessage(
       const preview = Array.isArray((requestBody as any).contexts)
         ? (requestBody as any).contexts.map((c: any) => ({
             kind: c?.kind,
-            chatId: c?.chatId,
+            reviewSessionId: c?.reviewSessionId,
             workflowId: c?.workflowId,
             label: c?.label,
           }))

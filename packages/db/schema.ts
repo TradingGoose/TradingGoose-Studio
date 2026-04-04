@@ -187,6 +187,7 @@ export const workflowBlocks = pgTable(
     subBlocks: jsonb('sub_blocks').notNull().default('{}'),
     outputs: jsonb('outputs').notNull().default('{}'),
     data: jsonb('data').default('{}'),
+    layout: jsonb('layout').notNull().default('{}'),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -1378,36 +1379,6 @@ export const docsEmbeddings = pgTable(
   })
 )
 
-export const copilotChats = pgTable(
-  'copilot_chats',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    workflowId: text('workflow_id')
-      .notNull()
-      .references(() => workflow.id, { onDelete: 'cascade' }),
-    title: text('title'),
-    messages: jsonb('messages').notNull().default('[]'),
-    model: text('model').notNull().default('claude-3-7-sonnet-latest'),
-    conversationId: text('conversation_id'),
-    previewYaml: text('preview_yaml'), // YAML content for pending workflow preview
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    // Primary access patterns
-    userIdIdx: index('copilot_chats_user_id_idx').on(table.userId),
-    workflowIdIdx: index('copilot_chats_workflow_id_idx').on(table.workflowId),
-    userWorkflowIdx: index('copilot_chats_user_workflow_idx').on(table.userId, table.workflowId),
-
-    // Ordering indexes
-    createdAtIdx: index('copilot_chats_created_at_idx').on(table.createdAt),
-    updatedAtIdx: index('copilot_chats_updated_at_idx').on(table.updatedAt),
-  })
-)
-
 export const workflowCheckpoints = pgTable(
   'workflow_checkpoints',
   {
@@ -1420,7 +1391,7 @@ export const workflowCheckpoints = pgTable(
       .references(() => workflow.id, { onDelete: 'cascade' }),
     chatId: uuid('chat_id')
       .notNull()
-      .references(() => copilotChats.id, { onDelete: 'cascade' }),
+      .references(() => copilotReviewSessions.id, { onDelete: 'cascade' }),
     messageId: text('message_id'), // ID of the user message that triggered this checkpoint
     workflowState: json('workflow_state').notNull(), // JSON workflow state
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -1539,7 +1510,7 @@ export const copilotFeedback = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     chatId: uuid('chat_id')
       .notNull()
-      .references(() => copilotChats.id, { onDelete: 'cascade' }),
+      .references(() => copilotReviewSessions.id, { onDelete: 'cascade' }),
     userQuery: text('user_query').notNull(),
     agentResponse: text('agent_response').notNull(),
     isPositive: boolean('is_positive').notNull(),
@@ -1559,6 +1530,113 @@ export const copilotFeedback = pgTable(
 
     // Ordering indexes
     createdAtIdx: index('copilot_feedback_created_at_idx').on(table.createdAt),
+  })
+)
+
+export const copilotReviewSessions = pgTable(
+  'copilot_review_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id'),
+    entityKind: text('entity_kind').notNull(),
+    entityId: text('entity_id'),
+    draftSessionId: text('draft_session_id'),
+    sessionScopeKey: text('session_scope_key'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title'),
+    model: text('model').notNull(),
+    conversationId: text('conversation_id'),
+    previewYaml: text('preview_yaml'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index('copilot_review_sessions_user_id_idx').on(table.userId),
+    userEntityIdx: index('copilot_review_sessions_user_entity_idx').on(
+      table.userId,
+      table.entityKind,
+      table.entityId
+    ),
+    workspaceEntityIdx: index('copilot_review_sessions_workspace_entity_idx').on(
+      table.workspaceId,
+      table.entityKind,
+      table.entityId
+    ),
+    workspaceDraftIdx: index('copilot_review_sessions_workspace_draft_idx').on(
+      table.workspaceId,
+      table.entityKind,
+      table.draftSessionId
+    ),
+    sessionScopeKeyIdx: uniqueIndex('copilot_review_sessions_scope_key_unique')
+      .on(table.sessionScopeKey)
+      .where(sql`${table.sessionScopeKey} IS NOT NULL`),
+    createdAtIdx: index('copilot_review_sessions_created_at_idx').on(table.createdAt),
+    updatedAtIdx: index('copilot_review_sessions_updated_at_idx').on(table.updatedAt),
+  })
+)
+
+export const copilotReviewTurns = pgTable(
+  'copilot_review_turns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => copilotReviewSessions.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    status: text('status').notNull().default('completed'),
+    userMessageItemId: text('user_message_item_id'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    completedAt: timestamp('completed_at'),
+  },
+  (table) => ({
+    sessionIdIdx: index('copilot_review_turns_session_id_idx').on(table.sessionId),
+    sessionStatusIdx: index('copilot_review_turns_session_status_idx').on(
+      table.sessionId,
+      table.status
+    ),
+    sessionSequenceIdx: uniqueIndex('copilot_review_turns_session_sequence_unique').on(
+      table.sessionId,
+      table.sequence
+    ),
+  })
+)
+
+export const copilotReviewItems = pgTable(
+  'copilot_review_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => copilotReviewSessions.id, { onDelete: 'cascade' }),
+    turnId: uuid('turn_id').references(() => copilotReviewTurns.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    itemId: text('item_id').notNull(),
+    kind: text('kind').notNull().default('message'),
+    messageRole: text('message_role').notNull(),
+    content: text('content').notNull().default(''),
+    timestamp: text('timestamp').notNull(),
+    toolCalls: jsonb('tool_calls').notNull().default(sql`'[]'::jsonb`),
+    contentBlocks: jsonb('content_blocks').notNull().default(sql`'[]'::jsonb`),
+    contexts: jsonb('contexts').notNull().default(sql`'[]'::jsonb`),
+    fileAttachments: jsonb('file_attachments').notNull().default(sql`'[]'::jsonb`),
+    citations: jsonb('citations').notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index('copilot_review_items_session_id_idx').on(table.sessionId),
+    turnIdIdx: index('copilot_review_items_turn_id_idx').on(table.turnId),
+    kindIdx: index('copilot_review_items_kind_idx').on(table.kind),
+    sessionSequenceIdx: uniqueIndex('copilot_review_items_session_sequence_unique').on(
+      table.sessionId,
+      table.sequence
+    ),
+    sessionItemIdIdx: uniqueIndex('copilot_review_items_session_item_unique').on(
+      table.sessionId,
+      table.itemId
+    ),
   })
 )
 
@@ -1630,6 +1708,9 @@ export const mcpServers = pgTable(
     url: text('url'),
 
     headers: json('headers').default('{}'),
+    command: text('command'),
+    args: jsonb('args').default('[]'),
+    env: jsonb('env').default('{}'),
     timeout: integer('timeout').default(30000),
     retries: integer('retries').default(3),
 

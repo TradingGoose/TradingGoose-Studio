@@ -15,7 +15,7 @@ import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workfl
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { useWorkflowEdges, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('ConditionInput')
 
@@ -131,8 +131,8 @@ export function ConditionInput({
     [shouldHighlightReference]
   )
   const updateNodeInternals = useUpdateNodeInternals()
-  const removeEdge = useWorkflowStore((state) => state.removeEdge)
-  const edges = useWorkflowStore((state) => state.edges)
+  const { removeEdge } = useWorkflowMutations()
+  const edges = useWorkflowEdges()
 
   // Use a ref to track the previous store value for comparison
   const prevStoreValueRef = useRef<string | null>(null)

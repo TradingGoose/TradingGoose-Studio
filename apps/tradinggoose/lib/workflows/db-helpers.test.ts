@@ -7,13 +7,38 @@
  * workflow data between JSON blob format and normalized database tables.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
   delete: vi.fn(),
+  update: vi.fn(),
   transaction: vi.fn(),
+}
+
+const mockWebhook = {
+  workflowId: 'workflowId',
+  provider: 'provider',
+}
+
+const mockWorkflowTable = {
+  id: 'id',
+  variables: 'variables',
+  userId: 'userId',
+}
+
+const mockWorkflowDeploymentVersion = {
+  id: 'id',
+  workflowId: 'workflowId',
+  version: 'version',
+  state: 'state',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy',
+  deployedBy: 'deployedBy',
 }
 
 const mockWorkflowBlocks = {
@@ -52,25 +77,28 @@ const mockWorkflowSubflows = {
 
 vi.doMock('@tradinggoose/db', () => ({
   db: mockDb,
+  webhook: mockWebhook,
+  workflow: mockWorkflowTable,
   workflowBlocks: mockWorkflowBlocks,
   workflowEdges: mockWorkflowEdges,
   workflowSubflows: mockWorkflowSubflows,
-  workflowDeploymentVersion: {
-    id: 'id',
-    workflowId: 'workflowId',
-    version: 'version',
-    state: 'state',
-    isActive: 'isActive',
-    createdAt: 'createdAt',
-    createdBy: 'createdBy',
-    deployedBy: 'deployedBy',
-  },
+  workflowDeploymentVersion: mockWorkflowDeploymentVersion,
 }))
 
 vi.doMock('drizzle-orm', () => ({
   eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
   and: vi.fn((...conditions) => ({ type: 'and', conditions })),
   desc: vi.fn((field) => ({ field, type: 'desc' })),
+  inArray: vi.fn((field, values) => ({ field, values, type: 'inArray' })),
+  ne: vi.fn((field, value) => ({ field, value, type: 'ne' })),
+  sql: Object.assign(
+    vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+      text: String.raw({ raw: strings }, ...values.map(String)),
+      values,
+      type: 'sql',
+    })),
+    { raw: vi.fn((value: string) => ({ text: value, values: [], type: 'sql.raw' })) }
+  ),
 }))
 
 vi.doMock('@/lib/logs/console/logger', () => ({
@@ -80,6 +108,22 @@ vi.doMock('@/lib/logs/console/logger', () => ({
     warn: vi.fn(),
     debug: vi.fn(),
   })),
+}))
+
+const mockGetExistingDocument = vi.fn()
+const mockGetState = vi.fn()
+const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
+
+vi.doMock('@/socket-server/yjs/upstream-utils', () => ({
+  getExistingDocument: mockGetExistingDocument,
+}))
+
+vi.doMock('@/socket-server/yjs/persistence', () => ({
+  getState: mockGetState,
+}))
+
+vi.doMock('@/lib/chat/published-deployment', () => ({
+  reconcilePublishedChatsForDeploymentTx: mockReconcilePublishedChatsForDeploymentTx,
 }))
 
 const mockWorkflowId = 'test-workflow-123'
@@ -221,6 +265,9 @@ describe('Database Helpers', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    mockGetExistingDocument.mockResolvedValue(null)
+    mockGetState.mockResolvedValue(null)
+    mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
     dbHelpers = await import('@/lib/workflows/db-helpers')
   })
 
@@ -769,6 +816,108 @@ describe('Database Helpers', () => {
       )
 
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('deployWorkflow', () => {
+    it('should deploy the persisted Yjs workflow state when no live document is connected', async () => {
+      const doc = new Y.Doc()
+      const yjsState = {
+        blocks: {
+          'block-yjs': {
+            id: 'block-yjs',
+            type: 'api',
+            name: 'Persisted block',
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: new Date().toISOString(),
+      }
+      const yjsVariables = {
+        'var-yjs': {
+          id: 'var-yjs',
+          name: 'Persisted variable',
+          type: 'plain',
+          value: 'latest',
+        },
+      }
+
+      setWorkflowState(doc, yjsState, 'test')
+      setVariables(doc, yjsVariables, 'test')
+
+      mockGetExistingDocument.mockResolvedValue(null)
+      mockGetState.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+
+      const updateCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
+      const insertCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([{ maxVersion: 2 }]),
+          }),
+        }),
+        update: vi.fn((table) => ({
+          set: vi.fn((data: Record<string, unknown>) => ({
+            where: vi.fn().mockImplementation(async () => {
+              updateCalls.push({ table, data })
+              return []
+            }),
+          })),
+        })),
+        insert: vi.fn((table) => ({
+          values: vi.fn().mockImplementation(async (data: Record<string, unknown>) => {
+            insertCalls.push({ table, data })
+            return []
+          }),
+        })),
+      }
+
+      mockDb.transaction.mockImplementation(async (callback) => callback(tx))
+
+      const result = await dbHelpers.deployWorkflow({
+        workflowId: mockWorkflowId,
+        deployedBy: 'deployer-1',
+        workflowOwnerId: 'owner-1',
+      })
+
+      expect(result.success).toBe(true)
+      expect(mockGetState).toHaveBeenCalledWith(mockWorkflowId)
+      expect(mockDb.select).not.toHaveBeenCalled()
+      expect(result.currentState).toMatchObject({
+        blocks: yjsState.blocks,
+        edges: yjsState.edges,
+        loops: yjsState.loops,
+        parallels: yjsState.parallels,
+        variables: yjsVariables,
+      })
+
+      const deploymentInsert = insertCalls.find(
+        (call) => call.table === mockWorkflowDeploymentVersion
+      )
+      expect(deploymentInsert?.data.state).toMatchObject({
+        blocks: yjsState.blocks,
+        variables: yjsVariables,
+      })
+
+      const workflowUpdate = updateCalls.find((call) => call.table === mockWorkflowTable)
+      expect(workflowUpdate?.data.variables).toEqual(yjsVariables)
+
+      expect(mockReconcilePublishedChatsForDeploymentTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowId: mockWorkflowId,
+          workflowOwnerId: 'owner-1',
+          state: expect.objectContaining({
+            blocks: yjsState.blocks,
+            variables: yjsVariables,
+          }),
+        })
+      )
     })
   })
 

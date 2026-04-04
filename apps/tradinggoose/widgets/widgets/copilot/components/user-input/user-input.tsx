@@ -51,10 +51,11 @@ import {
 import { useSession } from '@/lib/auth-client'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
@@ -165,7 +166,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       v: 'Chats' | 'Workflows' | 'Workflow Blocks' | 'Knowledge' | 'Blocks' | 'Templates' | 'Logs'
     ) => openSubmenuFor === v
     const [pastChats, setPastChats] = useState<
-      Array<{ id: string; title: string | null; workflowId: string | null; updatedAt?: string }>
+      Array<{
+        reviewSessionId: string
+        title: string | null
+        workflowId: string | null
+        updatedAt?: string
+      }>
     >([])
     const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
     // Removed explicit submenu query inputs; we derive query from the text typed after '@'
@@ -251,11 +257,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       }
     }, [workflowId])
 
-    // Reset past chats when workflow changes to ensure we only load chats from the current workflow
+    // Reset past chats when the active review target changes.
     useEffect(() => {
       setPastChats([])
       setIsLoadingPastChats(false)
-    }, [workflowId])
+    }, [
+      currentChat?.reviewSessionId,
+      currentChat?.entityKind,
+      currentChat?.entityId,
+      currentChat?.draftSessionId,
+      currentChat?.workspaceId,
+      workflowId,
+    ])
 
     // Fetch enabled models when dropdown is opened for the first time
     const fetchEnabledModelsOnce = useCallback(async () => {
@@ -377,19 +390,42 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (isLoadingPastChats || pastChats.length > 0) return
       try {
         setIsLoadingPastChats(true)
-        const resp = await fetch('/api/copilot/chats')
+
+        const params = new URLSearchParams()
+        if (currentChat?.entityKind === 'workflow') {
+          const activeWorkflowId = currentChat.entityId ?? workflowId
+          if (activeWorkflowId) {
+            params.set('workflowId', activeWorkflowId)
+          }
+        } else if (currentChat?.reviewSessionId) {
+          params.set('reviewSessionId', currentChat.reviewSessionId)
+          if (currentChat.entityKind) {
+            params.set('entityKind', currentChat.entityKind)
+          }
+          if (currentChat.entityId) {
+            params.set('entityId', currentChat.entityId)
+          }
+          if (currentChat.draftSessionId) {
+            params.set('draftSessionId', currentChat.draftSessionId)
+          }
+          if (currentChat.workspaceId) {
+            params.set('workspaceId', currentChat.workspaceId)
+          }
+        } else if (workflowId) {
+          params.set('workflowId', workflowId)
+        }
+
+        const query = params.toString()
+        const resp = await fetch(query ? `/api/copilot/chats?${query}` : '/api/copilot/chats')
         if (!resp.ok) throw new Error(`Failed to load chats: ${resp.status}`)
         const data = await resp.json()
         const items = Array.isArray(data?.chats) ? data.chats : []
 
-        // Filter chats to only include those from the current workflow
-        const currentWorkflowChats = items.filter((c: any) => c.workflowId === workflowId)
-
         setPastChats(
-          currentWorkflowChats.map((c: any) => ({
-            id: c.id,
+          items.map((c: any) => ({
+            reviewSessionId: c.reviewSessionId,
             title: c.title ?? null,
-            workflowId: c.workflowId ?? null,
+            workflowId: c.entityKind === 'workflow' ? (c.entityId ?? null) : null,
             updatedAt: c.updatedAt,
           }))
         )
@@ -464,7 +500,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             id: b.type,
             name: b.name || b.type,
             iconComponent: b.icon,
-            bgColor: b.bgColor,
+            bgColor: sanitizeSolidIconColor(b.bgColor),
           }))
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -474,7 +510,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             id: b.type,
             name: b.name || b.type,
             iconComponent: b.icon,
-            bgColor: b.bgColor,
+            bgColor: sanitizeSolidIconColor(b.bgColor),
           }))
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -1463,13 +1499,21 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       return true
     }
 
-    const insertPastChatMention = (chat: { id: string; title: string | null }) => {
+    const insertPastChatMention = (chat: { reviewSessionId: string; title: string | null }) => {
       const label = chat.title || 'Untitled Chat'
       replaceActiveMentionWith(label)
       setSelectedContexts((prev) => {
-        // Avoid duplicate contexts for same chat
-        if (prev.some((c) => c.kind === 'past_chat' && (c as any).chatId === chat.id)) return prev
-        return [...prev, { kind: 'past_chat', chatId: chat.id, label } as ChatContext]
+        // Avoid duplicate contexts for same review session
+        if (
+          prev.some(
+            (c) => c.kind === 'past_chat' && (c as any).reviewSessionId === chat.reviewSessionId
+          )
+        )
+          return prev
+        return [
+          ...prev,
+          { kind: 'past_chat', reviewSessionId: chat.reviewSessionId, label } as ChatContext,
+        ]
       })
       setShowMentionMenu(false)
       setOpenSubmenuFor(null)
@@ -1890,7 +1934,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     // Get workflow blocks from the workflow store
-    const workflowStoreBlocks = useWorkflowStore((state) => state.blocks)
+    const workflowStoreBlocks = useWorkflowBlocks()
 
     // Transform workflow store blocks into the format needed for the mention menu
     const [workflowBlocks, setWorkflowBlocks] = useState<
@@ -1916,7 +1960,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             name: b.name || b.id,
             type: b.type,
             iconComponent: reg?.icon,
-            bgColor: reg?.bgColor || '#6B7280',
+            bgColor: sanitizeSolidIconColor(reg?.bgColor) || '#6B7280',
           }
         })
         setWorkflowBlocks(mapped)
@@ -2395,7 +2439,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                   )
                                   .map((chat, idx) => (
                                     <div
-                                      key={chat.id}
+                                      key={chat.reviewSessionId}
                                       data-idx={idx}
                                       className={cn(
                                         'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
@@ -2543,7 +2587,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                     >
                                       <div
                                         className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        style={{
+                                          backgroundColor:
+                                            sanitizeSolidIconColor(blk.bgColor) || '#6B7280',
+                                        }}
                                       >
                                         {blk.iconComponent && (
                                           <blk.iconComponent className='!h-3 !w-3 text-white' />
@@ -2590,7 +2637,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                     >
                                       <div
                                         className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        style={{
+                                          backgroundColor:
+                                            sanitizeSolidIconColor(blk.bgColor) || '#6B7280',
+                                        }}
                                       >
                                         {blk.iconComponent && (
                                           <blk.iconComponent className='!h-3 !w-3 text-white' />
@@ -2764,7 +2814,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                 )
                                 .map((c) => ({
                                   type: 'Chats' as const,
-                                  id: c.id,
+                                  id: c.reviewSessionId,
                                   value: c,
                                   onClick: () => insertPastChatMention(c),
                                 })),
@@ -2840,7 +2890,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                             className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                                sanitizeSolidIconColor(
+                                                  (item.value as any).bgColor
+                                                ) || '#6B7280',
                                             }}
                                           >
                                             {(() => {
@@ -2860,7 +2912,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                             className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                                sanitizeSolidIconColor(
+                                                  (item.value as any).bgColor
+                                                ) || '#6B7280',
                                             }}
                                           >
                                             {(() => {
@@ -3134,7 +3188,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                               className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                  sanitizeSolidIconColor(
+                                                    (item.value as any).bgColor
+                                                  ) || '#6B7280',
                                               }}
                                             >
                                               {(() => {
@@ -3154,7 +3210,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                               className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                  sanitizeSolidIconColor(
+                                                    (item.value as any).bgColor
+                                                  ) || '#6B7280',
                                               }}
                                             >
                                               {(() => {

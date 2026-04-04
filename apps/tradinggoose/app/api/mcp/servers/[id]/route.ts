@@ -7,6 +7,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { UpdateMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
 
@@ -24,7 +25,18 @@ export const PATCH = withMcpAuth('write')(
     const serverId = params.id
 
     try {
-      const body = getParsedBody(request) || (await request.json())
+      const rawBody = getParsedBody(request) || (await request.json())
+
+      const parseResult = UpdateMcpServerSchema.safeParse(rawBody)
+      if (!parseResult.success) {
+        return createMcpErrorResponse(
+          new Error(`Invalid request body: ${parseResult.error.message}`),
+          'Invalid request body',
+          400
+        )
+      }
+
+      const body = parseResult.data
 
       logger.info(`[${requestId}] Updating MCP server: ${serverId} in workspace: ${workspaceId}`, {
         userId,

@@ -175,6 +175,12 @@ function shouldShowRunSkipButtons(
   options: { accessLevel: CopilotAccessLevel; isIntegration: boolean }
 ): boolean {
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
+
+  // Show accept/reject for tools in review state that declare interrupt metadata
+  if (hasInterrupt && toolCall.state === 'review') {
+    return true
+  }
+
   if (hasInterrupt && toolCall.state === 'pending' && options.accessLevel === 'limited') {
     return true
   }
@@ -323,6 +329,57 @@ function RunSkipButtons({
           variant='outline'
         >
           Skip
+        </Button>
+      </div>
+    )
+  }
+
+  // Review state: show Accept / Reject using the tool's interrupt display metadata
+  if (toolCall.state === 'review') {
+    const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
+    const acceptText = interruptDisplays?.accept?.text ?? 'Accept'
+    const rejectText = interruptDisplays?.reject?.text ?? 'Reject'
+    const AcceptIcon = interruptDisplays?.accept?.icon
+    const RejectIcon = interruptDisplays?.reject?.icon
+
+    return (
+      <div className='flex items-center gap-1.5'>
+        <Button
+          onClick={async () => {
+            if (actionInProgressRef.current) return
+            actionInProgressRef.current = true
+            setIsProcessing(true)
+            setButtonsHidden(true)
+            try {
+              onStateChange?.('executing')
+              await executeCopilotToolCall(toolCall.id)
+            } finally {
+              setIsProcessing(false)
+              actionInProgressRef.current = false
+            }
+          }}
+          disabled={isProcessing}
+          size='sm'
+        >
+          {isProcessing ? (
+            <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+          ) : AcceptIcon ? (
+            <AcceptIcon className='mr-1 h-3 w-3' />
+          ) : null}
+          {acceptText}
+        </Button>
+        <Button
+          onClick={async () => {
+            setButtonsHidden(true)
+            await skipCopilotToolCall(toolCall.id)
+            onStateChange?.('rejected')
+          }}
+          disabled={isProcessing}
+          size='sm'
+          variant='outline'
+        >
+          {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
+          {rejectText}
         </Button>
       </div>
     )

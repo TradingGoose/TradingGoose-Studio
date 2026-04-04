@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -26,8 +26,8 @@ import {
 import { MonacoEditor } from '@/components/monaco-editor'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useVariablesStore } from '@/stores/variables/store'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import type { Variable, VariableType } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -41,16 +41,20 @@ type VariablesProps = {
 export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }: VariablesProps = {}) {
   const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const workflowId = workflowIdProp ?? activeWorkflowId
-  const { getVariablesByWorkflowId } = useVariablesStore()
+  const yjsVariables = useWorkflowVariables()
   const {
     collaborativeUpdateVariable,
     collaborativeAddVariable,
     collaborativeDeleteVariable,
     collaborativeDuplicateVariable,
-  } = useCollaborativeWorkflow()
+  } = useWorkflowEditorActions()
 
-  // Get variables for the current workflow
-  const workflowVariables = workflowId ? getVariablesByWorkflowId(workflowId) : []
+  // Get variables for the current workflow from the Yjs doc
+  const workflowVariables: Variable[] = useMemo(() => {
+    return Object.values(yjsVariables).filter(
+      (v: any) => v && (!workflowId || v.workflowId === workflowId)
+    ) as Variable[]
+  }, [yjsVariables, workflowId])
 
   // Track editor references
   const editorRefs = useRef<Record<string, HTMLDivElement | null>>({})

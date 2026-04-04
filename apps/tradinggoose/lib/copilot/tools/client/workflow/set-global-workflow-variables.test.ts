@@ -2,51 +2,49 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
 
-const mockSetVariablesState = vi.fn()
+const mockGetRegisteredWorkflowSession = vi.fn()
+const mockGetVariablesSnapshot = vi.fn()
+const mockSetVariables = vi.fn()
 
-vi.mock('@/stores/variables/store', () => ({
-  useVariablesStore: {
-    setState: (updater: any) => mockSetVariablesState(updater),
-  },
+vi.mock('@/lib/yjs/workflow-session-registry', () => ({
+  getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
 }))
 
-describe('SetGlobalWorkflowVariablesClientTool channel-safe workflow scoping', () => {
+vi.mock('@/lib/yjs/workflow-session', () => ({
+  getVariablesMap: vi.fn(),
+  getVariablesSnapshot: (...args: any[]) => mockGetVariablesSnapshot(...args),
+  setVariables: (...args: any[]) => mockSetVariables(...args),
+}))
+
+describe('SetGlobalWorkflowVariablesClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
-    mockSetVariablesState.mockReset()
+    mockGetRegisteredWorkflowSession.mockReset()
+    mockGetVariablesSnapshot.mockReset()
+    mockSetVariables.mockReset()
   })
 
-  it('handleAccept uses execution-context workflow for all API calls when args.workflowId is omitted', async () => {
+  it('uses execution-context workflowId and writes variables only through the live Yjs session', async () => {
+    const doc = { kind: 'workflow-doc' }
+    mockGetRegisteredWorkflowSession.mockReturnValue({ doc })
+    mockGetVariablesSnapshot.mockReturnValue({
+      'var-1': {
+        id: 'var-1',
+        workflowId: 'wf-context',
+        name: 'existing',
+        type: 'plain',
+        value: 'value',
+      },
+    })
+
+    vi.stubGlobal('crypto', {
+      randomUUID: vi.fn(() => 'var-2'),
+    })
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
-
-      if (url === '/api/workflows/wf-context/variables' && method === 'GET') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            data: {
-              'var-1': {
-                id: 'var-1',
-                workflowId: 'wf-context',
-                name: 'existing',
-                type: 'plain',
-                value: 'value',
-              },
-            },
-          }),
-        }
-      }
-
-      if (url === '/api/workflows/wf-context/variables' && method === 'POST') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
 
       if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
         return {
@@ -71,21 +69,42 @@ describe('SetGlobalWorkflowVariablesClientTool channel-safe workflow scoping', (
     })
 
     await tool.handleAccept({
-      operations: [{ operation: 'delete', name: 'missing-variable' }],
+      operations: [
+        { operation: 'edit', name: 'existing', type: 'number', value: '42' },
+        { operation: 'add', name: 'newVar', type: 'boolean', value: 'true' },
+      ],
     })
 
-    const workflowApiCalls = fetchMock.mock.calls
-      .map(([input, init]) => ({
-        url: typeof input === 'string' ? input : input.toString(),
-        method: init?.method || 'GET',
-      }))
-      .filter((call) => call.url.includes('/api/workflows/'))
-
-    expect(workflowApiCalls).toEqual([
-      { url: '/api/workflows/wf-context/variables', method: 'GET' },
-      { url: '/api/workflows/wf-context/variables', method: 'POST' },
-      { url: '/api/workflows/wf-context/variables', method: 'GET' },
-    ])
+    expect(mockGetRegisteredWorkflowSession).toHaveBeenCalledWith('wf-context')
+    expect(mockGetVariablesSnapshot).toHaveBeenCalledWith(doc)
+    expect(mockSetVariables).toHaveBeenCalledTimes(1)
+    expect(mockSetVariables).toHaveBeenCalledWith(
+      doc,
+      {
+        'var-1': {
+          id: 'var-1',
+          workflowId: 'wf-context',
+          name: 'existing',
+          type: 'number',
+          value: 42,
+        },
+        'var-2': {
+          id: 'var-2',
+          workflowId: 'wf-context',
+          name: 'newVar',
+          type: 'boolean',
+          value: true,
+        },
+      },
+      'copilot'
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/copilot/tools/mark-complete',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    )
     expect(tool.getState()).toBe(ClientToolCallState.success)
   })
 })

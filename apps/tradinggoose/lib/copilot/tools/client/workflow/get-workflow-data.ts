@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getVariablesForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('GetWorkflowDataClientTool')
@@ -84,11 +85,13 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
 
       const { workflowId: activeWorkflowId } = this.requireExecutionContext()
       const registryState = useWorkflowRegistry.getState()
-      const activeWorkspaceId = registryState.workflows[activeWorkflowId]?.workspaceId ?? null
+      const activeWorkspaceId = activeWorkflowId
+        ? (registryState.workflows[activeWorkflowId]?.workspaceId ?? null)
+        : null
 
       switch (dataType) {
         case 'global_variables':
-          await this.fetchGlobalVariables(activeWorkflowId)
+          await this.fetchGlobalVariables(activeWorkflowId ?? null)
           break
         case 'custom_tools':
           await this.fetchCustomTools(activeWorkspaceId)
@@ -124,16 +127,12 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
       return
     }
 
-    const res = await fetch(`/api/workflows/${workflowId}/variables`, { method: 'GET' })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      await this.markToolComplete(res.status, text || 'Failed to fetch workflow variables')
+    const varsRecord = getVariablesForWorkflow(workflowId)
+    if (!varsRecord) {
+      await this.markToolComplete(400, 'No active Yjs session for this workflow')
       this.setState(ClientToolCallState.error)
       return
     }
-
-    const json = await res.json()
-    const varsRecord = (json?.data as Record<string, unknown>) || {}
     const variables = Object.values(varsRecord).map((v: unknown) => {
       const variable = v as { id?: string; name?: string; value?: unknown }
       return {
@@ -143,7 +142,7 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
       }
     })
 
-    logger.info('Fetched workflow variables', { count: variables.length })
+    logger.info('Fetched workflow variables from Yjs', { count: variables.length })
     await this.markToolComplete(200, `Found ${variables.length} variable(s)`, { variables })
     this.setState(ClientToolCallState.success)
   }
