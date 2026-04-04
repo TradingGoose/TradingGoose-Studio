@@ -1,5 +1,3 @@
-export const dynamic = 'force-static'
-
 import type * as PageTree from 'fumadocs-core/page-tree'
 import { findNeighbour } from 'fumadocs-core/server'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
@@ -150,9 +148,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
             <CopyPageButton
               content={`# ${page.data.title}
 
-${page.data.description || ''}
-
-${page.data.content || ''}`}
+${page.data.description || ''}`}
             />
           </div>
           <DocsTitle>{page.data.title}</DocsTitle>

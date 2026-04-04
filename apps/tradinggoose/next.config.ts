@@ -76,7 +76,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
-  serverExternalPackages: ['pdf-parse'],
+  serverExternalPackages: ['pdf-parse', 'playwright-core', 'playwright', '@browserbasehq/stagehand'],
   experimental: {
     optimizeCss: false,
     turbopackSourceMaps: false,
