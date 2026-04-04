@@ -13,9 +13,17 @@ const AUTH_ROUTES = new Set(['/login', '/signup'])
  */
 const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms'])
 
+const HOSTED_HOSTNAMES = ['www.tradinggoose.ai', 'tradinggoose.ai', 'preview.tradinggoose.ai', 'staging.tradinggoose.ai']
+
 function isHostedEnvironment(): boolean {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  return appUrl === 'https://www.tradinggoose.ai' || appUrl === 'https://preview.tradinggoose.ai'
+  if (!appUrl) return false
+  try {
+    const hostname = new URL(appUrl.includes('://') ? appUrl : `https://${appUrl}`).hostname
+    return HOSTED_HOSTNAMES.includes(hostname)
+  } catch {
+    return HOSTED_HOSTNAMES.includes(appUrl.replace(/^https?:\/\//, '').split('/')[0])
+  }
 }
 
 function isAllowedInHostedMode(pathname: string): boolean {

@@ -3,11 +3,8 @@ import type { ListingOption } from '@/lib/listing/identity'
 const PREFERRED_MARKET_CODES = [
   'NASDAQ',
   'NYSE',
-  'NYMEX',
   'HKEX',
-  'SHE',
   'SHG',
-  'LSE',
   'BVC',
 ] as const
 

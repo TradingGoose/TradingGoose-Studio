@@ -141,12 +141,12 @@ const Hero = () => {
               </>
             ) : (
               <>
-                <Button size='lg' className='font-semibold' asChild>
+                <Button size='lg' className='text-lg font-semibold' asChild>
                   <Link href='/signup' prefetch={false}>
                     Get Started
                   </Link>
                 </Button>
-                <Button variant='outline' size='lg' className='font-semibold bg-background' asChild>
+                <Button variant='outline' size='lg' className='text-lg font-semibold bg-background' asChild>
                   <Link
                     href='https://docs.tradinggoose.ai'
                     target='_blank'

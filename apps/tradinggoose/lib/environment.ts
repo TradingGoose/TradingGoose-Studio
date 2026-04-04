@@ -21,9 +21,18 @@ export const isTest = env.NODE_ENV === 'test'
 /**
  * Is this the hosted version of the application
  */
-export const isHosted =
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.tradinggoose.ai' ||
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://preview.tradinggoose.ai'
+const HOSTED_HOSTNAMES = ['www.tradinggoose.ai', 'tradinggoose.ai', 'preview.tradinggoose.ai', 'staging.tradinggoose.ai']
+
+function extractHostname(url: string | undefined): string {
+  if (!url) return ''
+  try {
+    return new URL(url.includes('://') ? url : `https://${url}`).hostname
+  } catch {
+    return url.replace(/^https?:\/\//, '').split('/')[0]
+  }
+}
+
+export const isHosted = HOSTED_HOSTNAMES.includes(extractHostname(getEnv('NEXT_PUBLIC_APP_URL')))
 
 /**
  * Is billing enforcement enabled
