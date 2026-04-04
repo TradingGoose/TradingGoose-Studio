@@ -6,9 +6,10 @@ It lets you connect your own market data providers, write custom indicators in P
 live prices, and route signals into AI agent workflows that trigger trades, alerts, portfolio
 rebalances, or any action you define.
 
-TradingGoose Studio is the open-source core. Source code is on GitHub, self-hosting is supported,
-and the hosted edition at tradinggoose.ai offers Community (free), Pro ($20/mo), Team ($40/mo),
-and Enterprise tiers.
+TradingGoose Studio is the open-source core, maintained at
+https://github.com/tradinggoose/tradinggoose-studio. Self-hosting is supported.
+The hosted edition at tradinggoose.ai offers Community (free), Pro ($20/mo),
+Team ($40/mo), and Enterprise tiers.
 
 ## What it is
 - Visual workflow canvas for trading strategies (drag-and-drop blocks and tools)
