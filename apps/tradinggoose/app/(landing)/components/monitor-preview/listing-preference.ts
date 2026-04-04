@@ -12,7 +12,7 @@ const PREFERRED_MARKET_CODES = [
   'BVC',
 ] as const
 
-const PREFERRED_MARKET_RANK = new Map(PREFERRED_MARKET_CODES.map((code, index) => [code, index]))
+const PREFERRED_MARKET_RANK = new Map<string, number>(PREFERRED_MARKET_CODES.map((code, index) => [code, index]))
 
 function getPreferredMarketRank(listing: ListingOption): number {
   const marketCode = listing.marketCode?.trim().toUpperCase()

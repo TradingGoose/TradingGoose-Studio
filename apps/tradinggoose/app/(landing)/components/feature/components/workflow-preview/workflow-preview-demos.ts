@@ -447,8 +447,8 @@ const INVESTMENT_DEBATE_STATE: WorkflowState = {
       height: 152,
       subBlocks: {
         inputFormat: createSubBlock('inputFormat', 'input-format', [
-          { id: 'listing', name: 'listing', type: 'string', value: 'NVDA' },
-          { id: 'thesis', name: 'thesis', type: 'string', value: 'AI demand remains strong' },
+          ['listing', 'listing', 'string', 'NVDA'],
+          ['thesis', 'thesis', 'string', 'AI demand remains strong'],
         ]),
       },
     }),

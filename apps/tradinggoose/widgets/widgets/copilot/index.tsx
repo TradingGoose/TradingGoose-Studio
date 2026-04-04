@@ -5,11 +5,11 @@ import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
-import copilotApp from './components/copilot-app'
+import CopilotApp from './components/copilot-app'
 
 const COPILOT_WIDGET_KEY = 'workflow-copilot'
 
-const copilotWidgetBody = ({
+const CopilotWidgetBody = ({
   params,
   context,
   pairColor = 'gray',
@@ -115,7 +115,7 @@ const copilotWidgetBody = ({
 
   return (
     <div ref={containerRef} className='flex h-full w-full overflow-hidden p-2'>
-      <copilotApp
+      <CopilotApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
         panelWidth={panelWidth || fallbackPanelWidth}
@@ -141,7 +141,7 @@ export const copilotWidget: DashboardWidgetDefinition = {
   icon: BotMessageSquare,
   category: 'utility',
   description: 'AI copilot experience across workflows and workspace tools.',
-  component: (props) => <copilotWidgetBody {...props} />,
+  component: (props) => <CopilotWidgetBody {...props} />,
   renderHeader: ({ widget, panelId }) => {
     const { channelId, resolvedPairColor } = resolveWidgetChannel({
       pairColor: widget?.pairColor ?? 'gray',

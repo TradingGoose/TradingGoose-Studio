@@ -123,10 +123,10 @@ const normalizeWindow = (
   if (window.mode === 'absolute') {
     const startMs = toEpochMs(window.start)
     const endMs = toEpochMs(window.end) ?? Date.now()
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
+    if (startMs == null || !Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
     if (startMs >= endMs) return null
 
-    let resolvedStart = startMs
+    let resolvedStart: number = startMs
     let resolvedEnd = endMs
 
     if (retention?.maxRangeDays && retention.maxRangeDays > 0) {
