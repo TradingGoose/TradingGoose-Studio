@@ -1,3 +1,5 @@
+export const dynamic = 'force-static'
+
 import type * as PageTree from 'fumadocs-core/page-tree'
 import { findNeighbour } from 'fumadocs-core/server'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
