@@ -122,7 +122,7 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   return null
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl
 
   // In hosted mode, only serve landing pages — everything else is 404
