@@ -68,6 +68,7 @@ const nextConfig: NextConfig = {
           })()
         : []),
     ],
+    qualities: [75, 100],
   },
   typescript: {
     ignoreBuildErrors: isTruthy(env.DOCKER_BUILD) || isTruthy(env.VERCEL),

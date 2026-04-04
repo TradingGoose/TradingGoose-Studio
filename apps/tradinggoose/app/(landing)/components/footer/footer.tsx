@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { DiscordIcon, GithubIcon, LinkedInIcon, xIcon as XIcon } from '@/components/icons/icons'
+import { DiscordIcon, GithubIcon } from '@/components/icons/icons'
 import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -73,24 +73,6 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 <DiscordIcon className='h-5 w-5' aria-hidden='true' />
               </a>
               <a
-                href='https://x.com/simdotai'
-                target='_blank'
-                rel='noopener noreferrer'
-                aria-label='X (Twitter)'
-                className='transition-colors duration-300 hover:text-foreground'
-              >
-                <XIcon className='h-[18px] w-[18px]' aria-hidden='true' />
-              </a>
-              <a
-                href='https://www.linkedin.com/company/tradinggoose/'
-                target='_blank'
-                rel='noopener noreferrer'
-                aria-label='LinkedIn'
-                className='transition-colors duration-300 hover:text-foreground'
-              >
-                <LinkedInIcon className='h-[18px] w-[18px]' aria-hidden='true' />
-              </a>
-              <a
                 href='https://github.com/TradingGoose/TradingGoose-Studio'
                 target='_blank'
                 rel='noopener noreferrer'
@@ -119,8 +101,8 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             </div>
           </div>
 
-          <div className='text-sm sm:max-w-[28rem] sm:self-start lg:items-end'>
-            <div className='grid grid-cols-4 gap-x-8 gap-y-3 sm:gap-x-12'>
+          <div className='order-first text-sm max-sm:text-center sm:max-w-[28rem] sm:self-start lg:order-none lg:items-end'>
+            <div className='grid grid-cols-3 gap-x-8 gap-y-3 sm:grid-cols-4 sm:gap-x-12'>
               {productLinks.map((link) =>
                 link.external ? (
                   <a
@@ -149,7 +131,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
 
         <div
           aria-hidden='true'
-          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 absolute left-1/2 z-0 w-full max-w-70 overflow-hidden'
+          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 absolute left-1/2 z-0 hidden w-full max-w-70 overflow-hidden sm:block'
         >
           <FooterHoverText text='HONK!' />
           <div

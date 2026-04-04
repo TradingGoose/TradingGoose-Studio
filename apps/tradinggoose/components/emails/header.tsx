@@ -11,7 +11,7 @@ interface EmailHeaderProps {
 export const EmailHeader = ({ tagline = 'LLM Technical Trading Analysis Workflow System' }: EmailHeaderProps) => {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
-  const logoSrc = brand.logoUrl || `${baseUrl}/logo/reverse/small.png`
+  const logoSrc = brand.logoUrl || `${baseUrl}/favicon/goose.png`
 
   return (
     <Section style={baseStyles.header}>

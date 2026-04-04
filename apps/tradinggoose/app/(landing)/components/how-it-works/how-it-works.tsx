@@ -40,7 +40,7 @@ const processes: Process[] = [
 export default function HowItWorks() {
   return (
     <section className='py-8 mt-24 sm:mt-32 sm:py-16 lg:mt-60 lg:py-24'>
-      <div className='mx-auto px-10 sm:px-16 lg:px-24'>
+      <div className='mx-auto px-4 sm:px-6 lg:px-24'>
         <div className='grid grid-cols-1 gap-12 lg:grid-cols-2 xl:gap-16'>
           {/* Left content */}
           <div className='space-y-4'>

@@ -3,11 +3,11 @@ import { Background } from '@/app/(landing)/components'
 import Landing from '@/app/(landing)/landing'
 
 export const metadata: Metadata = {
-  title: 'TradingGoose - AI Agent Workflow Builder | Open Source Platform',
+  title: 'TradingGoose - Visual Workflow Platform for LLM Trading | Open Source',
   description:
-    'Open-source AI agent workflow builder used by 50,000+ developers. Build and deploy agentic workflows with visual drag-and-drop interface. Connect 100+ apps. SOC2 and HIPAA compliant. Used by startups to Fortune 500 companies.',
+    'Open-source visual workflow platform for technical LLM-driven trading. Connect your own data providers, write custom indicators in PineTS, monitor live markets, and trigger AI agent workflows on signals.',
   keywords:
-    'AI agent workflow builder, agentic workflows, open source AI, visual workflow builder, AI automation, LLM workflows, AI agents, workflow automation, no-code AI, SOC2 compliant, HIPAA compliant, enterprise AI',
+    'AI trading workflows, LLM trading agents, technical trading automation, custom trading indicators, PineTS indicators, visual trading workflow builder, trading signal automation, market data workflow, backtesting platform, open source trading platform, algorithmic trading, AI trading assistant',
   authors: [{ name: 'TradingGoose Studio' }],
   creator: 'TradingGoose Studio',
   publisher: 'TradingGoose Studio',
@@ -17,39 +17,33 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: 'TradingGoose - AI Agent Workflow Builder | Open Source',
+    title: 'TradingGoose - Visual Workflow Platform for LLM Trading',
     description:
-      'Open-source platform used by 50,000+ developers. Build and deploy agentic workflows with drag-and-drop interface. SOC2 & HIPAA compliant. Connect 100+ apps.',
+      'Open-source platform for technical LLM-driven trading. Custom indicators in PineTS, live market monitors, AI agent workflows triggered by market signals.',
     type: 'website',
     url: 'https://tradinggoose.ai',
     siteName: 'TradingGoose',
     locale: 'en_US',
     images: [
       {
-        url: '/social/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'TradingGoose - Visual AI Workflow Builder',
-        type: 'image/png',
-      },
-      {
-        url: '/social/og-image-square.png',
-        width: 600,
-        height: 600,
+        url: '/favicon/web-app-manifest-512x512.png',
+        width: 512,
+        height: 512,
         alt: 'TradingGoose Logo',
+        type: 'image/png',
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     site: '@tradinggoose',
     creator: '@tradinggoose',
-    title: 'TradingGoose - AI Agent Workflow Builder | Open Source',
+    title: 'TradingGoose - Visual Workflow Platform for LLM Trading',
     description:
-      'Open-source platform for agentic workflows. 50,000+ developers. Visual builder. 100+ integrations. SOC2 & HIPAA compliant.',
+      'Open-source platform for technical LLM-driven trading. Custom indicators, live monitors, AI agent workflows triggered by market signals.',
     images: {
-      url: '/social/twitter-image.png',
-      alt: 'TradingGoose - Visual AI Workflow Builder',
+      url: '/favicon/web-app-manifest-512x512.png',
+      alt: 'TradingGoose Logo',
     },
   },
   alternates: {
@@ -71,17 +65,18 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  category: 'technology',
-  classification: 'AI Development Tools',
+  category: 'finance',
+  classification: 'Trading Platform',
   referrer: 'origin-when-cross-origin',
   // LLM SEO optimizations
   other: {
-    'llm:content-type': 'AI workflow builder, visual programming, no-code AI development',
+    'llm:content-type':
+      'visual workflow platform for trading, custom indicators, AI agent workflows for markets',
     'llm:use-cases':
-      'email automation, slack bots, discord moderation, data analysis, customer support, content generation',
+      'signal-driven trade execution, portfolio rebalancing, indicator alerts, strategy backtesting, market sentiment analysis, custom trading dashboards',
     'llm:integrations':
-      'OpenAI, Anthropic, Google AI, Slack, Gmail, Discord, Notion, Airtable, Supabase',
-    'llm:pricing': 'free tier available, pro $20/month, team $40/month, enterprise custom',
+      'OpenAI, Anthropic, Google Gemini, xAI, Mistral, Perplexity, Ollama, custom market data providers',
+    'llm:pricing': 'Community free, Pro $20/month, Team $40/month, Enterprise custom',
   },
 }
 

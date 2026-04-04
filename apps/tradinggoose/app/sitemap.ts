@@ -41,17 +41,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.4,
     },
-  ]
-
-  // Blog posts and content pages
-  const blogPages = [
     {
-      url: `${baseUrl}/blog/openai-vs-n8n-vs-sim`,
-      lastModified: new Date('2025-10-11'),
-      changeFrequency: 'monthly' as const,
-      priority: 0.9,
+      url: `${baseUrl}/changelog`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
     },
   ]
 
-  return [...staticPages, ...blogPages]
+  return staticPages
 }

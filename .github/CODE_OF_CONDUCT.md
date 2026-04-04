@@ -1,115 +1,91 @@
-# Code of Conduct - TradingGoose
+# TradingGoose Studio Code of Conduct
 
-## Our Pledge
+## Our Commitment
 
-In the interest of fostering an open and welcoming environment, we as
-contributors and maintainers pledge to make participation in our project and
-our community a harassment-free experience for everyone, regardless of age, body
-size, disability, ethnicity, sex characteristics, gender identity and expression,
+TradingGoose Studio is an open-source project for technical LLM trading workflows.
+We want the project to be a professional, respectful, and useful place for
+developers, researchers, traders, designers, and contributors of all experience
+levels.
+
+Maintainers and contributors commit to making participation in the TradingGoose
+community harassment-free for everyone, regardless of age, body size,
+disability, ethnicity, sex characteristics, gender identity and expression,
 level of experience, education, socio-economic status, nationality, personal
 appearance, race, religion, or sexual identity and orientation.
 
-## Our Standards
+## Expected Behavior
 
-Examples of behaviour that contributes to a positive environment for our
-community include:
+Examples of behavior that strengthen the TradingGoose community include:
 
-- Demonstrating empathy and kindness toward other people
-- Being respectful of differing opinions, viewpoints, and experiences
-- Giving and gracefully accepting constructive feedback
-- Accepting responsibility and apologising to those affected by our mistakes,
-  and learning from the experience
-- Focusing on what is best not just for us as individuals, but for the
-  overall community
+- Treating other contributors with respect, patience, and professionalism
+- Critiquing ideas, code, and decisions without attacking people
+- Giving clear, actionable feedback in issues, pull requests, discussions, and chat
+- Sharing context, reproduction steps, and evidence when reporting bugs or disagreements
+- Assuming good intent first and asking clarifying questions before escalating
+- Respecting user privacy, project security, and confidential information
+- Helping keep discussion focused, technically useful, and welcoming to newcomers
 
-Examples of unacceptable behaviour include:
+## Unacceptable Behavior
 
-- The use of sexualised language or imagery, and sexual attention or advances
-- Trolling, insulting or derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information, such as a physical or email
-  address, without their explicit permission
-- Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+Examples of unacceptable behavior include:
 
-## Our Responsibilities
+- Harassment, intimidation, threats, discrimination, or hate speech
+- Trolling, personal attacks, dogpiling, or deliberately inflammatory behavior
+- Sexualized language, imagery, or unwanted sexual attention
+- Publishing another person's private information without explicit permission
+- Sharing credentials, API keys, tokens, account access, or sensitive financial data
+- Abusive behavior in code review, issue triage, support channels, or community chat
+- Impersonation, spam, or repeated off-topic disruption of community spaces
 
-Project maintainers are responsible for clarifying and enforcing our standards of
-acceptable behaviour and will take appropriate and fair corrective action in
-response to any behaviour that they deem inappropriate,
-threatening, offensive, or harmful.
+## Maintainer Responsibilities
 
-Project maintainers have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will
-communicate reasons for moderation decisions when appropriate.
+Project maintainers are responsible for clarifying and enforcing this Code of
+Conduct. They may remove, edit, or reject comments, commits, code, wiki edits,
+issues, pull requests, discussions, or other contributions that are not aligned
+with this policy.
+
+Maintainers will aim to act fairly, consistently, and proportionally. When
+appropriate, they will communicate moderation decisions and next steps.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
+This Code of Conduct applies across TradingGoose community spaces, including:
 
-## Enforcement
+- This GitHub repository and related repositories
+- Issues, pull requests, discussions, and code review
+- Documentation sites and examples maintained by the project
+- Official Discord, social accounts, and other project-managed communication channels
+- Events, demos, livestreams, or public conversations where someone is representing TradingGoose
 
-Instances of abusive, harassing, or otherwise unacceptable behaviour may be
-reported to the community leaders responsible for enforcement at <waleed@tradinggoose.ai>.
-All complaints will be reviewed and investigated promptly and fairly.
+## Reporting
 
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
+If you experience or witness behavior that violates this Code of Conduct, report
+it to the maintainers at <bruzzz@tradinggoose.ai>.
+
+Please include relevant context when possible:
+
+- What happened
+- Where it happened
+- Links, screenshots, or logs if available
+- Whether there is any immediate safety or security concern
+
+Reports will be reviewed promptly and handled as confidentially as practical.
+We will prioritize the safety and privacy of the reporter and affected parties.
 
 ## Enforcement Guidelines
 
-Community leaders will follow these Community Impact Guidelines in determining
-the consequences for any action they deem in violation of this Code of Conduct:
+Maintainers may respond with any action they consider appropriate, including:
 
-### 1. Correction
+1. Private clarification or warning
+2. Request to stop specific behavior
+3. Removal of content or comments
+4. Temporary restriction from project spaces
+5. Permanent ban from some or all project spaces
 
-**Community Impact**: Use of inappropriate language or other behaviour deemed
-unprofessional or unwelcome in the community.
-
-**Consequence**: A private, written warning from community leaders, providing
-clarity around the nature of the violation and an explanation of why the
-behaviour was inappropriate. A public apology may be requested.
-
-### 2. Warning
-
-**Community Impact**: A violation through a single incident or series
-of actions.
-
-**Consequence**: A warning with consequences for continued behaviour. No
-interaction with the people involved, including unsolicited interaction with
-those enforcing the Code of Conduct, for a specified period of time. This
-includes avoiding interactions in community spaces as well as external channels
-like social media. Violating these terms may lead to a temporary or
-permanent ban.
-
-### 3. Temporary Ban
-
-**Community Impact**: A serious violation of community standards, including
-sustained inappropriate behaviour.
-
-**Consequence**: A temporary ban from any sort of interaction or public
-communication with the community for a specified period of time. No public or
-private interaction with the people involved, including unsolicited interaction
-with those enforcing the Code of Conduct, is allowed during this period.
-Violating these terms may lead to a permanent ban.
-
-### 4. Permanent Ban
-
-**Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behaviour, harassment of an
-individual, or aggression toward or disparagement of classes of individuals.
-
-**Consequence**: A permanent ban from any sort of public interaction within
-the community.
+The response will depend on severity, pattern of behavior, impact on the
+community, and any security or privacy implications.
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant](https://contributor-covenant.org/), version
-[1.4](https://www.contributor-covenant.org/version/1/4/code-of-conduct/code_of_conduct.md) and
-[2.0](https://www.contributor-covenant.org/version/2/0/code_of_conduct/code_of_conduct.md),
-and was generated by [contributing.md](https://contributing.md/generator).
+This policy is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/),
+version [2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
