@@ -34,6 +34,9 @@ function isAllowedInHostedMode(pathname: string): boolean {
   if (pathname.startsWith('/social/')) return true
   if (pathname.startsWith('/logo/')) return true
   if (pathname.startsWith('/static/')) return true
+  if (pathname.startsWith('/footer/')) return true
+  // Allow public root assets (images, icons, etc.)
+  if (/^\/.+\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|css|js)$/.test(pathname)) return true
   if (pathname === '/robots.txt' || pathname === '/sitemap.xml' || pathname === '/manifest.webmanifest') return true
   if (pathname === '/changelog.xml' || pathname === '/llms.txt') return true
   return false
