@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="onedrive"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="OneDrive"
     type="onedrive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -117,7 +116,6 @@ Create a new folder in OneDrive
     name="OneDrive"
     type="onedrive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -213,6 +211,16 @@ Create a new folder in OneDrive
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `file` | json | The OneDrive file object, including details such as id, name, size, and more. |
+| `files` | json | An array of OneDrive file objects, each containing details such as id, name, size, and more. |
+
+</div>
+
 
 
 ---
@@ -224,7 +232,6 @@ Create a new folder in OneDrive
     name="OneDrive"
     type="onedrive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -336,7 +343,6 @@ Upload a file to OneDrive
     name="OneDrive"
     type="onedrive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

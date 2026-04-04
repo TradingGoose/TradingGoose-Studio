@@ -1,13 +1,20 @@
 ---
 title: Condition
+description: Branch workflow paths based on boolean expressions
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { BlockConfigPreview } from '@/components/ui/block-config-preview'
 import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="condition"
+  color="#FF752F"
+/>
 
 The Condition block allows you to branch your workflow execution path based on boolean expressions, enabling you to create dynamic, responsive workflows with different execution paths. It evaluates conditions and routes the workflow accordingly, letting you control execution flow based on data or logic without requiring an LLM.
 

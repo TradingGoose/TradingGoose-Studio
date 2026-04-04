@@ -1,4 +1,5 @@
 import type * as PageTree from 'fumadocs-core/page-tree'
+import { i18n } from './i18n'
 
 export function normalizeKey(value?: string | null) {
   if (!value) return undefined
@@ -63,7 +64,7 @@ export function getFolderSlug(folder: PageTree.Folder): string | undefined {
   )
 }
 
-export const supportedLanguages = ['en', 'es', 'zh'] as const
+export const supportedLanguages = i18n.languages
 
 export function humanizeSlug(value: string) {
   return value
@@ -81,7 +82,7 @@ function folderMatchesSlug(folder: PageTree.Folder, slug: string) {
 
 export function findFolderBySegments(
   tree: PageTree.Root,
-  segments: string[],
+  segments: string[]
 ): PageTree.Folder | null {
   const path = findFolderPathBySegments(tree, segments)
   if (!path || path.length === 0) return null
@@ -90,7 +91,7 @@ export function findFolderBySegments(
 
 export function findFolderPathBySegments(
   parent: PageTree.Root | PageTree.Folder,
-  segments: string[],
+  segments: string[]
 ): PageTree.Folder[] | null {
   if (segments.length === 0) return null
 
@@ -103,7 +104,7 @@ export function findFolderPathBySegments(
 
     const match = currentChildren.find(
       (node): node is PageTree.Folder =>
-        node.type === 'folder' && folderMatchesSlug(node, normalizedSegment),
+        node.type === 'folder' && folderMatchesSlug(node, normalizedSegment)
     )
 
     if (!match) return null
@@ -113,7 +114,6 @@ export function findFolderPathBySegments(
 
   return path
 }
-
 
 function trimSlashes(value?: string | null) {
   if (!value) return ''

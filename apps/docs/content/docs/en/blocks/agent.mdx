@@ -1,12 +1,19 @@
 ---
 title: Agent
+description: Build an agent using AI models with tool integration
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { BlockConfigPreview } from '@/components/ui/block-config-preview'
 import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="agent"
+  color="#2873f6"
+/>
 
 The Agent block serves as the interface between your workflow and Large Language Models (LLMs). It executes inference requests against various AI providers, processes natural language inputs according to defined instructions, and generates structured or unstructured outputs for downstream consumption.
 

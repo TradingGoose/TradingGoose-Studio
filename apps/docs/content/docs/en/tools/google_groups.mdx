@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="google_groups"
   color="#E8F0FE"
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -148,7 +147,6 @@ List all groups in a Google Workspace domain
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -250,7 +248,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -367,7 +364,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -490,7 +486,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -592,7 +587,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -711,7 +705,6 @@ List all members of a Google Group
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -821,7 +814,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -901,7 +893,21 @@ Refer to the block outputs for this operation.
         {
             "id": "role",
             "type": "dropdown",
-            "title": "Member Role"
+            "title": "Member Role",
+            "options": [
+                {
+                    "label": "Member",
+                    "id": "MEMBER"
+                },
+                {
+                    "label": "Manager",
+                    "id": "MANAGER"
+                },
+                {
+                    "label": "Owner",
+                    "id": "OWNER"
+                }
+            ]
         }
     ]}
   />
@@ -937,7 +943,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1017,7 +1022,21 @@ Refer to the block outputs for this operation.
         {
             "id": "role",
             "type": "dropdown",
-            "title": "Member Role"
+            "title": "Member Role",
+            "options": [
+                {
+                    "label": "Member",
+                    "id": "MEMBER"
+                },
+                {
+                    "label": "Manager",
+                    "id": "MANAGER"
+                },
+                {
+                    "label": "Owner",
+                    "id": "OWNER"
+                }
+            ]
         }
     ]}
   />
@@ -1053,7 +1072,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1163,7 +1181,6 @@ Refer to the block outputs for this operation.
     name="Google Groups"
     type="google_groups"
     color="#E8F0FE"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

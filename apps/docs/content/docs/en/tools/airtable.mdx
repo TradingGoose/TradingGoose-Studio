@@ -6,13 +6,19 @@ description: Read, create, and update Airtable
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="airtable"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/airtable">
+    See trigger events, setup, and event payloads for Airtable.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Airtable"
     type="airtable"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -128,7 +133,6 @@ Read records from an Airtable table
     name="Airtable"
     type="airtable"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -225,7 +229,6 @@ Retrieve a single record from an Airtable table by its ID
     name="Airtable"
     type="airtable"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -325,7 +328,6 @@ Write new records to an Airtable table
     name="Airtable"
     type="airtable"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

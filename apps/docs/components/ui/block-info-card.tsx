@@ -1,27 +1,19 @@
 'use client'
 
 import { type ReactNode, useRef } from 'react'
+import { getBlockTypeIcon } from './block-type-icon'
+import { sanitizeSolidIconColor } from './icon-colors'
 import { RippleBg } from './showcase-card'
-import { blockTypeToIconMap } from './icon-mapping'
 
 interface BlockInfoCardProps {
   type: string
   color: string
-  icon?: boolean
-  iconSvg?: string
 }
 
-export function BlockInfoCard({
-  type,
-  color,
-  icon = false,
-  iconSvg,
-}: BlockInfoCardProps): ReactNode {
+export function BlockInfoCard({ type, color }: BlockInfoCardProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null)
-  const bgColor = color && color.length > 1 ? color : undefined
-
-  // Resolve icon: prefer mapped React component, fall back to SVG string
-  const IconComponent = blockTypeToIconMap[type] || null
+  const bgColor = sanitizeSolidIconColor(color)
+  const IconComponent = getBlockTypeIcon(type)
 
   return (
     <div
@@ -31,18 +23,14 @@ export function BlockInfoCard({
       <RippleBg containerRef={containerRef} rows={6} />
       <div className='relative z-10 flex items-center justify-center p-8'>
         <div
-          className={`flex h-16 w-16 items-center justify-center rounded-xl shadow-md ${!bgColor ? 'bg-fd-secondary' : ''}`}
-          style={bgColor ? { backgroundColor: bgColor } : undefined}
+          className='flex h-10 w-10 items-center justify-center rounded-md bg-fd-secondary'
+          style={
+            bgColor
+              ? { backgroundColor: `${bgColor}20`, color: bgColor }
+              : undefined
+          }
         >
-          {IconComponent ? (
-            <IconComponent className={`h-8 w-8 ${bgColor ? 'text-white' : 'text-fd-foreground'}`} />
-          ) : iconSvg ? (
-            <div className={`h-8 w-8 ${bgColor ? 'text-white' : 'text-fd-foreground'}`} dangerouslySetInnerHTML={{ __html: iconSvg }} />
-          ) : (
-            <div className='font-mono text-2xl font-bold text-fd-muted-foreground'>
-              {type.substring(0, 1).toUpperCase()}
-            </div>
-          )}
+          <IconComponent className='h-6 w-6' />
         </div>
       </div>
     </div>

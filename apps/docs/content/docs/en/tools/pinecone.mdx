@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="pinecone"
   color="#1C17FF"
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Pinecone"
     type="pinecone"
     color="#1C17FF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -96,6 +95,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `matches` | json | Search matches |
+| `upsertedCount` | number | Upserted count |
+| `data` | json | Response data |
+| `model` | string | Model information |
+| `vector_type` | string | Vector type |
+| `usage` | json | Usage statistics |
+
+</div>
+
 
 
 ---
@@ -107,7 +120,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Pinecone"
     type="pinecone"
     color="#1C17FF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -169,12 +181,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "long-input",
             "title": "Records",
             "layout": "full",
-            "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple\\",
+            "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple\"}",
             "required": true
         }
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `matches` | json | Search matches |
+| `upsertedCount` | number | Upserted count |
+| `data` | json | Response data |
+| `model` | string | Model information |
+| `vector_type` | string | Vector type |
+| `usage` | json | Usage statistics |
+
+</div>
 
 
 
@@ -187,7 +213,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Pinecone"
     type="pinecone"
     color="#1C17FF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -284,6 +309,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `matches` | json | Search matches |
+| `upsertedCount` | number | Upserted count |
+| `data` | json | Response data |
+| `model` | string | Model information |
+| `vector_type` | string | Vector type |
+| `usage` | json | Usage statistics |
+
+</div>
+
 
 
 ---
@@ -295,7 +334,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Pinecone"
     type="pinecone"
     color="#1C17FF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -371,11 +409,35 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "options",
             "type": "checkbox-list",
             "title": "Options",
-            "layout": "full"
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Include Values",
+                    "id": "includeValues"
+                },
+                {
+                    "label": "Include Metadata",
+                    "id": "includeMetadata"
+                }
+            ]
         }
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `matches` | json | Search matches |
+| `upsertedCount` | number | Upserted count |
+| `data` | json | Response data |
+| `model` | string | Model information |
+| `vector_type` | string | Vector type |
+| `usage` | json | Usage statistics |
+
+</div>
 
 
 
@@ -388,7 +450,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Pinecone"
     type="pinecone"
     color="#1C17FF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -456,6 +517,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `matches` | json | Search matches |
+| `upsertedCount` | number | Upserted count |
+| `data` | json | Response data |
+| `model` | string | Model information |
+| `vector_type` | string | Vector type |
+| `usage` | json | Usage statistics |
+
+</div>
 
 
 

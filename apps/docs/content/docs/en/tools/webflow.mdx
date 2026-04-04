@@ -6,13 +6,19 @@ description: Manage Webflow CMS collections
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="webflow"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/webflow">
+    See trigger events, setup, and event payloads for Webflow.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Webflow"
     type="webflow"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -122,7 +127,6 @@ List all items from a Webflow CMS collection
     name="Webflow"
     type="webflow"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -214,7 +218,6 @@ Get a single item from a Webflow CMS collection
     name="Webflow"
     type="webflow"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -307,7 +310,6 @@ Create a new item in a Webflow CMS collection
     name="Webflow"
     type="webflow"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -409,7 +411,6 @@ Update an existing item in a Webflow CMS collection
     name="Webflow"
     type="webflow"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

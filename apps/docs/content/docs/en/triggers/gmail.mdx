@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="gmail"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Triggers when new emails are received in Gmail (requires Gmail credentials)
@@ -21,6 +20,13 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
 <Callout type="info">
   This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/gmail">
+    See workflow actions, operations, and tool inputs for Gmail.
+  </Card>
+</Cards>
+
 
 ## Configuration
 

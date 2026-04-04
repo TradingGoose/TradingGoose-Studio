@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="google_drive"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Google Drive"
     type="google_drive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -124,7 +123,6 @@ Refer to the block outputs for this operation.
     name="Google Drive"
     type="google_drive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -240,6 +238,16 @@ Refer to the block outputs for this operation.
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `file` | json | File data |
+| `files` | json | Files list |
+
+</div>
+
 
 
 ---
@@ -251,7 +259,6 @@ Refer to the block outputs for this operation.
     name="Google Drive"
     type="google_drive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -369,7 +376,6 @@ Refer to the block outputs for this operation.
     name="Google Drive"
     type="google_drive"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

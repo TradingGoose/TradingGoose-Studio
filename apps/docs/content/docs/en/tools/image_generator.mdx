@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="image_generator"
   color="#4D5FFF"
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Image Generator"
     type="image_generator"
     color="#4D5FFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -116,6 +115,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Generation response |
+| `image` | string | Generated image URL |
+| `metadata` | json | Generation metadata |
+
+</div>
+
 
 
 ---
@@ -127,7 +137,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Image Generator"
     type="image_generator"
     color="#4D5FFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -211,6 +220,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Generation response |
+| `image` | string | Generated image URL |
+| `metadata` | json | Generation metadata |
+
+</div>
 
 
 

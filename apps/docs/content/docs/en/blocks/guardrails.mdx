@@ -1,12 +1,19 @@
 ---
 title: Guardrails
+description: Validate content with safety constraints
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { BlockConfigPreview } from '@/components/ui/block-config-preview'
 import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="guardrails"
+  color="#3D642D"
+/>
 
 The Guardrails block validates and protects your AI workflows by checking content against multiple validation types. Ensure data quality, prevent hallucinations, detect PII, and enforce format requirements before content moves through your workflow.
 

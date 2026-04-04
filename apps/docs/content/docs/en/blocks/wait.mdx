@@ -1,11 +1,18 @@
 ---
 title: Wait
+description: Pause workflow execution for a specified duration
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { BlockConfigPreview } from '@/components/ui/block-config-preview'
 import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="wait"
+  color="#F59E0B"
+/>
 
 The Wait block pauses your workflow for a specified amount of time before continuing to the next block. Use it to add delays between actions, respect API rate limits, or space out operations.
 

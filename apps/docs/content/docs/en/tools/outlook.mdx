@@ -6,13 +6,19 @@ description: Access Outlook
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="outlook"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/outlook">
+    See trigger events, setup, and event payloads for Outlook.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Outlook"
     type="outlook"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -170,7 +175,6 @@ Send emails using Outlook
     name="Outlook"
     type="outlook"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -303,7 +307,6 @@ Draft emails using Outlook
     name="Outlook"
     type="outlook"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -406,7 +409,6 @@ Read emails from Outlook
     name="Outlook"
     type="outlook"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

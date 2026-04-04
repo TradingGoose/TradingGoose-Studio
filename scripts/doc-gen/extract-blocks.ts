@@ -1,10 +1,27 @@
+import fs from 'fs'
+import path from 'path'
+import { globSync } from 'glob'
 import type { BlockConfig, DocSubBlock } from './types'
 import { extractStringProperty, extractBracedContent } from './utils'
+
+interface ExtractBlockConfigOptions {
+  includeTriggerDerivedSubBlocks?: boolean
+  triggersPath?: string
+}
+
+interface ParseSubBlockOptions {
+  allowTriggerMode?: boolean
+  fileContent?: string
+  fileDir?: string
+}
 
 /**
  * Extract block configuration from a block source file.
  */
-export function extractBlockConfig(fileContent: string): BlockConfig | null {
+export function extractBlockConfig(
+  fileContent: string,
+  options: ExtractBlockConfigOptions = {}
+): BlockConfig | null {
   try {
     const exportMatch = fileContent.match(/export\s+const\s+(\w+)Block\s*:/)
     if (!exportMatch) return null
@@ -17,10 +34,9 @@ export function extractBlockConfig(fileContent: string): BlockConfig | null {
     const category = extractStringProperty(fileContent, 'category') || 'misc'
     const rawBgColor = extractStringProperty(fileContent, 'bgColor')
     const bgColor = rawBgColor && rawBgColor.length > 0 ? rawBgColor : ''
-    const iconName = extractIconName(fileContent) || ''
     const outputs = extractOutputs(fileContent)
     const toolsAccess = extractToolsAccess(fileContent)
-    const subBlocks = extractSubBlocks(fileContent)
+    const subBlocks = extractSubBlocks(fileContent, options)
     const operationToolMap = extractOperationToolMap(fileContent)
 
     return {
@@ -30,7 +46,6 @@ export function extractBlockConfig(fileContent: string): BlockConfig | null {
       longDescription,
       category,
       bgColor,
-      iconName,
       outputs,
       tools: { access: toolsAccess },
       subBlocks,
@@ -65,14 +80,11 @@ function findBlockType(content: string, blockName: string): string {
     }
   }
 
-  return blockName.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '')
+  return blockName
+    .replace(/([A-Z])/g, '_$1')
+    .toLowerCase()
+    .replace(/^_/, '')
 }
-
-function extractIconName(content: string): string | null {
-  const match = content.match(/icon\s*:\s*(\w+Icon)/)
-  return match ? match[1] : null
-}
-
 // ── Outputs extraction ────────────────────────────────────────────
 
 function extractOutputs(content: string): Record<string, any> {
@@ -124,7 +136,27 @@ function extractToolsAccess(content: string): string[] {
 
 // ── SubBlocks extraction ──────────────────────────────────────────
 
-function extractSubBlocks(content: string): DocSubBlock[] {
+function extractSubBlocks(
+  content: string,
+  options: ExtractBlockConfigOptions = {}
+): DocSubBlock[] {
+  const blocks = extractInlineSubBlocks(content)
+
+  if (
+    blocks.length > 0 ||
+    !options.includeTriggerDerivedSubBlocks ||
+    !options.triggersPath
+  ) {
+    return blocks
+  }
+
+  const triggerRefs = extractTriggerSubBlockRefs(content)
+  if (triggerRefs.length === 0) return blocks
+
+  return extractTriggerDerivedSubBlocks(triggerRefs, options.triggersPath)
+}
+
+function extractInlineSubBlocks(content: string, parseOptions: ParseSubBlockOptions = {}): DocSubBlock[] {
   const subBlocksStart = content.search(/subBlocks\s*:\s*\[/)
   if (subBlocksStart === -1) return []
 
@@ -152,7 +184,7 @@ function extractSubBlocks(content: string): DocSubBlock[] {
     } else if (arrayContent[i] === '}') {
       blockDepth--
       if (blockDepth === 0 && blockStart >= 0) {
-        const parsed = parseSubBlockObject(arrayContent.substring(blockStart, i + 1))
+        const parsed = parseSubBlockObject(arrayContent.substring(blockStart, i + 1), parseOptions)
         if (parsed) blocks.push(parsed)
         blockStart = -1
       }
@@ -162,7 +194,7 @@ function extractSubBlocks(content: string): DocSubBlock[] {
   return blocks
 }
 
-function parseSubBlockObject(blockStr: string): DocSubBlock | null {
+function parseSubBlockObject(blockStr: string, options: ParseSubBlockOptions = {}): DocSubBlock | null {
   const getString = (prop: string): string | undefined => {
     const m =
       blockStr.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
@@ -177,7 +209,8 @@ function parseSubBlockObject(blockStr: string): DocSubBlock | null {
   // Skip hidden/internal/trigger-only fields
   if (/hidden\s*:\s*true/.test(blockStr)) return null
   if (/hideFromPreview\s*:\s*true/.test(blockStr)) return null
-  if (getString('mode') === 'trigger') return null
+  if (type === 'trigger-save' || type === 'text') return null
+  if (getString('mode') === 'trigger' && !options.allowTriggerMode) return null
 
   const result: DocSubBlock = { id, type }
 
@@ -206,8 +239,7 @@ function parseSubBlockObject(blockStr: string): DocSubBlock | null {
 
   // Default value
   const dvStr =
-    blockStr.match(/defaultValue\s*:\s*'([^']*)'/) ||
-    blockStr.match(/defaultValue\s*:\s*"([^"]*)"/)
+    blockStr.match(/defaultValue\s*:\s*'([^']*)'/) || blockStr.match(/defaultValue\s*:\s*"([^"]*)"/)
   if (dvStr) {
     result.defaultValue = dvStr[1]
   } else if (/defaultValue\s*:\s*true/.test(blockStr)) {
@@ -222,13 +254,14 @@ function parseSubBlockObject(blockStr: string): DocSubBlock | null {
   // Static options array
   const optionsMatch = blockStr.match(/options\s*:\s*\[([^\]]*)\]/)
   if (optionsMatch) {
-    const opts: Array<{ label: string; id: string }> = []
-    const re = /\{\s*label\s*:\s*['"]([^'"]+)['"]\s*,\s*id\s*:\s*['"]([^'"]+)['"]/g
-    let m
-    while ((m = re.exec(optionsMatch[1])) !== null) {
-      opts.push({ label: m[1], id: m[2] })
-    }
+    const opts = parseOptionsArray(optionsMatch[1])
     if (opts.length > 0) result.options = opts
+  } else {
+    const optionsRefMatch = blockStr.match(/options\s*:\s*([A-Za-z_][A-Za-z0-9_]*)/)
+    if (optionsRefMatch && options.fileContent && options.fileDir) {
+      const opts = resolveOptionsReference(optionsRefMatch[1], options.fileContent, options.fileDir)
+      if (opts.length > 0) result.options = opts
+    }
   }
 
   // Condition (e.g., condition: { field: 'operation', value: 'upload' })
@@ -258,6 +291,144 @@ function parseSubBlockObject(blockStr: string): DocSubBlock | null {
   return result
 }
 
+function extractTriggerSubBlockRefs(content: string): Array<{ triggerId: string; sliceStart: number }> {
+  const refs: Array<{ triggerId: string; sliceStart: number }> = []
+  const regex =
+    /getTrigger\(\s*['"]([^'"]+)['"]\s*\)\?\.subBlocks(?:\s*\?\?\s*\[\s*\])?(?:\.slice\(\s*(\d+)\s*\))?/g
+
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(content)) !== null) {
+    refs.push({
+      triggerId: match[1],
+      sliceStart: match[2] ? Number(match[2]) : 0,
+    })
+  }
+
+  return refs
+}
+
+function extractTriggerDerivedSubBlocks(
+  refs: Array<{ triggerId: string; sliceStart: number }>,
+  triggersPath: string
+): DocSubBlock[] {
+  const blocks: DocSubBlock[] = []
+
+  for (const ref of refs) {
+    const triggerSource = findTriggerSource(ref.triggerId, triggersPath)
+    if (!triggerSource) continue
+
+    const parsed = extractInlineSubBlocks(triggerSource.content, {
+      allowTriggerMode: true,
+      fileContent: triggerSource.content,
+      fileDir: path.dirname(triggerSource.filePath),
+    })
+
+    blocks.push(...parsed.slice(ref.sliceStart))
+  }
+
+  return blocks
+}
+
+function findTriggerSource(
+  triggerId: string,
+  triggersPath: string
+): { filePath: string; content: string } | null {
+  const triggerFiles = globSync(`${triggersPath}/**/*.ts`, {
+    ignore: ['**/index.ts', '**/types.ts'],
+  })
+
+  for (const filePath of triggerFiles) {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const idPattern = new RegExp(`id\\s*:\\s*['"]${escapeRegExp(triggerId)}['"]`)
+    if (idPattern.test(content)) {
+      return { filePath, content }
+    }
+  }
+
+  return null
+}
+
+function resolveOptionsReference(
+  identifier: string,
+  fileContent: string,
+  fileDir: string
+): Array<{ label: string; id: string }> {
+  const localOptions = extractOptionsConstant(identifier, fileContent)
+  if (localOptions.length > 0) return localOptions
+
+  const importPath = resolveImportedSymbolPath(identifier, fileContent)
+  if (!importPath || !importPath.startsWith('.')) return []
+
+  const resolvedPath = resolveLocalImport(fileDir, importPath)
+  if (!resolvedPath || !fs.existsSync(resolvedPath)) return []
+
+  return extractOptionsConstant(identifier, fs.readFileSync(resolvedPath, 'utf-8'))
+}
+
+function extractOptionsConstant(
+  identifier: string,
+  fileContent: string
+): Array<{ label: string; id: string }> {
+  const pattern = new RegExp(
+    `(?:export\\s+)?const\\s+${escapeRegExp(identifier)}\\s*=\\s*\\[([\\s\\S]*?)\\]`,
+    'm'
+  )
+  const match = fileContent.match(pattern)
+  if (!match) return []
+
+  return parseOptionsArray(match[1])
+}
+
+function resolveImportedSymbolPath(identifier: string, fileContent: string): string | null {
+  const importRegex = /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g
+  let match: RegExpExecArray | null
+
+  while ((match = importRegex.exec(fileContent)) !== null) {
+    const importedNames = match[1]
+      .split(',')
+      .map((name) => name.trim().split(/\s+as\s+/).pop() || '')
+      .filter(Boolean)
+
+    if (importedNames.includes(identifier)) {
+      return match[2]
+    }
+  }
+
+  return null
+}
+
+function resolveLocalImport(fileDir: string, importPath: string): string | null {
+  const candidates = [
+    path.resolve(fileDir, `${importPath}.ts`),
+    path.resolve(fileDir, importPath, 'index.ts'),
+  ]
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null
+}
+
+function parseOptionsArray(arrayContent: string): Array<{ label: string; id: string }> {
+  const options: Array<{ label: string; id: string }> = []
+  const objectRegex = /\{([\s\S]*?)\}/g
+  let match: RegExpExecArray | null
+
+  while ((match = objectRegex.exec(arrayContent)) !== null) {
+    const label =
+      match[1].match(/label\s*:\s*['"]([^'"]+)['"]/)?.[1]
+    const id =
+      match[1].match(/id\s*:\s*['"]([^'"]+)['"]/)?.[1]
+
+    if (label && id) {
+      options.push({ label, id })
+    }
+  }
+
+  return options
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // ── Operation → Tool mapping ──────────────────────────────────────
 
 /**
@@ -268,7 +439,9 @@ function extractOperationToolMap(content: string): Record<string, string> {
   const map: Record<string, string> = {}
 
   // Find the tool config function with a switch statement
-  const switchMatch = content.match(/tool\s*:\s*\(?params\)?\s*=>\s*\{[\s\S]*?switch\s*\(params\.operation\)\s*\{([\s\S]*?)\}\s*\}/)
+  const switchMatch = content.match(
+    /tool\s*:\s*\(?params\)?\s*=>\s*\{[\s\S]*?switch\s*\(params\.operation\)\s*\{([\s\S]*?)\}\s*\}/
+  )
   if (!switchMatch) {
     // Try simpler pattern: tool: (params) => params.operation (identity mapping)
     if (/tool\s*:\s*\(?params\)?\s*=>\s*params\.operation/.test(content)) {

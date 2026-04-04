@@ -2,8 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import { glob } from 'glob'
 import type { GeneratorContext } from './types'
-import { extractIcons } from './extract-icons'
+import { findTriggerDocSlugForToolType, providerToTriggerDocSlug, shouldGenerateToolDoc } from './doc-pages'
 import { extractBlockConfig } from './extract-blocks'
+import { extractAllTriggers } from './extract-triggers'
 import { getToolInfo } from './extract-tools'
 import { renderToolPage } from './render-tool-page'
 import { extractManualContent, mergeManualContent, updateMetaJson } from './utils'
@@ -16,6 +17,15 @@ export async function generateToolDocs(ctx: GeneratorContext) {
   console.log('\n📦 Generating integration tool docs...')
 
   const blockFiles = await glob(`${ctx.blocksPath}/*.ts`)
+  const triggerSlugs = new Set(
+    extractAllTriggers(path.join(ctx.rootDir, 'apps/tradinggoose/triggers')).map((trigger) =>
+      providerToTriggerDocSlug(trigger.provider)
+    )
+  )
+  const toolEntries: Array<{
+    config: NonNullable<ReturnType<typeof extractBlockConfig>>
+    outputPath: string
+  }> = []
   let generated = 0
   let skipped = 0
 
@@ -24,30 +34,31 @@ export async function generateToolDocs(ctx: GeneratorContext) {
     if (fileName.endsWith('.test')) continue
 
     const fileContent = fs.readFileSync(blockFile, 'utf-8')
-    const config = extractBlockConfig(fileContent)
+    const config = extractBlockConfig(fileContent, {
+      includeTriggerDerivedSubBlocks: true,
+      triggersPath: path.join(ctx.rootDir, 'apps/tradinggoose/triggers'),
+    })
 
     if (!config || !config.type) {
       skipped++
       continue
     }
 
-    // Skip triggers and webhooks
-    if (config.type.includes('_trigger') || config.type.includes('_webhook')) {
+    const outputPath = path.join(ctx.docsOutputPath, `${config.type}.mdx`)
+
+    if (!shouldGenerateToolDoc(config)) {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath)
+      }
       skipped++
       continue
     }
 
-    // Skip built-in blocks (except memory/knowledge which live in tools)
-    if (
-      (config.category === 'blocks' &&
-        config.type !== 'memory' &&
-        config.type !== 'knowledge') ||
-      config.type === 'evaluator' ||
-      config.type === 'number'
-    ) {
-      skipped++
-      continue
-    }
+    toolEntries.push({ config, outputPath })
+  }
+
+  for (const { config, outputPath } of toolEntries) {
+    const relatedTriggerSlug = findTriggerDocSlugForToolType(config.type, triggerSlugs)
 
     // Resolve tool info for each tool this block accesses
     const toolInfoMap = new Map()
@@ -59,10 +70,19 @@ export async function generateToolDocs(ctx: GeneratorContext) {
     }
 
     // Generate page content
-    const markdown = renderToolPage(config, ctx.icons, toolInfoMap)
+    const markdown = renderToolPage(
+      config,
+      toolInfoMap,
+      relatedTriggerSlug
+        ? {
+            title: 'Use as a Trigger',
+            href: `/triggers/${relatedTriggerSlug}`,
+            description: `See trigger events, setup, and event payloads for ${config.name}.`,
+          }
+        : undefined
+    )
 
     // Preserve manual content from existing file
-    const outputPath = path.join(ctx.docsOutputPath, `${config.type}.mdx`)
     let finalContent = markdown
 
     if (fs.existsSync(outputPath)) {
@@ -77,8 +97,21 @@ export async function generateToolDocs(ctx: GeneratorContext) {
     generated++
   }
 
+  cleanupInvalidToolPages(ctx.docsOutputPath)
   updateMetaJson(ctx.docsOutputPath)
 
   console.log(`  ✓ Generated ${generated} tool pages (skipped ${skipped})`)
   return generated
+}
+
+function cleanupInvalidToolPages(docsOutputPath: string) {
+  for (const entry of fs.readdirSync(docsOutputPath)) {
+    if (!entry.endsWith('.mdx') || entry === 'index.mdx') continue
+
+    const filePath = path.join(docsOutputPath, entry)
+    const content = fs.readFileSync(filePath, 'utf-8')
+    if (content.includes('- Category: `triggers`')) {
+      fs.rmSync(filePath)
+    }
+  }
 }

@@ -9,8 +9,8 @@ const config = {
     return [
       {
         source: '/',
-        destination: '/en/index',
-        permanent: true,
+        destination: '/index',
+        permanent: false,
       },
       {
         source: '/docs/:path*.mdx',

@@ -6,13 +6,19 @@ description: Interact with Fireflies.ai meeting transcripts and recordings
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="fireflies"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/fireflies">
+    See trigger events, setup, and event payloads for Fireflies.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -159,7 +164,6 @@ List meeting transcripts from Fireflies.ai with optional filtering
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -269,7 +273,6 @@ Get a single transcript with full details including summary, action items, and a
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -376,7 +379,6 @@ Get user information from Fireflies.ai. Returns current user if no ID specified.
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -467,7 +469,6 @@ Refer to the block outputs for this operation.
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -612,7 +613,6 @@ Upload an audio file URL to Fireflies.ai for transcription
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -710,7 +710,6 @@ Refer to the block outputs for this operation.
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -839,7 +838,6 @@ Refer to the block outputs for this operation.
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -971,7 +969,6 @@ Create a soundbite/highlight from a specific time range in a transcript
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1078,7 +1075,6 @@ Refer to the block outputs for this operation.
     name="Fireflies"
     type="fireflies"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

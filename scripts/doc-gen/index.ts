@@ -15,7 +15,6 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import type { GeneratorContext } from './types'
-import { extractIcons } from './extract-icons'
 import { generateToolDocs } from './generate-tools'
 import { generateBlockDocs } from './generate-blocks'
 import { generateTriggerDocs } from './generate-triggers'
@@ -29,12 +28,6 @@ const rootDir = path.resolve(__dirname, '..', '..')
 
 const APP_ROOT = path.join(rootDir, 'apps/tradinggoose')
 const DOCS_ROOT = path.join(rootDir, 'apps/docs/content/docs/en')
-
-const ICON_PATHS = [
-  path.join(APP_ROOT, 'components/icons/icons.tsx'),
-  path.join(APP_ROOT, 'components/icons/provider-icons.tsx'),
-  path.join(APP_ROOT, 'components/icons/util-icons.tsx'),
-]
 
 // ── Available generators ──────────────────────────────────────────
 
@@ -84,24 +77,14 @@ async function main() {
     console.log('  ✓ Resolved')
   }
 
-  // Generate icon mapping (React components for the docs app)
-  console.log('🎨 Generating icon mapping...')
-  const { execSync: execSyncIcons } = await import('child_process')
-  execSyncIcons(`bun run ${path.join(__dirname, 'generate-icon-mapping.ts')}`, {
-    cwd: rootDir,
-    stdio: ['ignore', 'inherit', 'pipe'],
-  })
-
-  // Extract icons as SVG strings (for inline use in generated MDX)
-  console.log('🎨 Extracting SVG icons...')
-  const icons = extractIcons(ICON_PATHS)
-
   let totalGenerated = 0
 
   for (const key of filter) {
     const gen = generators[key]
     if (!gen) {
-      console.error(`❌ Unknown generator: "${key}". Available: ${Object.keys(generators).join(', ')}`)
+      console.error(
+        `❌ Unknown generator: "${key}". Available: ${Object.keys(generators).join(', ')}`
+      )
       process.exit(1)
     }
 
@@ -115,7 +98,6 @@ async function main() {
       blocksPath: path.join(APP_ROOT, 'blocks/blocks'),
       toolsPath: path.join(APP_ROOT, 'tools'),
       docsOutputPath,
-      icons,
     }
 
     const count = await gen.run(ctx)

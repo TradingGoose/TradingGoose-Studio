@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="linkedin"
   color="#0072B1"
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="LinkedIn"
     type="linkedin"
     color="#0072B1"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -77,6 +76,18 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `postId` | string | Created post ID |
+| `profile` | json | LinkedIn profile information |
+| `error` | string | Error message if operation failed |
+
+</div>
+
 
 
 ---
@@ -88,7 +99,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="LinkedIn"
     type="linkedin"
     color="#0072B1"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -118,6 +128,18 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `postId` | string | Created post ID |
+| `profile` | json | LinkedIn profile information |
+| `error` | string | Error message if operation failed |
+
+</div>
 
 
 

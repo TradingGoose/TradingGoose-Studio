@@ -36,9 +36,10 @@ export async function generateBlockDocs(ctx: GeneratorContext) {
     if (fs.existsSync(outputPath)) continue
 
     // Build the page
-    const iconSvg = config.iconName && ctx.icons[config.iconName] ? ctx.icons[config.iconName] : null
     const subBlocksJson = JSON.stringify(config.subBlocks || [], null, 4)
-      .split('\n').map((l, i) => i === 0 ? l : `    ${l}`).join('\n')
+      .split('\n')
+      .map((l, i) => (i === 0 ? l : `    ${l}`))
+      .join('\n')
 
     const content = `---
 title: ${config.name}
@@ -52,25 +53,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 <BlockInfoCard
   type="${config.type}"
   color="${config.bgColor || ''}"
-  icon={${iconSvg ? 'true' : 'false'}}
-  iconSvg={\`${iconSvg || ''}\`}
 />
 
 ${config.description}
 
 ${config.longDescription ? `## Usage\n\n${config.longDescription}\n` : ''}
-${(config.subBlocks && config.subBlocks.length > 0) ? `## Configuration
+${
+  config.subBlocks && config.subBlocks.length > 0
+    ? `## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
     name="${config.name}"
     type="${config.type}"
-    color="${config.bgColor || ''}"${iconSvg ? `\n    iconSvg={\`${iconSvg}\`}` : ''}
+    color="${config.bgColor || ''}"
     hideHeader
     subBlocks={${subBlocksJson}}
   />
 </ShowcaseCard>
-` : ''}
+`
+    : ''
+}
 ## Notes
 
 - Category: \`${config.category}\`

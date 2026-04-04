@@ -9,8 +9,13 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
+import { i18n } from '@/lib/i18n'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 import { source } from '@/lib/source'
+
+function toOpenGraphLocale(lang: string) {
+  return lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`
+}
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
@@ -210,7 +215,8 @@ export async function generateMetadata(props: {
   const params = await props.params
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const defaultDescription = 'TradingGoose visual workflow builder for AI applications documentation'
+  const defaultDescription =
+    'TradingGoose visual workflow builder for AI applications documentation'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -222,6 +228,18 @@ export async function generateMetadata(props: {
   if (!page) notFound()
 
   const fullUrl = `${baseUrl}${page.url}`
+  const canonicalPath = page.url.replace(`/${params.lang}`, '') || '/'
+  const alternateLocales = i18n.languages
+    .filter((lang) => lang !== params.lang)
+    .map(toOpenGraphLocale)
+  const alternateLanguages = Object.fromEntries(
+    i18n.languages.map((lang) => [
+      lang,
+      lang === i18n.defaultLanguage
+        ? `${baseUrl}${canonicalPath}`
+        : `${baseUrl}/${lang}${canonicalPath}`,
+    ])
+  )
 
   return {
     title: page.data.title,
@@ -246,10 +264,12 @@ export async function generateMetadata(props: {
       url: fullUrl,
       siteName: 'TradingGoose Documentation',
       type: 'article',
-      locale: params.lang === 'en' ? 'en_US' : `${params.lang}_${params.lang.toUpperCase()}`,
-      alternateLocale: ['en', 'es', 'fr', 'de', 'ja', 'zh']
-        .filter((lang) => lang !== params.lang)
-        .map((lang) => (lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`)),
+      locale: toOpenGraphLocale(params.lang),
+      ...(alternateLocales.length > 0
+        ? {
+            alternateLocale: alternateLocales,
+          }
+        : {}),
     },
     twitter: {
       card: 'summary',
@@ -271,13 +291,8 @@ export async function generateMetadata(props: {
     alternates: {
       canonical: fullUrl,
       languages: {
-        'x-default': `${baseUrl}${page.url.replace(`/${params.lang}`, '')}`,
-        en: `${baseUrl}${page.url.replace(`/${params.lang}`, '')}`,
-        es: `${baseUrl}/es${page.url.replace(`/${params.lang}`, '')}`,
-        fr: `${baseUrl}/fr${page.url.replace(`/${params.lang}`, '')}`,
-        de: `${baseUrl}/de${page.url.replace(`/${params.lang}`, '')}`,
-        ja: `${baseUrl}/ja${page.url.replace(`/${params.lang}`, '')}`,
-        zh: `${baseUrl}/zh${page.url.replace(`/${params.lang}`, '')}`,
+        'x-default': `${baseUrl}${canonicalPath}`,
+        ...alternateLanguages,
       },
     },
   }

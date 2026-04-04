@@ -13,7 +13,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   type="workflow_input"
   color="#6366F1"
   icon={true}
-  iconSvg={``}
 />
 
 The Workflow block executes another (child) workflow from within the current (parent) workflow. It reads the child workflow's **Input Form Trigger** schema and presents a mapping UI so you can pass parent variables into the child's expected inputs. This is the primary mechanism for modularizing complex automations into reusable sub-workflows.
@@ -57,7 +56,6 @@ At runtime the block:
     name="Workflow"
     type="workflow_input"
     color="#6366F1"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

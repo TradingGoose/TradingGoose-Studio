@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="stripe"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Triggers when Stripe events occur (payments, subscriptions, invoices, etc.)
@@ -21,6 +20,13 @@ Triggers when Stripe events occur (payments, subscriptions, invoices, etc.)
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/stripe">
+    See workflow actions, operations, and tool inputs for Stripe.
+  </Card>
+</Cards>
+
 
 ## Configuration
 

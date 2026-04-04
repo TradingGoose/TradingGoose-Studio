@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="webflow"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
@@ -21,6 +20,13 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/webflow">
+    See workflow actions, operations, and tool inputs for Webflow.
+  </Card>
+</Cards>
+
 
 ## Events
 

@@ -6,13 +6,19 @@ description: Manage Calendly scheduling and events
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="calendly"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/calendly">
+    See trigger events, setup, and event payloads for Calendly.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -112,7 +117,6 @@ Get information about the currently authenticated Calendly user
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -247,7 +251,6 @@ Retrieve a list of all event types for a user or organization
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -346,7 +349,6 @@ Get detailed information about a specific event type
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -507,7 +509,6 @@ Retrieve a list of scheduled events for a user or organization
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -603,7 +604,6 @@ Get detailed information about a specific scheduled event
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -744,7 +744,6 @@ Retrieve a list of invitees for a scheduled event
     name="Calendly"
     type="calendly"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

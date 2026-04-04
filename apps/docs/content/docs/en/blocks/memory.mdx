@@ -14,7 +14,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   type="memory"
   color="#F64F9E"
   icon={true}
-  iconSvg={``}
 />
 
 The Memory block stores and retrieves conversation messages that persist across workflow executions. It is designed to work alongside Agent blocks, giving your agents long-term conversational context that survives between runs.
@@ -88,7 +87,6 @@ A typical conversational workflow uses three Memory blocks around an Agent:
     name="Memory"
     type="memory"
     color="#F64F9E"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

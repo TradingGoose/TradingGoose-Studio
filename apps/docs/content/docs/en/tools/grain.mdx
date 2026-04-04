@@ -6,13 +6,19 @@ description: Access meeting recordings, transcripts, and AI summaries
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="grain"
   color="#00B96C"
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/grain">
+    See trigger events, setup, and event payloads for Grain.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -194,7 +199,6 @@ List recordings from Grain with optional filters and pagination
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -332,7 +336,6 @@ Get details of a single recording by ID
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -428,7 +431,6 @@ Get the full transcript of a recording
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -513,7 +515,6 @@ List all teams in the workspace
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -599,7 +600,6 @@ List all meeting types in the workspace
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -758,7 +758,6 @@ Create a webhook to receive recording events
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -847,7 +846,6 @@ List all webhooks for the account
     name="Grain"
     type="grain"
     color="#00B96C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

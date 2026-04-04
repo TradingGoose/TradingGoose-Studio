@@ -1,11 +1,17 @@
 ---
 title: Loop
-description: Repeat a group of blocks using iteration, collection processing, or conditional logic
+description: Repeat blocks multiple times with iteration control
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+<BlockInfoCard
+  type="loop"
+  color=""
+/>
 
 The Loop block is a container that executes the blocks inside it repeatedly. It is not a regular block with its own source file -- it is a special wrapper node managed by the executor's `LoopBlockHandler`. Drag blocks into the loop container and they will run once per iteration.
 

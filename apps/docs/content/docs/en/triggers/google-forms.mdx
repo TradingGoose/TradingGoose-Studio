@@ -1,5 +1,5 @@
 ---
-title: Google_forms Trigger
+title: Google Forms Trigger
 description: Trigger workflow from Google Form submissions (via Apps Script forwarder)
 ---
 
@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="google_forms"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Trigger workflow from Google Form submissions (via Apps Script forwarder)
@@ -21,6 +20,13 @@ Trigger workflow from Google Form submissions (via Apps Script forwarder)
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/google_forms">
+    See workflow actions, operations, and tool inputs for Google Forms.
+  </Card>
+</Cards>
+
 
 ## Configuration
 

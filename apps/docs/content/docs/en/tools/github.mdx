@@ -6,13 +6,19 @@ description: Interact with GitHub or trigger workflows from GitHub events
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="github"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/github">
+    See trigger events, setup, and event payloads for GitHub.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="GitHub"
     type="github"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -135,7 +140,6 @@ Fetch PR details including diff and files changed
     name="GitHub"
     type="github"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -278,7 +282,6 @@ Create comments on GitHub PRs
     name="GitHub"
     type="github"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -372,7 +375,6 @@ Retrieve comprehensive GitHub repository metadata including stars, forks, issues
     name="GitHub"
     type="github"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

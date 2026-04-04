@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="sftp"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -191,7 +190,6 @@ Upload files to a remote SFTP server
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -320,6 +318,25 @@ Upload files to a remote SFTP server
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the operation was successful |
+| `uploadedFiles` | json | Array of uploaded file details |
+| `fileName` | string | Downloaded file name |
+| `content` | string | Downloaded file content |
+| `size` | number | File size in bytes |
+| `entries` | json | Directory listing entries |
+| `count` | number | Number of entries |
+| `deletedPath` | string | Path that was deleted |
+| `createdPath` | string | Directory that was created |
+| `message` | string | Operation status message |
+| `error` | string | Error message if operation failed |
+
+</div>
+
 
 
 ---
@@ -331,7 +348,6 @@ Upload files to a remote SFTP server
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -489,7 +505,6 @@ Download a file from a remote SFTP server
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -637,7 +652,6 @@ List files and directories on a remote SFTP server
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -783,7 +797,6 @@ Delete a file or directory on a remote SFTP server
     name="SFTP"
     type="sftp"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

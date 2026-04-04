@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="linear"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Linear"
     type="linear"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -86,6 +85,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `issues` | json | Issues list |
+| `issue` | json | Single issue data |
+
+</div>
+
 
 
 ---
@@ -97,7 +106,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Linear"
     type="linear"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -172,6 +180,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `issues` | json | Issues list |
+| `issue` | json | Single issue data |
+
+</div>
 
 
 

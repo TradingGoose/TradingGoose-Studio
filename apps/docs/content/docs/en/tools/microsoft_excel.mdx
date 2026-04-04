@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="microsoft_excel"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Microsoft Excel"
     type="microsoft_excel"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -113,7 +112,6 @@ Read data from a Microsoft Excel spreadsheet
     name="Microsoft Excel"
     type="microsoft_excel"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -185,6 +183,10 @@ Read data from a Microsoft Excel spreadsheet
                 {
                     "label": "User Entered (Parse formulas)",
                     "id": "USER_ENTERED"
+                },
+                {
+                    "label": "Raw (Don",
+                    "id": "RAW"
                 }
             ]
         }
@@ -230,7 +232,6 @@ Write data to a Microsoft Excel spreadsheet
     name="Microsoft Excel"
     type="microsoft_excel"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

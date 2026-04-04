@@ -6,13 +6,19 @@ description: Interact with HubSpot CRM or trigger workflows from HubSpot events
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="hubspot"
   color="#FF7A59"
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/hubspot">
+    See trigger events, setup, and event payloads for HubSpot.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -123,7 +128,6 @@ Retrieve all users from HubSpot account
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -222,6 +226,36 @@ Retrieve all users from HubSpot account
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `users` | json | Array of user objects |
+| `contacts` | json | Array of contact objects |
+| `contact` | json | Single contact object |
+| `companies` | json | Array of company objects |
+| `company` | json | Single company object |
+| `deals` | json | Array of deal objects |
+| `total` | number | Total number of matching results \(for search\) |
+| `paging` | json | Pagination info with next/prev cursors |
+| `metadata` | json | Operation metadata |
+| `success` | boolean | Operation success status |
+| `payload` | json | Full webhook payload array from HubSpot containing event details |
+| `provider` | string | Provider name \(hubspot\) |
+| `providerConfig` | string | HubSpot App ID |
+| `appId` | string | HubSpot App ID |
+| `clientId` | string | HubSpot Client ID |
+| `triggerId` | string | Trigger ID \(e.g., hubspot_company_created\) |
+| `clientSecret` | string | HubSpot Client Secret |
+| `developerApiKey` | string | HubSpot Developer API Key |
+| `curlSetWebhookUrl` | string | curl command to set webhook URL |
+| `curlCreateSubscription` | string | curl command to create subscription |
+| `webhookUrlDisplay` | string | Webhook URL display value |
+| `propertyName` | string | Optional property name filter \(for property change triggers\) |
+
+</div>
+
 
 
 ---
@@ -233,7 +267,6 @@ Retrieve all users from HubSpot account
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -340,7 +373,6 @@ Create a new contact in HubSpot. Requires at least one of: email, firstname, or 
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -455,7 +487,6 @@ Update an existing contact in HubSpot by ID or email
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -592,7 +623,6 @@ Search for contacts in HubSpot using filters, sorting, and queries
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -691,6 +721,36 @@ Search for contacts in HubSpot using filters, sorting, and queries
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `users` | json | Array of user objects |
+| `contacts` | json | Array of contact objects |
+| `contact` | json | Single contact object |
+| `companies` | json | Array of company objects |
+| `company` | json | Single company object |
+| `deals` | json | Array of deal objects |
+| `total` | number | Total number of matching results \(for search\) |
+| `paging` | json | Pagination info with next/prev cursors |
+| `metadata` | json | Operation metadata |
+| `success` | boolean | Operation success status |
+| `payload` | json | Full webhook payload array from HubSpot containing event details |
+| `provider` | string | Provider name \(hubspot\) |
+| `providerConfig` | string | HubSpot App ID |
+| `appId` | string | HubSpot App ID |
+| `clientId` | string | HubSpot Client ID |
+| `triggerId` | string | Trigger ID \(e.g., hubspot_company_created\) |
+| `clientSecret` | string | HubSpot Client Secret |
+| `developerApiKey` | string | HubSpot Developer API Key |
+| `curlSetWebhookUrl` | string | curl command to set webhook URL |
+| `curlCreateSubscription` | string | curl command to create subscription |
+| `webhookUrlDisplay` | string | Webhook URL display value |
+| `propertyName` | string | Optional property name filter \(for property change triggers\) |
+
+</div>
+
 
 
 ---
@@ -702,7 +762,6 @@ Search for contacts in HubSpot using filters, sorting, and queries
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -809,7 +868,6 @@ Create a new company in HubSpot
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -924,7 +982,6 @@ Update an existing company in HubSpot by ID or domain
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1061,7 +1118,6 @@ Search for companies in HubSpot using filters, sorting, and queries
     name="HubSpot"
     type="hubspot"
     color="#FF7A59"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

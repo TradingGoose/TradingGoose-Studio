@@ -1,4 +1,4 @@
-import type { BlockConfig, DocSubBlock, ToolInfo } from './types'
+import type { BlockConfig, DocSubBlock, RelatedDocPage, ToolInfo } from './types'
 import { escapeMdx } from './utils'
 
 /**
@@ -6,11 +6,21 @@ import { escapeMdx } from './utils'
  */
 export function renderToolPage(
   blockConfig: BlockConfig,
-  icons: Record<string, string>,
-  toolInfoMap: Map<string, ToolInfo>
+  toolInfoMap: Map<string, ToolInfo>,
+  relatedDocPage?: RelatedDocPage
 ): string {
-  const { type, name, description, longDescription, category, bgColor, iconName, outputs = {}, tools = { access: [] }, subBlocks = [], operationToolMap } = blockConfig
-  const iconSvg = iconName && icons[iconName] ? icons[iconName] : null
+  const {
+    type,
+    name,
+    description,
+    longDescription,
+    category,
+    bgColor,
+    outputs = {},
+    tools = { access: [] },
+    subBlocks = [],
+    operationToolMap,
+  } = blockConfig
 
   // Detect operation-based blocks
   const { operationField, operationFieldId } = detectOperationField(subBlocks)
@@ -27,9 +37,20 @@ export function renderToolPage(
 
   let body: string
   if (isTabbed) {
-    body = buildTabbedBody(name, type, bgColor, iconSvg, subBlocks, operationField!, operationFieldId, operationToolMap || {}, opLabelMap, toolInfoMap)
+    body = buildTabbedBody(
+      name,
+      type,
+      bgColor,
+      subBlocks,
+      operationField!,
+      operationFieldId,
+      operationToolMap || {},
+      opLabelMap,
+      toolInfoMap,
+      outputs
+    )
   } else {
-    body = buildSimpleBody(name, type, bgColor, iconSvg, subBlocks, tools, toolInfoMap, outputs)
+    body = buildSimpleBody(name, type, bgColor, subBlocks, tools, toolInfoMap, outputs)
   }
 
   return `---
@@ -40,14 +61,14 @@ description: ${description}
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+${relatedDocPage ? `import { Card, Cards } from 'fumadocs-ui/components/card'` : ''}
 
 <BlockInfoCard
   type="${type}"
   color="${bgColor || ''}"
-  icon={${iconSvg ? 'true' : 'false'}}
-  iconSvg={\`${iconSvg || ''}\`}
 />
 
+${renderRelatedDocCard(relatedDocPage)}
 ${body}
 ${usageSection}
 
@@ -58,12 +79,28 @@ ${usageSection}
 `
 }
 
+function renderRelatedDocCard(relatedDocPage?: RelatedDocPage): string {
+  if (!relatedDocPage) return ''
+
+  return `<Cards>
+  <Card title="${relatedDocPage.title}" href="${relatedDocPage.href}">
+    ${relatedDocPage.description}
+  </Card>
+</Cards>
+
+`
+}
+
 // ── Simple (non-tabbed) body ──────────────────────────────────────
 
 function buildSimpleBody(
-  name: string, type: string, bgColor: string | undefined, iconSvg: string | null,
-  subBlocks: DocSubBlock[], tools: { access?: string[] },
-  toolInfoMap: Map<string, ToolInfo>, outputs: Record<string, any>
+  name: string,
+  type: string,
+  bgColor: string | undefined,
+  subBlocks: DocSubBlock[],
+  tools: { access?: string[] },
+  toolInfoMap: Map<string, ToolInfo>,
+  outputs: Record<string, any>
 ): string {
   let result = ''
 
@@ -74,7 +111,7 @@ function buildSimpleBody(
   <BlockConfigPreview
     name="${name}"
     type="${type}"
-    color="${bgColor || ''}"${iconSvg ? `\n    iconSvg={\`${iconSvg}\`}` : ''}
+    color="${bgColor || ''}"
     hideHeader
     subBlocks={${jsonIndent(subBlocks)}}
   />
@@ -96,10 +133,16 @@ function buildSimpleBody(
 // ── Tabbed body (operation-based blocks) ──────────────────────────
 
 function buildTabbedBody(
-  name: string, type: string, bgColor: string | undefined, iconSvg: string | null,
-  allSubBlocks: DocSubBlock[], operationField: DocSubBlock, operationFieldId: string,
-  operationToolMap: Record<string, string>, opLabelMap: Map<string, string>,
-  toolInfoMap: Map<string, ToolInfo>
+  name: string,
+  type: string,
+  bgColor: string | undefined,
+  allSubBlocks: DocSubBlock[],
+  operationField: DocSubBlock,
+  operationFieldId: string,
+  operationToolMap: Record<string, string>,
+  opLabelMap: Map<string, string>,
+  toolInfoMap: Map<string, ToolInfo>,
+  outputs: Record<string, any>
 ): string {
   const operations = operationField.options!
 
@@ -126,7 +169,13 @@ function buildTabbedBody(
     ].map(({ condition, ...rest }) => rest)
 
     const toolId = operationToolMap[op.id] || op.id
-    const accordionId = op.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/g, '')
+    const accordionId = op.label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+$/g, '')
+    const operationContent = toolInfoMap.has(toolId)
+      ? renderToolSection(toolId, op.label, toolInfoMap, undefined, true)
+      : renderTabbedOutputSection(outputs)
 
     result += `### ${op.label}
 
@@ -134,13 +183,13 @@ function buildTabbedBody(
   <BlockConfigPreview
     name="${name}"
     type="${type}"
-    color="${bgColor || ''}"${iconSvg ? `\n    iconSvg={\`${iconSvg}\`}` : ''}
+    color="${bgColor || ''}"
     hideHeader
     subBlocks={${jsonIndent(previewFields)}}
   />
 </ShowcaseCard>
 
-${renderToolSection(toolId, op.label, toolInfoMap, undefined, true)}
+${operationContent}
 
 ---
 
@@ -158,8 +207,10 @@ ${renderToolSection(toolId, op.label, toolInfoMap, undefined, true)}
  * to prevent ghost entries in the table of contents.
  */
 function renderToolSection(
-  toolId: string, operationLabel: string | undefined,
-  toolInfoMap: Map<string, ToolInfo>, outputs?: Record<string, any>,
+  toolId: string,
+  operationLabel: string | undefined,
+  toolInfoMap: Map<string, ToolInfo>,
+  outputs?: Record<string, any>,
   insideTab = false
 ): string {
   let result = ''
@@ -209,20 +260,9 @@ function renderToolSection(
   }
 
   if (Object.keys(toolInfo.outputs).length > 0) {
-    result += '| Parameter | Type | Description |\n'
-    result += '| --------- | ---- | ----------- |\n'
-    for (const [key, out] of Object.entries(toolInfo.outputs)) {
-      const desc = typeof out === 'object' ? out.description || `${key} output` : `${key} output`
-      result += `| \`${key}\` | ${typeof out === 'object' ? out.type : 'string'} | ${escapeMdx(desc)} |\n`
-    }
+    result += renderOutputTable(toolInfo.outputs)
   } else if (outputs && Object.keys(outputs).length > 0) {
-    result += '| Parameter | Type | Description |\n'
-    result += '| --------- | ---- | ----------- |\n'
-    for (const [key, val] of Object.entries(outputs)) {
-      const t = typeof val === 'object' ? val.type || 'string' : 'string'
-      const d = typeof val === 'object' ? val.description || `${key} output` : `${key} output`
-      result += `| \`${key}\` | ${t} | ${escapeMdx(d)} |\n`
-    }
+    result += renderOutputTable(outputs)
   } else {
     result += 'Refer to the block outputs for this operation.\n'
   }
@@ -235,9 +275,35 @@ function renderToolSection(
   return result
 }
 
+function renderTabbedOutputSection(outputs: Record<string, any>): string {
+  if (Object.keys(outputs).length === 0) return ''
+
+  let result = `<div className="mt-6 border-t border-fd-border pt-4">\n`
+  result += `<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>\n\n`
+  result += renderOutputTable(outputs)
+  result += '\n</div>\n\n'
+  return result
+}
+
+function renderOutputTable(outputs: Record<string, any>): string {
+  let result = '| Parameter | Type | Description |\n'
+  result += '| --------- | ---- | ----------- |\n'
+
+  for (const [key, val] of Object.entries(outputs)) {
+    const type = typeof val === 'object' ? val.type || 'string' : 'string'
+    const description = typeof val === 'object' ? val.description || `${key} output` : `${key} output`
+    result += `| \`${key}\` | ${type} | ${escapeMdx(description)} |\n`
+  }
+
+  return result
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 
-function detectOperationField(subBlocks: DocSubBlock[]): { operationField: DocSubBlock | null; operationFieldId: string } {
+function detectOperationField(subBlocks: DocSubBlock[]): {
+  operationField: DocSubBlock | null
+  operationFieldId: string
+} {
   const conditionFields = subBlocks
     .filter((sb) => sb.condition?.field)
     .map((sb) => sb.condition!.field)
@@ -247,7 +313,9 @@ function detectOperationField(subBlocks: DocSubBlock[]): { operationField: DocSu
   if (counts.size === 0) return { operationField: null, operationFieldId: '' }
 
   const operationFieldId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
-  const operationField = subBlocks.find((sb) => sb.id === operationFieldId && sb.options && sb.options.length > 0) || null
+  const operationField =
+    subBlocks.find((sb) => sb.id === operationFieldId && sb.options && sb.options.length > 0) ||
+    null
 
   return { operationField, operationFieldId }
 }

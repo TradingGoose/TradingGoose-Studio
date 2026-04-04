@@ -1,6 +1,8 @@
 'use client'
 
 import type * as React from 'react'
+import { getBlockTypeIcon } from './block-type-icon'
+import { sanitizeSolidIconColor } from './icon-colors'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -53,8 +55,6 @@ interface BlockConfigPreviewProps {
   type: string
   /** Background color (hex) */
   color?: string
-  /** Inline SVG string for icon */
-  iconSvg?: string
   /** Configuration fields */
   subBlocks: DocSubBlock[]
   /** Output fields */
@@ -81,7 +81,11 @@ function FieldLabel({ title, required }: { title: string; required?: boolean }) 
 function ShortInput({ field }: { field: DocSubBlock }) {
   return (
     <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
-      {field.password ? '••••••••' : (field.placeholder || field.defaultValue || `Enter ${field.title?.toLowerCase() || 'value'}...`)}
+      {field.password
+        ? '••••••••'
+        : field.placeholder ||
+          field.defaultValue ||
+          `Enter ${field.title?.toLowerCase() || 'value'}...`}
     </div>
   )
 }
@@ -89,7 +93,9 @@ function ShortInput({ field }: { field: DocSubBlock }) {
 function LongInput({ field }: { field: DocSubBlock }) {
   return (
     <div className='flex min-h-[60px] items-start rounded-md border border-fd-border bg-fd-background p-2 text-xs text-fd-muted-foreground'>
-      {field.placeholder || field.defaultValue || `Enter ${field.title?.toLowerCase() || 'text'}...`}
+      {field.placeholder ||
+        field.defaultValue ||
+        `Enter ${field.title?.toLowerCase() || 'text'}...`}
     </div>
   )
 }
@@ -101,7 +107,15 @@ function Dropdown({ field }: { field: DocSubBlock }) {
       <span className={selected ? 'text-fd-foreground' : 'text-fd-muted-foreground'}>
         {selected?.label || field.placeholder || 'Select...'}
       </span>
-      <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' className='text-fd-muted-foreground'>
+      <svg
+        width='12'
+        height='12'
+        viewBox='0 0 24 24'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='2'
+        className='text-fd-muted-foreground'
+      >
         <path d='M6 9l6 6 6-6' />
       </svg>
     </div>
@@ -119,9 +133,7 @@ function Switch({ field }: { field: DocSubBlock }) {
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`}
         />
       </div>
-      <span className='text-xs text-fd-muted-foreground'>
-        {on ? 'Enabled' : 'Disabled'}
-      </span>
+      <span className='text-xs text-fd-muted-foreground'>{on ? 'Enabled' : 'Disabled'}</span>
     </div>
   )
 }
@@ -166,7 +178,14 @@ function Slider({ field }: { field: DocSubBlock }) {
 function OAuthInput({ field }: { field: DocSubBlock }) {
   return (
     <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
-      <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+      <svg
+        width='12'
+        height='12'
+        viewBox='0 0 24 24'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='2'
+      >
         <rect x='3' y='11' width='18' height='11' rx='2' ry='2' />
         <path d='M7 11V7a5 5 0 0 1 10 0v4' />
       </svg>
@@ -178,7 +197,14 @@ function OAuthInput({ field }: { field: DocSubBlock }) {
 function MarketSelector({ field }: { field: DocSubBlock }) {
   return (
     <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
-      <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+      <svg
+        width='12'
+        height='12'
+        viewBox='0 0 24 24'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='2'
+      >
         <polyline points='22 7 13.5 15.5 8.5 10.5 2 17' />
         <polyline points='16 7 22 7 22 13' />
       </svg>
@@ -225,7 +251,6 @@ export function BlockConfigPreview({
   name,
   type,
   color = '#F5F5F5',
-  iconSvg,
   subBlocks,
   outputs,
   tools,
@@ -255,7 +280,8 @@ export function BlockConfigPreview({
   }
   if (pendingHalf) rows.push([pendingHalf])
 
-  const bgColor = color && color.length > 1 ? color : undefined
+  const bgColor = sanitizeSolidIconColor(color)
+  const IconComponent = getBlockTypeIcon(type)
 
   return (
     <div className='w-full overflow-hidden rounded-lg border border-fd-border bg-fd-card shadow-sm sm:max-w-md'>
@@ -263,19 +289,10 @@ export function BlockConfigPreview({
       {!hideHeader && (
         <div className='flex items-center gap-3 border-b border-fd-border bg-fd-muted/30 px-4 py-3'>
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-md ${!bgColor ? 'bg-fd-secondary' : ''}`}
+            className={`flex h-8 w-8 items-center justify-center rounded-md ${!bgColor ? 'bg-fd-secondary/80' : ''}`}
             style={bgColor ? { backgroundColor: bgColor } : undefined}
           >
-            {iconSvg ? (
-              <div
-                className={`h-4 w-4 ${bgColor ? 'text-white' : 'text-fd-foreground'}`}
-                dangerouslySetInnerHTML={{ __html: iconSvg }}
-              />
-            ) : (
-              <span className='text-sm font-bold text-fd-muted-foreground'>
-                {type.substring(0, 1).toUpperCase()}
-              </span>
-            )}
+            <IconComponent className={`h-4 w-4 ${bgColor ? 'text-white' : 'text-fd-foreground'}`} />
           </div>
           <div>
             <div className='text-sm font-semibold text-fd-foreground'>{name}</div>
@@ -368,16 +385,30 @@ export function TriggerDeployPreview({
             ) : field.type === 'dropdown' ? (
               <div className='flex h-8 items-center justify-between rounded-md border border-fd-border bg-fd-background px-3 text-xs'>
                 <span className='text-fd-muted-foreground'>
-                  {field.options?.find((o) => o.id === field.value)?.label || field.placeholder || 'Select...'}
+                  {field.options?.find((o) => o.id === field.value)?.label ||
+                    field.placeholder ||
+                    'Select...'}
                 </span>
-                <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' className='text-fd-muted-foreground'>
+                <svg
+                  width='12'
+                  height='12'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                  className='text-fd-muted-foreground'
+                >
                   <path d='M6 9l6 6 6-6' />
                 </svg>
               </div>
             ) : field.type === 'toggle' ? (
               <div className='flex items-center gap-2'>
-                <div className={`relative h-5 w-9 rounded-full ${field.value === 'true' ? 'bg-blue-500' : 'bg-fd-border'}`}>
-                  <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm ${field.value === 'true' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                <div
+                  className={`relative h-5 w-9 rounded-full ${field.value === 'true' ? 'bg-blue-500' : 'bg-fd-border'}`}
+                >
+                  <div
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm ${field.value === 'true' ? 'translate-x-4' : 'translate-x-0.5'}`}
+                  />
                 </div>
               </div>
             ) : (

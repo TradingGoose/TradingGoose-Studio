@@ -6,13 +6,19 @@ description: Process payments and manage Stripe data
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="stripe"
   color="#635BFF"
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/stripe">
+    See trigger events, setup, and event payloads for Stripe.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -291,6 +296,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -302,7 +333,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -532,6 +562,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -543,7 +599,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -804,6 +859,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -815,7 +896,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1051,6 +1131,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -1062,7 +1168,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1304,6 +1409,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -1315,7 +1446,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1551,6 +1681,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -1562,7 +1718,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -1791,6 +1946,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -1802,7 +1983,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -2038,6 +2218,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -2049,7 +2255,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -2316,6 +2521,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -2327,7 +2558,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -2557,6 +2787,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -2568,7 +2824,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -2836,6 +3091,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -2847,7 +3128,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -3077,6 +3357,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -3088,7 +3394,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -3317,6 +3622,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -3328,7 +3659,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -3564,6 +3894,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -3575,7 +3931,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -3847,6 +4202,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -3858,7 +4239,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -4088,6 +4468,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -4099,7 +4505,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -4358,6 +4763,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -4369,7 +4800,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -4629,6 +5059,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -4640,7 +5096,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -4870,6 +5325,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -4881,7 +5362,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -5116,6 +5596,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -5127,7 +5633,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -5363,6 +5868,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -5374,7 +5905,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -5647,6 +6177,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -5658,7 +6214,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -5888,6 +6443,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -5899,7 +6480,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -6157,6 +6737,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -6168,7 +6774,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -6398,6 +7003,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -6409,7 +7040,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -6654,6 +7284,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -6665,7 +7321,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -6910,6 +7565,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -6921,7 +7602,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -7151,6 +7831,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -7162,7 +7868,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -7392,6 +8097,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -7403,7 +8134,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -7638,6 +8368,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -7649,7 +8405,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -7885,6 +8640,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -7896,7 +8677,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -8173,6 +8953,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -8184,7 +8990,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -8414,6 +9219,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -8425,7 +9256,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -8668,6 +9498,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -8679,7 +9535,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -8915,6 +9770,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -8926,7 +9807,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -9161,6 +10041,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -9172,7 +10078,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -9408,6 +10313,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -9419,7 +10350,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -9684,6 +10614,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -9695,7 +10651,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -9925,6 +10880,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -9936,7 +10917,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -10207,6 +11187,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -10218,7 +11224,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -10448,6 +11453,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -10459,7 +11490,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -10688,6 +11718,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -10699,7 +11755,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -10935,6 +11990,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -10946,7 +12027,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -11203,6 +12283,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -11214,7 +12320,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -11444,6 +12549,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -11455,7 +12586,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -11707,6 +12837,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -11718,7 +12874,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -11947,6 +13102,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -11958,7 +13139,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -12194,6 +13374,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -12205,7 +13411,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -12435,6 +13640,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
+
 
 
 ---
@@ -12446,7 +13677,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Stripe"
     type="stripe"
     color="#635BFF"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -12680,6 +13910,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | Payment intent object |
+| `payment_intents` | json | Array of payment intents |
+| `customer` | json | Customer object |
+| `customers` | json | Array of customers |
+| `subscription` | json | Subscription object |
+| `subscriptions` | json | Array of subscriptions |
+| `invoice` | json | Invoice object |
+| `invoices` | json | Array of invoices |
+| `charge` | json | Charge object |
+| `charges` | json | Array of charges |
+| `product` | json | Product object |
+| `products` | json | Array of products |
+| `price` | json | Price object |
+| `prices` | json | Array of prices |
+| `event` | json | Event object |
+| `events` | json | Array of events |
+| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether resource was deleted |
+
+</div>
 
 
 

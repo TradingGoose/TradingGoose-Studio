@@ -84,13 +84,8 @@ Sitemap: ${baseUrl}/sitemap.xml
 #   Full content: ${baseUrl}/llms-full.txt
 #   Individual pages: ${baseUrl}/llms.mdx/[page-path]
 
-# Multi-language documentation available at:
-# ${baseUrl}/en - English
-# ${baseUrl}/es - Español
-# ${baseUrl}/fr - Français
-# ${baseUrl}/de - Deutsch
-# ${baseUrl}/ja - 日本語
-# ${baseUrl}/zh - 简体中文`
+# Documentation root:
+# ${baseUrl}`
 
   return new Response(robotsTxt, {
     headers: {

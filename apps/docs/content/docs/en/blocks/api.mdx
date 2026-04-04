@@ -1,12 +1,19 @@
 ---
 title: API
+description: Connect to external services via HTTP requests
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { BlockConfigPreview } from '@/components/ui/block-config-preview'
 import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="api"
+  color="#2F55FF"
+/>
 
 The API block enables you to connect your workflow to external services through API endpoints using HTTP requests. It supports various methods like GET, POST, PUT, DELETE, and PATCH, allowing you to interact with virtually any API endpoint.
 

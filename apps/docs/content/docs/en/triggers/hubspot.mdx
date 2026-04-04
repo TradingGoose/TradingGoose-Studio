@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="hubspot"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Trigger workflow when a new company is created in HubSpot
@@ -21,6 +20,13 @@ Trigger workflow when a new company is created in HubSpot
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/hubspot">
+    See workflow actions, operations, and tool inputs for Hubspot.
+  </Card>
+</Cards>
+
 
 ## Events
 
@@ -80,7 +86,73 @@ Trigger workflow when a new company is created in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -140,7 +212,73 @@ Trigger workflow when a conversation is deleted in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -207,7 +345,73 @@ Trigger workflow when any property of a conversation is updated in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -267,7 +471,73 @@ Trigger workflow when a new ticket is created in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -327,7 +597,73 @@ Trigger workflow when a new deal is created in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -394,7 +730,73 @@ Trigger workflow when any property of a company is updated in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -454,7 +856,73 @@ Trigger workflow when a contact is deleted in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -514,7 +982,73 @@ Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, e
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -574,7 +1108,73 @@ Trigger workflow when a ticket is deleted in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -634,7 +1234,73 @@ Trigger workflow when a conversation is deleted for privacy compliance (GDPR, CC
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -694,7 +1360,73 @@ Trigger workflow when a new message is added to a conversation in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -754,7 +1486,73 @@ Trigger workflow when a company is deleted in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -821,7 +1619,73 @@ Trigger workflow when any property of a ticket is updated in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -888,7 +1752,73 @@ Trigger workflow when any property of a contact is updated in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -948,7 +1878,73 @@ Trigger workflow when a new conversation is created in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -1015,7 +2011,73 @@ Trigger workflow when any property of a deal is updated in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -1075,7 +2137,73 @@ Trigger workflow when a deal is deleted in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -1135,7 +2263,73 @@ Trigger workflow when a new contact is created in HubSpot
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 

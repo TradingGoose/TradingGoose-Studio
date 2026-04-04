@@ -26,7 +26,6 @@ export interface BlockConfig {
   longDescription?: string
   category: string
   bgColor?: string
-  iconName?: string
   outputs?: Record<string, any>
   tools?: { access?: string[] }
   subBlocks?: DocSubBlock[]
@@ -40,10 +39,15 @@ export interface ToolInfo {
   outputs: Record<string, any>
 }
 
+export interface RelatedDocPage {
+  title: string
+  href: string
+  description: string
+}
+
 export interface GeneratorContext {
   rootDir: string
   blocksPath: string
   toolsPath: string
   docsOutputPath: string
-  icons: Record<string, string>
 }

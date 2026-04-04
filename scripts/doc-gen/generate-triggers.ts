@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import type { GeneratorContext } from './types'
+import { collectGeneratedToolSlugs, findToolDocSlugForTriggerProvider, providerToTriggerDocSlug } from './doc-pages'
 import { extractAllTriggers, type TriggerConfig } from './extract-triggers'
 import { renderTriggerPage } from './render-trigger-page'
 import { updateMetaJson } from './utils'
@@ -23,6 +24,7 @@ export async function generateTriggerDocs(ctx: GeneratorContext) {
 
   const triggersDir = path.join(ctx.rootDir, 'apps/tradinggoose/triggers')
   const docsDir = path.join(ctx.rootDir, 'apps/docs/content/docs/en/triggers')
+  const toolSlugs = collectGeneratedToolSlugs(ctx.blocksPath, ctx.rootDir)
 
   if (!fs.existsSync(docsDir)) {
     fs.mkdirSync(docsDir, { recursive: true })
@@ -50,8 +52,9 @@ export async function generateTriggerDocs(ctx: GeneratorContext) {
 
   for (const [provider, triggers] of byProvider) {
     // Skip providers that already have hand-written docs (core triggers)
-    const slug = providerToSlug(provider)
+    const slug = providerToTriggerDocSlug(provider)
     const existingPath = path.join(docsDir, `${slug}.mdx`)
+    const relatedToolSlug = findToolDocSlugForTriggerProvider(provider, toolSlugs)
 
     // Don't overwrite core trigger pages (api, chat, manual, webhook, schedule, input-form)
     const coreTriggers = new Set(['api', 'chat', 'manual', 'webhook', 'schedule', 'input-form'])
@@ -59,7 +62,17 @@ export async function generateTriggerDocs(ctx: GeneratorContext) {
       continue
     }
 
-    const content = renderTriggerPage(provider, triggers, ctx.icons)
+    const content = renderTriggerPage(
+      provider,
+      triggers,
+      relatedToolSlug
+        ? {
+            title: 'Use as a Tool',
+            href: `/tools/${relatedToolSlug}`,
+            description: `See workflow actions, operations, and tool inputs for ${toDisplayName(provider)}.`,
+          }
+        : undefined
+    )
     fs.writeFileSync(existingPath, content)
     generated++
   }
@@ -70,14 +83,10 @@ export async function generateTriggerDocs(ctx: GeneratorContext) {
   return generated
 }
 
-function providerToSlug(provider: string): string {
-  // Map provider names to doc slugs
-  const slugMap: Record<string, string> = {
-    'microsoft-teams': 'microsoft-teams',
-    microsoftteams: 'microsoft-teams',
-    google_forms: 'google-forms',
-    googleforms: 'google-forms',
-    twilio_voice: 'twilio-voice',
-  }
-  return slugMap[provider] || provider
+function toDisplayName(provider: string): string {
+  return provider
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }

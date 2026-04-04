@@ -1,5 +1,5 @@
 import type { TriggerConfig } from './extract-triggers'
-import { escapeMdx } from './utils'
+import type { RelatedDocPage } from './types'
 
 /** Escape angle brackets so MDX doesn't treat them as JSX tags */
 function escapeMdxText(text: string): string {
@@ -13,46 +13,13 @@ function escapeMdxText(text: string): string {
 export function renderTriggerPage(
   provider: string,
   triggers: TriggerConfig[],
-  icons: Record<string, string>
+  relatedDocPage?: RelatedDocPage
 ): string {
   // Use first trigger's info for the page header
   const primary = triggers[0]
-  const providerName = provider.charAt(0).toUpperCase() + provider.slice(1)
+  const providerName = toProviderDisplayName(provider)
   const pageName = `${providerName} Trigger`
   const pageDesc = primary.description || `Trigger workflows from ${providerName} events`
-
-  // Find icon — try multiple naming conventions
-  // Try multiple naming conventions to find the right icon
-  // Some brands have non-standard casing (WhatsApp, HubSpot, PostHog, etc.)
-  const brandIconMap: Record<string, string> = {
-    // Brand-specific casing
-    whatsapp: 'WhatsAppIcon',
-    hubspot: 'HubSpotIcon',
-    posthog: 'PostHogIcon',
-    github: 'GithubIcon',
-    gitlab: 'GitlabIcon',
-    linkedin: 'LinkedInIcon',
-    youtube: 'YouTubeIcon',
-    javascript: 'JavaScriptIcon',
-    typescript: 'TypeScriptIcon',
-    // Core/special trigger icons
-    generic: 'WebhookIcon',
-    imap: 'MailServerIcon',
-    schedule: 'ScheduleIcon',
-    twilio_voice: 'TwilioIcon',
-    indicator: 'ScheduleIcon', // no dedicated icon, use schedule as fallback
-  }
-
-  const words = provider.split(/[-_]/)
-  const pascalCase = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
-  const iconCandidates = [
-    brandIconMap[provider],                                          // Brand-specific override
-    `${pascalCase}Icon`,                                             // MicrosoftTeamsIcon, GoogleFormsIcon
-    `${providerName}Icon`,                                           // SlackIcon
-    `${provider.replace(/[-_]/g, '')}Icon`,                          // microsoftteamsIcon
-    `${provider.charAt(0).toUpperCase() + provider.replace(/[-_]/g, '').slice(1)}Icon`, // MicrosoftteamsIcon
-  ].filter((v, i, a) => v && a.indexOf(v) === i)  // dedupe + remove undefined
-  const iconSvg = iconCandidates.reduce<string | null>((found, name) => found || icons[name] || null, null)
 
   const isMultiEvent = triggers.length > 1
   const isPolling = !primary.hasWebhook
@@ -62,9 +29,9 @@ export function renderTriggerPage(
   let configSection: string
 
   if (isMultiEvent) {
-    configSection = buildMultiEventSection(triggers, providerName, icons)
+    configSection = buildMultiEventSection(triggers)
   } else {
-    configSection = buildSingleEventSection(primary, providerName, icons)
+    configSection = buildSingleEventSection(primary)
   }
 
   return `---
@@ -77,12 +44,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+${relatedDocPage ? `import { Card, Cards } from 'fumadocs-ui/components/card'` : ''}
 
 <BlockInfoCard
   type="${provider}"
   color=""
-  icon={${iconSvg ? 'true' : 'false'}}
-  iconSvg={\`${iconSvg || ''}\`}
 />
 
 ${pageDesc}
@@ -91,17 +57,40 @@ ${pageDesc}
   This is a **${triggerType.toLowerCase()}-based** trigger.${isPolling ? ' TradingGoose automatically checks for new data on a regular interval.' : ' Configure the webhook URL in your external service to send events to TradingGoose.'}
 </Callout>
 
+${renderRelatedDocCard(relatedDocPage)}
 ${configSection}
 `
 }
 
-function buildSingleEventSection(trigger: TriggerConfig, providerName: string, icons: Record<string, string>): string {
+function toProviderDisplayName(provider: string): string {
+  return provider
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function renderRelatedDocCard(relatedDocPage?: RelatedDocPage): string {
+  if (!relatedDocPage) return ''
+
+  return `<Cards>
+  <Card title="${relatedDocPage.title}" href="${relatedDocPage.href}">
+    ${relatedDocPage.description}
+  </Card>
+</Cards>
+
+`
+}
+
+function buildSingleEventSection(trigger: TriggerConfig): string {
   let result = ''
 
   // Config preview
   if (trigger.subBlocks.length > 0) {
     const subBlocksJson = JSON.stringify(trigger.subBlocks, null, 4)
-      .split('\n').map((l, i) => i === 0 ? l : `    ${l}`).join('\n')
+      .split('\n')
+      .map((l, i) => (i === 0 ? l : `    ${l}`))
+      .join('\n')
 
     result += `## Configuration
 
@@ -123,18 +112,24 @@ function buildSingleEventSection(trigger: TriggerConfig, providerName: string, i
   return result
 }
 
-function buildMultiEventSection(triggers: TriggerConfig[], providerName: string, icons: Record<string, string>): string {
+function buildMultiEventSection(triggers: TriggerConfig[]): string {
   let result = `## Events
 
 `
 
   for (const trigger of triggers) {
-    const subBlocksJson = trigger.subBlocks.length > 0
-      ? JSON.stringify(trigger.subBlocks, null, 4)
-          .split('\n').map((l, i) => i === 0 ? l : `    ${l}`).join('\n')
-      : '[]'
+    const subBlocksJson =
+      trigger.subBlocks.length > 0
+        ? JSON.stringify(trigger.subBlocks, null, 4)
+            .split('\n')
+            .map((l, i) => (i === 0 ? l : `    ${l}`))
+            .join('\n')
+        : '[]'
 
-    const accordionId = trigger.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/g, '')
+    const accordionId = trigger.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+$/g, '')
 
     result += `### ${trigger.name}
 
@@ -212,11 +207,17 @@ function outputsToSchemaFields(outputs: Record<string, any>): SchemaField[] {
       (k) => !skipKeys.has(k) && typeof value[k] === 'object' && value[k] !== null
     )
 
-    const children = nestedKeys.length > 0
-      ? outputsToSchemaFields(Object.fromEntries(nestedKeys.map((k) => [k, value[k]])))
-      : undefined
+    const children =
+      nestedKeys.length > 0
+        ? outputsToSchemaFields(Object.fromEntries(nestedKeys.map((k) => [k, value[k]])))
+        : undefined
 
-    fields.push({ name: key, type, description, ...(children && children.length > 0 ? { children } : {}) })
+    fields.push({
+      name: key,
+      type,
+      description,
+      ...(children && children.length > 0 ? { children } : {}),
+    })
   }
 
   return fields

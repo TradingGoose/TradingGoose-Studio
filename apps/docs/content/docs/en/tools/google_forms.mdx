@@ -6,13 +6,19 @@ description: Read responses from a Google Form
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="google_forms"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/google-forms">
+    See trigger events, setup, and event payloads for Google Forms.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -21,7 +27,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Google Forms"
     type="google_forms"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

@@ -6,13 +6,19 @@ description: Interact with Telegram
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="telegram"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/telegram">
+    See trigger events, setup, and event payloads for Telegram.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -128,7 +133,6 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -243,7 +247,6 @@ Send photos to Telegram channels or users through the Telegram Bot API.
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -358,7 +361,6 @@ Send videos to Telegram channels or users through the Telegram Bot API.
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -473,7 +475,6 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -588,7 +589,6 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -710,7 +710,6 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
     name="Telegram"
     type="telegram"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

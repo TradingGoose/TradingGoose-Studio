@@ -7,12 +7,12 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="jira"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
 
 ## Configuration
 
@@ -23,7 +23,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Jira"
     type="jira"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -98,6 +97,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   />
 </ShowcaseCard>
 
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `ts` | string | Timestamp of the operation |
+| `issueKey` | string | Issue key \(e.g., PROJ-123\) |
+| `summary` | string | Issue summary/title |
+| `description` | string | Issue description content |
+| `created` | string | Issue creation date |
+| `updated` | string | Issue last update date |
+| `success` | boolean | Whether the update operation was successful |
+| `url` | string | URL to the created/accessed issue |
+
+</div>
+
 
 
 ---
@@ -109,7 +124,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Jira"
     type="jira"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -238,7 +252,6 @@ Update a Jira issue
     name="Jira"
     type="jira"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

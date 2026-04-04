@@ -7,73 +7,115 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="file"
   color="#40916C"
-  icon={true}
-  iconSvg={``}
 />
 
+
 ## Configuration
+
+### File URL
 
 <ShowcaseCard>
   <BlockConfigPreview
     name="File"
     type="file"
     color="#40916C"
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
             "id": "inputMethod",
             "type": "dropdown",
             "title": "Select Input Method",
-            "layout": "full"
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "url"
         },
         {
             "id": "filePath",
             "type": "short-input",
             "title": "File URL",
             "layout": "full",
-            "placeholder": "Enter URL to a file (https://example.com/document.pdf)",
-            "condition": {
-                "field": "inputMethod",
-                "value": "url"
-            }
-        },
-        {
-            "id": "file",
-            "type": "file-upload",
-            "title": "Process Files",
-            "layout": "full",
-            "condition": {
-                "field": "inputMethod",
-                "value": "upload"
-            }
+            "placeholder": "Enter URL to a file (https://example.com/document.pdf)"
         }
     ]}
   />
 </ShowcaseCard>
 
-## Tools
-
-### `file_parser`
-
-Parse one or more uploaded files or files from URLs (text, PDF, CSV, images, etc.)
-
-#### Input
-
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-| `filePath` | string | Yes | Path to the file\(s\). Can be a single path, URL, or an array of paths. |
-| `fileType` | string | No | Type of file to parse \(auto-detected if not specified\) |
-
-#### Output
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `files` | array | Array of parsed files with content and metadata |
-| `combinedContent` | string | Combined content of all parsed files |
+| `files` | json | Array of parsed file objects with content, metadata, and file properties |
+| `combinedContent` | string | All file contents merged into a single text string |
+
+</div>
+
+
+
+---
+
+### Uploaded Files
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Select Input Method",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "Process Files",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `files` | json | Array of parsed file objects with content, metadata, and file properties |
+| `combinedContent` | string | All file contents merged into a single text string |
+
+</div>
+
+
+
+---
 
 
 ## Usage Instructions

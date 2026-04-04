@@ -1,0 +1,118 @@
+---
+title: Parallel AI
+description: Search with Parallel AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="parallel_ai"
+  color=""
+/>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Parallel AI"
+    type="parallel_ai"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "objective",
+            "type": "long-input",
+            "title": "Search Objective",
+            "layout": "full",
+            "placeholder": "When was the United Nations established? Prefer UN's websites.",
+            "required": true
+        },
+        {
+            "id": "search_queries",
+            "type": "long-input",
+            "title": "Search Queries",
+            "layout": "full",
+            "placeholder": "Enter search queries separated by commas (e.g., \"Founding year UN\", \"Year of founding United Nations\")"
+        },
+        {
+            "id": "processor",
+            "type": "dropdown",
+            "title": "Processor",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Base",
+                    "id": "base"
+                },
+                {
+                    "label": "Pro",
+                    "id": "pro"
+                }
+            ]
+        },
+        {
+            "id": "max_results",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "half",
+            "placeholder": "5"
+        },
+        {
+            "id": "max_chars_per_result",
+            "type": "short-input",
+            "title": "Max Chars",
+            "layout": "half",
+            "placeholder": "1500"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your Parallel AI API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `parallel_search`
+
+Search the web using Parallel AI. Provides comprehensive search results with intelligent processing and content extraction.
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `objective` | string | Yes | The search objective or question to answer |
+| `search_queries` | string | No | Optional comma-separated list of search queries to execute |
+| `processor` | string | No | Processing method: base or pro \(default: base\) |
+| `max_results` | number | No | Maximum number of results to return \(default: 5\) |
+| `max_chars_per_result` | number | No | Maximum characters per result \(default: 1500\) |
+| `apiKey` | string | Yes | Parallel AI API Key |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `url` | string | The URL of the search result |
+| `title` | string | The title of the search result |
+
+
+## Usage Instructions
+
+Integrate Parallel AI into the workflow. Can search the web.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `parallel_ai`

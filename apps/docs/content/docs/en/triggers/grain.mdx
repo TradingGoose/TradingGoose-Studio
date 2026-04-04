@@ -8,12 +8,11 @@ import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="grain"
   color=""
-  icon={true}
-  iconSvg={``}
 />
 
 Trigger workflow when a recording is updated in Grain
@@ -21,6 +20,13 @@ Trigger workflow when a recording is updated in Grain
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
 </Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/grain">
+    See workflow actions, operations, and tool inputs for Grain.
+  </Card>
+</Cards>
+
 
 ## Events
 
@@ -49,7 +55,83 @@ Trigger workflow when a recording is updated in Grain
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "data",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Recording UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Recording title"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "ISO8601 start timestamp"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "ISO8601 end timestamp"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "Duration in milliseconds"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio, transcript, or video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "Recording source (zoom, meet, local_capture, etc.)"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL to view in Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "Thumbnail URL (nullable)"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array of tag strings"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "Array of team objects"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "Meeting type info with id, name, scope (nullable)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -78,7 +160,83 @@ Trigger workflow when a new recording is added in Grain
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "data",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Recording UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Recording title"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "ISO8601 start timestamp"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "ISO8601 end timestamp"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "Duration in milliseconds"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio, transcript, or video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "Recording source (zoom, meet, local_capture, etc.)"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL to view in Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "Thumbnail URL (nullable)"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array of tag strings"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "Array of team objects"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "Meeting type info with id, name, scope (nullable)"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -107,7 +265,21 @@ Generic webhook trigger for all Grain events
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "Event data object (recording, highlight, etc.)"
+      }
+  ]}
+/>
 
 ---
 
@@ -136,7 +308,78 @@ Trigger workflow when a highlight/clip is updated in Grain
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "data",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Highlight UUID"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "Parent recording UUID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Highlight title/description"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "Transcript text of the clip"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "Array of speaker names"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "Start timestamp in ms"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "Duration in ms"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array of tag strings"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL to view in Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "Thumbnail URL"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 creation timestamp"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -165,7 +408,43 @@ Trigger workflow when a new story is created in Grain
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "data",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Story UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Story title"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL to view in Grain"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 creation timestamp"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 
@@ -194,7 +473,78 @@ Trigger workflow when a new highlight/clip is created in Grain
 
 #### Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "User UUID who triggered the event"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "data",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Highlight UUID"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "Parent recording UUID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Highlight title/description"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "Transcript text of the clip"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "Array of speaker names"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "Start timestamp in ms"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "Duration in ms"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array of tag strings"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL to view in Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "Thumbnail URL"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 creation timestamp"
+              }
+          ]
+      }
+  ]}
+/>
 
 ---
 

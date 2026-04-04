@@ -75,7 +75,7 @@ The documentation generator runs automatically as part of the CI/CD pipeline whe
 
 ## Adding Support for New Block Properties
 
-If you add new properties to block definitions that should be included in the documentation, update the `generateMarkdownForBlock` function in `scripts/generate-docs.ts`.
+If you add new properties to block definitions that should be included in the documentation, update the relevant renderer in `scripts/doc-gen/`.
 
 ## Preserving Manual Content
 

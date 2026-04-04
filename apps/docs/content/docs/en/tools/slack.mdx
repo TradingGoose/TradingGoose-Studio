@@ -6,13 +6,19 @@ description: Send messages to Slack or trigger workflows from Slack events
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="slack"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/slack">
+    See trigger events, setup, and event payloads for Slack.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Slack"
     type="slack"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -160,7 +165,6 @@ Send messages to Slack channels or direct messages. Supports Slack mrkdwn format
     name="Slack"
     type="slack"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -288,7 +292,6 @@ Create and share Slack canvases in channels. Canvases are collaborative document
     name="Slack"
     type="slack"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {

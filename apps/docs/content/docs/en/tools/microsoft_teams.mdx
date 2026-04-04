@@ -6,13 +6,19 @@ description: Read, write, and create messages
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="microsoft_teams"
   color=""
-  icon={true}
-  iconSvg={``}
 />
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/microsoft-teams">
+    See trigger events, setup, and event payloads for Microsoft Teams.
+  </Card>
+</Cards>
+
 
 ## Configuration
 
@@ -23,7 +29,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     name="Microsoft Teams"
     type="microsoft_teams"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -116,7 +121,6 @@ Read content from a Microsoft Teams chat
     name="Microsoft Teams"
     type="microsoft_teams"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -230,7 +234,6 @@ Write or update content in a Microsoft Teams chat
     name="Microsoft Teams"
     type="microsoft_teams"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
@@ -340,7 +343,6 @@ Read content from a Microsoft Teams channel
     name="Microsoft Teams"
     type="microsoft_teams"
     color=""
-    iconSvg={``}
     hideHeader
     subBlocks={[
         {
