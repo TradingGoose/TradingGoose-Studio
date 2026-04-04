@@ -149,7 +149,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
 
         <div
           aria-hidden='true'
-          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 pointer-events-none absolute left-1/2 z-0 w-full max-w-70 overflow-hidden'
+          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 absolute left-1/2 z-0 w-full max-w-70 overflow-hidden'
         >
           <FooterHoverText text='HONK!' />
           <div

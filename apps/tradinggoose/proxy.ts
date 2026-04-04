@@ -15,7 +15,7 @@ const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms'])
 
 function isHostedEnvironment(): boolean {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  return appUrl === 'https://www.tradinggoose.ai' || appUrl === 'https://staging.tradinggoose.ai'
+  return appUrl === 'https://www.tradinggoose.ai' || appUrl === 'https://preview.tradinggoose.ai'
 }
 
 function isAllowedInHostedMode(pathname: string): boolean {

@@ -23,7 +23,7 @@ export const isTest = env.NODE_ENV === 'test'
  */
 export const isHosted =
   getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.tradinggoose.ai' ||
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://staging.tradinggoose.ai'
+  getEnv('NEXT_PUBLIC_APP_URL') === 'https://preview.tradinggoose.ai'
 
 /**
  * Is billing enforcement enabled

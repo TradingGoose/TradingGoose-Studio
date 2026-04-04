@@ -8,7 +8,6 @@ const PREFERRED_MARKET_CODES = [
   'SHE',
   'SHG',
   'LSE',
-  'EUREX',
   'BVC',
 ] as const
 
