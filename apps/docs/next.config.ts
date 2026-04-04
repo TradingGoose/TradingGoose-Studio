@@ -5,6 +5,9 @@ const withMDX = createMDX()
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  outputFileTracingIncludes: {
+    '/*': ['./content/**/*'],
+  },
   async redirects() {
     return [
       {
