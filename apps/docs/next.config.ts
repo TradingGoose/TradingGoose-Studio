@@ -6,7 +6,7 @@ const withMDX = createMDX()
 const config = {
   reactStrictMode: true,
   outputFileTracingIncludes: {
-    '/*': ['./content/**/*'],
+    '/**': ['./content/**/*'],
   },
   async redirects() {
     return [
