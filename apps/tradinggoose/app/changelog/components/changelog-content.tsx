@@ -25,7 +25,7 @@ export default async function ChangelogContent() {
 
   try {
     const res = await fetch(
-      'https://api.github.com/repos/simstudioai/sim/releases?per_page=10&page=1',
+      'https://api.github.com/repos/tradinggoose/tradinggoose-studio/releases?per_page=10&page=1',
       {
         headers: { Accept: 'application/vnd.github+json' },
         next: { revalidate: 3600 },
@@ -81,7 +81,7 @@ export default async function ChangelogContent() {
 
             <div className='mt-6 flex flex-wrap items-center gap-3 text-sm'>
               <Link
-                href='https://github.com/simstudioai/sim/releases'
+                href='https://github.com/tradinggoose/tradinggoose-studio/releases'
                 target='_blank'
                 rel='noopener noreferrer'
                 className='inline-flex bg-foreground text-background items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted-foreground'
