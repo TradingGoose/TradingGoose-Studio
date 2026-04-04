@@ -1,6 +1,6 @@
 {
   "name": "tradinggoose-studio",
-  "packageManager": "bun@1.2.12",
+  "packageManager": "bun@1.3.11",
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -28,13 +28,16 @@
     "release": "bun run scripts/create-single-release.ts",
     "e2b:template:pinets": "bun run scripts/create-e2b-pinets-template.ts",
     "db:generate": "cd ./packages/db && drizzle-kit generate --config=./drizzle.config.ts",
-    "db:migrate": "cd ./packages/db && drizzle-kit migrate --config=./drizzle.config.ts"
+    "db:migrate": "cd ./packages/db && drizzle-kit migrate --config=./drizzle.config.ts",
+    "docs:audit": "bun run scripts/audit-docs.ts",
+    "docs:audit:json": "bun run scripts/audit-docs.ts --json",
+    "docs:generate": "bun run scripts/doc-gen/index.ts",
+    "docs:generate:tools": "bun run scripts/doc-gen/index.ts tools",
+    "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers"
   },
   "overrides": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.1",
-    "@next/env": "15.4.1",
     "drizzle-orm": "^0.44.5",
     "postgres": "^3.4.5"
   },
@@ -55,9 +58,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.0-beta.5",
-    "@next/env": "15.4.1",
+    "@next/env": "16.2.2",
     "@octokit/rest": "^21.0.0",
     "drizzle-kit": "^0.31.4",
+    "glob": "13.0.6",
     "husky": "9.1.7",
     "lint-staged": "16.0.0",
     "turbo": "2.5.8"

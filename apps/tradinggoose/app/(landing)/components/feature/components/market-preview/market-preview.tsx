@@ -74,7 +74,7 @@ let landingPreviewTriggerShimLock: Promise<void> = Promise.resolve()
 
 const acquireLandingPreviewTriggerShim = async () => {
   const previousLock = landingPreviewTriggerShimLock
-  let releaseLock = () => undefined
+  let releaseLock: () => void = () => {}
   landingPreviewTriggerShimLock = new Promise<void>((resolve) => {
     releaseLock = resolve
   })
@@ -88,7 +88,7 @@ const acquireLandingPreviewTriggerShim = async () => {
 
   return () => {
     if (previousTrigger === undefined) {
-      delete (globalThis as { trigger?: () => void }).trigger
+      ;(globalThis as { trigger?: () => void }).trigger = undefined
     } else {
       ;(globalThis as { trigger?: () => void }).trigger = previousTrigger
     }

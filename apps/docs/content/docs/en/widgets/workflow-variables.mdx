@@ -1,11 +1,10 @@
 ---
-title: Workflow Variables
-description: Inspect and edit variables for the selected workflow
+title: "Workflow Variables"
+description: "Inspect and edit variables for a selected workflow."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-The Workflow Variables widget provides a dedicated interface for viewing and editing the variables defined in your workflow.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Overview
 
@@ -13,52 +12,50 @@ The Workflow Variables widget provides a dedicated interface for viewing and edi
 |----------|-------|
 | **Key** | `workflow_variables` |
 | **Category** | Utility |
-| **Icon** | Braces |
+
+The Workflow Variables widget gives you a dedicated panel for viewing and editing the variables defined in a workflow. It connects to the workflow store over a live socket, so changes are collaborative -- edits made here are reflected in the editor and vice versa.
 
 ## Features
 
-- **Variable List**: View all workflow variables at a glance
-- **Inline Editing**: Edit variable values directly
-- **Type Display**: See the data type of each variable
-- **Add/Remove**: Create new variables or delete existing ones
-- **Search**: Filter variables by name
+- **Live variable list** -- displays all variables for the active workflow, updated in real time through the collaborative workflow store
+- **Inline editing** -- edit variable names, types, and values directly in the panel; changes propagate immediately to other connected clients
+- **Add variable** -- a **+** button in the header dispatches a custom `WORKFLOW_VARIABLES_ADD_EVENT` that creates a new empty string variable in the workflow; the event is scoped to the correct panel and channel so it only affects the target widget instance
+- **Collaborative sync** -- uses `useCollaborativeWorkflow` under the hood, so additions and edits are broadcast to all users viewing the same workflow
+- **Workflow selector** -- a header dropdown lets you switch between workflows; respects pair-color syncing when linked to an editor
 
 ## Usage
 
-The Workflow Variables widget is useful for:
+### Adding the widget
 
-- Inspecting the current state of workflow variables
-- Modifying variable values for testing
-- Understanding the data flow in your workflow
-- Managing workflow-scoped configuration
+Open the widget picker and select **Workflow Variables**. It loads the variable list for the active workflow in the current workspace.
 
-### Variable Types
+### Header layout
 
-Workflow variables can hold different types of data:
+- **Center** -- workflow selector dropdown
+- **Right** -- add variable button (**+**)
 
-| Type | Description |
-|------|-------------|
-| **String** | Text values |
-| **Number** | Numeric values |
-| **Boolean** | True/false values |
-| **Object** | JSON objects |
-| **Array** | Lists of values |
+### Key interactions
 
-### Editing Variables
+1. Browse the variable list to see names, types, and current values
+2. Click a variable to edit its value inline
+3. Click the **+** button in the header to append a new variable (defaults to type `string` with an empty value)
+4. Changes save automatically and are visible to other collaborators in real time
 
-1. Click on a variable to select it
-2. Modify the value in the editor
-3. Changes are saved automatically
-4. The workflow uses the updated value on next execution
+### Pair color syncing
 
-### Creating Variables
-
-1. Click the "Add Variable" button
-2. Enter a name for the variable
-3. Select the variable type
-4. Set an initial value (optional)
+When assigned a pair color, the widget follows the workflow selected in the paired editor. Changing the workflow in the editor refreshes the variable list. When the pair color is `gray`, you can independently choose which workflow to inspect via the header dropdown.
 
 <Callout>
-This widget supports the **pairColor** mechanism. Pair it with a Workflow Editor to view variables for the workflow you're currently editing.
+See the [Variables feature guide](/variables) for more on how workflow variables work, including scoping rules, supported types, and how blocks reference variables at runtime.
 </Callout>
 
+## Related
+
+<Cards>
+  <Card title="Variables Guide" href="/variables">
+    Learn how workflow variables work, including scoping and types.
+  </Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+</Cards>

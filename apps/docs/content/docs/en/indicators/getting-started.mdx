@@ -1,0 +1,121 @@
+---
+title: Getting Started
+description: Write and deploy your first custom indicator
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+## Creating Your First Indicator
+
+<Steps>
+  <Step>
+    **Open the Indicator Editor** — Add an Indicator Editor widget to your workspace, or navigate to the Indicators list and click "New Indicator"
+  </Step>
+  <Step>
+    **Write your code** — Start with the `indicator()` declaration, define inputs, calculate values, and plot results
+  </Step>
+  <Step>
+    **Preview on chart** — The Data Chart widget renders your indicator output in real time as you edit
+  </Step>
+  <Step>
+    **Save and deploy** — Name your indicator and save it to your workspace for use across charts and workflows
+  </Step>
+</Steps>
+
+## Minimal Example
+
+Every indicator starts with an `indicator()` call and at least one `plot()`:
+
+```javascript
+indicator('Simple Moving Average', { overlay: true });
+
+const length = input.int(20, 'Length');
+const sma = ta.sma(close, length);
+
+plot(sma, 'SMA', { color: '#2962FF' });
+```
+
+This creates an indicator with:
+- A configurable `Length` parameter (default 20) that appears in the UI
+- A simple moving average calculated on close prices
+- A blue line plotted as an overlay on the price chart
+
+## Indicator Options
+
+The `indicator()` function accepts a title and an options object:
+
+```javascript
+indicator('My Indicator', {
+  overlay: true,        // Plot on price chart (false = separate pane)
+  precision: 2,         // Decimal places for values
+  format: format.price, // Display format
+});
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `overlay` | boolean | `false` | Plot on the price chart instead of a separate pane |
+| `precision` | number | auto | Number of decimal places |
+| `format` | string | `format.inherit` | Display format (`format.price`, `format.volume`, `format.percent`) |
+| `scale` | string | auto | Scale type |
+| `max_bars_back` | number | auto | Maximum historical bars to reference |
+| `max_lines_count` | number | auto | Maximum line drawing objects |
+| `max_labels_count` | number | auto | Maximum label drawing objects |
+| `max_boxes_count` | number | auto | Maximum box drawing objects |
+
+## A More Complete Example
+
+Here's a Bollinger Bands indicator that demonstrates inputs, tuple destructuring, multiple plots, and fill:
+
+```javascript
+indicator('Bollinger Bands', { overlay: true });
+
+const length = input.int(20, 'Length');
+const mult = input.float(2, 'StdDev');
+
+// ta.bb returns [middle, upper, lower] as a tuple
+const [middle, upper, lower] = ta.bb(close, length, mult);
+
+const upperPlot = plot(upper, 'Upper', { color: '#F23645' });
+plot(middle, 'Middle', { color: '#2962FF' });
+const lowerPlot = plot(lower, 'Lower', { color: '#089981' });
+
+// Fill the area between upper and lower bands
+fill(upperPlot, lowerPlot);
+```
+
+## Adding a Workflow Trigger
+
+The `trigger()` function is a TradingGoose extension that connects indicator signals to workflow automation:
+
+```javascript
+indicator('MACD Crossover Signal');
+
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+plot(hist, 'Histogram', { style: plot.style_histogram });
+plot(macdLine, 'MACD');
+plot(signalLine, 'Signal');
+
+// Fire a workflow when MACD crosses above signal line
+if (ta.crossover(macdLine, signalLine)) {
+  trigger('macd_bullish_cross', {
+    condition: ta.crossover(macdLine, signalLine),
+    input: 'MACD bullish crossover detected',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+<Callout type="info">
+  The `trigger()` API is unique to TradingGoose and does not exist in standard Pine Script. See the [Triggers guide](/indicators/triggers) for full documentation.
+</Callout>
+
+## Next Steps
+
+- Learn the [PineTS syntax rules](/indicators/syntax) — especially `let` vs `var` for state management
+- Explore the [input types](/indicators/inputs) to build configurable indicators
+- Browse the [technical analysis reference](/indicators/ta) for all 57+ built-in functions

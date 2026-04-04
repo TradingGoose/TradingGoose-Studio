@@ -12,12 +12,12 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
-import { McpServerForm } from '@/widgets/widgets/mcp/components/mcp-server-form'
+import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   createDefaultMcpServerFormData,
   type McpServerFormData,
   resolveMcpServerId,
-} from '@/widgets/widgets/mcp/utils'
+} from '@/widgets/widgets/_shared/mcp/utils'
 
 type EditorMcpWidgetBodyProps = WidgetComponentProps
 

@@ -5,7 +5,6 @@ title: Cost Calculation
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
 
 TradingGoose automatically calculates costs for all workflow executions, providing transparent pricing based on AI model usage and execution charges. Understanding these costs helps you optimize workflows and manage your budget effectively.
 
@@ -29,17 +28,7 @@ totalCost = baseExecutionCharge + modelCost
 
 For workflows using AI blocks, you can view detailed cost information in the logs:
 
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs-cost.png"
-    alt="Model Breakdown"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
-
-The model breakdown shows:
+The log detail sidebar includes a model breakdown section that shows:
 - **Token Usage**: Input and output token counts for each model
 - **Cost Breakdown**: Individual costs per model and operation
 - **Model Distribution**: Which models were used and how many times
@@ -161,10 +150,10 @@ Different subscription plans have different usage limits:
 
 | Plan | Monthly Usage Limit | Rate Limits (per minute) |
 |------|-------------------|-------------------------|
-| **Free** | $10 | 5 sync, 10 async |
-| **Pro** | $100 | 10 sync, 50 async |
-| **Team** | $500 (pooled) | 50 sync, 100 async |
-| **Enterprise** | Custom | Custom |
+| **Free** | $10 | 10 sync, 50 async |
+| **Pro** | $20 | 25 sync, 200 async |
+| **Team** | $40/seat (pooled) | 75 sync, 500 async |
+| **Enterprise** | Custom | 150 sync, 1000 async |
 
 ## Billing Model
 

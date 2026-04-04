@@ -13,6 +13,11 @@ import {
   oneTimeToken,
   organization,
 } from 'better-auth/plugins'
+import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
+
+/** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
+type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
+
 import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
@@ -98,13 +103,13 @@ function createMicrosoftOAuthProvider(providerId: string) {
     providerId,
     scopes: getCanonicalScopesForProvider(providerId),
     redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
-    getUserInfo: async (tokens: Record<string, unknown>) =>
+    getUserInfo: async (tokens: OAuthTokens) =>
       getMicrosoftUserInfoFromIdToken(tokens, providerId),
   }
 }
 
-function getMicrosoftUserInfoFromIdToken(tokens: Record<string, unknown>, providerId: string) {
-  const idToken = typeof tokens.idToken === 'string' ? tokens.idToken : undefined
+function getMicrosoftUserInfoFromIdToken(tokens: OAuthTokens, providerId: string) {
+  const idToken = tokens.idToken
   if (!idToken) {
     logger.error(`Microsoft ${providerId} OAuth: no ID token received`)
     throw new Error(`Microsoft ${providerId} OAuth requires an ID token`)
@@ -321,14 +326,14 @@ export const auth = betterAuth({
           let isAllowed = false
 
           if (env.ALLOWED_LOGIN_EMAILS) {
-            const allowedEmails = env.ALLOWED_LOGIN_EMAILS.split(',').map((email) =>
+            const allowedEmails = env.ALLOWED_LOGIN_EMAILS.split(',').map((email: string) =>
               email.trim().toLowerCase()
             )
             isAllowed = allowedEmails.includes(requestEmail)
           }
 
           if (!isAllowed && env.ALLOWED_LOGIN_DOMAINS) {
-            const allowedDomains = env.ALLOWED_LOGIN_DOMAINS.split(',').map((domain) =>
+            const allowedDomains = env.ALLOWED_LOGIN_DOMAINS.split(',').map((domain: string) =>
               domain.trim().toLowerCase()
             )
             const emailDomain = requestEmail.split('@')[1]
@@ -357,7 +362,7 @@ export const auth = betterAuth({
       sendVerificationOTP: async (data: {
         email: string
         otp: string
-        type: 'sign-in' | 'email-verification' | 'forget-password'
+        type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
       }) => {
         if (!isEmailVerificationEnabled) {
           logger.info('Skipping email verification')
@@ -1537,7 +1542,7 @@ export const auth = betterAuth({
             }
           },
           organizationCreation: {
-            afterCreate: async ({ organization, user }) => {
+            afterCreate: async ({ organization, user }: { organization: { id: string }; user: { id: string } }) => {
               logger.info('[organizationCreation.afterCreate] Organization created', {
                 organizationId: organization.id,
                 creatorId: user.id,

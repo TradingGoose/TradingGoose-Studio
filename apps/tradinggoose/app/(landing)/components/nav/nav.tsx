@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -75,6 +76,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Docs
       </Link>
+      {/*
       <Link href='#pricing' className='transition-colors hover:text-foreground' scroll>
         Pricing
       </Link>
@@ -86,6 +88,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Enterprise
       </button>
+      */}
       <a
         href='https://github.com/TradingGoose/TradingGoose-Studio'
         target='_blank'
@@ -111,7 +114,8 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           href='/?from=nav'
           aria-label={`${brand.name} home`}
           itemProp='url'
-          className='flex items-center gap-2'
+          className='flex items-center gap-2 h-9'
+          prefetch={false}
         >
           <span itemProp='name' className='sr-only'>
             {brand.name} Home
@@ -140,29 +144,34 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           )}
 
-          {!hideAuthButtons && (
-            <>
+          {!hideAuthButtons && isHosted && (
+            <Button
+              size='sm'
+              disabled
+              className='hidden rounded-md text-base md:inline-flex'
+              aria-label='Coming soon'
+            >
+              Coming soon
+            </Button>
+          )}
+          {!hideAuthButtons && !isHosted && (
+            <div className='hidden items-center gap-2 md:flex'>
               <Button
                 variant='ghost'
                 size='sm'
-                className='hidden rounded-md font-medium text-base text-foreground md:inline-flex'
                 onClick={handleLoginClick}
-                type='button'
-                aria-label='Log in to your account'
+                className='rounded-md text-base'
               >
-                Log in
+                Login
               </Button>
               <Button
-                className='hidden rounded-md text-base text-black md:inline-flex'
                 size='sm'
-                asChild
-                aria-label='Get started with TradingGoose - Sign up for free'
+                onClick={() => router.push('/signup')}
+                className='rounded-md text-base'
               >
-                <Link href='/signup' prefetch>
-                  Get started
-                </Link>
+                Get Started
               </Button>
-            </>
+            </div>
           )}
 
           {variant === 'landing' && (
@@ -186,12 +195,14 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       Docs
                     </Link>
                   </DropdownMenuItem>
+                  {/*
                   <DropdownMenuItem>
                     <Link href='#pricing' scroll className='w-full'>
                       Pricing
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={handleEnterpriseClick}>Enterprise</DropdownMenuItem>
+                  */}
                   <DropdownMenuItem>
                     <a
                       href='https://github.com/TradingGoose/TradingGoose-Studio'
@@ -203,30 +214,41 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                  {!hideAuthButtons && (
+                  {!hideAuthButtons && isHosted && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
                         <Button
-                          className='w-full justify-start'
+                          className='w-full justify-start rounded-lg'
+                          size='sm'
+                          disabled
+                          aria-label='Coming soon'
+                        >
+                          Coming soon
+                        </Button>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {!hideAuthButtons && !isHosted && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className='!bg-transparent'>
+                        <Button
                           variant='ghost'
+                          className='w-full justify-start rounded-lg'
                           size='sm'
                           onClick={handleLoginClick}
-                          aria-label='Log in to your account'
                         >
-                          Log in
+                          Login
                         </Button>
                       </DropdownMenuItem>
                       <DropdownMenuItem className='!bg-transparent'>
                         <Button
                           className='w-full justify-start rounded-lg'
                           size='sm'
-                          asChild
-                          aria-label='Get started with TradingGoose - Sign up for free'
+                          onClick={() => router.push('/signup')}
                         >
-                          <Link href='/signup' prefetch>
-                            Get started
-                          </Link>
+                          Get Started
                         </Button>
                       </DropdownMenuItem>
                     </>

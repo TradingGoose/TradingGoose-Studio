@@ -1,24 +1,45 @@
 ---
 title: Agent
+description: Build an agent using AI models with tool integration
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="agent"
+  color="#2873f6"
+/>
 
 The Agent block serves as the interface between your workflow and Large Language Models (LLMs). It executes inference requests against various AI providers, processes natural language inputs according to defined instructions, and generates structured or unstructured outputs for downstream consumption.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/agent.png"
-    alt="Agent Block Configuration"
-    width={500}
-    height={400}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Agent"
+    type="agent"
+    color="#2873f6"
+    hideHeader
+    subBlocks={[
+      { "id": "systemPrompt", "title": "System Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter system prompt..." },
+      { "id": "userPrompt", "title": "User Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter context or user message..." },
+      { "id": "memories", "title": "Memories", "type": "short-input", "layout": "full", "placeholder": "Connect memory block output..." },
+      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
+      { "id": "temperature", "title": "Temperature", "type": "slider", "layout": "half", "defaultValue": 0.5 },
+      { "id": "reasoningEffort", "title": "Reasoning Effort", "type": "dropdown", "layout": "half", "placeholder": "Select reasoning effort...", "options": [{ "label": "minimal", "id": "minimal" }, { "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
+      { "id": "verbosity", "title": "Verbosity", "type": "dropdown", "layout": "half", "placeholder": "Select verbosity...", "options": [{ "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" },
+      { "id": "tools", "title": "Tools", "type": "tool-input", "layout": "full", "defaultValue": [] },
+      { "id": "skills", "title": "Skills", "type": "skill-input", "layout": "full", "defaultValue": [] },
+      { "id": "responseFormat", "title": "Response Format", "type": "code", "layout": "full", "placeholder": "Enter JSON schema..." }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Overview
 
@@ -69,10 +90,6 @@ The Agent block supports multiple LLM providers through a unified inference inte
 **Alternative Providers**: Groq, Cerebras, xAI, DeepSeek (API-based inference)
 **Local Deployment**: Ollama-compatible models (self-hosted inference)
 
-<div className="mx-auto w-3/5 overflow-hidden rounded-lg">
-  <Video src="models.mp4" width={500} height={350} />
-</div>
-
 ### Temperature
 
 Control the creativity and randomness of responses:
@@ -109,10 +126,6 @@ Tools extend the agent's capabilities through external API integrations and serv
 2. Select from 60+ pre-built integrations or define custom functions
 3. Configure authentication parameters and operational constraints
 
-<div className="mx-auto w-3/5 overflow-hidden rounded-lg">
-  <Video src="tools.mp4" width={500} height={350} />
-</div>
-
 **Available Tool Categories**:
 - **Communication**: Gmail, Slack, Telegram, WhatsApp, Microsoft Teams
 - **Data Sources**: Notion, Google Sheets, Airtable, Supabase, Pinecone
@@ -124,10 +137,6 @@ Tools extend the agent's capabilities through external API integrations and serv
 - **Auto**: Model determines tool invocation based on context and necessity
 - **Required**: Tool must be called during every inference request
 - **None**: Tool definition available but excluded from model context
-
-<div className="mx-auto w-3/5 overflow-hidden rounded-lg">
-  <Video src="granular-tool-control.mp4" width={500} height={350} />
-</div>
 
 ### Response Format
 

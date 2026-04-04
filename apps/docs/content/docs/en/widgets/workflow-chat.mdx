@@ -1,11 +1,10 @@
 ---
-title: Workflow Chat
-description: Chat interface for interacting with workflow blocks
+title: "Workflow Chat"
+description: "Chat interface to interact with workflow blocks."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-The Workflow Chat widget provides an interactive chat interface for communicating with your workflow blocks. It enables conversational interactions with your AI workflows.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Overview
 
@@ -13,37 +12,54 @@ The Workflow Chat widget provides an interactive chat interface for communicatin
 |----------|-------|
 | **Key** | `workflow_chat` |
 | **Category** | Utility |
-| **Icon** | MessageCircle |
+
+The Workflow Chat widget provides a conversational interface for interacting with workflow blocks. It connects to the active workflow over a live socket, streams responses in real time, and lets you select which block outputs appear in the conversation. Use it to test chat-based triggers, talk to AI agents inside a workflow, or inspect responses during development.
 
 ## Features
 
-- **Interactive Chat**: Send messages and receive responses from your workflow
-- **Output Selection**: Choose which workflow outputs to display in the chat
-- **File Upload**: Attach files to your messages for processing
-- **Real-time Streaming**: See responses as they are generated
-- **Message History**: View and scroll through conversation history
+- **Live socket connection** -- each chat instance opens its own socket to the workflow, so messages and responses stream in real time
+- **Output selector** -- a multi-select dropdown in the header lets you choose which workflow block outputs are included in the chat response; selections are deduplicated and persisted per workflow
+- **Clear chat** -- a header button wipes the current conversation history for the active workflow; the button is disabled when there are no messages
+- **Workflow selector** -- a dropdown in the header center lets you switch between workflows in the workspace; when the widget is paired (non-gray pair color) the dropdown reflects the shared selection and manual changes are ignored
+- **Automatic workflow resolution** -- the widget resolves the active workflow from widget params, pair-color channel, or the workflow registry, and persists the selection across sessions
 
 ## Usage
 
-The Workflow Chat widget is useful for:
+### Adding the widget
 
-- Testing workflows that have chat-based triggers
-- Interacting with AI agents in your workflow
-- Debugging workflow responses
-- Demonstrating workflow capabilities
+Open the widget picker and select **Workflow Chat**. The widget requires an active workspace; if none is selected it displays a prompt to choose one. Once a workspace is loaded, it automatically connects to the first available workflow.
 
-### Sending Messages
+### Header layout
 
-1. Type your message in the input field
-2. Optionally attach files using the upload button
-3. Press Enter or click Send to submit
-4. View the streaming response in real-time
+- **Left** -- output selector dropdown to pick which block outputs feed into the chat
+- **Center** -- workflow dropdown to switch the target workflow
+- **Right** -- clear chat button (trash icon) to reset the conversation
 
-### Output Selection
+### Key interactions
 
-You can select which block outputs to display in the chat response. This is helpful when your workflow has multiple output blocks and you want to focus on specific results.
+1. Type a message in the input field at the bottom and press Enter to send
+2. Responses stream into the conversation area as the workflow executes
+3. Use the output selector to narrow responses to specific blocks
+4. Click the clear button to start a fresh conversation
+
+### Pair color syncing
+
+When assigned a pair color, the widget shares its active workflow with other widgets on the same color channel -- typically the Workflow Editor. Changing the workflow in the editor automatically updates this chat widget. When the pair color is `gray`, the widget manages its own workflow selection independently.
 
 <Callout>
-This widget supports the **pairColor** mechanism. Pair it with a Workflow Editor to chat with the workflow you're currently editing.
+Pair this widget with the **Workflow Editor** using a matching pair color so the chat always targets the workflow you are editing.
 </Callout>
 
+## Related
+
+<Cards>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+  <Card title="Triggers Overview" href="/triggers">
+    Browse all available workflow triggers.
+  </Card>
+  <Card title="Workflow Console" href="/widgets/workflow-console">
+    View execution logs and streaming output.
+  </Card>
+</Cards>

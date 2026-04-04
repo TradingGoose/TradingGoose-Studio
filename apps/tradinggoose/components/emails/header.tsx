@@ -8,10 +8,10 @@ interface EmailHeaderProps {
   tagline?: string
 }
 
-export const EmailHeader = ({ tagline = 'AI-Powered Trading Analysis Workflow System' }: EmailHeaderProps) => {
+export const EmailHeader = ({ tagline = 'LLM Technical Trading Analysis Workflow System' }: EmailHeaderProps) => {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
-  const logoSrc = brand.logoUrl || `${baseUrl}/logo/reverse/text/small.png`
+  const logoSrc = brand.logoUrl || `${baseUrl}/logo/reverse/small.png`
 
   return (
     <Section style={baseStyles.header}>

@@ -1,0 +1,119 @@
+---
+title: MCP (Model Context Protocol)
+description: Connect external tools and services to your agents using the Model Context Protocol standard.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+The [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) is an open standard that lets AI agents securely connect to external tools and data sources. TradingGoose implements an MCP client that speaks JSON-RPC 2.0 and supports protocol version negotiation across multiple spec revisions (`2025-06-18`, `2025-03-26`, `2024-11-05`).
+
+## Supported Transports
+
+Every MCP server you register uses one of three HTTP-based transport modes:
+
+| Transport | Description |
+|-----------|-------------|
+| **HTTP** | Standard HTTP POST with JSON responses. Suitable for simple request/response tools. |
+| **SSE** | Server-Sent Events. The server may reply with `text/event-stream` for streamed results. |
+| **Streamable HTTP** | The latest MCP transport (spec 2025-03-26). Supports session management via `Mcp-Session-Id` headers and content-type negotiation between JSON and SSE. |
+
+All three transports are handled by the same underlying client -- the transport field controls how the connection is labeled, but the client will negotiate the response format automatically based on the server's `Content-Type` header.
+
+## Adding an MCP Server
+
+<Steps>
+<Step>
+### Open the MCP Editor widget
+
+Add the **MCP Editor** widget to your dashboard, or navigate to **Workspace Settings > MCP Servers**. See the [MCP Editor widget docs](/widgets/editor-mcp) for details on the widget interface.
+</Step>
+<Step>
+### Provide the server configuration
+
+Each server requires:
+
+- **Name** -- A human-readable label.
+- **Transport** -- One of `http`, `sse`, or `streamable-http`.
+- **URL** -- The server endpoint (e.g. `https://mcp.example.com/v1`).
+- **Headers** (optional) -- Custom headers such as `Authorization`. Supports environment variable interpolation (see below).
+- **Timeout** (optional) -- Request timeout in milliseconds. Defaults to 30 000 ms.
+- **Retries** (optional) -- Number of retry attempts. Defaults to 3.
+</Step>
+<Step>
+### Save and test
+
+Click **Save**, then use the **Test connection** button in the MCP Editor toolbar. The client will run the full initialization handshake -- version negotiation, capability exchange, and an `initialized` notification -- to confirm the server is reachable.
+</Step>
+</Steps>
+
+## Authentication and Environment Variables
+
+You can reference workspace or personal environment variables in the server URL and headers using double-brace syntax:
+
+```
+Authorization: Bearer {{MY_API_KEY}}
+```
+
+At runtime the service resolves these placeholders against your effective decrypted environment. If a referenced variable is missing, the request fails with a descriptive error listing the unresolved variable names.
+
+<Callout type="warn">
+Never hard-code secrets directly in server configurations. Always store sensitive values as environment variables and reference them with the `{{VAR_NAME}}` syntax.
+</Callout>
+
+## Tool Discovery
+
+When you connect to a server, the client sends a `tools/list` JSON-RPC request. The response is parsed into a list of tools, each with:
+
+- **name** -- Unique tool identifier on that server.
+- **description** -- What the tool does.
+- **inputSchema** -- A JSON Schema describing the expected arguments.
+
+Discovered tools are cached per workspace with an LRU eviction policy (max 1000 entries). The cache refreshes automatically on expiry, or you can force a refresh from the MCP Editor toolbar.
+
+## Using MCP Tools in Agent Blocks
+
+Once a server is registered and enabled, its tools appear alongside built-in tools in any **Agent** block's tool picker.
+
+<Steps>
+<Step>
+### Select MCP tools
+
+Open an Agent block and expand the **Tools** section. MCP tools are listed under their server name. Select the ones you need.
+</Step>
+<Step>
+### Run the agent
+
+During execution, the agent calls `tools/call` on the appropriate MCP server, passing the tool name and arguments. The result is returned as structured content (text, image, or resource) and fed back into the agent's context.
+</Step>
+</Steps>
+
+Each tool execution goes through a consent and audit framework. The client checks the server against a security policy (blocked origins, rate limits) and logs an audit trail before dispatching the call.
+
+## Security
+
+The MCP client enforces several security measures by default:
+
+- **Consent gating** -- Every tool execution is checked against the active security policy before dispatch.
+- **Origin allowlisting** -- The server URL origin is automatically added to the allowed origins list.
+- **Rate limiting** -- Configurable cap on tool executions per hour (default: 1000).
+- **Audit logging** -- Each consent decision is tagged with a unique audit ID for traceability.
+- **Blocked origins** -- Servers on the blocked list are rejected immediately.
+
+## Troubleshooting
+
+<Cards>
+<Card title="Server not connecting">
+Verify the URL is correct and the server is running. The client tries both with and without a trailing slash, so path issues are handled automatically. Check the browser console for detailed connection errors.
+</Card>
+<Card title="Tools not appearing">
+Confirm the server is **enabled** and not soft-deleted. Use the **Refresh tools** button in the MCP Editor to force a cache clear and re-discovery.
+</Card>
+<Card title="Missing environment variable errors">
+The error message lists exactly which variables are unresolved. Add them in your workspace or personal environment settings, then retry.
+</Card>
+<Card title="Timeout errors">
+Increase the server timeout value in the MCP Editor. The default is 30 seconds. Slow servers or large tool responses may need more time.
+</Card>
+</Cards>

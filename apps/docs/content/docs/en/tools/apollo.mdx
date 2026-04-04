@@ -1,0 +1,4537 @@
+---
+title: Apollo
+description: Search, enrich, and manage contacts with Apollo.io
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="apollo"
+  color="#EBF212"
+/>
+
+
+## Configuration
+
+### Search People
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "person_titles",
+            "type": "code",
+            "title": "Job Titles",
+            "placeholder": "[\"CEO\", \"VP of Sales\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_locations",
+            "type": "code",
+            "title": "Locations",
+            "placeholder": "[\"San Francisco, CA\", \"New York, NY\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_names",
+            "type": "code",
+            "title": "Company Names",
+            "placeholder": "[\"Company A\", \"Company B\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_seniorities",
+            "type": "code",
+            "title": "Seniority Levels",
+            "placeholder": "[\"senior\", \"manager\", \"director\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Keywords",
+            "placeholder": "Search keywords"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search People (<code>apollo_people_search</code>)</div>
+
+Search Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `person_titles` | array | No | Job titles to search for \(e.g., \["CEO", "VP of Sales"\]\) |
+| `person_locations` | array | No | Locations to search in \(e.g., \["San Francisco, CA", "New York, NY"\]\) |
+| `person_seniorities` | array | No | Seniority levels \(e.g., \["senior", "executive", "manager"\]\) |
+| `organization_names` | array | No | Company names to search within |
+| `q_keywords` | string | No | Keywords to search for |
+| `page` | number | No | Page number for pagination \(default: 1\) |
+| `per_page` | number | No | Results per page \(default: 25, max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `people` | json | Array of people matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Enrich Person
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "First Name",
+            "placeholder": "First name"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Last Name",
+            "placeholder": "Last name"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Email",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "Company Name",
+            "placeholder": "Company name"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "example.com"
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Reveal Personal Emails"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Reveal Phone Numbers"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enrich Person (<code>apollo_people_enrich</code>)</div>
+
+Enrich data for a single person using Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `first_name` | string | No | First name of the person |
+| `last_name` | string | No | Last name of the person |
+| `email` | string | No | Email address of the person |
+| `organization_name` | string | No | Company name where the person works |
+| `domain` | string | No | Company domain \(e.g., apollo.io\) |
+| `linkedin_url` | string | No | LinkedIn profile URL |
+| `reveal_personal_emails` | boolean | No | Reveal personal email addresses \(uses credits\) |
+| `reveal_phone_number` | boolean | No | Reveal phone numbers \(uses credits\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `person` | json | Enriched person data from Apollo |
+
+</div>
+
+
+
+---
+
+### Bulk Enrich People
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Reveal Personal Emails"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Reveal Phone Numbers"
+        },
+        {
+            "id": "people",
+            "type": "code",
+            "title": "People (JSON Array)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Enrich People (<code>apollo_people_bulk_enrich</code>)</div>
+
+Enrich data for up to 10 people at once using Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `people` | array | Yes | Array of people to enrich \(max 10\) |
+| `reveal_personal_emails` | boolean | No | Reveal personal email addresses \(uses credits\) |
+| `reveal_phone_number` | boolean | No | Reveal phone numbers \(uses credits\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `people` | json | Array of enriched people data |
+
+</div>
+
+
+
+---
+
+### Search Organizations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_locations",
+            "type": "code",
+            "title": "Organization Locations",
+            "placeholder": "[\"San Francisco, CA\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_num_employees_ranges",
+            "type": "code",
+            "title": "Employee Count Ranges",
+            "placeholder": "[\"1-10\", \"11-50\", \"51-200\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_keyword_tags",
+            "type": "code",
+            "title": "Keyword Tags",
+            "placeholder": "[\"saas\", \"b2b\", \"enterprise\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_name",
+            "type": "short-input",
+            "title": "Organization Name",
+            "placeholder": "Company name to search"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Organizations (<code>apollo_organization_search</code>)</div>
+
+Search Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `organization_locations` | array | No | Company locations to search |
+| `organization_num_employees_ranges` | array | No | Employee count ranges \(e.g., \["1-10", "11-50"\]\) |
+| `q_organization_keyword_tags` | array | No | Industry or keyword tags |
+| `q_organization_name` | string | No | Organization name to search for |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `organizations` | json | Array of organizations matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Enrich Organization
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "Company Name",
+            "placeholder": "Company name"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enrich Organization (<code>apollo_organization_enrich</code>)</div>
+
+Enrich data for a single organization using Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `organization_name` | string | No | Name of the organization \(at least one of organization_name or domain is required\) |
+| `domain` | string | No | Company domain \(e.g., apollo.io\) \(at least one of domain or organization_name is required\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `organization` | json | Enriched organization data from Apollo |
+
+</div>
+
+
+
+---
+
+### Bulk Enrich Organizations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizations",
+            "type": "code",
+            "title": "Organizations (JSON Array)",
+            "placeholder": "[{\"organization_name\": \"Company A\", \"domain\": \"companya.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Enrich Organizations (<code>apollo_organization_bulk_enrich</code>)</div>
+
+Enrich data for up to 10 organizations at once using Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `organizations` | array | Yes | Array of organizations to enrich \(max 10\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `organizations` | json | Array of enriched organization data |
+
+</div>
+
+
+
+---
+
+### Create Contact
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "First Name",
+            "placeholder": "First name"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Last Name",
+            "placeholder": "Last name"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Email",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Job Title",
+            "placeholder": "Job title"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "Account ID",
+            "placeholder": "Apollo account ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Contact (<code>apollo_contact_create</code>)</div>
+
+Create a new contact in your Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `first_name` | string | Yes | First name of the contact |
+| `last_name` | string | Yes | Last name of the contact |
+| `email` | string | No | Email address of the contact |
+| `title` | string | No | Job title |
+| `account_id` | string | No | Apollo account ID to associate with |
+| `owner_id` | string | No | User ID of the contact owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contact` | json | Created contact data from Apollo |
+
+</div>
+
+
+
+---
+
+### Update Contact
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "First Name",
+            "placeholder": "First name"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Last Name",
+            "placeholder": "Last name"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Email",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "contact_id",
+            "type": "short-input",
+            "title": "Contact ID",
+            "placeholder": "Apollo contact ID",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Job Title",
+            "placeholder": "Job title"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "Account ID",
+            "placeholder": "Apollo account ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Contact (<code>apollo_contact_update</code>)</div>
+
+Update an existing contact in your Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `contact_id` | string | Yes | ID of the contact to update |
+| `first_name` | string | No | First name of the contact |
+| `last_name` | string | No | Last name of the contact |
+| `email` | string | No | Email address |
+| `title` | string | No | Job title |
+| `account_id` | string | No | Apollo account ID |
+| `owner_id` | string | No | User ID of the contact owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contact` | json | Updated contact data from Apollo |
+
+</div>
+
+
+
+---
+
+### Search Contacts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contact_stage_ids",
+            "type": "code",
+            "title": "Contact Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Keywords",
+            "placeholder": "Search keywords"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Contacts (<code>apollo_contact_search</code>)</div>
+
+Search your team
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `q_keywords` | string | No | Keywords to search for |
+| `contact_stage_ids` | array | No | Filter by contact stage IDs |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contacts` | json | Array of contacts matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Bulk Create Contacts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contacts (JSON Array)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "run_dedupe",
+            "type": "switch",
+            "title": "Run Deduplication"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Create Contacts (<code>apollo_contact_bulk_create</code>)</div>
+
+Create up to 100 contacts at once in your Apollo database. Supports deduplication to prevent creating duplicate contacts. Master key required.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `contacts` | array | Yes | Array of contacts to create \(max 100\). Each contact should include first_name, last_name, and optionally email, title, account_id, owner_id |
+| `run_dedupe` | boolean | No | Enable deduplication to prevent creating duplicate contacts. When true, existing contacts are returned without modification |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `created_contacts` | json | Array of newly created contacts |
+| `existing_contacts` | json | Array of existing contacts \(when deduplication is enabled\) |
+
+</div>
+
+
+
+---
+
+### Bulk Update Contacts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contacts (JSON Array)",
+            "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Update Contacts (<code>apollo_contact_bulk_update</code>)</div>
+
+Update up to 100 existing contacts at once in your Apollo database. Each contact must include an id field. Master key required.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `contacts` | array | Yes | Array of contacts to update \(max 100\). Each contact must include id field, and optionally first_name, last_name, email, title, account_id, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `updated_contacts` | json | Array of successfully updated contacts |
+| `failed_contacts` | json | Array of contacts that failed to update |
+
+</div>
+
+
+
+---
+
+### Create Account
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "Account Name",
+            "placeholder": "Company name"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "Website URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Phone Number",
+            "placeholder": "Company phone"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Account (<code>apollo_account_create</code>)</div>
+
+Create a new account (company) in your Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `name` | string | Yes | Company name |
+| `website_url` | string | No | Company website URL |
+| `phone` | string | No | Company phone number |
+| `owner_id` | string | No | User ID of the account owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `account` | json | Created account data from Apollo |
+
+</div>
+
+
+
+---
+
+### Update Account
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "Account ID",
+            "placeholder": "Apollo account ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "Account Name",
+            "placeholder": "Company name"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "Website URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Phone Number",
+            "placeholder": "Company phone"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Account (<code>apollo_account_update</code>)</div>
+
+Update an existing account in your Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `account_id` | string | Yes | ID of the account to update |
+| `name` | string | No | Company name |
+| `website_url` | string | No | Company website URL |
+| `phone` | string | No | Company phone number |
+| `owner_id` | string | No | User ID of the account owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `account` | json | Updated account data from Apollo |
+
+</div>
+
+
+
+---
+
+### Search Accounts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Keywords",
+            "placeholder": "Search keywords"
+        },
+        {
+            "id": "account_stage_ids",
+            "type": "code",
+            "title": "Account Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Accounts (<code>apollo_account_search</code>)</div>
+
+Search your team
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `q_keywords` | string | No | Keywords to search for in account data |
+| `owner_id` | string | No | Filter by account owner user ID |
+| `account_stage_ids` | array | No | Filter by account stage IDs |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `accounts` | json | Array of accounts matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Bulk Create Accounts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "Accounts (JSON Array)",
+            "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Create Accounts (<code>apollo_account_bulk_create</code>)</div>
+
+Create up to 100 accounts at once in your Apollo database. Note: Apollo does not apply deduplication - duplicate accounts may be created if entries share similar names or domains. Master key required.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `accounts` | array | Yes | Array of accounts to create \(max 100\). Each account should include name \(required\), and optionally website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `created_accounts` | json | Array of newly created accounts |
+| `failed_accounts` | json | Array of accounts that failed to create |
+
+</div>
+
+
+
+---
+
+### Bulk Update Accounts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "Accounts (JSON Array)",
+            "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Update Accounts (<code>apollo_account_bulk_update</code>)</div>
+
+Update up to 1000 existing accounts at once in your Apollo database (higher limit than contacts!). Each account must include an id field. Master key required.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `accounts` | array | Yes | Array of accounts to update \(max 1000\). Each account must include id field, and optionally name, website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `updated_accounts` | json | Array of successfully updated accounts |
+| `failed_accounts` | json | Array of accounts that failed to update |
+
+</div>
+
+
+
+---
+
+### Create Opportunity
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "Account ID",
+            "placeholder": "Apollo account ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "Opportunity Name",
+            "placeholder": "Opportunity name"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Amount",
+            "placeholder": "Deal amount (e.g., 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "Stage ID",
+            "placeholder": "Opportunity stage ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "Close Date",
+            "placeholder": "ISO date (e.g., 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Opportunity description"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Opportunity (<code>apollo_opportunity_create</code>)</div>
+
+Create a new deal for an account in your Apollo database (master key required)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `name` | string | Yes | Name of the opportunity/deal |
+| `account_id` | string | Yes | ID of the account this opportunity belongs to |
+| `amount` | number | No | Monetary value of the opportunity |
+| `stage_id` | string | No | ID of the deal stage |
+| `owner_id` | string | No | User ID of the opportunity owner |
+| `close_date` | string | No | Expected close date \(ISO 8601 format\) |
+| `description` | string | No | Description or notes about the opportunity |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Created opportunity data from Apollo |
+
+</div>
+
+
+
+---
+
+### Search Opportunities
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Keywords",
+            "placeholder": "Search keywords"
+        },
+        {
+            "id": "account_ids",
+            "type": "code",
+            "title": "Account IDs",
+            "placeholder": "[\"account_id_1\", \"account_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "stage_ids",
+            "type": "code",
+            "title": "Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "owner_ids",
+            "type": "code",
+            "title": "Owner IDs",
+            "placeholder": "[\"user_id_1\", \"user_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Opportunities (<code>apollo_opportunity_search</code>)</div>
+
+Search and list all deals/opportunities in your team
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `q_keywords` | string | No | Keywords to search for in opportunity names |
+| `account_ids` | array | No | Filter by specific account IDs |
+| `stage_ids` | array | No | Filter by deal stage IDs |
+| `owner_ids` | array | No | Filter by opportunity owner IDs |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `opportunities` | json | Array of opportunities matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Get Opportunity
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "Opportunity ID",
+            "placeholder": "Apollo opportunity ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Opportunity (<code>apollo_opportunity_get</code>)</div>
+
+Retrieve complete details of a specific deal/opportunity by ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `opportunity_id` | string | Yes | ID of the opportunity to retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Complete opportunity data from Apollo |
+
+</div>
+
+
+
+---
+
+### Update Opportunity
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Owner ID",
+            "placeholder": "Apollo user ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "Opportunity Name",
+            "placeholder": "Opportunity name"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Amount",
+            "placeholder": "Deal amount (e.g., 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "Stage ID",
+            "placeholder": "Opportunity stage ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "Close Date",
+            "placeholder": "ISO date (e.g., 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Opportunity description"
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "Opportunity ID",
+            "placeholder": "Apollo opportunity ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Opportunity (<code>apollo_opportunity_update</code>)</div>
+
+Update an existing deal/opportunity in your Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key |
+| `opportunity_id` | string | Yes | ID of the opportunity to update |
+| `name` | string | No | Name of the opportunity/deal |
+| `amount` | number | No | Monetary value of the opportunity |
+| `stage_id` | string | No | ID of the deal stage |
+| `owner_id` | string | No | User ID of the opportunity owner |
+| `close_date` | string | No | Expected close date \(ISO 8601 format\) |
+| `description` | string | No | Description or notes about the opportunity |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Updated opportunity data from Apollo |
+
+</div>
+
+
+
+---
+
+### Search Sequences
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_name",
+            "type": "short-input",
+            "title": "Sequence Name",
+            "placeholder": "Search by sequence name"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "Active Only"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Sequences (<code>apollo_sequence_search</code>)</div>
+
+Search for sequences/campaigns in your team
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `q_name` | string | No | Search sequences by name |
+| `active` | boolean | No | Filter by active status \(true for active sequences, false for inactive\) |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `sequences` | json | Array of sequences/campaigns matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Add to Sequence
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_add"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sequence_id",
+            "type": "short-input",
+            "title": "Sequence ID",
+            "placeholder": "Apollo sequence ID",
+            "required": true
+        },
+        {
+            "id": "contact_ids",
+            "type": "code",
+            "title": "Contact IDs (JSON Array)",
+            "placeholder": "[\"contact_id_1\", \"contact_id_2\"]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add to Sequence (<code>apollo_sequence_add_contacts</code>)</div>
+
+Add contacts to an Apollo sequence
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `sequence_id` | string | Yes | ID of the sequence to add contacts to |
+| `contact_ids` | array | Yes | Array of contact IDs to add to the sequence |
+| `emailer_campaign_id` | string | No | Optional emailer campaign ID |
+| `send_email_from_user_id` | string | No | User ID to send emails from |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contacts_added` | json | Array of contact IDs added to the sequence |
+
+</div>
+
+
+
+---
+
+### Create Task
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "Account ID",
+            "placeholder": "Apollo account ID"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "Task Note",
+            "placeholder": "Task description",
+            "required": true
+        },
+        {
+            "id": "due_at",
+            "type": "datetime-input",
+            "title": "Due Date",
+            "placeholder": "ISO date (e.g., 2024-12-31T23:59:59Z)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Task (<code>apollo_task_create</code>)</div>
+
+Create a new task in Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `note` | string | Yes | Task note/description |
+| `contact_id` | string | No | Contact ID to associate with |
+| `account_id` | string | No | Account ID to associate with |
+| `due_at` | string | No | Due date in ISO format |
+| `priority` | string | No | Task priority |
+| `type` | string | No | Task type |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `task` | json | Created task data from Apollo |
+
+</div>
+
+
+
+---
+
+### Search Tasks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "completed",
+            "type": "switch",
+            "title": "Completed"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Page Number",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Results Per Page",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Tasks (<code>apollo_task_search</code>)</div>
+
+Search for tasks in Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+| `contact_id` | string | No | Filter by contact ID |
+| `account_id` | string | No | Filter by account ID |
+| `completed` | boolean | No | Filter by completion status |
+| `page` | number | No | Page number for pagination |
+| `per_page` | number | No | Results per page \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `tasks` | json | Array of tasks matching the search criteria |
+
+</div>
+
+
+
+---
+
+### Get Email Accounts
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "email_accounts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API Key",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Email Accounts (<code>apollo_email_accounts</code>)</div>
+
+Get list of team
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `email_accounts` | json | Array of team email accounts linked in Apollo |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrates Apollo.io into the workflow. Search for people and companies, enrich contact data, manage your CRM contacts and accounts, add contacts to sequences, and create tasks.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `apollo`

@@ -1,133 +1,119 @@
 'use client'
 
-import { ChevronDown, Workflow } from 'lucide-react'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
+import { useState } from 'react'
+import { Check, ChevronDown, Workflow } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 import { LandingWidgetShell } from '../market-preview/landing-widget-shell'
 import { WorkflowPreviewCanvas } from './workflow-preview-canvas'
+import { TRADING_AGENT_WORKFLOW_DEMOS, type WorkflowPreviewDemo } from './workflow-preview-demos'
 
-const WORKFLOW_SELECTOR = {
-  name: 'Momentum Breakout',
-  color: '#8b5cf6',
-} as const
-
-const WORKFLOW_STATE: WorkflowState = {
-  blocks: {
-    market: {
-      id: 'market',
-      type: 'historical_data',
-      name: 'Market Data',
-      position: { x: 24, y: 44 },
-      subBlocks: {
-        provider: { id: 'provider', type: 'dropdown', value: 'polygon' },
-        listing: { id: 'listing', type: 'market-selector', value: 'AAPL' },
-        interval: { id: 'interval', type: 'dropdown', value: '1m' },
-      },
-      outputs: {},
-      enabled: true,
-      horizontalHandles: true,
-      height: 168,
-    },
-    filter: {
-      id: 'filter',
-      type: 'condition',
-      name: 'Entry Filter',
-      position: { x: 420, y: 50 },
-      subBlocks: {
-        conditions: {
-          id: 'conditions',
-          type: 'condition-input',
-          value: JSON.stringify([
-            { id: 'long-setup', value: 'ema_21 > ema_50 && macd_histogram > 0' },
-            { id: 'else-path', value: '' },
-          ]),
-        },
-      },
-      outputs: {},
-      enabled: true,
-      horizontalHandles: true,
-      height: 152,
-    },
-    trade: {
-      id: 'trade',
-      type: 'trading_action',
-      name: 'Place Order',
-      position: { x: 812, y: 44 },
-      subBlocks: {
-        provider: { id: 'provider', type: 'dropdown', value: 'alpaca' },
-        environment: { id: 'environment', type: 'dropdown', value: 'paper' },
-        side: { id: 'side', type: 'dropdown', value: 'buy' },
-        listing: { id: 'listing', type: 'market-selector', value: 'AAPL' },
-        orderType: { id: 'orderType', type: 'dropdown', value: 'market' },
-        timeInForce: { id: 'timeInForce', type: 'dropdown', value: 'day' },
-      },
-      outputs: {},
-      enabled: true,
-      horizontalHandles: true,
-      height: 188,
-    },
-  },
-  edges: [
-    {
-      id: 'market-filter',
-      source: 'market',
-      sourceHandle: 'source',
-      target: 'filter',
-      targetHandle: 'target',
-      type: 'workflowEdge',
-    },
-    {
-      id: 'filter-trade',
-      source: 'filter',
-      sourceHandle: 'condition-long-setup',
-      target: 'trade',
-      targetHandle: 'target',
-      type: 'workflowEdge',
-    },
-  ],
-  loops: {},
-  parallels: {},
-}
-
-function WorkflowSelectorMock() {
+function WorkflowSelector({
+  selectedDemo,
+  onSelect,
+}: {
+  selectedDemo: WorkflowPreviewDemo
+  onSelect: (demo: WorkflowPreviewDemo) => void
+}) {
   return (
-    <button
-      type='button'
-      className={widgetHeaderControlClassName(
-        'group flex min-w-[240px] items-center justify-between gap-1'
-      )}
-      aria-label={WORKFLOW_SELECTOR.name}
-    >
-      <div
-        className='h-5 w-5 rounded-xs p-0.5'
-        style={{
-          backgroundColor: `${WORKFLOW_SELECTOR.color}20`,
-        }}
-        aria-hidden='true'
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type='button'
+          className={widgetHeaderControlClassName(
+            'group flex min-w-[240px] items-center justify-between gap-1'
+          )}
+          aria-label={selectedDemo.name}
+          aria-haspopup='listbox'
+        >
+          <div
+            className='h-5 w-5 rounded-xs p-0.5'
+            style={{ backgroundColor: `${selectedDemo.color}20` }}
+            aria-hidden='true'
+          >
+            <Workflow
+              className='h-4 w-4'
+              aria-hidden='true'
+              style={{ color: selectedDemo.color }}
+            />
+          </div>
+          <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+            {selectedDemo.name}
+          </span>
+          <ChevronDown
+            className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+            aria-hidden='true'
+          />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align='center'
+        sideOffset={6}
+        className={`${widgetHeaderMenuContentClassName} w-[260px]`}
       >
-        <Workflow
-          className='h-4 w-4'
-          aria-hidden='true'
-          style={{ color: WORKFLOW_SELECTOR.color }}
-        />
-      </div>
-      <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-        {WORKFLOW_SELECTOR.name}
-      </span>
-      <ChevronDown className='h-4 w-4 shrink-0 text-muted-foreground' aria-hidden='true' />
-    </button>
+        {TRADING_AGENT_WORKFLOW_DEMOS.map((demo) => {
+          const isSelected = demo.id === selectedDemo.id
+
+          return (
+            <DropdownMenuItem
+              key={demo.id}
+              className={`${widgetHeaderMenuItemClassName} justify-between`}
+              data-active={isSelected ? '' : undefined}
+              onSelect={() => {
+                if (isSelected) return
+                onSelect(demo)
+              }}
+            >
+              <div className='flex min-w-0 items-center gap-2'>
+                <span
+                  className='h-5 w-5 rounded-xs p-0.5'
+                  style={{ backgroundColor: `${demo.color}20` }}
+                  aria-hidden='true'
+                >
+                  <Workflow className='h-4 w-4' aria-hidden='true' style={{ color: demo.color }} />
+                </span>
+                <span className={`${widgetHeaderMenuTextClassName} truncate`}>{demo.name}</span>
+              </div>
+              {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
 export function WorkflowPreview() {
+  const [selectedDemo, setSelectedDemo] = useState(TRADING_AGENT_WORKFLOW_DEMOS[0])
+
   return (
-    <div className='flex h-full min-h-[480px] flex-col gap-4'>
+    <div className='flex h-full min-h-[560px] flex-col gap-4'>
       <LandingWidgetShell
         widgetKey='editor_workflow'
         className='min-h-0 flex-1'
-        headerCenter={<WorkflowSelectorMock />}
+        headerCenter={
+          <WorkflowSelector
+            selectedDemo={selectedDemo}
+            onSelect={(demo) => setSelectedDemo(demo)}
+          />
+        }
       >
-        <WorkflowPreviewCanvas workflowState={WORKFLOW_STATE} className='h-full w-full flex-1' />
+        <WorkflowPreviewCanvas
+          workflowKey={selectedDemo.id}
+          workflowState={selectedDemo.workflowState}
+          className='h-full w-full flex-1'
+        />
       </LandingWidgetShell>
     </div>
   )

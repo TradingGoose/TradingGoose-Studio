@@ -1,0 +1,97 @@
+{/*
+  TEMPLATE: Utility (MCP / Skills / Custom Tools)
+  OUTPUT:   apps/docs/content/docs/en/mcp/index.mdx
+            apps/docs/content/docs/en/skills/index.mdx
+            apps/docs/content/docs/en/custom-tools/index.mdx
+
+  Utilities are extensibility features. Each is a small section (1-3 pages)
+  rather than a large directory of items. They share a common structure:
+  - What is it / why use it
+  - How to create/configure
+  - How to use in workflows
+  - API/schema reference (if applicable)
+
+  These are fully manual — no auto-generation.
+*/}
+---
+title: {{UTILITY_NAME}}
+description: {{SHORT_DESCRIPTION}}
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Image } from '@/components/ui/image'
+import { Video } from '@/components/ui/video'
+
+{{INTRO_PARAGRAPH}}
+
+## What is {{UTILITY_SHORT_NAME}}?
+
+{/*
+  Explain the concept, why it exists, what problem it solves.
+  Keep to 2-3 paragraphs. Link to external standards if applicable (e.g., MCP spec).
+*/}
+
+{{CONCEPT_EXPLANATION}}
+
+## Creating {{UTILITY_PLURAL}}
+
+{/* Video walkthrough preferred here */}
+<div className="mx-auto w-full overflow-hidden rounded-lg">
+  <Video src="{{SLUG}}-create.mp4" width={700} height={450} />
+</div>
+
+<Steps>
+  <Step>
+    {{CREATE_STEP_1}}
+  </Step>
+  <Step>
+    {{CREATE_STEP_2}}
+  </Step>
+  <Step>
+    {{CREATE_STEP_3}}
+  </Step>
+</Steps>
+
+## Using in Workflows
+
+{/*
+  Show how this utility integrates with the workflow editor / agent blocks.
+  Include a screenshot or video.
+*/}
+
+<div className="mx-auto w-full overflow-hidden rounded-lg">
+  <Video src="{{SLUG}}-use.mp4" width={700} height={450} />
+</div>
+
+{{USAGE_EXPLANATION}}
+
+{/* OPTIONAL: Configuration / schema reference */}
+
+## Configuration
+
+<Tabs items={['{{CONFIG_TAB_1}}', '{{CONFIG_TAB_2}}']}>
+  <Tab>
+    {{CONFIG_TAB_1_CONTENT}}
+  </Tab>
+  <Tab>
+    {{CONFIG_TAB_2_CONTENT}}
+  </Tab>
+</Tabs>
+
+{/* OPTIONAL: API reference for programmatic access */}
+{/*
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/{{SLUG}}` | GET | List all |
+| `/api/{{SLUG}}` | POST | Create new |
+| `/api/{{SLUG}}/[id]` | PUT | Update |
+| `/api/{{SLUG}}/[id]` | DELETE | Remove |
+*/}
+
+<Callout type="info">
+  {{IMPORTANT_NOTE}}
+</Callout>

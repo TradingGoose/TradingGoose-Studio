@@ -1,108 +1,82 @@
+import { normalizeListingOptions } from '@/components/listing-selector/fetchers'
+import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
+import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import type { ListingOption } from '@/lib/listing/identity'
 import { marketClient } from '@/lib/market/client/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import type { MonitorStock } from '@/app/(landing)/components/monitor-preview/monitor-preview'
+import { sortMonitorListings } from '@/app/(landing)/components/monitor-preview/listing-preference'
 
+const MONITOR_LISTINGS_CACHE_TTL_SECONDS = 5 * 60
+const MONITOR_LISTINGS_CACHE_KEY = 'landing-monitor-listings:v3'
+const MONITOR_PREVIEW_ROW_LIMIT = 20
 const MONITOR_LISTINGS_TIMEOUT_MS = 4000
-const MONITOR_LISTINGS_LIMIT = 200
-const PREFERRED_MARKET_CODES = new Set(['NASDAQ', 'NYSE', 'NYSEARCA', 'ARCA', 'AMEX'])
-const PREFERRED_ASSET_CLASSES = new Set(['stock', 'etf'])
 
-const FALLBACK_STOCKS: MonitorStock[] = [
-  { ticker: 'AAPL', name: 'Apple Inc.', iconUrl: '' },
-  { ticker: 'TSLA', name: 'Tesla Inc.', iconUrl: '' },
-  { ticker: 'NVDA', name: 'NVIDIA Corp.', iconUrl: '' },
-  { ticker: 'MSFT', name: 'Microsoft Corp.', iconUrl: '' },
-  { ticker: 'AMZN', name: 'Amazon.com Inc.', iconUrl: '' },
-  { ticker: 'GOOG', name: 'Alphabet Inc.', iconUrl: '' },
-  { ticker: 'META', name: 'Meta Platforms', iconUrl: '' },
-  { ticker: 'AMD', name: 'Advanced Micro Devices', iconUrl: '' },
-  { ticker: 'NFLX', name: 'Netflix Inc.', iconUrl: '' },
-  { ticker: 'SPY', name: 'SPDR S&P 500 ETF', iconUrl: '' },
-]
+const LANDING_MONITOR_QUERY = new URLSearchParams({
+  ...buildMarketSearchRequest({
+    rawQuery: 'a',
+    providerConfig: {
+      assetClasses: ['stock'],
+      marketCodes: [],
+      listingQuoteCodes: [],
+      cryptoQuoteCodes: [],
+      currencyQuoteCodes: [],
+    },
+  }).queryParams,
+  version: MARKET_API_VERSION,
+}).toString()
 
-let cachedStocks: MonitorStock[] | null = null
-let stocksPromise: Promise<MonitorStock[]> | null = null
+const FALLBACK_STOCKS: ListingOption[] = [
+  ['AAPL', 'Apple Inc.', 'stock'],
+  ['TSM', 'Taiwan Semiconductor', 'stock'],
+  ['ASML', 'ASML Holding', 'stock'],
+  ['SONY', 'Sony Group', 'stock'],
+  ['SAP', 'SAP SE', 'stock'],
+  ['NVO', 'Novo Nordisk', 'stock'],
+  ['BABA', 'Alibaba Group', 'stock'],
+  ['SHOP', 'Shopify', 'stock'],
+  ['MELI', 'MercadoLibre', 'stock'],
+  ['RELX', 'RELX', 'stock'],
+].map(([base, name, assetClass]) => ({
+  listing_id: `fallback-${base.toLowerCase()}`,
+  base_id: '',
+  quote_id: '',
+  listing_type: 'default' as const,
+  base,
+  name,
+  iconUrl: '',
+  assetClass,
+}))
 
-const scoreListing = (listing: ListingOption) => {
-  let score = 0
+async function requestMonitorListings(): Promise<ListingOption[]> {
+  const response = await marketClient.makeRequest<{
+    data?: ListingOption[] | ListingOption | null
+  }>(`/api/search?${LANDING_MONITOR_QUERY}`, {
+    timeoutMs: MONITOR_LISTINGS_TIMEOUT_MS,
+  })
 
-  if (typeof listing.name === 'string' && listing.name.trim()) score += 100
-  if (typeof listing.iconUrl === 'string' && listing.iconUrl.trim()) score += 10
-  if (listing.countryCode === 'US') score += 40
-  if (listing.marketCode && PREFERRED_MARKET_CODES.has(listing.marketCode)) score += 20
-  if (listing.assetClass && PREFERRED_ASSET_CLASSES.has(listing.assetClass)) score += 30
-  if (/^[A-Z]{2,5}$/.test(listing.base || '')) score += 20
+  if (!response.success || !response.data) return []
 
-  return score + Number(listing.rank ?? 0)
+  return sortMonitorListings(normalizeListingOptions(response.data)).slice(
+    0,
+    MONITOR_PREVIEW_ROW_LIMIT
+  )
 }
 
-const toMonitorStocks = (rows: ListingOption[]): MonitorStock[] => {
-  const seenTickers = new Set<string>()
+export async function fetchMonitorStocks(): Promise<ListingOption[]> {
+  try {
+    const cached = await readServerJsonCache<ListingOption[]>(MONITOR_LISTINGS_CACHE_KEY)
+    if (cached && cached.length > 0) return cached.slice(0, MONITOR_PREVIEW_ROW_LIMIT)
 
-  return rows
-    .filter(
-      (row) =>
-        typeof row.base === 'string' &&
-        /^[A-Z]{2,5}$/.test(row.base) &&
-        typeof row.name === 'string' &&
-        row.name.trim() &&
-        typeof row.assetClass === 'string' &&
-        PREFERRED_ASSET_CLASSES.has(row.assetClass)
-    )
-    .sort((left, right) => scoreListing(right) - scoreListing(left))
-    .filter((row) => {
-      if (seenTickers.has(row.base)) return false
-      seenTickers.add(row.base)
-      return true
-    })
-    .map((row) => ({
-      ticker: row.base,
-      name: row.name ?? row.base,
-      iconUrl: row.iconUrl ?? '',
-    }))
-    .slice(0, 20)
-}
-
-export async function fetchMonitorStocks(): Promise<MonitorStock[]> {
-  if (cachedStocks) return cachedStocks
-  if (stocksPromise) return stocksPromise
-
-  stocksPromise = (async () => {
-    try {
-      const params = new URLSearchParams({
-        search_query: 'a',
-        limit: String(MONITOR_LISTINGS_LIMIT),
-        version: MARKET_API_VERSION,
-      })
-
-      const response = await marketClient.makeRequest<{
-        data?: ListingOption[] | ListingOption | null
-      }>(`/api/search/listings?${params.toString()}`, {
-        timeoutMs: MONITOR_LISTINGS_TIMEOUT_MS,
-      })
-
-      if (!response.success || !response.data) {
-        return FALLBACK_STOCKS
-      }
-
-      const payload = response.data
-      const rows = !payload?.data ? [] : Array.isArray(payload.data) ? payload.data : [payload.data]
-
-      const stocks = toMonitorStocks(rows)
-
-      if (stocks.length === 0) {
-        return FALLBACK_STOCKS
-      }
-
-      cachedStocks = stocks
-      return stocks
-    } catch {
-      return FALLBACK_STOCKS
-    } finally {
-      stocksPromise = null
+    const listings = await requestMonitorListings()
+    if (listings.length > 0) {
+      await writeServerJsonCache(
+        MONITOR_LISTINGS_CACHE_KEY,
+        listings,
+        MONITOR_LISTINGS_CACHE_TTL_SECONDS
+      )
+      return listings
     }
-  })()
+  } catch {}
 
-  return stocksPromise
+  return FALLBACK_STOCKS
 }

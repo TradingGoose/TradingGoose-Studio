@@ -1,0 +1,222 @@
+---
+title: API Reference
+description: Complete function reference for PineTS in TradingGoose
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Complete reference of all supported PineTS functions in TradingGoose, organized by namespace. This page is derived from the PineTS runtime type definitions.
+
+## input (13 functions)
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `input.int(defval, title, min?, max?, step?)` | `number` | Integer input |
+| `input.float(defval, title, min?, max?, step?)` | `number` | Float input |
+| `input.bool(defval, title)` | `boolean` | Boolean input |
+| `input.string(defval, title)` | `string` | String input |
+| `input.color(defval, title)` | `string` | Color picker |
+| `input.source(defval, title)` | `series` | Data source selector |
+| `input.timeframe(defval, title)` | `string` | Timeframe selector |
+| `input.price(defval, title)` | `number` | Price input |
+| `input.time(defval, title)` | `number` | Timestamp input |
+| `input.session(defval, title)` | `string` | Session input |
+| `input.symbol(defval, title)` | `string` | Symbol input |
+| `input.text_area(defval, title)` | `string` | Multi-line text |
+| `input.enum(defval, title, options)` | `T` | Dropdown selector |
+
+## ta (57 functions)
+
+### Moving Averages
+
+| Function | Description |
+|----------|-------------|
+| `ta.alma(source, length, offset?, sigma?)` | Arnaud Legoux MA |
+| `ta.ema(source, length)` | Exponential MA |
+| `ta.hma(source, length)` | Hull MA |
+| `ta.linreg(source, length, offset?)` | Linear Regression |
+| `ta.rma(source, length)` | Rolling MA |
+| `ta.sma(source, length)` | Simple MA |
+| `ta.swma(source)` | Symmetrically Weighted MA |
+| `ta.vwap` / `ta.vwap(source)` | Volume Weighted Average Price |
+| `ta.vwma(source, length)` | Volume Weighted MA |
+| `ta.wma(source, length)` | Weighted MA |
+
+### Oscillators
+
+| Function | Description |
+|----------|-------------|
+| `ta.cci(source, length)` | Commodity Channel Index |
+| `ta.change(source, length?)` | Price Change |
+| `ta.cmo(source, length)` | Chande Momentum Oscillator |
+| `ta.cog(source, length)` | Center of Gravity |
+| `ta.macd(source, fast, slow, signal)` | MACD → `[macd, signal, hist]` |
+| `ta.mfi(series, length)` | Money Flow Index |
+| `ta.mom(source, length)` | Momentum |
+| `ta.roc(source, length)` | Rate of Change |
+| `ta.rsi(source, length)` | Relative Strength Index |
+| `ta.stoch(source, high, low, length)` | Stochastic |
+| `ta.tsi(source, short, long)` | True Strength Index |
+| `ta.wpr(length)` | Williams %R |
+
+### Volatility
+
+| Function | Description |
+|----------|-------------|
+| `ta.atr(length)` | Average True Range |
+| `ta.bb(source, length, mult)` | Bollinger Bands → `[mid, upper, lower]` |
+| `ta.bbw(source, length, mult)` | Bollinger Bands Width |
+| `ta.dev(source, length)` | Mean Absolute Deviation |
+| `ta.kc(source, length, mult)` | Keltner Channels → `[mid, upper, lower]` |
+| `ta.kcw(source, length, mult)` | Keltner Channels Width |
+| `ta.range(source, length)` | Range |
+| `ta.stdev(source, length)` | Standard Deviation |
+| `ta.tr` / `ta.tr(handleNa?)` | True Range |
+| `ta.variance(source, length)` | Variance |
+
+### Volume (variables)
+
+| Variable | Description |
+|----------|-------------|
+| `ta.accdist` | Accumulation/Distribution |
+| `ta.iii` | Intraday Intensity Index |
+| `ta.nvi` | Negative Volume Index |
+| `ta.obv` | On-Balance Volume |
+| `ta.pvi` | Positive Volume Index |
+| `ta.pvt` | Price-Volume Trend |
+| `ta.wad` | Williams A/D |
+| `ta.wvad` | Williams Variable A/D |
+
+### Trend
+
+| Function | Description |
+|----------|-------------|
+| `ta.cross(a, b)` | Cross (either direction) |
+| `ta.crossover(a, b)` | Cross above |
+| `ta.crossunder(a, b)` | Cross below |
+| `ta.dmi(diLength, adxSmoothing)` | DMI → `[plus, minus, adx]` |
+| `ta.falling(source, length)` | Falling detection |
+| `ta.rising(source, length)` | Rising detection |
+| `ta.sar(start, inc, max)` | Parabolic SAR |
+| `ta.supertrend(factor, atrLength)` | SuperTrend → `[value, direction]` |
+
+### Statistics
+
+| Function | Description |
+|----------|-------------|
+| `ta.barssince(condition)` | Bars since condition |
+| `ta.correlation(a, b, length)` | Correlation coefficient |
+| `ta.cum(source)` | Cumulative sum |
+| `ta.highest(source, length)` | Highest over N bars |
+| `ta.highestbars(source, length)` | Bars since highest |
+| `ta.lowest(source, length)` | Lowest over N bars |
+| `ta.lowestbars(source, length)` | Bars since lowest |
+| `ta.max(a, b)` | Maximum |
+| `ta.median(source, length)` | Median |
+| `ta.min(a, b)` | Minimum |
+| `ta.mode(source, length)` | Mode |
+| `ta.percentile_linear_interpolation(source, len, pct)` | Percentile (linear) |
+| `ta.percentile_nearest_rank(source, len, pct)` | Percentile (nearest rank) |
+| `ta.percentrank(source, length)` | Percentile rank |
+| `ta.pivot_point_levels(type, anchor)` | Pivot point levels |
+| `ta.pivothigh(source, left, right)` | Pivot high |
+| `ta.pivotlow(source, left, right)` | Pivot low |
+| `ta.rci(source, length)` | Rank Correlation Index |
+| `ta.valuewhen(condition, source, occurrence)` | Value when condition |
+
+## math (28 functions + 4 constants)
+
+| Function / Constant | Description |
+|---------------------|-------------|
+| `math.pi`, `math.e`, `math.phi`, `math.rphi` | Mathematical constants |
+| `math.abs(x)` | Absolute value |
+| `math.ceil(x)` | Round up |
+| `math.floor(x)` | Round down |
+| `math.round(x, precision?)` | Round |
+| `math.round_to_mintick(x)` | Round to min tick |
+| `math.sign(x)` | Sign |
+| `math.max(a, b)` | Maximum |
+| `math.min(a, b)` | Minimum |
+| `math.avg(...)` | Average |
+| `math.sum(source, length)` | Sum |
+| `math.pow(base, exp)` | Power |
+| `math.sqrt(x)` | Square root |
+| `math.exp(x)` | Exponential |
+| `math.log(x)` | Natural log |
+| `math.log10(x)` | Base-10 log |
+| `math.sin(x)`, `math.cos(x)`, `math.tan(x)` | Trigonometric |
+| `math.asin(x)`, `math.acos(x)`, `math.atan(x)` | Inverse trig |
+| `math.todegrees(x)`, `math.toradians(x)` | Angle conversion |
+| `math.random(min?, max?)` | Random number |
+
+## plot (10 functions)
+
+| Function | Description |
+|----------|-------------|
+| `plot(series, title?, options?)` | Line/area/histogram plot |
+| `plotshape(series, title?, options?)` | Shape markers |
+| `plotchar(series, title?, char?, options?)` | Character markers |
+| `plotarrow(series, title?, options?)` | Arrow markers |
+| `plotbar(o, h, l, c, title?, options?)` | OHLC bars |
+| `plotcandle(o, h, l, c, title?, options?)` | Candlesticks |
+| `hline(price, title?, options?)` | Horizontal line |
+| `fill(plot1, plot2, color?)` | Fill between plots |
+| `bgcolor(color, offset?, options?)` | Background color |
+| `barcolor(color, offset?, options?)` | Bar color |
+
+## array (52 methods)
+
+| Category | Functions |
+|----------|-----------|
+| **Create** | `from`, `new_float`, `new_int`, `new_bool`, `new_string`, `copy` |
+| **Access** | `get`, `set`, `first`, `last` |
+| **Modify** | `push`, `pop`, `shift`, `unshift`, `insert`, `remove`, `clear`, `fill`, `reverse` |
+| **Shape** | `size`, `slice`, `concat` |
+| **Search** | `indexof`, `lastindexof`, `includes`, `binary_search`, `binary_search_leftmost`, `binary_search_rightmost`, `every`, `some` |
+| **Sort** | `sort`, `sort_indices` |
+| **Stats** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance`, `covariance`, `range`, `percentrank`, `percentile_linear_interpolation`, `percentile_nearest_rank` |
+| **Transform** | `abs`, `join`, `standardize` |
+
+## map (11 methods)
+
+`new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
+
+## matrix (50 methods)
+
+| Category | Functions |
+|----------|-----------|
+| **Access** | `get`, `set`, `row`, `col` |
+| **Size** | `rows`, `columns`, `elements_count`, `reshape`, `submatrix` |
+| **Modify** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
+| **Arithmetic** | `mult`, `pow`, `diff`, `kron` |
+| **Linear Algebra** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
+| **Stats** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Boolean** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
+| **Sort** | `sort` |
+
+## str (19 methods)
+
+`length`, `contains`, `startswith`, `endswith`, `pos`, `match`, `substring`, `split`, `replace`, `replace_all`, `lower`, `upper`, `trim`, `repeat`, `format`, `tonumber`, `tostring`
+
+## log (3 methods)
+
+`log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
+
+## request (2 functions)
+
+| Function | Description |
+|----------|-------------|
+| `request.security(symbol, timeframe, expression)` | Multi-timeframe data |
+| `request.security_lower_tf(expression)` | Lower timeframe data |
+
+## trigger (TradingGoose extension)
+
+```
+trigger(event: string, options: { condition, input, signal, position?, color? })
+```
+
+See [Indicator Triggers](/indicators/triggers) for full documentation.
+
+<Callout type="info">
+  This reference covers functions available in TradingGoose's PineTS runtime. PineTS is based on the open-source [PineTS project](https://github.com/nicholasgasior/PineTS) and supports a subset of Pine Script v5/v6 APIs. Features like `strategy.*`, `label.*`, `line.*`, `box.*`, and `table.*` are not currently supported.
+</Callout>

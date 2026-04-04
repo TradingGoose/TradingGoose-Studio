@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getBlock } from '@/blocks'
 import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { getTrigger, isTriggerValid } from '@/triggers'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('useWebhookManagement')
@@ -57,24 +57,9 @@ function resolveEffectiveTriggerId(
   const workflowState = useWorkflowStore.getState()
   const block = workflowState.blocks?.[blockId]
   if (block) {
-    const blockConfig = getBlock(block.type)
-    if (blockConfig) {
-      if (blockConfig.category === 'triggers') {
-        return block.type
-      }
-      if (block.triggerMode && blockConfig.triggers?.enabled) {
-        const selectedTriggerIdValue = block.subBlocks?.selectedTriggerId?.value
-        const triggerIdValue = block.subBlocks?.triggerId?.value
-        return (
-          (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)
-            ? selectedTriggerIdValue
-            : undefined) ||
-          (typeof triggerIdValue === 'string' && isTriggerValid(triggerIdValue)
-            ? triggerIdValue
-            : undefined) ||
-          blockConfig.triggers?.available?.[0]
-        )
-      }
+    const resolvedTriggerId = resolveTriggerIdForBlock(block)
+    if (resolvedTriggerId && isTriggerValid(resolvedTriggerId)) {
+      return resolvedTriggerId
     }
   }
 
@@ -242,9 +227,7 @@ export function useWebhookManagement({
       return false
     }
 
-    const triggerConfig = useSubBlockStore
-      .getState()
-      .getValue(blockId, 'triggerConfig', workflowId)
+    const triggerConfig = useSubBlockStore.getState().getValue(blockId, 'triggerConfig', workflowId)
 
     const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
     const credentialSetId = isCredentialSet

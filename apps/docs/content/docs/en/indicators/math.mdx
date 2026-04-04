@@ -1,0 +1,73 @@
+---
+title: Math Functions
+description: Mathematical operations and constants in the math namespace
+---
+
+The `math` namespace provides mathematical constants, basic operations, trigonometry, and statistical functions.
+
+## Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `math.pi` | 3.14159... | Pi |
+| `math.e` | 2.71828... | Euler's number |
+| `math.phi` | 1.61803... | Golden ratio |
+| `math.rphi` | 0.61803... | Reciprocal of golden ratio |
+
+## Basic Operations
+
+| Function | Description |
+|----------|-------------|
+| `math.abs(x)` | Absolute value |
+| `math.ceil(x)` | Round up to nearest integer |
+| `math.floor(x)` | Round down to nearest integer |
+| `math.round(x, precision?)` | Round to nearest integer (or precision) |
+| `math.round_to_mintick(x)` | Round to the symbol's minimum tick |
+| `math.sign(x)` | Sign of value (-1, 0, or 1) |
+| `math.max(a, b)` | Maximum of two values |
+| `math.min(a, b)` | Minimum of two values |
+| `math.avg(...)` | Average of values |
+| `math.sum(source, length)` | Sum of values over N bars |
+
+## Exponential & Logarithmic
+
+| Function | Description |
+|----------|-------------|
+| `math.pow(base, exp)` | Power |
+| `math.sqrt(x)` | Square root |
+| `math.exp(x)` | e raised to the power of x |
+| `math.log(x)` | Natural logarithm |
+| `math.log10(x)` | Base-10 logarithm |
+
+## Trigonometric
+
+| Function | Description |
+|----------|-------------|
+| `math.sin(x)` | Sine (radians) |
+| `math.cos(x)` | Cosine (radians) |
+| `math.tan(x)` | Tangent (radians) |
+| `math.asin(x)` | Arcsine |
+| `math.acos(x)` | Arccosine |
+| `math.atan(x)` | Arctangent |
+| `math.todegrees(x)` | Convert radians to degrees |
+| `math.toradians(x)` | Convert degrees to radians |
+
+## Other
+
+| Function | Description |
+|----------|-------------|
+| `math.random(min?, max?)` | Random number |
+
+## Example
+
+```javascript
+indicator('Volatility Ratio');
+
+const atr = ta.atr(14);
+const avgAtr = ta.sma(atr, 50);
+const ratio = atr / math.max(avgAtr, syminfo.mintick);
+const logRatio = math.log(ratio);
+
+plot(logRatio, 'Log Volatility Ratio');
+hline(0, { linestyle: hline.style_dashed });
+```

@@ -1,0 +1,74 @@
+---
+title: Fireflies Trigger
+description: Trigger workflow when a Fireflies meeting transcription is complete
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+Trigger workflow when a Fireflies meeting transcription is complete
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/fireflies">
+    See workflow actions, operations, and tool inputs for Fireflies.
+  </Card>
+</Cards>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies Transcription Complete"
+    type="fireflies_transcription_complete"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook Secret",
+            "placeholder": "Enter your 16-32 character secret",
+            "description": "Secret key for HMAC signature verification (set in Fireflies dashboard)",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "meetingId",
+          "type": "string",
+          "description": "The ID of the transcribed meeting"
+      },
+      {
+          "name": "eventType",
+          "type": "string",
+          "description": "The type of event (Transcription completed)"
+      },
+      {
+          "name": "clientReferenceId",
+          "type": "string",
+          "description": "Custom reference ID if set during upload"
+      }
+  ]}
+/>
+
+

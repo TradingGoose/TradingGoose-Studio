@@ -56,6 +56,8 @@ describe('block-registry node descriptor resolver', () => {
 
     expect(descriptor).toMatchObject({
       nodeType: 'subflowNode',
+      width: 640,
+      height: 320,
       data: {
         kind: 'loop',
         width: 640,

@@ -1,0 +1,183 @@
+---
+title: Syntax Guide
+description: PineTS syntax rules for writing indicators in TradingGoose
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+PineTS uses JavaScript/TypeScript syntax that mirrors Pine Script's runtime behavior. If you know Pine Script from TradingView, the transition is straightforward — the key differences are in variable declarations and standard JS syntax conventions.
+
+## Variable Declarations
+
+PineTS distinguishes between `let` and `var` to match Pine Script's execution model. This is the most important concept to understand.
+
+### `let` — Recalculated Every Bar
+
+Variables declared with `let` (or `const` for immutable values) are re-evaluated on every bar, just like standard Pine Script variables:
+
+```javascript
+// Recalculated on every bar
+const sma20 = ta.sma(close, 20);
+let direction = close > open ? 1 : -1;
+```
+
+### `var` — Persistent State Across Bars
+
+Variables declared with `var` are initialized only once (on the first bar) and retain their value across subsequent bars — matching Pine Script's `var` keyword:
+
+```javascript
+// Initialized once, persists across bars
+var cumulativeVolume = 0;
+cumulativeVolume = cumulativeVolume + volume;
+```
+
+<Callout type="warn">
+  In PineTS, `var` does **not** behave like standard JavaScript `var`. It adopts Pine Script's semantics: the variable is set once and persists. Use `let` if you need a value that resets every bar.
+</Callout>
+
+### Side-by-Side Comparison
+
+| Behavior | Pine Script | PineTS |
+|----------|-------------|--------|
+| Recalculated each bar | `float x = close` | `let x = close` or `const x = close` |
+| Persistent across bars | `var float x = 0.0` | `var x = 0.0` |
+| Reassignment | `x := x + 1` | `x = x + 1` |
+
+## History Access
+
+Access previous bar values using bracket notation, identical to Pine Script:
+
+```javascript
+const prevClose = close[1];     // 1 bar ago
+const tenBarsAgo = close[10];   // 10 bars ago
+const momentum = close - close[10];
+```
+
+## Loops
+
+Standard JavaScript loop syntax:
+
+<Tabs items={['For Loop', 'While Loop']}>
+  <Tab>
+```javascript
+// Pine Script: for i = 0 to 9
+let sum = 0;
+for (let i = 0; i < 10; i++) {
+  sum += close[i];
+}
+```
+  </Tab>
+  <Tab>
+```javascript
+let i = 0;
+let sum = 0;
+while (i < 10) {
+  sum += close[i];
+  i++;
+}
+```
+  </Tab>
+</Tabs>
+
+## Control Flow
+
+```javascript
+// If/else
+if (close > open) {
+  direction = 1;
+} else {
+  direction = -1;
+}
+
+// Ternary
+const color = close > open ? '#00FF00' : '#FF0000';
+
+// Switch
+switch (maType) {
+  case 'ema': return ta.ema(close, length);
+  case 'sma': return ta.sma(close, length);
+  default: return ta.rma(close, length);
+}
+```
+
+## Functions
+
+Define reusable functions using standard JavaScript syntax:
+
+```javascript
+// Pine Script: f_ma(source, length) => ta.sma(source, length)
+function f_ma(source, length) {
+  return ta.sma(source, length);
+}
+
+const ma = f_ma(close, 20);
+plot(ma, 'Custom MA');
+```
+
+## Tuples (Multiple Return Values)
+
+Some functions like `ta.macd()` and `ta.bb()` return multiple values. Use array destructuring:
+
+```javascript
+// Pine Script: [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+// Pine Script: [middle, upper, lower] = ta.bb(close, 20, 2)
+const [middle, upper, lower] = ta.bb(close, 20, 2);
+```
+
+## Special Values
+
+| Value | Description |
+|-------|-------------|
+| `na` | Not available — equivalent to `null`/`undefined` in Pine Script |
+| `nz(value)` | Replace `na` with zero (or a specified default) |
+| `color` | Color namespace for chart colors |
+
+```javascript
+const prev = close[1];
+const change = na(prev) ? 0 : close - prev;  // Handle na values
+const safeValue = nz(someCalculation, 0);     // Default to 0 if na
+```
+
+## Complete Example: Parabolic SAR
+
+This example demonstrates `var` for persistent state, `if/else` logic, history access, and custom functions:
+
+```javascript
+indicator('Custom SAR', { overlay: true });
+
+const start = input.float(0.02, 'Start');
+const increment = input.float(0.02, 'Increment');
+const maximum = input.float(0.2, 'Maximum');
+
+function pine_sar(start, inc, max) {
+  var result = na;
+  var maxMin = na;
+  var acceleration = na;
+  var isBelow = false;
+
+  let isFirstTrendBar = false;
+
+  if (bar_index == 1) {
+    if (close > close[1]) {
+      isBelow = true;
+      maxMin = high;
+      result = low[1];
+    } else {
+      isBelow = false;
+      maxMin = low;
+      result = high[1];
+    }
+    isFirstTrendBar = true;
+    acceleration = start;
+  }
+
+  // ... calculation logic ...
+  return result;
+}
+
+const sar = pine_sar(start, increment, maximum);
+plot(sar, 'SAR', { style: plot.style_cross });
+```

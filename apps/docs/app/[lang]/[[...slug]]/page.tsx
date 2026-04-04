@@ -6,10 +6,16 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { StructuredData } from '@/components/structured-data'
+import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
+import { i18n } from '@/lib/i18n'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 import { source } from '@/lib/source'
+
+function toOpenGraphLocale(lang: string) {
+  return lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`
+}
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
@@ -65,26 +71,6 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
       {/* Social icons */}
       <div className='flex items-center gap-4 py-6'>
         <Link
-          href='https://x.com/simdotai'
-          target='_blank'
-          rel='noopener noreferrer'
-          aria-label='X (Twitter)'
-        >
-          <div
-            className='h-5 w-5 bg-gray-400 transition-colors hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400'
-            style={{
-              maskImage:
-                "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E')",
-              maskRepeat: 'no-repeat',
-              maskPosition: 'center center',
-              WebkitMaskImage:
-                "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E')",
-              WebkitMaskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'center center',
-            }}
-          />
-        </Link>
-        <Link
           href='https://github.com/TradingGoose/TradingGoose-Studio'
           target='_blank'
           rel='noopener noreferrer'
@@ -105,7 +91,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
           />
         </Link>
         <Link
-          href='https://discord.gg/Hr4UWYEcTT'
+          href='https://discord.gg/wavf5JWhuT'
           target='_blank'
           rel='noopener noreferrer'
           aria-label='Discord'
@@ -162,15 +148,14 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
             <CopyPageButton
               content={`# ${page.data.title}
 
-${page.data.description || ''}
-
-${page.data.content || ''}`}
+${page.data.description || ''}`}
             />
           </div>
           <DocsTitle>{page.data.title}</DocsTitle>
           <DocsDescription>{page.data.description}</DocsDescription>
         </div>
         <DocsBody>
+          <AccordionHashSync />
           <MDX
             components={{
               ...defaultMdxComponents,
@@ -228,7 +213,8 @@ export async function generateMetadata(props: {
   const params = await props.params
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const defaultDescription = 'TradingGoose visual workflow builder for AI applications documentation'
+  const defaultDescription =
+    'TradingGoose visual workflow builder for AI applications documentation'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -240,6 +226,18 @@ export async function generateMetadata(props: {
   if (!page) notFound()
 
   const fullUrl = `${baseUrl}${page.url}`
+  const canonicalPath = page.url.replace(`/${params.lang}`, '') || '/'
+  const alternateLocales = i18n.languages
+    .filter((lang) => lang !== params.lang)
+    .map(toOpenGraphLocale)
+  const alternateLanguages = Object.fromEntries(
+    i18n.languages.map((lang) => [
+      lang,
+      lang === i18n.defaultLanguage
+        ? `${baseUrl}${canonicalPath}`
+        : `${baseUrl}/${lang}${canonicalPath}`,
+    ])
+  )
 
   return {
     title: page.data.title,
@@ -264,10 +262,12 @@ export async function generateMetadata(props: {
       url: fullUrl,
       siteName: 'TradingGoose Documentation',
       type: 'article',
-      locale: params.lang === 'en' ? 'en_US' : `${params.lang}_${params.lang.toUpperCase()}`,
-      alternateLocale: ['en', 'es', 'fr', 'de', 'ja', 'zh']
-        .filter((lang) => lang !== params.lang)
-        .map((lang) => (lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`)),
+      locale: toOpenGraphLocale(params.lang),
+      ...(alternateLocales.length > 0
+        ? {
+            alternateLocale: alternateLocales,
+          }
+        : {}),
     },
     twitter: {
       card: 'summary',
@@ -289,13 +289,8 @@ export async function generateMetadata(props: {
     alternates: {
       canonical: fullUrl,
       languages: {
-        'x-default': `${baseUrl}${page.url.replace(`/${params.lang}`, '')}`,
-        en: `${baseUrl}${page.url.replace(`/${params.lang}`, '')}`,
-        es: `${baseUrl}/es${page.url.replace(`/${params.lang}`, '')}`,
-        fr: `${baseUrl}/fr${page.url.replace(`/${params.lang}`, '')}`,
-        de: `${baseUrl}/de${page.url.replace(`/${params.lang}`, '')}`,
-        ja: `${baseUrl}/ja${page.url.replace(`/${params.lang}`, '')}`,
-        zh: `${baseUrl}/zh${page.url.replace(`/${params.lang}`, '')}`,
+        'x-default': `${baseUrl}${canonicalPath}`,
+        ...alternateLanguages,
       },
     },
   }

@@ -1,0 +1,81 @@
+---
+title: Trading Holdings
+description: Fetch a unified account snapshot from supported brokers.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="trading_holdings"
+  color="#115e59"
+/>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trading Holdings"
+    type="trading_holdings"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Broker",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "Environment",
+            "layout": "half",
+            "placeholder": "Select environment",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Live Trading",
+                    "id": "live"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `trading_get_holdings`
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `summary` | string | Status of holdings retrieval |
+| `provider` | string | Provider used |
+| `holdings` | json | Unified account snapshot payload |
+
+
+## Usage Instructions
+
+Unified holdings block that returns an account snapshot for Alpaca, Tradier, or Robinhood.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `trading_holdings`

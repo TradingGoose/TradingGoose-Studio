@@ -1,0 +1,158 @@
+---
+title: LinkedIn
+description: Share posts and manage your LinkedIn presence
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="linkedin"
+  color="#0072B1"
+/>
+
+
+## Configuration
+
+### Share Post
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="LinkedIn"
+    type="linkedin"
+    color="#0072B1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Share Post",
+                    "id": "share_post"
+                },
+                {
+                    "label": "Get Profile",
+                    "id": "get_profile"
+                }
+            ],
+            "defaultValue": "share_post"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "LinkedIn Account",
+            "placeholder": "Select LinkedIn account",
+            "provider": "linkedin",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Post Text",
+            "placeholder": "What do you want to share on LinkedIn?",
+            "required": true
+        },
+        {
+            "id": "visibility",
+            "type": "dropdown",
+            "title": "Visibility",
+            "required": true,
+            "options": [
+                {
+                    "label": "Public",
+                    "id": "PUBLIC"
+                },
+                {
+                    "label": "Connections Only",
+                    "id": "CONNECTIONS"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `postId` | string | Created post ID |
+| `profile` | json | LinkedIn profile information |
+| `error` | string | Error message if operation failed |
+
+</div>
+
+
+
+---
+
+### Get Profile
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="LinkedIn"
+    type="linkedin"
+    color="#0072B1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Share Post",
+                    "id": "share_post"
+                },
+                {
+                    "label": "Get Profile",
+                    "id": "get_profile"
+                }
+            ],
+            "defaultValue": "get_profile"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "LinkedIn Account",
+            "placeholder": "Select LinkedIn account",
+            "provider": "linkedin",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `postId` | string | Created post ID |
+| `profile` | json | LinkedIn profile information |
+| `error` | string | Error message if operation failed |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate LinkedIn into workflows. Share posts to your personal feed and access your LinkedIn profile information.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `linkedin`

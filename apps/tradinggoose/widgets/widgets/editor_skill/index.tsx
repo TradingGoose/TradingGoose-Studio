@@ -7,7 +7,7 @@ import {
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
-import { getSkillIdFromParams, SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/skill/utils'
+import { getSkillIdFromParams, SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 
 export const editorSkillWidget: DashboardWidgetDefinition = {
   key: SKILL_EDITOR_WIDGET_KEY,

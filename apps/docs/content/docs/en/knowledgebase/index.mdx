@@ -2,18 +2,11 @@
 title: Knowledgebase
 ---
 
-import { Video } from '@/components/ui/video'
-import { Image } from '@/components/ui/image'
-
 The knowledgebase allows you to upload, process, and search through your documents with intelligent vector search and chunking. Documents of various types are automatically processed, embedded, and made searchable. Your documents are intelligently chunked, and you can view, edit, and search through them using natural language queries.
 
 ## Upload and Processing
 
 Simply upload your documents to get started. TradingGoose automatically processes them in the background, extracting text, creating embeddings, and breaking them into searchable chunks.
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="knowledgebase-1.mp4" width={700} height={450} />
-</div>
 
 The system handles the entire processing pipeline for you:
 
@@ -28,9 +21,7 @@ TradingGoose supports PDF, Word (DOC/DOCX), plain text (TXT), Markdown (MD), HTM
 
 ## Viewing and Editing Chunks
 
-Once your documents are processed, you can view and edit the individual chunks. This gives you full control over how your content is organized and searched.
-
-<Image src="/static/knowledgebase/knowledgebase.png" alt="Document chunks view showing processed content" width={800} height={500} />
+Once your documents are processed, you can view and edit the individual chunks. This gives you full control over how your content is organized and searched. The chunks view displays each chunk's text content, its index within the document, and any associated tags.
 
 ### Chunk Configuration
 - **Default chunk size**: 1,024 characters
@@ -56,9 +47,7 @@ When configured with Azure or [Mistral OCR](https://docs.mistral.ai/ocr/):
 
 ## Using The Knowledge Block in Workflows
 
-Once your documents are processed, you can use them in your AI workflows through the Knowledge block. This enables Retrieval-Augmented Generation (RAG), allowing your AI agents to access and reason over your document content to provide more accurate, contextual responses.
-
-<Image src="/static/knowledgebase/knowledgebase-2.png" alt="Using Knowledge Block in Workflows" width={800} height={500} />
+Once your documents are processed, you can use them in your AI workflows through the Knowledge block. This enables Retrieval-Augmented Generation (RAG), allowing your AI agents to access and reason over your document content to provide more accurate, contextual responses. Add a Knowledge block to your workflow, select a knowledgebase, and configure your search query and optional tag filters.
 
 ### Knowledge Block Features
 - **Semantic search**: Find relevant content using natural language queries

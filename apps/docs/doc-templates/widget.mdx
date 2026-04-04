@@ -1,0 +1,79 @@
+{/*
+  TEMPLATE: Widget
+  OUTPUT:   apps/docs/content/docs/en/widgets/{{SLUG}}.mdx
+  SOURCE:   apps/tradinggoose/widgets/widgets/{{WIDGET_DIR}}/
+
+  Widgets are dashboard UI components. Each widget doc should include:
+  - A screenshot showing the widget in context
+  - Property table (key, category, icon)
+  - Feature list
+  - Usage instructions with numbered steps
+  - PairColor note if applicable (widgets that sync with each other)
+*/}
+---
+title: {{WIDGET_NAME}}
+description: {{SHORT_DESCRIPTION}}
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Image } from '@/components/ui/image'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+{{SHORT_DESCRIPTION_PARAGRAPH}}
+
+{/* OPTIONAL: Screenshot or mock component in showcase card */}
+<ShowcaseCard caption="{{WIDGET_NAME}} widget">
+  <Image
+    src="/static/widgets/{{SLUG}}.png"
+    alt="{{WIDGET_NAME}}"
+    width={600}
+    height={400}
+  />
+</ShowcaseCard>
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `{{WIDGET_KEY}}` |
+| **Category** | {{WIDGET_CATEGORY}} |
+| **Icon** | {{ICON_NAME}} |
+
+{/*
+  WIDGET_CATEGORY values:
+  - Editor     (editor_workflow, editor_indicator, editor_skill, editor_mcp, editor_custom_tool)
+  - List       (list_workflow, list_indicator, list_skill, list_mcp, list_custom_tool)
+  - Utility    (workflow_chat, workflow_console, workflow_variables)
+  - Data       (data_chart, watchlist)
+  - Copilot    (copilot)
+*/}
+
+## Features
+
+- **{{FEATURE_1}}**: {{FEATURE_1_DESC}}
+- **{{FEATURE_2}}**: {{FEATURE_2_DESC}}
+- **{{FEATURE_3}}**: {{FEATURE_3_DESC}}
+
+## Usage
+
+{{USAGE_CONTEXT}}
+
+### Basic Operations
+
+1. {{STEP_1}}
+2. {{STEP_2}}
+3. {{STEP_3}}
+
+{/* OPTIONAL: Configuration options if the widget has settings */}
+{/*
+### Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `{{OPTION}}` | {{TYPE}} | `{{DEFAULT}}` | {{DESC}} |
+*/}
+
+{/* OPTIONAL: PairColor note — include for widgets that sync with editors */}
+<Callout>
+  This widget supports the **pairColor** mechanism. Pair it with a {{PAIRED_WIDGET}} to stay in sync.
+</Callout>

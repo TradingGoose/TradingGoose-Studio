@@ -1,0 +1,99 @@
+---
+title: Custom Tools
+description: Create workspace-scoped tools with a JSON schema and JavaScript function body that Agent blocks can invoke during workflow execution.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Custom Tools let you define your own callable functions that Agent blocks can invoke at runtime. Each tool is a pair: a **JSON config** that declares the tool's name, description, and parameters, plus a **JavaScript function body** that runs when the tool is called.
+
+## Tool schema
+
+Every custom tool follows the OpenAI function-calling JSON format. The editor validates the schema on every change and requires all of the fields shown below.
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "addItemToOrder",
+    "description": "Add one quantity of a food item to the order.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "itemName": {
+          "type": "string",
+          "description": "The name of the food item to add to order"
+        }
+      },
+      "required": ["itemName"]
+    }
+  }
+}
+```
+
+- `type` must be `"function"`.
+- `function.name` is the identifier the agent sees and calls. Must be unique within the workspace.
+- `function.description` tells the agent when to use the tool.
+- `function.parameters` is a standard JSON Schema object describing the inputs.
+
+## Tool code
+
+The code tab contains the body of an `async function(params, environmentVariables)`. Two referencing conventions are available inside the editor:
+
+- **Parameters** — use the bare parameter name (e.g. `itemName`). The editor provides autocomplete from the schema.
+- **Environment variables** — use double-brace syntax: `{{API_KEY}}`.
+
+The function should `return` a value when the tool is expected to produce output. External imports are not supported; use `fetch` or built-in APIs.
+
+## Creating and editing tools
+
+<Steps>
+  <Step>
+    Open the [Custom Tool Editor](/widgets/editor-custom-tool) widget in your workspace dashboard.
+  </Step>
+  <Step>
+    Select an existing tool from the dropdown or create a new one from the Custom Tool List widget.
+  </Step>
+  <Step>
+    Switch between the **Config** and **Code** tabs to edit the JSON schema and JavaScript body respectively. Both tabs include an AI wand that can generate content from a natural-language prompt.
+  </Step>
+  <Step>
+    Click the **Save** button in the widget header. The editor validates the schema before saving and rejects duplicate tool names.
+  </Step>
+</Steps>
+
+## How agents invoke custom tools
+
+When you add a custom tool to an Agent block's tool list, the tool is registered with `type: "custom-tool"`. At runtime the agent block reads `function.name` as the tool identifier, `function.description` for the tool description, and `function.parameters` for the input schema. The agent decides whether and when to call the tool based on these fields and the conversation context, then executes the JavaScript function body with the resolved parameters.
+
+<Callout type="info">
+  Agent blocks cannot use core blocks (API, Webhook, Function, Workflow, Memory) as tools. Only integrations, MCP tools, and custom tools are allowed in the tool list.
+</Callout>
+
+## Custom Tools vs MCP
+
+| Feature | Custom Tools | MCP |
+|---------|-------------|-----|
+| **Definition** | JSON schema and JS function body | External server implementing the Model Context Protocol |
+| **Scope** | One function per tool | A single server can expose many tools |
+| **Code execution** | Inline JavaScript in the editor | Runs on the remote MCP server |
+| **Best for** | Quick, self-contained logic or API calls | Connecting to standardized third-party tool servers |
+
+For external tool integrations using MCP, see the [MCP utility page](/utilities/mcp).
+
+<Callout type="warn">
+  Custom tools are workspace-scoped. All workspace members can view, edit, and delete them. Deleting a custom tool permanently removes its code and configuration.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card title="Custom Tool Editor" href="/widgets/editor-custom-tool">
+    Widget for editing the schema and code of a custom tool.
+  </Card>
+  <Card title="MCP" href="/utilities/mcp">
+    Connect to external tool servers using the Model Context Protocol.
+  </Card>
+</Cards>

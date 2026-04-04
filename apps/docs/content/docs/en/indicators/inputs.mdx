@@ -1,0 +1,88 @@
+---
+title: Inputs
+description: Define configurable indicator parameters with the input namespace
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The `input` namespace lets you define parameters that users can configure in the UI without editing code. TradingGoose automatically generates a settings panel from your `input.*()` calls.
+
+## Input Types
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `input.int(defval, title, minval?, maxval?, step?)` | `number` | Integer input with optional range and step |
+| `input.float(defval, title, minval?, maxval?, step?)` | `number` | Floating-point input |
+| `input.bool(defval, title)` | `boolean` | Toggle/checkbox |
+| `input.string(defval, title)` | `string` | Text input |
+| `input.color(defval, title)` | `string` | Color picker (hex string) |
+| `input.source(defval, title)` | `series` | Data source selector (close, open, high, low, etc.) |
+| `input.timeframe(defval, title)` | `string` | Timeframe selector |
+| `input.price(defval, title)` | `number` | Price level input |
+| `input.time(defval, title)` | `number` | Timestamp input |
+| `input.session(defval, title)` | `string` | Trading session input |
+| `input.symbol(defval, title)` | `string` | Symbol/ticker input |
+| `input.text_area(defval, title)` | `string` | Multi-line text input |
+| `input.enum(defval, title, options)` | `T` | Dropdown selector from a list of options |
+
+## Examples
+
+### Numeric Inputs
+
+```javascript
+// Integer with range constraints
+const length = input.int(14, 'RSI Length', 1, 200, 1);
+
+// Float with step
+const multiplier = input.float(2.0, 'StdDev Multiplier', 0.1, 10.0, 0.1);
+```
+
+### Boolean and String
+
+```javascript
+const showSignals = input.bool(true, 'Show Signals');
+const customLabel = input.string('Buy', 'Signal Label');
+```
+
+### Source Selection
+
+```javascript
+// Let users choose which price data to calculate on
+const src = input.source(close, 'Source');
+const sma = ta.sma(src, 20);
+```
+
+### Enum (Dropdown)
+
+```javascript
+const maType = input.enum('SMA', 'MA Type', ['SMA', 'EMA', 'WMA', 'HMA']);
+
+let ma;
+switch (maType) {
+  case 'EMA': ma = ta.ema(close, length); break;
+  case 'WMA': ma = ta.wma(close, length); break;
+  case 'HMA': ma = ta.hma(close, length); break;
+  default:    ma = ta.sma(close, length);
+}
+```
+
+### Color Input
+
+```javascript
+const bullColor = input.color('#00FF00', 'Bull Color');
+const bearColor = input.color('#FF0000', 'Bear Color');
+
+barcolor(close > open ? bullColor : bearColor);
+```
+
+## How Inputs Work
+
+When TradingGoose loads your indicator, it parses all `input.*()` calls to:
+
+1. **Extract metadata** — title, type, default value, constraints (min/max/step/options)
+2. **Generate UI controls** — renders appropriate form controls in the indicator settings panel
+3. **Pass runtime values** — when a user changes a parameter, the indicator re-runs with updated values
+
+<Callout type="info">
+  Input parameters are extracted statically from your code. Keep `input.*()` calls at the top level of your script for best results — avoid putting them inside conditionals or loops.
+</Callout>

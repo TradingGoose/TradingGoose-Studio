@@ -1,21 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, ChevronDown, ToolCase, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ToolCase, XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSkills } from '@/hooks/queries/skills'
+import { Dropdown } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+
+const SKILL_COLOR = '#10b981' // emerald-500
 
 interface StoredSkill {
   skillId: string
@@ -30,9 +23,9 @@ interface SkillInputProps {
 
 export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInputProps) {
   const workspaceId = useWorkspaceId()
-  const [open, setOpen] = useState(false)
   const [storedValue, setStoredValue] = useSubBlockValue<StoredSkill[]>(blockId, subBlockId)
   const { data: workspaceSkills = [] } = useSkills(workspaceId)
+  const [selectorValue, setSelectorValue] = useState('')
 
   const selectedSkills = useMemo(
     () => (Array.isArray(storedValue) ? storedValue : []),
@@ -44,117 +37,50 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
     [selectedSkills]
   )
 
-  const selectedLabel = useMemo(() => {
-    if (selectedSkills.length === 0) {
-      return 'Select skills'
-    }
+  const dropdownOptions = useMemo(() => {
+    return workspaceSkills
+      .filter((skill) => !selectedSkillIds.has(skill.id))
+      .map((skill) => ({
+        label: skill.name,
+        id: skill.id,
+        icon: ToolCase,
+        group: 'Skills',
+      }))
+  }, [workspaceSkills, selectedSkillIds])
 
-    const resolvedNames = selectedSkills
-      .map((storedSkill) => {
-        const foundSkill = workspaceSkills.find((skill) => skill.id === storedSkill.skillId)
-        return foundSkill?.name ?? storedSkill.name ?? storedSkill.skillId
-      })
-      .filter((name): name is string => typeof name === 'string' && name.length > 0)
+  const handleSkillSelection = (skillId: string) => {
+    if (disabled || !skillId) return
 
-    if (resolvedNames.length === 0) {
-      return 'Select skills'
-    }
+    const skill = workspaceSkills.find((s) => s.id === skillId)
+    if (!skill || selectedSkillIds.has(skillId)) return
 
-    if (resolvedNames.length === 1) {
-      return resolvedNames[0]
-    }
-
-    return `${resolvedNames[0]} +${resolvedNames.length - 1}`
-  }, [selectedSkills, workspaceSkills])
-
-  const handleToggleSkill = (skillId: string, name: string) => {
-    if (disabled) {
-      return
-    }
-
-    if (selectedSkillIds.has(skillId)) {
-      setStoredValue(selectedSkills.filter((skill) => skill.skillId !== skillId))
-      return
-    }
-
-    setStoredValue([...selectedSkills, { skillId, name }])
+    setStoredValue([...selectedSkills, { skillId, name: skill.name }])
+    setSelectorValue('')
   }
 
   const handleRemoveSkill = (skillId: string) => {
-    if (disabled) {
-      return
-    }
-
+    if (disabled) return
     setStoredValue(selectedSkills.filter((skill) => skill.skillId !== skillId))
   }
 
   return (
-    <div className='w-full space-y-2'>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='w-full justify-between'
-            disabled={disabled || !workspaceId}
-          >
-            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-              <ToolCase className='h-4 w-4 text-emerald-600' />
-              <span
-                className={cn('truncate', selectedSkills.length === 0 && 'text-muted-foreground')}
-              >
-                {selectedLabel}
-              </span>
-            </div>
-            <ChevronDown className='h-4 w-4 shrink-0 opacity-50' />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className='w-[320px] p-0' align='start'>
-          <Command>
-            <CommandInput placeholder='Search skills...' />
-            <CommandList>
-              <CommandEmpty>
-                {workspaceId ? 'No skills found.' : 'Select a workspace first.'}
-              </CommandEmpty>
-              <CommandGroup heading='Skills'>
-                {workspaceSkills.map((skill) => {
-                  const isSelected = selectedSkillIds.has(skill.id)
-
-                  return (
-                    <CommandItem
-                      key={skill.id}
-                      value={`${skill.name} ${skill.description}`}
-                      onSelect={() => handleToggleSkill(skill.id, skill.name)}
-                    >
-                      <div className='flex min-w-0 flex-1 items-start gap-2'>
-                        <span className='mt-0.5 flex h-4 w-4 items-center justify-center rounded-xs bg-emerald-500/10 p-0.5'>
-                          <ToolCase className='h-full w-full text-emerald-600' />
-                        </span>
-                        <div className='min-w-0 flex-1'>
-                          <div className='truncate font-medium text-sm'>{skill.name}</div>
-                          <div className='truncate text-muted-foreground text-xs'>
-                            {skill.description}
-                          </div>
-                        </div>
-                      </div>
-                      <Check
-                        className={cn(
-                          'ml-2 h-4 w-4 shrink-0',
-                          isSelected ? 'opacity-100' : 'opacity-0'
-                        )}
-                      />
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-
-      {selectedSkills.length > 0 ? (
-        <div className='flex flex-wrap gap-1.5'>
+    <div className='w-full'>
+      {selectedSkills.length === 0 ? (
+        <Dropdown
+          blockId={blockId}
+          subBlockId={`${subBlockId}-skill-selector`}
+          options={dropdownOptions}
+          placeholder='Add Skill'
+          useStore={false}
+          valueOverride={selectorValue}
+          onChange={handleSkillSelection}
+          disabled={disabled || !workspaceId}
+          className='w-full'
+          enableSearch
+          searchPlaceholder='Search skills...'
+        />
+      ) : (
+        <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedSkills.map((storedSkill) => {
             const resolvedName =
               workspaceSkills.find((skill) => skill.id === storedSkill.skillId)?.name ??
@@ -164,27 +90,51 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
             return (
               <div
                 key={storedSkill.skillId}
-                className='inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs'
+                className='flex w-full flex-col overflow-visible rounded-md border bg-card'
               >
-                <ToolCase className='h-3 w-3 text-emerald-600' />
-                <span className='font-medium text-emerald-700 dark:text-emerald-300'>
-                  {resolvedName}
-                </span>
-                {!disabled ? (
-                  <button
-                    type='button'
-                    className='text-emerald-700/70 transition-colors hover:text-emerald-700 dark:text-emerald-300/70 dark:hover:text-emerald-300'
-                    onClick={() => handleRemoveSkill(storedSkill.skillId)}
-                    aria-label={`Remove ${resolvedName}`}
-                  >
-                    <X className='h-3 w-3' />
-                  </button>
-                ) : null}
+                <div className={cn('flex items-center justify-between rounded-md bg-accent p-2')}>
+                  <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
+                    <div
+                      className='relative flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm'
+                      style={{
+                        backgroundColor: `${SKILL_COLOR}20`,
+                        color: SKILL_COLOR,
+                      }}
+                    >
+                      <ToolCase className='h-3 w-3' style={{ color: SKILL_COLOR }} />
+                    </div>
+                    <span className='truncate font-medium text-sm'>{resolvedName}</span>
+                  </div>
+                  {!disabled ? (
+                    <button
+                      type='button'
+                      className='ml-2 flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground'
+                      onClick={() => handleRemoveSkill(storedSkill.skillId)}
+                      aria-label={`Remove ${resolvedName}`}
+                    >
+                      <XIcon className='h-3.5 w-3.5' />
+                    </button>
+                  ) : null}
+                </div>
               </div>
             )
           })}
+
+          <Dropdown
+            blockId={blockId}
+            subBlockId={`${subBlockId}-skill-selector-inline`}
+            options={dropdownOptions}
+            placeholder='Add Skill'
+            useStore={false}
+            valueOverride={selectorValue}
+            onChange={handleSkillSelection}
+            disabled={disabled || !workspaceId}
+            className='w-full'
+            enableSearch
+            searchPlaceholder='Search skills...'
+          />
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

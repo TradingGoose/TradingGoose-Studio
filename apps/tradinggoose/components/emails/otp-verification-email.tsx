@@ -9,7 +9,7 @@ import EmailHeader from '@/components/emails/header'
 interface OTPVerificationEmailProps {
   otp: string
   email?: string
-  type?: 'sign-in' | 'email-verification' | 'forget-password' | 'chat-access'
+  type?: 'sign-in' | 'email-verification' | 'forget-password' | 'chat-access' | 'change-email'
   chatTitle?: string
 }
 

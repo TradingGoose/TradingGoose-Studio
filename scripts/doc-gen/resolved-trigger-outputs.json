@@ -1,0 +1,6577 @@
+{
+  "calendly_invitee_created": {
+    "event": {
+      "type": "string",
+      "description": "Event type (invitee.created or invitee.canceled)"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Webhook event creation timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "URI of the Calendly user who created this webhook"
+    },
+    "payload": {
+      "uri": {
+        "type": "string",
+        "description": "Invitee URI"
+      },
+      "email": {
+        "type": "string",
+        "description": "Invitee email address"
+      },
+      "name": {
+        "type": "string",
+        "description": "Invitee full name"
+      },
+      "first_name": {
+        "type": "string",
+        "description": "Invitee first name"
+      },
+      "last_name": {
+        "type": "string",
+        "description": "Invitee last name"
+      },
+      "status": {
+        "type": "string",
+        "description": "Invitee status (active or canceled)"
+      },
+      "timezone": {
+        "type": "string",
+        "description": "Invitee timezone"
+      },
+      "event": {
+        "type": "string",
+        "description": "Scheduled event URI"
+      },
+      "questions_and_answers": {
+        "type": "array",
+        "description": "Questions and answers from the booking form",
+        "items": {
+          "question": {
+            "type": "string",
+            "description": "Question text"
+          },
+          "answer": {
+            "type": "string",
+            "description": "Answer text"
+          }
+        }
+      },
+      "tracking": {
+        "utm_campaign": {
+          "type": "string",
+          "description": "UTM campaign parameter"
+        },
+        "utm_source": {
+          "type": "string",
+          "description": "UTM source parameter"
+        },
+        "utm_medium": {
+          "type": "string",
+          "description": "UTM medium parameter"
+        },
+        "utm_content": {
+          "type": "string",
+          "description": "UTM content parameter"
+        },
+        "utm_term": {
+          "type": "string",
+          "description": "UTM term parameter"
+        },
+        "salesforce_uuid": {
+          "type": "string",
+          "description": "Salesforce UUID"
+        }
+      },
+      "text_reminder_number": {
+        "type": "string",
+        "description": "Phone number for text reminders"
+      },
+      "rescheduled": {
+        "type": "boolean",
+        "description": "Whether this invitee rescheduled"
+      },
+      "old_invitee": {
+        "type": "string",
+        "description": "URI of the old invitee (if rescheduled)"
+      },
+      "new_invitee": {
+        "type": "string",
+        "description": "URI of the new invitee (if rescheduled)"
+      },
+      "cancel_url": {
+        "type": "string",
+        "description": "URL to cancel the event"
+      },
+      "reschedule_url": {
+        "type": "string",
+        "description": "URL to reschedule the event"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Invitee creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Invitee last update timestamp"
+      },
+      "canceled": {
+        "type": "boolean",
+        "description": "Whether the event was canceled"
+      },
+      "cancellation": {
+        "type": "object",
+        "description": "Cancellation details",
+        "properties": {
+          "canceled_by": {
+            "type": "string",
+            "description": "Who canceled the event"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Cancellation reason"
+          }
+        }
+      },
+      "payment": {
+        "type": "object",
+        "description": "Payment details",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Payment ID"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Payment provider"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Payment amount"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Payment currency"
+          },
+          "terms": {
+            "type": "string",
+            "description": "Payment terms"
+          },
+          "successful": {
+            "type": "boolean",
+            "description": "Whether payment was successful"
+          }
+        }
+      },
+      "no_show": {
+        "type": "object",
+        "description": "No-show details",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "No-show marked timestamp"
+          }
+        }
+      },
+      "reconfirmation": {
+        "type": "object",
+        "description": "Reconfirmation details",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "Reconfirmation timestamp"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "description": "Confirmation timestamp"
+          }
+        }
+      }
+    }
+  },
+  "calendly_invitee_canceled": {
+    "event": {
+      "type": "string",
+      "description": "Event type (invitee.created or invitee.canceled)"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Webhook event creation timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "URI of the Calendly user who created this webhook"
+    },
+    "payload": {
+      "uri": {
+        "type": "string",
+        "description": "Invitee URI"
+      },
+      "email": {
+        "type": "string",
+        "description": "Invitee email address"
+      },
+      "name": {
+        "type": "string",
+        "description": "Invitee full name"
+      },
+      "first_name": {
+        "type": "string",
+        "description": "Invitee first name"
+      },
+      "last_name": {
+        "type": "string",
+        "description": "Invitee last name"
+      },
+      "status": {
+        "type": "string",
+        "description": "Invitee status (active or canceled)"
+      },
+      "timezone": {
+        "type": "string",
+        "description": "Invitee timezone"
+      },
+      "event": {
+        "type": "string",
+        "description": "Scheduled event URI"
+      },
+      "questions_and_answers": {
+        "type": "array",
+        "description": "Questions and answers from the booking form",
+        "items": {
+          "question": {
+            "type": "string",
+            "description": "Question text"
+          },
+          "answer": {
+            "type": "string",
+            "description": "Answer text"
+          }
+        }
+      },
+      "tracking": {
+        "utm_campaign": {
+          "type": "string",
+          "description": "UTM campaign parameter"
+        },
+        "utm_source": {
+          "type": "string",
+          "description": "UTM source parameter"
+        },
+        "utm_medium": {
+          "type": "string",
+          "description": "UTM medium parameter"
+        },
+        "utm_content": {
+          "type": "string",
+          "description": "UTM content parameter"
+        },
+        "utm_term": {
+          "type": "string",
+          "description": "UTM term parameter"
+        },
+        "salesforce_uuid": {
+          "type": "string",
+          "description": "Salesforce UUID"
+        }
+      },
+      "text_reminder_number": {
+        "type": "string",
+        "description": "Phone number for text reminders"
+      },
+      "rescheduled": {
+        "type": "boolean",
+        "description": "Whether this invitee rescheduled"
+      },
+      "old_invitee": {
+        "type": "string",
+        "description": "URI of the old invitee (if rescheduled)"
+      },
+      "new_invitee": {
+        "type": "string",
+        "description": "URI of the new invitee (if rescheduled)"
+      },
+      "cancel_url": {
+        "type": "string",
+        "description": "URL to cancel the event"
+      },
+      "reschedule_url": {
+        "type": "string",
+        "description": "URL to reschedule the event"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Invitee creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Invitee last update timestamp"
+      },
+      "canceled": {
+        "type": "boolean",
+        "description": "Whether the event was canceled"
+      },
+      "cancellation": {
+        "type": "object",
+        "description": "Cancellation details",
+        "properties": {
+          "canceled_by": {
+            "type": "string",
+            "description": "Who canceled the event"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Cancellation reason"
+          }
+        }
+      },
+      "payment": {
+        "type": "object",
+        "description": "Payment details",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Payment ID"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Payment provider"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Payment amount"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Payment currency"
+          },
+          "terms": {
+            "type": "string",
+            "description": "Payment terms"
+          },
+          "successful": {
+            "type": "boolean",
+            "description": "Whether payment was successful"
+          }
+        }
+      },
+      "no_show": {
+        "type": "object",
+        "description": "No-show details",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "No-show marked timestamp"
+          }
+        }
+      },
+      "reconfirmation": {
+        "type": "object",
+        "description": "Reconfirmation details",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "Reconfirmation timestamp"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "description": "Confirmation timestamp"
+          }
+        }
+      }
+    }
+  },
+  "calendly_webhook": {
+    "event": {
+      "type": "string",
+      "description": "Event type (invitee.created, invitee.canceled, or routing_form_submission.created)"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Webhook event creation timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "URI of the Calendly user who created this webhook"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Complete event payload (structure varies by event type)"
+    }
+  },
+  "calendly_routing_form_submitted": {
+    "event": {
+      "type": "string",
+      "description": "Event type (routing_form_submission.created)"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Webhook event creation timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "URI of the Calendly user who created this webhook"
+    },
+    "payload": {
+      "uri": {
+        "type": "string",
+        "description": "Routing form submission URI"
+      },
+      "routing_form": {
+        "type": "string",
+        "description": "Routing form URI"
+      },
+      "submitter": {
+        "type": "object",
+        "description": "Submitter details",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "Submitter URI"
+          },
+          "email": {
+            "type": "string",
+            "description": "Submitter email address"
+          },
+          "name": {
+            "type": "string",
+            "description": "Submitter full name"
+          }
+        }
+      },
+      "submitter_type": {
+        "type": "string",
+        "description": "Type of submitter"
+      },
+      "questions_and_answers": {
+        "type": "array",
+        "description": "Questions and answers from the booking form",
+        "items": {
+          "question": {
+            "type": "string",
+            "description": "Question text"
+          },
+          "answer": {
+            "type": "string",
+            "description": "Answer text"
+          }
+        }
+      },
+      "tracking": {
+        "utm_campaign": {
+          "type": "string",
+          "description": "UTM campaign parameter"
+        },
+        "utm_source": {
+          "type": "string",
+          "description": "UTM source parameter"
+        },
+        "utm_medium": {
+          "type": "string",
+          "description": "UTM medium parameter"
+        },
+        "utm_content": {
+          "type": "string",
+          "description": "UTM content parameter"
+        },
+        "utm_term": {
+          "type": "string",
+          "description": "UTM term parameter"
+        },
+        "salesforce_uuid": {
+          "type": "string",
+          "description": "Salesforce UUID"
+        }
+      },
+      "result": {
+        "type": "object",
+        "description": "Routing result details",
+        "properties": {
+          "type": "[object Object]",
+          "value": {
+            "type": "string",
+            "description": "Result value (event type URI, message, or URL)"
+          }
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Submission creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Submission last update timestamp"
+      }
+    }
+  },
+  "fireflies_transcription_complete": {
+    "meetingId": {
+      "type": "string",
+      "description": "The ID of the transcribed meeting"
+    },
+    "eventType": {
+      "type": "string",
+      "description": "The type of event (Transcription completed)"
+    },
+    "clientReferenceId": {
+      "type": "string",
+      "description": "Custom reference ID if set during upload"
+    }
+  },
+  "schedule": {},
+  "airtable_webhook": {
+    "payloads": {
+      "type": "array",
+      "description": "The payloads of the Airtable changes"
+    },
+    "latestPayload": {
+      "timestamp": {
+        "type": "string",
+        "description": "The timestamp of the Airtable change"
+      },
+      "payloadFormat": {
+        "type": "object",
+        "description": "The format of the Airtable change"
+      },
+      "actionMetadata": {
+        "source": {
+          "type": "string",
+          "description": "The source of the Airtable change"
+        },
+        "sourceMetadata": {
+          "pageId": {
+            "type": "string",
+            "description": "The ID of the page that triggered the Airtable change"
+          }
+        },
+        "changedTablesById": {
+          "type": "object",
+          "description": "The tables that were changed"
+        },
+        "baseTransactionNumber": {
+          "type": "number",
+          "description": "The transaction number of the Airtable change"
+        }
+      }
+    },
+    "airtableChanges": {
+      "type": "array",
+      "description": "Changes made to the Airtable table"
+    }
+  },
+  "telegram_webhook": {
+    "message": {
+      "id": {
+        "type": "number",
+        "description": "Telegram message ID"
+      },
+      "text": {
+        "type": "string",
+        "description": "Message text content (if present)"
+      },
+      "date": {
+        "type": "number",
+        "description": "Date the message was sent (Unix timestamp)"
+      },
+      "messageType": {
+        "type": "string",
+        "description": "Detected content type: text, photo, document, audio, video, voice, sticker, location, contact, poll"
+      },
+      "raw": {
+        "message_id": {
+          "type": "number",
+          "description": "Original Telegram message_id"
+        },
+        "date": {
+          "type": "number",
+          "description": "Original Telegram message date (Unix timestamp)"
+        },
+        "text": {
+          "type": "string",
+          "description": "Original Telegram text (if present)"
+        },
+        "caption": {
+          "type": "string",
+          "description": "Original Telegram caption (if present)"
+        },
+        "chat": {
+          "id": {
+            "type": "number",
+            "description": "Chat identifier"
+          },
+          "username": {
+            "type": "string",
+            "description": "Chat username (if available)"
+          },
+          "first_name": {
+            "type": "string",
+            "description": "First name (for private chats)"
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Last name (for private chats)"
+          }
+        },
+        "from": {
+          "id": {
+            "type": "number",
+            "description": "Sender user ID"
+          },
+          "is_bot": {
+            "type": "boolean",
+            "description": "Whether the sender is a bot"
+          },
+          "first_name": {
+            "type": "string",
+            "description": "Sender first name"
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Sender last name"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Sender language code (if available)"
+          }
+        }
+      }
+    },
+    "sender": {
+      "id": {
+        "type": "number",
+        "description": "Sender user ID"
+      },
+      "username": {
+        "type": "string",
+        "description": "Sender username (if available)"
+      },
+      "firstName": {
+        "type": "string",
+        "description": "Sender first name"
+      },
+      "lastName": {
+        "type": "string",
+        "description": "Sender last name"
+      },
+      "languageCode": {
+        "type": "string",
+        "description": "Sender language code (if available)"
+      },
+      "isBot": {
+        "type": "boolean",
+        "description": "Whether the sender is a bot"
+      }
+    },
+    "updateId": {
+      "type": "number",
+      "description": "Update ID for this webhook delivery"
+    },
+    "updateType": {
+      "type": "string",
+      "description": "Type of update: message, edited_message, channel_post, edited_channel_post, unknown"
+    }
+  },
+  "stripe_webhook": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the event"
+    },
+    "type": {
+      "type": "string",
+      "description": "Event type (e.g., payment_intent.succeeded, customer.created, invoice.paid)"
+    },
+    "object": {
+      "type": "string",
+      "description": "Always \"event\""
+    },
+    "api_version": {
+      "type": "string",
+      "description": "Stripe API version used to render the event"
+    },
+    "created": {
+      "type": "number",
+      "description": "Unix timestamp when the event was created"
+    },
+    "data": {
+      "type": "json",
+      "description": "Event data containing the affected Stripe object"
+    },
+    "livemode": {
+      "type": "boolean",
+      "description": "Whether this event occurred in live mode (true) or test mode (false)"
+    },
+    "pending_webhooks": {
+      "type": "number",
+      "description": "Number of webhooks yet to be delivered for this event"
+    },
+    "request": {
+      "type": "json",
+      "description": "Information about the request that triggered this event"
+    }
+  },
+  "twilio_voice_webhook": {
+    "callSid": {
+      "type": "string",
+      "description": "Unique identifier for this call"
+    },
+    "accountSid": {
+      "type": "string",
+      "description": "Twilio Account SID"
+    },
+    "from": {
+      "type": "string",
+      "description": "Caller's phone number (E.164 format)"
+    },
+    "to": {
+      "type": "string",
+      "description": "Recipient phone number (your Twilio number)"
+    },
+    "callStatus": {
+      "type": "string",
+      "description": "Status of the call (queued, ringing, in-progress, completed, etc.)"
+    },
+    "direction": {
+      "type": "string",
+      "description": "Call direction: inbound or outbound"
+    },
+    "apiVersion": {
+      "type": "string",
+      "description": "Twilio API version"
+    },
+    "callerName": {
+      "type": "string",
+      "description": "Caller ID name if available"
+    },
+    "forwardedFrom": {
+      "type": "string",
+      "description": "Phone number that forwarded this call"
+    },
+    "digits": {
+      "type": "string",
+      "description": "DTMF digits entered by caller (from <Gather>)"
+    },
+    "speechResult": {
+      "type": "string",
+      "description": "Speech recognition result (if using <Gather> with speech)"
+    },
+    "recordingUrl": {
+      "type": "string",
+      "description": "URL of call recording if available"
+    },
+    "recordingSid": {
+      "type": "string",
+      "description": "Recording SID if available"
+    },
+    "called": {
+      "type": "string",
+      "description": "Phone number that was called (same as \"to\")"
+    },
+    "caller": {
+      "type": "string",
+      "description": "Phone number of the caller (same as \"from\")"
+    },
+    "toCity": {
+      "type": "string",
+      "description": "City of the called number"
+    },
+    "toState": {
+      "type": "string",
+      "description": "State/province of the called number"
+    },
+    "toZip": {
+      "type": "string",
+      "description": "Zip/postal code of the called number"
+    },
+    "toCountry": {
+      "type": "string",
+      "description": "Country of the called number"
+    },
+    "fromCity": {
+      "type": "string",
+      "description": "City of the caller"
+    },
+    "fromState": {
+      "type": "string",
+      "description": "State/province of the caller"
+    },
+    "fromZip": {
+      "type": "string",
+      "description": "Zip/postal code of the caller"
+    },
+    "fromCountry": {
+      "type": "string",
+      "description": "Country of the caller"
+    },
+    "calledCity": {
+      "type": "string",
+      "description": "City of the called number (same as toCity)"
+    },
+    "calledState": {
+      "type": "string",
+      "description": "State of the called number (same as toState)"
+    },
+    "calledZip": {
+      "type": "string",
+      "description": "Zip code of the called number (same as toZip)"
+    },
+    "calledCountry": {
+      "type": "string",
+      "description": "Country of the called number (same as toCountry)"
+    },
+    "callerCity": {
+      "type": "string",
+      "description": "City of the caller (same as fromCity)"
+    },
+    "callerState": {
+      "type": "string",
+      "description": "State of the caller (same as fromState)"
+    },
+    "callerZip": {
+      "type": "string",
+      "description": "Zip code of the caller (same as fromZip)"
+    },
+    "callerCountry": {
+      "type": "string",
+      "description": "Country of the caller (same as fromCountry)"
+    },
+    "callToken": {
+      "type": "string",
+      "description": "Twilio call token for authentication"
+    },
+    "raw": {
+      "type": "string",
+      "description": "Complete raw webhook payload from Twilio as JSON string"
+    }
+  },
+  "indicator_trigger": {
+    "input": {
+      "type": "string",
+      "description": "Primary workflow text input."
+    },
+    "event": {
+      "type": "string",
+      "description": "Event key passed to trigger(...)."
+    },
+    "time": {
+      "type": "number",
+      "description": "Bar time in unix seconds."
+    },
+    "signal": {
+      "type": "string",
+      "description": "Signal: long, short, flat."
+    },
+    "listingBase": {
+      "type": "string",
+      "description": "Listing base value from market series."
+    },
+    "listingQuote": {
+      "type": "string",
+      "description": "Listing quote value from market series."
+    },
+    "marketSeries": {
+      "type": "json",
+      "description": "Market historical series data."
+    },
+    "listing": {
+      "type": "json",
+      "description": "Listing information."
+    },
+    "indicator": {
+      "name": {
+        "type": "string",
+        "description": "Indicator name."
+      },
+      "settings": {
+        "options": {
+          "type": "object",
+          "description": "Resolved indicator options."
+        },
+        "interval": {
+          "type": "string",
+          "description": "Execution interval."
+        }
+      },
+      "output": {
+        "series": {
+          "type": "array",
+          "description": "Normalized series output."
+        }
+      }
+    }
+  },
+  "microsoftteams_chat_subscription": {
+    "message_id": {
+      "type": "string",
+      "description": "Message ID"
+    },
+    "chat_id": {
+      "type": "string",
+      "description": "Chat ID"
+    },
+    "from_name": {
+      "type": "string",
+      "description": "Sender display name"
+    },
+    "text": {
+      "type": "string",
+      "description": "Message body (HTML or text)"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Message timestamp"
+    },
+    "attachments": {
+      "type": "file[]",
+      "description": "Uploaded attachments as files"
+    }
+  },
+  "microsoftteams_webhook": {
+    "from": {
+      "id": {
+        "type": "string",
+        "description": "Sender ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Sender name"
+      },
+      "aadObjectId": {
+        "type": "string",
+        "description": "AAD Object ID"
+      }
+    },
+    "message": {
+      "raw": {
+        "attachments": {
+          "type": "array",
+          "description": "Array of attachments"
+        },
+        "channelData": {
+          "team": {
+            "id": {
+              "type": "string",
+              "description": "Team ID"
+            }
+          },
+          "tenant": {
+            "id": {
+              "type": "string",
+              "description": "Tenant ID"
+            }
+          },
+          "channel": {
+            "id": {
+              "type": "string",
+              "description": "Channel ID"
+            }
+          },
+          "teamsTeamId": {
+            "type": "string",
+            "description": "Teams team ID"
+          },
+          "teamsChannelId": {
+            "type": "string",
+            "description": "Teams channel ID"
+          }
+        },
+        "conversation": {
+          "id": {
+            "type": "string",
+            "description": "Composite conversation ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Conversation name (nullable)"
+          },
+          "isGroup": {
+            "type": "boolean",
+            "description": "Is group conversation"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID"
+          },
+          "aadObjectId": {
+            "type": "string",
+            "description": "AAD Object ID (nullable)"
+          },
+          "conversationType": {
+            "type": "string",
+            "description": "Conversation type (channel)"
+          }
+        },
+        "text": {
+          "type": "string",
+          "description": "Message text content"
+        },
+        "messageType": {
+          "type": "string",
+          "description": "Message type"
+        },
+        "channelId": {
+          "type": "string",
+          "description": "Channel ID (msteams)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "description": "Activity payload"
+    },
+    "conversation": {
+      "id": {
+        "type": "string",
+        "description": "Composite conversation ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Conversation name (nullable)"
+      },
+      "isGroup": {
+        "type": "boolean",
+        "description": "Is group conversation"
+      },
+      "tenantId": {
+        "type": "string",
+        "description": "Tenant ID"
+      },
+      "aadObjectId": {
+        "type": "string",
+        "description": "AAD Object ID (nullable)"
+      },
+      "conversationType": {
+        "type": "string",
+        "description": "Conversation type (channel)"
+      }
+    }
+  },
+  "outlook_poller": {
+    "email": {
+      "id": {
+        "type": "string",
+        "description": "Outlook message ID"
+      },
+      "conversationId": {
+        "type": "string",
+        "description": "Outlook conversation ID"
+      },
+      "subject": {
+        "type": "string",
+        "description": "Email subject line"
+      },
+      "from": {
+        "type": "string",
+        "description": "Sender email address"
+      },
+      "to": {
+        "type": "string",
+        "description": "Recipient email address"
+      },
+      "cc": {
+        "type": "string",
+        "description": "CC recipients"
+      },
+      "date": {
+        "type": "string",
+        "description": "Email date in ISO format"
+      },
+      "bodyText": {
+        "type": "string",
+        "description": "Plain text email body"
+      },
+      "bodyHtml": {
+        "type": "string",
+        "description": "HTML email body"
+      },
+      "hasAttachments": {
+        "type": "boolean",
+        "description": "Whether email has attachments"
+      },
+      "attachments": {
+        "type": "file[]",
+        "description": "Array of email attachments as files (if includeAttachments is enabled)"
+      },
+      "isRead": {
+        "type": "boolean",
+        "description": "Whether email is read"
+      },
+      "folderId": {
+        "type": "string",
+        "description": "Outlook folder ID where email is located"
+      },
+      "messageId": {
+        "type": "string",
+        "description": "Message ID for threading"
+      },
+      "threadId": {
+        "type": "string",
+        "description": "Thread ID for conversation threading"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Event timestamp"
+    }
+  },
+  "webflow_collection_item_created": {
+    "siteId": {
+      "type": "string",
+      "description": "The site ID where the event occurred"
+    },
+    "collectionId": {
+      "type": "string",
+      "description": "The collection ID where the item was created"
+    },
+    "payload": {
+      "id": {
+        "type": "string",
+        "description": "The ID of the created item"
+      },
+      "cmsLocaleId": {
+        "type": "string",
+        "description": "CMS locale ID"
+      },
+      "lastPublished": {
+        "type": "string",
+        "description": "Last published timestamp"
+      },
+      "lastUpdated": {
+        "type": "string",
+        "description": "Last updated timestamp"
+      },
+      "createdOn": {
+        "type": "string",
+        "description": "Timestamp when the item was created"
+      },
+      "isArchived": {
+        "type": "boolean",
+        "description": "Whether the item is archived"
+      },
+      "isDraft": {
+        "type": "boolean",
+        "description": "Whether the item is a draft"
+      },
+      "fieldData": {
+        "type": "object",
+        "description": "The field data of the item"
+      }
+    }
+  },
+  "webflow_form_submission": {
+    "siteId": {
+      "type": "string",
+      "description": "The site ID where the form was submitted"
+    },
+    "formId": {
+      "type": "string",
+      "description": "The form ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "The name of the form"
+    },
+    "id": {
+      "type": "string",
+      "description": "The unique ID of the form submission"
+    },
+    "submittedAt": {
+      "type": "string",
+      "description": "Timestamp when the form was submitted"
+    },
+    "data": {
+      "type": "object",
+      "description": "The form submission field data (keys are field names)"
+    },
+    "schema": {
+      "type": "object",
+      "description": "Form schema information"
+    },
+    "formElementId": {
+      "type": "string",
+      "description": "The form element ID"
+    }
+  },
+  "webflow_collection_item_changed": {
+    "siteId": {
+      "type": "string",
+      "description": "The site ID where the event occurred"
+    },
+    "collectionId": {
+      "type": "string",
+      "description": "The collection ID where the item was changed"
+    },
+    "payload": {
+      "id": {
+        "type": "string",
+        "description": "The ID of the changed item"
+      },
+      "cmsLocaleId": {
+        "type": "string",
+        "description": "CMS locale ID"
+      },
+      "lastPublished": {
+        "type": "string",
+        "description": "Last published timestamp"
+      },
+      "lastUpdated": {
+        "type": "string",
+        "description": "Last updated timestamp"
+      },
+      "createdOn": {
+        "type": "string",
+        "description": "Timestamp when the item was created"
+      },
+      "isArchived": {
+        "type": "boolean",
+        "description": "Whether the item is archived"
+      },
+      "isDraft": {
+        "type": "boolean",
+        "description": "Whether the item is a draft"
+      },
+      "fieldData": {
+        "type": "object",
+        "description": "The updated field data of the item"
+      }
+    }
+  },
+  "webflow_collection_item_deleted": {
+    "siteId": {
+      "type": "string",
+      "description": "The site ID where the event occurred"
+    },
+    "collectionId": {
+      "type": "string",
+      "description": "The collection ID where the item was deleted"
+    },
+    "payload": {
+      "id": {
+        "type": "string",
+        "description": "The ID of the deleted item"
+      },
+      "deletedOn": {
+        "type": "string",
+        "description": "Timestamp when the item was deleted"
+      }
+    }
+  },
+  "gmail_poller": {
+    "email": {
+      "id": {
+        "type": "string",
+        "description": "Gmail message ID"
+      },
+      "threadId": {
+        "type": "string",
+        "description": "Gmail thread ID"
+      },
+      "subject": {
+        "type": "string",
+        "description": "Email subject line"
+      },
+      "from": {
+        "type": "string",
+        "description": "Sender email address"
+      },
+      "to": {
+        "type": "string",
+        "description": "Recipient email address"
+      },
+      "cc": {
+        "type": "string",
+        "description": "CC recipients"
+      },
+      "date": {
+        "type": "string",
+        "description": "Email date in ISO format"
+      },
+      "bodyText": {
+        "type": "string",
+        "description": "Plain text email body"
+      },
+      "bodyHtml": {
+        "type": "string",
+        "description": "HTML email body"
+      },
+      "labels": {
+        "type": "string",
+        "description": "Email labels array"
+      },
+      "hasAttachments": {
+        "type": "boolean",
+        "description": "Whether email has attachments"
+      },
+      "attachments": {
+        "type": "file[]",
+        "description": "Array of email attachments as files (if includeAttachments is enabled)"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Event timestamp"
+    }
+  },
+  "slack_webhook": {
+    "event": {
+      "event_type": {
+        "type": "string",
+        "description": "Type of Slack event (e.g., app_mention, message)"
+      },
+      "channel": {
+        "type": "string",
+        "description": "Slack channel ID where the event occurred"
+      },
+      "channel_name": {
+        "type": "string",
+        "description": "Human-readable channel name"
+      },
+      "user": {
+        "type": "string",
+        "description": "User ID who triggered the event"
+      },
+      "user_name": {
+        "type": "string",
+        "description": "Username who triggered the event"
+      },
+      "text": {
+        "type": "string",
+        "description": "Message text content"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "Message timestamp from the triggering event"
+      },
+      "thread_ts": {
+        "type": "string",
+        "description": "Parent thread timestamp (if message is in a thread)"
+      },
+      "team_id": {
+        "type": "string",
+        "description": "Slack workspace/team ID"
+      },
+      "event_id": {
+        "type": "string",
+        "description": "Unique event identifier"
+      }
+    }
+  },
+  "circleback_meeting_notes": {
+    "id": {
+      "type": "number",
+      "description": "Circleback meeting ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "Meeting title/name"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL of the virtual meeting (Zoom, Google Meet, Teams, etc.)"
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO8601 timestamp when meeting was created"
+    },
+    "duration": {
+      "type": "number",
+      "description": "Meeting duration in seconds"
+    },
+    "recordingUrl": {
+      "type": "string",
+      "description": "Recording URL (valid for 24 hours, if enabled)"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Array of tag strings"
+    },
+    "icalUid": {
+      "type": "string",
+      "description": "Calendar event identifier"
+    },
+    "attendees": {
+      "type": "array",
+      "description": "Array of attendee objects with name and email"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Meeting notes in Markdown format"
+    },
+    "actionItems": {
+      "type": "array",
+      "description": "Array of action item objects with id, title, description, assignee, status"
+    },
+    "transcript": {
+      "type": "array",
+      "description": "Array of transcript segments with speaker, text, and timestamp (in seconds)"
+    },
+    "insights": {
+      "type": "object",
+      "description": "User-created insights keyed by insight name, each containing array of insight results"
+    },
+    "meeting": {
+      "type": "object",
+      "description": "Full meeting payload object"
+    }
+  },
+  "circleback_webhook": {
+    "id": {
+      "type": "number",
+      "description": "Circleback meeting ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "Meeting title/name"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL of the virtual meeting (Zoom, Google Meet, Teams, etc.)"
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO8601 timestamp when meeting was created"
+    },
+    "duration": {
+      "type": "number",
+      "description": "Meeting duration in seconds"
+    },
+    "recordingUrl": {
+      "type": "string",
+      "description": "Recording URL (valid for 24 hours, if enabled)"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Array of tag strings"
+    },
+    "icalUid": {
+      "type": "string",
+      "description": "Calendar event identifier"
+    },
+    "attendees": {
+      "type": "array",
+      "description": "Array of attendee objects with name and email"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Meeting notes in Markdown format"
+    },
+    "actionItems": {
+      "type": "array",
+      "description": "Array of action item objects with id, title, description, assignee, status"
+    },
+    "transcript": {
+      "type": "array",
+      "description": "Array of transcript segments with speaker, text, and timestamp (in seconds)"
+    },
+    "insights": {
+      "type": "object",
+      "description": "User-created insights keyed by insight name, each containing array of insight results"
+    },
+    "meeting": {
+      "type": "object",
+      "description": "Full meeting payload object"
+    }
+  },
+  "circleback_meeting_completed": {
+    "id": {
+      "type": "number",
+      "description": "Circleback meeting ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "Meeting title/name"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL of the virtual meeting (Zoom, Google Meet, Teams, etc.)"
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO8601 timestamp when meeting was created"
+    },
+    "duration": {
+      "type": "number",
+      "description": "Meeting duration in seconds"
+    },
+    "recordingUrl": {
+      "type": "string",
+      "description": "Recording URL (valid for 24 hours, if enabled)"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Array of tag strings"
+    },
+    "icalUid": {
+      "type": "string",
+      "description": "Calendar event identifier"
+    },
+    "attendees": {
+      "type": "array",
+      "description": "Array of attendee objects with name and email"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Meeting notes in Markdown format"
+    },
+    "actionItems": {
+      "type": "array",
+      "description": "Array of action item objects with id, title, description, assignee, status"
+    },
+    "transcript": {
+      "type": "array",
+      "description": "Array of transcript segments with speaker, text, and timestamp (in seconds)"
+    },
+    "insights": {
+      "type": "object",
+      "description": "User-created insights keyed by insight name, each containing array of insight results"
+    },
+    "meeting": {
+      "type": "object",
+      "description": "Full meeting payload object"
+    }
+  },
+  "hubspot_company_created": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_conversation_deletion": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_conversation_property_changed": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_ticket_created": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_deal_created": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_company_property_changed": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_contact_deleted": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_contact_privacy_deleted": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_ticket_deleted": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_conversation_privacy_deletion": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_conversation_new_message": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_company_deleted": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_ticket_property_changed": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_contact_property_changed": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_conversation_creation": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_deal_property_changed": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_deal_deleted": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "hubspot_contact_created": {
+    "payload": {
+      "type": "json",
+      "description": "Full webhook payload array from HubSpot containing event details"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (hubspot)"
+    },
+    "providerConfig": {
+      "appId": {
+        "type": "string",
+        "description": "HubSpot App ID"
+      },
+      "clientId": {
+        "type": "string",
+        "description": "HubSpot Client ID"
+      },
+      "triggerId": {
+        "type": "string",
+        "description": "Trigger ID (e.g., hubspot_company_created)"
+      },
+      "clientSecret": {
+        "type": "string",
+        "description": "HubSpot Client Secret"
+      },
+      "developerApiKey": {
+        "type": "string",
+        "description": "HubSpot Developer API Key"
+      },
+      "curlSetWebhookUrl": {
+        "type": "string",
+        "description": "curl command to set webhook URL"
+      },
+      "curlCreateSubscription": {
+        "type": "string",
+        "description": "curl command to create subscription"
+      },
+      "webhookUrlDisplay": {
+        "type": "string",
+        "description": "Webhook URL display value"
+      },
+      "propertyName": {
+        "type": "string",
+        "description": "Optional property name filter (for property change triggers)"
+      }
+    }
+  },
+  "whatsapp_webhook": {
+    "messageId": {
+      "type": "string",
+      "description": "Unique message identifier"
+    },
+    "from": {
+      "type": "string",
+      "description": "Phone number of the message sender"
+    },
+    "phoneNumberId": {
+      "type": "string",
+      "description": "WhatsApp Business phone number ID that received the message"
+    },
+    "text": {
+      "type": "string",
+      "description": "Message text content"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Message timestamp"
+    },
+    "raw": {
+      "type": "string",
+      "description": "Complete raw message object from WhatsApp as JSON string"
+    }
+  },
+  "rss_poller": {
+    "item": {
+      "title": {
+        "type": "string",
+        "description": "Item title"
+      },
+      "link": {
+        "type": "string",
+        "description": "Item link/URL"
+      },
+      "pubDate": {
+        "type": "string",
+        "description": "Publication date"
+      },
+      "guid": {
+        "type": "string",
+        "description": "Unique identifier"
+      },
+      "summary": {
+        "type": "string",
+        "description": "Item description/summary"
+      },
+      "content": {
+        "type": "string",
+        "description": "Full content (content:encoded)"
+      },
+      "contentSnippet": {
+        "type": "string",
+        "description": "Content snippet without HTML"
+      },
+      "author": {
+        "type": "string",
+        "description": "Author name"
+      },
+      "categories": {
+        "type": "json",
+        "description": "Categories/tags array"
+      },
+      "enclosure": {
+        "type": "json",
+        "description": "Media attachment info (url, type, length)"
+      },
+      "isoDate": {
+        "type": "string",
+        "description": "Publication date in ISO format"
+      }
+    },
+    "feed": {
+      "title": {
+        "type": "string",
+        "description": "Feed title"
+      },
+      "link": {
+        "type": "string",
+        "description": "Feed website link"
+      },
+      "feedDescription": {
+        "type": "string",
+        "description": "Feed description"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Event timestamp"
+    }
+  },
+  "generic_webhook": {},
+  "google_forms_webhook": {
+    "responseId": {
+      "type": "string",
+      "description": "Unique response identifier (if available)"
+    },
+    "createTime": {
+      "type": "string",
+      "description": "Response creation timestamp"
+    },
+    "lastSubmittedTime": {
+      "type": "string",
+      "description": "Last submitted timestamp"
+    },
+    "formId": {
+      "type": "string",
+      "description": "Google Form ID"
+    },
+    "answers": {
+      "type": "object",
+      "description": "Normalized map of question -> answer"
+    },
+    "raw": {
+      "type": "object",
+      "description": "Original payload (when enabled)"
+    }
+  },
+  "grain_recording_updated": {
+    "type": {
+      "type": "string",
+      "description": "Event type"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "id": {
+        "type": "string",
+        "description": "Recording UUID"
+      },
+      "title": {
+        "type": "string",
+        "description": "Recording title"
+      },
+      "start_datetime": {
+        "type": "string",
+        "description": "ISO8601 start timestamp"
+      },
+      "end_datetime": {
+        "type": "string",
+        "description": "ISO8601 end timestamp"
+      },
+      "duration_ms": {
+        "type": "number",
+        "description": "Duration in milliseconds"
+      },
+      "media_type": {
+        "type": "string",
+        "description": "audio, transcript, or video"
+      },
+      "source": {
+        "type": "string",
+        "description": "Recording source (zoom, meet, local_capture, etc.)"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to view in Grain"
+      },
+      "thumbnail_url": {
+        "type": "string",
+        "description": "Thumbnail URL (nullable)"
+      },
+      "tags": {
+        "type": "array",
+        "description": "Array of tag strings"
+      },
+      "teams": {
+        "type": "array",
+        "description": "Array of team objects"
+      },
+      "meeting_type": {
+        "type": "object",
+        "description": "Meeting type info with id, name, scope (nullable)"
+      }
+    }
+  },
+  "grain_recording_created": {
+    "type": {
+      "type": "string",
+      "description": "Event type"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "id": {
+        "type": "string",
+        "description": "Recording UUID"
+      },
+      "title": {
+        "type": "string",
+        "description": "Recording title"
+      },
+      "start_datetime": {
+        "type": "string",
+        "description": "ISO8601 start timestamp"
+      },
+      "end_datetime": {
+        "type": "string",
+        "description": "ISO8601 end timestamp"
+      },
+      "duration_ms": {
+        "type": "number",
+        "description": "Duration in milliseconds"
+      },
+      "media_type": {
+        "type": "string",
+        "description": "audio, transcript, or video"
+      },
+      "source": {
+        "type": "string",
+        "description": "Recording source (zoom, meet, local_capture, etc.)"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to view in Grain"
+      },
+      "thumbnail_url": {
+        "type": "string",
+        "description": "Thumbnail URL (nullable)"
+      },
+      "tags": {
+        "type": "array",
+        "description": "Array of tag strings"
+      },
+      "teams": {
+        "type": "array",
+        "description": "Array of team objects"
+      },
+      "meeting_type": {
+        "type": "object",
+        "description": "Meeting type info with id, name, scope (nullable)"
+      }
+    }
+  },
+  "grain_webhook": {
+    "type": {
+      "type": "string",
+      "description": "Event type (e.g., recording_added)"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "type": "object",
+      "description": "Event data object (recording, highlight, etc.)"
+    }
+  },
+  "grain_highlight_updated": {
+    "type": {
+      "type": "string",
+      "description": "Event type"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "id": {
+        "type": "string",
+        "description": "Highlight UUID"
+      },
+      "recording_id": {
+        "type": "string",
+        "description": "Parent recording UUID"
+      },
+      "text": {
+        "type": "string",
+        "description": "Highlight title/description"
+      },
+      "transcript": {
+        "type": "string",
+        "description": "Transcript text of the clip"
+      },
+      "speakers": {
+        "type": "array",
+        "description": "Array of speaker names"
+      },
+      "timestamp": {
+        "type": "number",
+        "description": "Start timestamp in ms"
+      },
+      "duration": {
+        "type": "number",
+        "description": "Duration in ms"
+      },
+      "tags": {
+        "type": "array",
+        "description": "Array of tag strings"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to view in Grain"
+      },
+      "thumbnail_url": {
+        "type": "string",
+        "description": "Thumbnail URL"
+      },
+      "created_datetime": {
+        "type": "string",
+        "description": "ISO8601 creation timestamp"
+      }
+    }
+  },
+  "grain_story_created": {
+    "type": {
+      "type": "string",
+      "description": "Event type"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "id": {
+        "type": "string",
+        "description": "Story UUID"
+      },
+      "title": {
+        "type": "string",
+        "description": "Story title"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to view in Grain"
+      },
+      "created_datetime": {
+        "type": "string",
+        "description": "ISO8601 creation timestamp"
+      }
+    }
+  },
+  "grain_highlight_created": {
+    "type": {
+      "type": "string",
+      "description": "Event type"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User UUID who triggered the event"
+    },
+    "data": {
+      "id": {
+        "type": "string",
+        "description": "Highlight UUID"
+      },
+      "recording_id": {
+        "type": "string",
+        "description": "Parent recording UUID"
+      },
+      "text": {
+        "type": "string",
+        "description": "Highlight title/description"
+      },
+      "transcript": {
+        "type": "string",
+        "description": "Transcript text of the clip"
+      },
+      "speakers": {
+        "type": "array",
+        "description": "Array of speaker names"
+      },
+      "timestamp": {
+        "type": "number",
+        "description": "Start timestamp in ms"
+      },
+      "duration": {
+        "type": "number",
+        "description": "Duration in ms"
+      },
+      "tags": {
+        "type": "array",
+        "description": "Array of tag strings"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to view in Grain"
+      },
+      "thumbnail_url": {
+        "type": "string",
+        "description": "Thumbnail URL"
+      },
+      "created_datetime": {
+        "type": "string",
+        "description": "ISO8601 creation timestamp"
+      }
+    }
+  },
+  "github_pr_merged": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+    },
+    "number": {
+      "type": "number",
+      "description": "Pull request number"
+    },
+    "pull_request": {
+      "id": {
+        "type": "number",
+        "description": "Pull request ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Pull request node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Pull request number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Pull request title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Pull request description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Pull request state (open, closed)"
+      },
+      "merged": {
+        "type": "boolean",
+        "description": "Whether the PR was merged"
+      },
+      "merged_at": {
+        "type": "string",
+        "description": "Timestamp when PR was merged"
+      },
+      "merged_by": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "draft": {
+        "type": "boolean",
+        "description": "Whether the PR is a draft"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Pull request HTML URL"
+      },
+      "diff_url": {
+        "type": "string",
+        "description": "Pull request diff URL"
+      },
+      "patch_url": {
+        "type": "string",
+        "description": "Pull request patch URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "head": {
+        "ref": {
+          "type": "string",
+          "description": "Source branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Source branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Source repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Source repository full name"
+          }
+        }
+      },
+      "base": {
+        "ref": {
+          "type": "string",
+          "description": "Target branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Target branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Target repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Target repository full name"
+          }
+        }
+      },
+      "additions": {
+        "type": "number",
+        "description": "Number of lines added"
+      },
+      "deletions": {
+        "type": "number",
+        "description": "Number of lines deleted"
+      },
+      "changed_files": {
+        "type": "number",
+        "description": "Number of files changed"
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "requested_reviewers": {
+        "type": "array",
+        "description": "Array of requested reviewers"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Pull request creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Pull request last update timestamp"
+      },
+      "closed_at": {
+        "type": "string",
+        "description": "Pull request closed timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_pr_reviewed": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request_review)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (submitted, edited, dismissed)"
+    },
+    "review": {
+      "id": {
+        "type": "number",
+        "description": "Review ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Review node ID"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Reviewer username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Reviewer user ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Reviewer node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Reviewer avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Reviewer profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "body": {
+        "type": "string",
+        "description": "Review comment text"
+      },
+      "state": {
+        "type": "string",
+        "description": "Review state (approved, changes_requested, commented, dismissed)"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Review HTML URL"
+      },
+      "submitted_at": {
+        "type": "string",
+        "description": "Review submission timestamp"
+      },
+      "commit_id": {
+        "type": "string",
+        "description": "Commit SHA that was reviewed"
+      },
+      "author_association": {
+        "type": "string",
+        "description": "Author association (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, etc.)"
+      }
+    },
+    "pull_request": {
+      "id": {
+        "type": "number",
+        "description": "Pull request ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Pull request node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Pull request number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Pull request title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Pull request description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Pull request state (open, closed)"
+      },
+      "merged": {
+        "type": "boolean",
+        "description": "Whether the PR was merged"
+      },
+      "draft": {
+        "type": "boolean",
+        "description": "Whether the PR is a draft"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Pull request HTML URL"
+      },
+      "diff_url": {
+        "type": "string",
+        "description": "Pull request diff URL"
+      },
+      "patch_url": {
+        "type": "string",
+        "description": "Pull request patch URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "PR author username"
+        },
+        "id": {
+          "type": "number",
+          "description": "PR author user ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "PR author node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "PR author avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "PR author profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "head": {
+        "ref": {
+          "type": "string",
+          "description": "Source branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Source branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Source repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Source repository full name"
+          }
+        }
+      },
+      "base": {
+        "ref": {
+          "type": "string",
+          "description": "Target branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Target branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Target repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Target repository full name"
+          }
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Pull request creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Pull request last update timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_workflow_run": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., workflow_run)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (requested, in_progress, completed)"
+    },
+    "workflow_run": {
+      "id": {
+        "type": "number",
+        "description": "Workflow run ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Workflow run node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Workflow name"
+      },
+      "workflow_id": {
+        "type": "number",
+        "description": "Workflow ID"
+      },
+      "run_number": {
+        "type": "number",
+        "description": "Run number for this workflow"
+      },
+      "run_attempt": {
+        "type": "number",
+        "description": "Attempt number for this run"
+      },
+      "event": {
+        "type": "string",
+        "description": "Event that triggered the workflow (push, pull_request, etc.)"
+      },
+      "status": {
+        "type": "string",
+        "description": "Current status (queued, in_progress, completed)"
+      },
+      "conclusion": {
+        "type": "string",
+        "description": "Conclusion (success, failure, cancelled, skipped, timed_out, action_required)"
+      },
+      "head_branch": {
+        "type": "string",
+        "description": "Branch name"
+      },
+      "head_sha": {
+        "type": "string",
+        "description": "Commit SHA that triggered the workflow"
+      },
+      "path": {
+        "type": "string",
+        "description": "Path to the workflow file"
+      },
+      "display_title": {
+        "type": "string",
+        "description": "Display title for the run"
+      },
+      "run_started_at": {
+        "type": "string",
+        "description": "Timestamp when the run started"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Workflow run creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Workflow run last update timestamp"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Workflow run HTML URL"
+      },
+      "check_suite_id": {
+        "type": "number",
+        "description": "Associated check suite ID"
+      },
+      "check_suite_node_id": {
+        "type": "string",
+        "description": "Associated check suite node ID"
+      },
+      "url": {
+        "type": "string",
+        "description": "Workflow run API URL"
+      },
+      "actor": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "triggering_actor": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "repository": {
+        "id": {
+          "type": "number",
+          "description": "Repository ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Repository node ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "full_name": {
+          "type": "string",
+          "description": "Repository full name"
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether repository is private"
+        }
+      },
+      "head_repository": {
+        "id": {
+          "type": "number",
+          "description": "Head repository ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Head repository node ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Head repository name"
+        },
+        "full_name": {
+          "type": "string",
+          "description": "Head repository full name"
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether repository is private"
+        }
+      },
+      "head_commit": {
+        "id": {
+          "type": "string",
+          "description": "Commit SHA"
+        },
+        "tree_id": {
+          "type": "string",
+          "description": "Tree ID"
+        },
+        "message": {
+          "type": "string",
+          "description": "Commit message"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Commit timestamp"
+        },
+        "author": {
+          "name": {
+            "type": "string",
+            "description": "Author name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Author email"
+          }
+        },
+        "committer": {
+          "name": {
+            "type": "string",
+            "description": "Committer name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Committer email"
+          }
+        }
+      },
+      "pull_requests": {
+        "type": "array",
+        "description": "Array of associated pull requests"
+      },
+      "referenced_workflows": {
+        "type": "array",
+        "description": "Array of referenced workflow runs"
+      }
+    },
+    "workflow": {
+      "id": {
+        "type": "number",
+        "description": "Workflow ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Workflow node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Workflow name"
+      },
+      "path": {
+        "type": "string",
+        "description": "Path to workflow file"
+      },
+      "state": {
+        "type": "string",
+        "description": "Workflow state (active, deleted, disabled_fork, etc.)"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Workflow creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Workflow last update timestamp"
+      },
+      "url": {
+        "type": "string",
+        "description": "Workflow API URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Workflow HTML URL"
+      },
+      "badge_url": {
+        "type": "string",
+        "description": "Workflow badge URL"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_issue_comment": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., issue_comment)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (created, edited, deleted)"
+    },
+    "issue": {
+      "number": {
+        "type": "number",
+        "description": "Issue number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Issue title"
+      },
+      "state": {
+        "type": "string",
+        "description": "Issue state (open, closed)"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Issue HTML URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      }
+    },
+    "comment": {
+      "id": {
+        "type": "number",
+        "description": "Comment ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Comment node ID"
+      },
+      "body": {
+        "type": "string",
+        "description": "Comment text"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Comment HTML URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Comment creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Comment last update timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_release_published": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., release)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (published, unpublished, created, edited, deleted, prereleased, released)"
+    },
+    "release": {
+      "id": {
+        "type": "number",
+        "description": "Release ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Release node ID"
+      },
+      "tag_name": {
+        "type": "string",
+        "description": "Git tag name for the release"
+      },
+      "target_commitish": {
+        "type": "string",
+        "description": "Target branch or commit SHA"
+      },
+      "name": {
+        "type": "string",
+        "description": "Release name/title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Release description/notes in markdown format"
+      },
+      "draft": {
+        "type": "boolean",
+        "description": "Whether the release is a draft"
+      },
+      "prerelease": {
+        "type": "boolean",
+        "description": "Whether the release is a pre-release"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Release creation timestamp"
+      },
+      "published_at": {
+        "type": "string",
+        "description": "Release publication timestamp"
+      },
+      "url": {
+        "type": "string",
+        "description": "Release API URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Release HTML URL"
+      },
+      "assets_url": {
+        "type": "string",
+        "description": "Release assets API URL"
+      },
+      "upload_url": {
+        "type": "string",
+        "description": "URL for uploading release assets"
+      },
+      "tarball_url": {
+        "type": "string",
+        "description": "Source code tarball download URL"
+      },
+      "zipball_url": {
+        "type": "string",
+        "description": "Source code zipball download URL"
+      },
+      "discussion_url": {
+        "type": "string",
+        "description": "Discussion URL if available"
+      },
+      "author": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "gravatar_id": {
+          "type": "string",
+          "description": "Gravatar ID"
+        },
+        "url": {
+          "type": "string",
+          "description": "User API URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "followers_url": {
+          "type": "string",
+          "description": "Followers API URL"
+        },
+        "following_url": {
+          "type": "string",
+          "description": "Following API URL"
+        },
+        "gists_url": {
+          "type": "string",
+          "description": "Gists API URL"
+        },
+        "starred_url": {
+          "type": "string",
+          "description": "Starred repositories API URL"
+        },
+        "subscriptions_url": {
+          "type": "string",
+          "description": "Subscriptions API URL"
+        },
+        "organizations_url": {
+          "type": "string",
+          "description": "Organizations API URL"
+        },
+        "repos_url": {
+          "type": "string",
+          "description": "Repositories API URL"
+        },
+        "events_url": {
+          "type": "string",
+          "description": "Events API URL"
+        },
+        "received_events_url": {
+          "type": "string",
+          "description": "Received events API URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        },
+        "site_admin": {
+          "type": "boolean",
+          "description": "Whether user is a site administrator"
+        }
+      },
+      "assets": {
+        "type": "array",
+        "description": "Array of release asset objects with download URLs"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "archive_url": {
+        "type": "string",
+        "description": "Archive API URL"
+      },
+      "assignees_url": {
+        "type": "string",
+        "description": "Assignees API URL"
+      },
+      "blobs_url": {
+        "type": "string",
+        "description": "Blobs API URL"
+      },
+      "branches_url": {
+        "type": "string",
+        "description": "Branches API URL"
+      },
+      "collaborators_url": {
+        "type": "string",
+        "description": "Collaborators API URL"
+      },
+      "comments_url": {
+        "type": "string",
+        "description": "Comments API URL"
+      },
+      "commits_url": {
+        "type": "string",
+        "description": "Commits API URL"
+      },
+      "compare_url": {
+        "type": "string",
+        "description": "Compare API URL"
+      },
+      "contents_url": {
+        "type": "string",
+        "description": "Contents API URL"
+      },
+      "contributors_url": {
+        "type": "string",
+        "description": "Contributors API URL"
+      },
+      "deployments_url": {
+        "type": "string",
+        "description": "Deployments API URL"
+      },
+      "downloads_url": {
+        "type": "string",
+        "description": "Downloads API URL"
+      },
+      "events_url": {
+        "type": "string",
+        "description": "Events API URL"
+      },
+      "forks_url": {
+        "type": "string",
+        "description": "Forks API URL"
+      },
+      "git_commits_url": {
+        "type": "string",
+        "description": "Git commits API URL"
+      },
+      "git_refs_url": {
+        "type": "string",
+        "description": "Git refs API URL"
+      },
+      "git_tags_url": {
+        "type": "string",
+        "description": "Git tags API URL"
+      },
+      "hooks_url": {
+        "type": "string",
+        "description": "Hooks API URL"
+      },
+      "issue_comment_url": {
+        "type": "string",
+        "description": "Issue comment API URL"
+      },
+      "issue_events_url": {
+        "type": "string",
+        "description": "Issue events API URL"
+      },
+      "issues_url": {
+        "type": "string",
+        "description": "Issues API URL"
+      },
+      "keys_url": {
+        "type": "string",
+        "description": "Keys API URL"
+      },
+      "labels_url": {
+        "type": "string",
+        "description": "Labels API URL"
+      },
+      "languages_url": {
+        "type": "string",
+        "description": "Languages API URL"
+      },
+      "merges_url": {
+        "type": "string",
+        "description": "Merges API URL"
+      },
+      "milestones_url": {
+        "type": "string",
+        "description": "Milestones API URL"
+      },
+      "notifications_url": {
+        "type": "string",
+        "description": "Notifications API URL"
+      },
+      "pulls_url": {
+        "type": "string",
+        "description": "Pull requests API URL"
+      },
+      "releases_url": {
+        "type": "string",
+        "description": "Releases API URL"
+      },
+      "stargazers_url": {
+        "type": "string",
+        "description": "Stargazers API URL"
+      },
+      "statuses_url": {
+        "type": "string",
+        "description": "Statuses API URL"
+      },
+      "subscribers_url": {
+        "type": "string",
+        "description": "Subscribers API URL"
+      },
+      "subscription_url": {
+        "type": "string",
+        "description": "Subscription API URL"
+      },
+      "tags_url": {
+        "type": "string",
+        "description": "Tags API URL"
+      },
+      "teams_url": {
+        "type": "string",
+        "description": "Teams API URL"
+      },
+      "trees_url": {
+        "type": "string",
+        "description": "Trees API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "has_issues": {
+        "type": "boolean",
+        "description": "Whether issues are enabled"
+      },
+      "has_projects": {
+        "type": "boolean",
+        "description": "Whether projects are enabled"
+      },
+      "has_downloads": {
+        "type": "boolean",
+        "description": "Whether downloads are enabled"
+      },
+      "has_wiki": {
+        "type": "boolean",
+        "description": "Whether wiki is enabled"
+      },
+      "has_pages": {
+        "type": "boolean",
+        "description": "Whether GitHub Pages is enabled"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "mirror_url": {
+        "type": "string",
+        "description": "Mirror URL if repository is a mirror"
+      },
+      "archived": {
+        "type": "boolean",
+        "description": "Whether the repository is archived"
+      },
+      "disabled": {
+        "type": "boolean",
+        "description": "Whether the repository is disabled"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "license": {
+        "key": {
+          "type": "string",
+          "description": "License key"
+        },
+        "name": {
+          "type": "string",
+          "description": "License name"
+        },
+        "spdx_id": {
+          "type": "string",
+          "description": "SPDX license identifier"
+        },
+        "url": {
+          "type": "string",
+          "description": "License API URL"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "License node ID"
+        }
+      },
+      "allow_forking": {
+        "type": "boolean",
+        "description": "Whether forking is allowed"
+      },
+      "is_template": {
+        "type": "boolean",
+        "description": "Whether repository is a template"
+      },
+      "topics": {
+        "type": "array",
+        "description": "Array of repository topics"
+      },
+      "visibility": {
+        "type": "string",
+        "description": "Repository visibility (public, private, internal)"
+      },
+      "forks": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "watchers": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Repository creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Repository last update timestamp"
+      },
+      "pushed_at": {
+        "type": "string",
+        "description": "Repository last push timestamp"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "gravatar_id": {
+          "type": "string",
+          "description": "Owner gravatar ID"
+        },
+        "url": {
+          "type": "string",
+          "description": "Owner API URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "followers_url": {
+          "type": "string",
+          "description": "Followers API URL"
+        },
+        "following_url": {
+          "type": "string",
+          "description": "Following API URL"
+        },
+        "gists_url": {
+          "type": "string",
+          "description": "Gists API URL"
+        },
+        "starred_url": {
+          "type": "string",
+          "description": "Starred repositories API URL"
+        },
+        "subscriptions_url": {
+          "type": "string",
+          "description": "Subscriptions API URL"
+        },
+        "organizations_url": {
+          "type": "string",
+          "description": "Organizations API URL"
+        },
+        "repos_url": {
+          "type": "string",
+          "description": "Repositories API URL"
+        },
+        "events_url": {
+          "type": "string",
+          "description": "Events API URL"
+        },
+        "received_events_url": {
+          "type": "string",
+          "description": "Received events API URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        },
+        "site_admin": {
+          "type": "boolean",
+          "description": "Whether owner is a site administrator"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "gravatar_id": {
+        "type": "string",
+        "description": "Gravatar ID"
+      },
+      "url": {
+        "type": "string",
+        "description": "User API URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "followers_url": {
+        "type": "string",
+        "description": "Followers API URL"
+      },
+      "following_url": {
+        "type": "string",
+        "description": "Following API URL"
+      },
+      "gists_url": {
+        "type": "string",
+        "description": "Gists API URL"
+      },
+      "starred_url": {
+        "type": "string",
+        "description": "Starred repositories API URL"
+      },
+      "subscriptions_url": {
+        "type": "string",
+        "description": "Subscriptions API URL"
+      },
+      "organizations_url": {
+        "type": "string",
+        "description": "Organizations API URL"
+      },
+      "repos_url": {
+        "type": "string",
+        "description": "Repositories API URL"
+      },
+      "events_url": {
+        "type": "string",
+        "description": "Events API URL"
+      },
+      "received_events_url": {
+        "type": "string",
+        "description": "Received events API URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      },
+      "site_admin": {
+        "type": "boolean",
+        "description": "Whether user is a site administrator"
+      }
+    }
+  },
+  "github_pr_closed": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+    },
+    "number": {
+      "type": "number",
+      "description": "Pull request number"
+    },
+    "pull_request": {
+      "id": {
+        "type": "number",
+        "description": "Pull request ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Pull request node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Pull request number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Pull request title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Pull request description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Pull request state (open, closed)"
+      },
+      "merged": {
+        "type": "boolean",
+        "description": "Whether the PR was merged"
+      },
+      "merged_at": {
+        "type": "string",
+        "description": "Timestamp when PR was merged"
+      },
+      "merged_by": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "draft": {
+        "type": "boolean",
+        "description": "Whether the PR is a draft"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Pull request HTML URL"
+      },
+      "diff_url": {
+        "type": "string",
+        "description": "Pull request diff URL"
+      },
+      "patch_url": {
+        "type": "string",
+        "description": "Pull request patch URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "head": {
+        "ref": {
+          "type": "string",
+          "description": "Source branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Source branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Source repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Source repository full name"
+          }
+        }
+      },
+      "base": {
+        "ref": {
+          "type": "string",
+          "description": "Target branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Target branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Target repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Target repository full name"
+          }
+        }
+      },
+      "additions": {
+        "type": "number",
+        "description": "Number of lines added"
+      },
+      "deletions": {
+        "type": "number",
+        "description": "Number of lines deleted"
+      },
+      "changed_files": {
+        "type": "number",
+        "description": "Number of files changed"
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "requested_reviewers": {
+        "type": "array",
+        "description": "Array of requested reviewers"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Pull request creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Pull request last update timestamp"
+      },
+      "closed_at": {
+        "type": "string",
+        "description": "Pull request closed timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_issue_opened": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., issues, pull_request, push)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (opened, closed, reopened, edited, etc.)"
+    },
+    "issue": {
+      "id": {
+        "type": "number",
+        "description": "Issue ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Issue node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Issue number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Issue title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Issue body/description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Issue state (open, closed)"
+      },
+      "state_reason": {
+        "type": "string",
+        "description": "Reason for state (completed, not_planned, reopened)"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Issue HTML URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "milestone": {
+        "type": "object",
+        "description": "Milestone object if assigned"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Issue creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Issue last update timestamp"
+      },
+      "closed_at": {
+        "type": "string",
+        "description": "Issue closed timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_webhook": {
+    "ref": {
+      "type": "string",
+      "description": "Git reference (e.g., refs/heads/fix/telegram-wh)"
+    },
+    "before": {
+      "type": "string",
+      "description": "SHA of the commit before the push"
+    },
+    "after": {
+      "type": "string",
+      "description": "SHA of the commit after the push"
+    },
+    "created": {
+      "type": "boolean",
+      "description": "Whether the push created the reference"
+    },
+    "deleted": {
+      "type": "boolean",
+      "description": "Whether the push deleted the reference"
+    },
+    "forced": {
+      "type": "boolean",
+      "description": "Whether the push was forced"
+    },
+    "base_ref": {
+      "type": "string",
+      "description": "Base reference for the push"
+    },
+    "compare": {
+      "type": "string",
+      "description": "URL to compare the changes"
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "created_at": {
+        "type": "number",
+        "description": "Repository creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Repository last updated time"
+      },
+      "pushed_at": {
+        "type": "number",
+        "description": "Repository last push timestamp"
+      },
+      "git_url": {
+        "type": "string",
+        "description": "Repository git URL"
+      },
+      "ssh_url": {
+        "type": "string",
+        "description": "Repository SSH URL"
+      },
+      "clone_url": {
+        "type": "string",
+        "description": "Repository clone URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "archived": {
+        "type": "boolean",
+        "description": "Whether the repository is archived"
+      },
+      "disabled": {
+        "type": "boolean",
+        "description": "Whether the repository is disabled"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "topics": {
+        "type": "array",
+        "description": "Repository topics"
+      },
+      "visibility": {
+        "type": "string",
+        "description": "Repository visibility (public, private)"
+      },
+      "forks": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "watchers": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "stargazers": {
+        "type": "number",
+        "description": "Number of stargazers"
+      },
+      "master_branch": {
+        "type": "string",
+        "description": "Master branch name"
+      },
+      "owner": {
+        "name": {
+          "type": "string",
+          "description": "Owner name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Owner email"
+        },
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "gravatar_id": {
+          "type": "string",
+          "description": "Owner gravatar ID"
+        },
+        "url": {
+          "type": "string",
+          "description": "Owner API URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "user_view_type": {
+          "type": "string",
+          "description": "User view type"
+        },
+        "site_admin": {
+          "type": "boolean",
+          "description": "Whether the owner is a site admin"
+        }
+      },
+      "license": {
+        "type": "object",
+        "description": "Repository license information",
+        "key": {
+          "type": "string",
+          "description": "License key (e.g., apache-2.0)"
+        },
+        "name": {
+          "type": "string",
+          "description": "License name"
+        },
+        "spdx_id": {
+          "type": "string",
+          "description": "SPDX license identifier"
+        },
+        "url": {
+          "type": "string",
+          "description": "License URL"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "License node ID"
+        }
+      }
+    },
+    "pusher": {
+      "type": "object",
+      "description": "Information about who pushed the changes",
+      "name": {
+        "type": "string",
+        "description": "Pusher name"
+      },
+      "email": {
+        "type": "string",
+        "description": "Pusher email"
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Sender username"
+      },
+      "id": {
+        "type": "number",
+        "description": "Sender ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Sender node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Sender avatar URL"
+      },
+      "gravatar_id": {
+        "type": "string",
+        "description": "Sender gravatar ID"
+      },
+      "url": {
+        "type": "string",
+        "description": "Sender API URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Sender profile URL"
+      },
+      "user_view_type": {
+        "type": "string",
+        "description": "User view type"
+      },
+      "site_admin": {
+        "type": "boolean",
+        "description": "Whether the sender is a site admin"
+      }
+    },
+    "commits": {
+      "type": "array",
+      "description": "Array of commit objects",
+      "id": {
+        "type": "string",
+        "description": "Commit SHA"
+      },
+      "tree_id": {
+        "type": "string",
+        "description": "Tree SHA"
+      },
+      "distinct": {
+        "type": "boolean",
+        "description": "Whether the commit is distinct"
+      },
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "Commit timestamp"
+      },
+      "url": {
+        "type": "string",
+        "description": "Commit URL"
+      },
+      "author": {
+        "type": "object",
+        "description": "Commit author",
+        "name": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author email"
+        }
+      },
+      "committer": {
+        "type": "object",
+        "description": "Commit committer",
+        "name": {
+          "type": "string",
+          "description": "Committer name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Committer email"
+        }
+      },
+      "added": {
+        "type": "array",
+        "description": "Array of added files"
+      },
+      "removed": {
+        "type": "array",
+        "description": "Array of removed files"
+      },
+      "modified": {
+        "type": "array",
+        "description": "Array of modified files"
+      }
+    },
+    "head_commit": {
+      "type": "object",
+      "description": "Head commit object",
+      "id": {
+        "type": "string",
+        "description": "Commit SHA"
+      },
+      "tree_id": {
+        "type": "string",
+        "description": "Tree SHA"
+      },
+      "distinct": {
+        "type": "boolean",
+        "description": "Whether the commit is distinct"
+      },
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "Commit timestamp"
+      },
+      "url": {
+        "type": "string",
+        "description": "Commit URL"
+      },
+      "author": {
+        "type": "object",
+        "description": "Commit author",
+        "name": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author email"
+        }
+      },
+      "committer": {
+        "type": "object",
+        "description": "Commit committer",
+        "name": {
+          "type": "string",
+          "description": "Committer name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Committer email"
+        }
+      },
+      "added": {
+        "type": "array",
+        "description": "Array of added files"
+      },
+      "removed": {
+        "type": "array",
+        "description": "Array of removed files"
+      },
+      "modified": {
+        "type": "array",
+        "description": "Array of modified files"
+      }
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Type of GitHub event (e.g., push, pull_request, issues)"
+    },
+    "action": {
+      "type": "string",
+      "description": "The action that was performed (e.g., opened, closed, synchronize)"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Branch name extracted from ref"
+    }
+  },
+  "github_issue_closed": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., issues, pull_request, push)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (opened, closed, reopened, edited, etc.)"
+    },
+    "issue": {
+      "id": {
+        "type": "number",
+        "description": "Issue ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Issue node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Issue number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Issue title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Issue body/description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Issue state (open, closed)"
+      },
+      "state_reason": {
+        "type": "string",
+        "description": "Reason for state (completed, not_planned, reopened)"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Issue HTML URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "milestone": {
+        "type": "object",
+        "description": "Milestone object if assigned"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Issue creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Issue last update timestamp"
+      },
+      "closed_at": {
+        "type": "string",
+        "description": "Issue closed timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_push": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., push)"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Branch name derived from ref (e.g., main from refs/heads/main)"
+    },
+    "ref": {
+      "type": "string",
+      "description": "Git reference that was pushed (e.g., refs/heads/main)"
+    },
+    "before": {
+      "type": "string",
+      "description": "SHA of the commit before the push"
+    },
+    "after": {
+      "type": "string",
+      "description": "SHA of the commit after the push"
+    },
+    "created": {
+      "type": "boolean",
+      "description": "Whether this push created a new branch or tag"
+    },
+    "deleted": {
+      "type": "boolean",
+      "description": "Whether this push deleted a branch or tag"
+    },
+    "forced": {
+      "type": "boolean",
+      "description": "Whether this was a force push"
+    },
+    "base_ref": {
+      "type": "string",
+      "description": "Base reference for the push"
+    },
+    "compare": {
+      "type": "string",
+      "description": "URL to compare the changes"
+    },
+    "commits": {
+      "type": "array",
+      "description": "Array of commit objects included in this push",
+      "items": {
+        "id": {
+          "type": "string",
+          "description": "Commit SHA"
+        },
+        "tree_id": {
+          "type": "string",
+          "description": "Git tree SHA"
+        },
+        "distinct": {
+          "type": "boolean",
+          "description": "Whether this commit is distinct from others in the push"
+        },
+        "message": {
+          "type": "string",
+          "description": "Commit message"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Commit timestamp"
+        },
+        "url": {
+          "type": "string",
+          "description": "Commit URL"
+        },
+        "author": {
+          "name": {
+            "type": "string",
+            "description": "Author name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Author email"
+          },
+          "username": {
+            "type": "string",
+            "description": "Author GitHub username"
+          }
+        },
+        "committer": {
+          "name": {
+            "type": "string",
+            "description": "Committer name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Committer email"
+          },
+          "username": {
+            "type": "string",
+            "description": "Committer GitHub username"
+          }
+        },
+        "added": {
+          "type": "array",
+          "description": "Array of file paths added in this commit"
+        },
+        "removed": {
+          "type": "array",
+          "description": "Array of file paths removed in this commit"
+        },
+        "modified": {
+          "type": "array",
+          "description": "Array of file paths modified in this commit"
+        }
+      }
+    },
+    "head_commit": {
+      "id": {
+        "type": "string",
+        "description": "Commit SHA of the most recent commit"
+      },
+      "tree_id": {
+        "type": "string",
+        "description": "Git tree SHA"
+      },
+      "distinct": {
+        "type": "boolean",
+        "description": "Whether this commit is distinct"
+      },
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "Commit timestamp"
+      },
+      "url": {
+        "type": "string",
+        "description": "Commit URL"
+      },
+      "author": {
+        "name": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author email"
+        },
+        "username": {
+          "type": "string",
+          "description": "Author GitHub username"
+        }
+      },
+      "committer": {
+        "name": {
+          "type": "string",
+          "description": "Committer name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Committer email"
+        },
+        "username": {
+          "type": "string",
+          "description": "Committer GitHub username"
+        }
+      },
+      "added": {
+        "type": "array",
+        "description": "Array of file paths added in this commit"
+      },
+      "removed": {
+        "type": "array",
+        "description": "Array of file paths removed in this commit"
+      },
+      "modified": {
+        "type": "array",
+        "description": "Array of file paths modified in this commit"
+      }
+    },
+    "pusher": {
+      "name": {
+        "type": "string",
+        "description": "Pusher name"
+      },
+      "email": {
+        "type": "string",
+        "description": "Pusher email"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_pr_opened": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., pull_request)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (opened, closed, synchronize, reopened, edited, etc.)"
+    },
+    "number": {
+      "type": "number",
+      "description": "Pull request number"
+    },
+    "pull_request": {
+      "id": {
+        "type": "number",
+        "description": "Pull request ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Pull request node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Pull request number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Pull request title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Pull request description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Pull request state (open, closed)"
+      },
+      "merged": {
+        "type": "boolean",
+        "description": "Whether the PR was merged"
+      },
+      "merged_at": {
+        "type": "string",
+        "description": "Timestamp when PR was merged"
+      },
+      "merged_by": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "draft": {
+        "type": "boolean",
+        "description": "Whether the PR is a draft"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Pull request HTML URL"
+      },
+      "diff_url": {
+        "type": "string",
+        "description": "Pull request diff URL"
+      },
+      "patch_url": {
+        "type": "string",
+        "description": "Pull request patch URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "head": {
+        "ref": {
+          "type": "string",
+          "description": "Source branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Source branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Source repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Source repository full name"
+          }
+        }
+      },
+      "base": {
+        "ref": {
+          "type": "string",
+          "description": "Target branch name"
+        },
+        "sha": {
+          "type": "string",
+          "description": "Target branch commit SHA"
+        },
+        "repo": {
+          "name": {
+            "type": "string",
+            "description": "Target repository name"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Target repository full name"
+          }
+        }
+      },
+      "additions": {
+        "type": "number",
+        "description": "Number of lines added"
+      },
+      "deletions": {
+        "type": "number",
+        "description": "Number of lines deleted"
+      },
+      "changed_files": {
+        "type": "number",
+        "description": "Number of files changed"
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "requested_reviewers": {
+        "type": "array",
+        "description": "Array of requested reviewers"
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Pull request creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Pull request last update timestamp"
+      },
+      "closed_at": {
+        "type": "string",
+        "description": "Pull request closed timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "fork": {
+        "type": "boolean",
+        "description": "Whether the repository is a fork"
+      },
+      "url": {
+        "type": "string",
+        "description": "Repository API URL"
+      },
+      "homepage": {
+        "type": "string",
+        "description": "Repository homepage URL"
+      },
+      "size": {
+        "type": "number",
+        "description": "Repository size in KB"
+      },
+      "stargazers_count": {
+        "type": "number",
+        "description": "Number of stars"
+      },
+      "watchers_count": {
+        "type": "number",
+        "description": "Number of watchers"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary programming language"
+      },
+      "forks_count": {
+        "type": "number",
+        "description": "Number of forks"
+      },
+      "open_issues_count": {
+        "type": "number",
+        "description": "Number of open issues"
+      },
+      "default_branch": {
+        "type": "string",
+        "description": "Default branch name"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  },
+  "github_pr_comment": {
+    "event_type": {
+      "type": "string",
+      "description": "GitHub event type from X-GitHub-Event header (e.g., issue_comment)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (created, edited, deleted)"
+    },
+    "issue": {
+      "id": {
+        "type": "number",
+        "description": "Issue ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Issue node ID"
+      },
+      "number": {
+        "type": "number",
+        "description": "Issue/PR number"
+      },
+      "title": {
+        "type": "string",
+        "description": "Issue/PR title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Issue/PR description"
+      },
+      "state": {
+        "type": "string",
+        "description": "Issue/PR state (open, closed)"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Issue/PR HTML URL"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "labels": {
+        "type": "array",
+        "description": "Array of label objects"
+      },
+      "assignees": {
+        "type": "array",
+        "description": "Array of assigned users"
+      },
+      "pull_request": {
+        "url": {
+          "type": "string",
+          "description": "Pull request API URL (present only for PR comments)"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Pull request HTML URL"
+        },
+        "diff_url": {
+          "type": "string",
+          "description": "Pull request diff URL"
+        },
+        "patch_url": {
+          "type": "string",
+          "description": "Pull request patch URL"
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Issue/PR creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Issue/PR last update timestamp"
+      }
+    },
+    "comment": {
+      "id": {
+        "type": "number",
+        "description": "Comment ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Comment node ID"
+      },
+      "url": {
+        "type": "string",
+        "description": "Comment API URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Comment HTML URL"
+      },
+      "body": {
+        "type": "string",
+        "description": "Comment text"
+      },
+      "user": {
+        "login": {
+          "type": "string",
+          "description": "Username"
+        },
+        "id": {
+          "type": "number",
+          "description": "User ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "User node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Profile URL"
+        },
+        "user_type": {
+          "type": "string",
+          "description": "User type (User, Bot, Organization)"
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "Comment creation timestamp"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "Comment last update timestamp"
+      }
+    },
+    "repository": {
+      "id": {
+        "type": "number",
+        "description": "Repository ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "Repository node ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "full_name": {
+        "type": "string",
+        "description": "Repository full name (owner/repo)"
+      },
+      "private": {
+        "type": "boolean",
+        "description": "Whether the repository is private"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Repository HTML URL"
+      },
+      "repo_description": {
+        "type": "string",
+        "description": "Repository description"
+      },
+      "owner": {
+        "login": {
+          "type": "string",
+          "description": "Owner username"
+        },
+        "id": {
+          "type": "number",
+          "description": "Owner ID"
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Owner node ID"
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Owner avatar URL"
+        },
+        "html_url": {
+          "type": "string",
+          "description": "Owner profile URL"
+        },
+        "owner_type": {
+          "type": "string",
+          "description": "Owner type (User, Organization)"
+        }
+      }
+    },
+    "sender": {
+      "login": {
+        "type": "string",
+        "description": "Username"
+      },
+      "id": {
+        "type": "number",
+        "description": "User ID"
+      },
+      "node_id": {
+        "type": "string",
+        "description": "User node ID"
+      },
+      "avatar_url": {
+        "type": "string",
+        "description": "Avatar URL"
+      },
+      "html_url": {
+        "type": "string",
+        "description": "Profile URL"
+      },
+      "user_type": {
+        "type": "string",
+        "description": "User type (User, Bot, Organization)"
+      }
+    }
+  }
+}

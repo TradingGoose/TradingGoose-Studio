@@ -95,7 +95,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
 
   const userId = sessionData?.user?.id ?? null
   const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
-  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@tradinggoose.ai'
+  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
   const userAvatarVersion =
     userAvatarOverride.version ??
@@ -133,8 +133,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
 
       const section: SettingsSection = (() => {
         switch (tab) {
-          case 'general':
-            return 'general'
           case 'copilot':
           case 'apikeys':
           case 'credentials':

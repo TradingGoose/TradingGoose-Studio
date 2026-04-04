@@ -1,0 +1,79 @@
+---
+title: "Custom Tool Editor"
+description: "Edit workspace custom tools."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `editor_custom_tool` |
+| **Category** | Editor |
+
+The Custom Tool Editor lets you define and modify custom tools that agents can call during workflows. Each tool has two parts: a JSON schema that declares the tool's name, description, and parameters, and a JavaScript function body that runs when the tool is invoked. Use the [Custom Tool List](/utilities/custom-tools) widget to browse and create tools; the editor is the primary workspace for authoring their logic.
+
+## Features
+
+- **Two-section layout** toggled by **Config** and **Code** tabs in the header bar.
+- **Config section** provides a Monaco JSON editor for the OpenAI function-calling schema format. The schema must include `type: "function"`, a `function.name`, `function.description`, and `function.parameters` with `type`, `properties`, and `required`. Real-time validation highlights errors as you type.
+- **Code section** provides a Monaco JavaScript editor for the tool's function body. The code runs inside an `async function(params, environmentVariables)` context. Reference input parameters with `<paramName>` syntax and environment variables with `{{VAR_NAME}}` syntax.
+- **AI wand** on both sections lets you describe what you want in plain English and streams generated JSON schema or JavaScript code directly into the editor.
+- **Schema parameter autocomplete** in the code editor automatically suggests parameter names derived from the JSON schema as you type.
+- **Environment variable dropdown** triggers on the `{{` pattern, letting you insert workspace secrets.
+- **Tag dropdown** triggers on the tag pattern, letting you reference workflow variables.
+- **Save button** validates the schema, checks for duplicate tool names, and persists both schema and code. If validation fails, the editor switches to the Config section and shows the error.
+- **Tool selector** in the header bar switches between custom tools. When paired via a color link, it syncs with the Custom Tool List widget.
+
+## Usage
+
+1. Add the widget to a workspace from the widget picker.
+2. Select an existing custom tool from the header dropdown, or create one from the [Custom Tool List](/utilities/custom-tools) widget.
+3. In the **Config** tab, write or generate the JSON schema defining the tool's name, description, and parameters.
+4. Switch to the **Code** tab and write the JavaScript function body. Use parameter names from the schema directly -- the code editor will autocomplete them.
+5. Click **Save** to persist the tool. The editor validates the schema first and shows any errors inline.
+
+### Schema Format
+
+The JSON schema must follow the OpenAI function-calling format:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "myToolName",
+    "description": "What the tool does.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "paramName": {
+          "type": "string",
+          "description": "What this parameter is for."
+        }
+      },
+      "required": ["paramName"]
+    }
+  }
+}
+```
+
+<Callout>
+This widget supports the **pairColor** mechanism. Assign the same color to a Custom Tool Editor and a [Custom Tool List](/utilities/custom-tools) widget so that selecting a tool in the list automatically opens it in the editor.
+</Callout>
+
+## Configuration
+
+The selected tool is stored in widget params as `customToolId` and synced through the pair-color store when linked. The active section (Config or Code) is synchronized across header tabs and the editor body via custom events.
+
+## Related
+
+<Cards>
+  <Card title="Custom Tools Guide" href="/utilities/custom-tools">
+    Learn what custom tools are, how agents invoke them, and best practices.
+  </Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+</Cards>

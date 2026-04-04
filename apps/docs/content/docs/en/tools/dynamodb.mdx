@@ -1,0 +1,807 @@
+---
+title: Amazon DynamoDB
+description: Connect to Amazon DynamoDB
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="dynamodb"
+  color="#527FFF"
+/>
+
+
+## Configuration
+
+### Get Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "get"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Key (JSON)",
+            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "consistentRead",
+            "type": "dropdown",
+            "title": "Consistent Read",
+            "options": [
+                {
+                    "label": "Eventually Consistent",
+                    "id": "false"
+                },
+                {
+                    "label": "Strongly Consistent",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Item (<code>dynamodb_get</code>)</div>
+
+Get an item from a DynamoDB table by primary key
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `key` | object | Yes | Primary key of the item to retrieve |
+| `consistentRead` | boolean | No | Use strongly consistent read |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+
+</div>
+
+
+
+---
+
+### Put Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "put"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "item",
+            "type": "code",
+            "title": "Item (JSON)",
+            "placeholder": "{\\n  \"pk\": \"user#123\",\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Put Item (<code>dynamodb_put</code>)</div>
+
+Put an item into a DynamoDB table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `item` | object | Yes | Item to put into the table |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+
+</div>
+
+
+
+---
+
+### Query
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "query"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "keyConditionExpression",
+            "type": "short-input",
+            "title": "Key Condition Expression",
+            "placeholder": "pk = :pk",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "Filter Expression",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Expression Attribute Names (JSON)",
+            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Expression Attribute Values (JSON)",
+            "placeholder": "{\\n  \":pk\": \"user#123\",\\n  \":name\": \"Jane\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "indexName",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "GSI1"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Query (<code>dynamodb_query</code>)</div>
+
+Query items from a DynamoDB table using key conditions
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `keyConditionExpression` | string | Yes | Key condition expression \(e.g., "pk = :pk"\) |
+| `filterExpression` | string | No | Filter expression for results |
+| `expressionAttributeNames` | object | No | Attribute name mappings for reserved words |
+| `expressionAttributeValues` | object | No | Expression attribute values |
+| `indexName` | string | No | Secondary index name to query |
+| `limit` | number | No | Maximum number of items to return |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+| `items` | array | Array of items returned |
+
+</div>
+
+
+
+---
+
+### Scan
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "scan"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "Filter Expression",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "projectionExpression",
+            "type": "short-input",
+            "title": "Projection Expression",
+            "placeholder": "pk, #name, email"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Expression Attribute Names (JSON)",
+            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Expression Attribute Values (JSON)",
+            "placeholder": "{\\n  \":status\": \"active\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Scan (<code>dynamodb_scan</code>)</div>
+
+Scan all items in a DynamoDB table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `filterExpression` | string | No | Filter expression for results |
+| `projectionExpression` | string | No | Attributes to retrieve |
+| `expressionAttributeNames` | object | No | Attribute name mappings for reserved words |
+| `expressionAttributeValues` | object | No | Expression attribute values |
+| `limit` | number | No | Maximum number of items to return |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+| `items` | array | Array of items returned |
+
+</div>
+
+
+
+---
+
+### Update Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Key (JSON)",
+            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "updateExpression",
+            "type": "short-input",
+            "title": "Update Expression",
+            "placeholder": "SET #name = :name",
+            "required": true
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Expression Attribute Names (JSON)",
+            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Expression Attribute Values (JSON)",
+            "placeholder": "{\\n  \":name\": \"Jane Doe\"\\n}",
+            "language": "json"
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "Condition Expression",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Item (<code>dynamodb_update</code>)</div>
+
+Update an item in a DynamoDB table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `key` | object | Yes | Primary key of the item to update |
+| `updateExpression` | string | Yes | Update expression \(e.g., "SET #name = :name"\) |
+| `expressionAttributeNames` | object | No | Attribute name mappings for reserved words |
+| `expressionAttributeValues` | object | No | Expression attribute values |
+| `conditionExpression` | string | No | Condition that must be met for the update to succeed |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
+
+</div>
+
+
+
+---
+
+### Delete Item
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Item",
+                    "id": "get"
+                },
+                {
+                    "label": "Put Item",
+                    "id": "put"
+                },
+                {
+                    "label": "Query",
+                    "id": "query"
+                },
+                {
+                    "label": "Scan",
+                    "id": "scan"
+                },
+                {
+                    "label": "Update Item",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Item",
+                    "id": "delete"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS Region",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS Access Key ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS Secret Access Key",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Table Name",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Key (JSON)",
+            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "Condition Expression",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Item (<code>dynamodb_delete</code>)</div>
+
+Delete an item from a DynamoDB table
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `accessKeyId` | string | Yes | AWS access key ID |
+| `secretAccessKey` | string | Yes | AWS secret access key |
+| `tableName` | string | Yes | DynamoDB table name |
+| `key` | object | Yes | Primary key of the item to delete |
+| `conditionExpression` | string | No | Condition that must be met for the delete to succeed |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Amazon DynamoDB into workflows. Supports Get, Put, Query, Scan, Update, and Delete operations on DynamoDB tables.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `dynamodb`

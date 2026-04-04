@@ -1,0 +1,171 @@
+---
+title: Data Structures
+description: Array, Map, Matrix, and String operations for indicator scripts
+---
+
+PineTS supports four data structure namespaces for complex data manipulation within indicators.
+
+## Array (52 methods)
+
+Arrays are ordered collections of elements. Create, manipulate, and query arrays for advanced indicator logic.
+
+### Creation
+
+```javascript
+const a = array.from(1, 2, 3, 4, 5);
+const b = array.new_float(10, 0.0);    // 10 elements, all 0.0
+const c = array.new_int(5, 0);
+const d = array.new_bool(3, false);
+const e = array.new_string(2, '');
+```
+
+### Access & Modification
+
+| Function | Description |
+|----------|-------------|
+| `array.get(arr, index)` | Get element at index |
+| `array.set(arr, index, value)` | Set element at index |
+| `array.first(arr)` | Get first element |
+| `array.last(arr)` | Get last element |
+| `array.push(arr, value)` | Append to end |
+| `array.pop(arr)` | Remove and return last |
+| `array.unshift(arr, value)` | Prepend to start |
+| `array.shift(arr)` | Remove and return first |
+| `array.insert(arr, index, value)` | Insert at index |
+| `array.remove(arr, index)` | Remove at index |
+| `array.clear(arr)` | Remove all elements |
+
+### Size & Transformation
+
+| Function | Description |
+|----------|-------------|
+| `array.size(arr)` | Number of elements |
+| `array.slice(arr, start, end)` | Extract sub-array |
+| `array.concat(arr1, arr2)` | Concatenate arrays |
+| `array.copy(arr)` | Shallow copy |
+| `array.fill(arr, value, start?, end?)` | Fill with value |
+| `array.reverse(arr)` | Reverse in place |
+| `array.sort(arr, order?)` | Sort in place |
+| `array.sort_indices(arr, order?)` | Return sorted indices |
+| `array.join(arr, separator)` | Join into string |
+
+### Search
+
+| Function | Description |
+|----------|-------------|
+| `array.indexof(arr, value)` | First index of value |
+| `array.lastindexof(arr, value)` | Last index of value |
+| `array.includes(arr, value)` | Check if contains value |
+| `array.binary_search(arr, value)` | Binary search (sorted array) |
+| `array.every(arr, fn)` | True if all match predicate |
+| `array.some(arr, fn)` | True if any match predicate |
+
+### Statistics
+
+| Function | Description |
+|----------|-------------|
+| `array.sum(arr)` | Sum |
+| `array.avg(arr)` | Average |
+| `array.min(arr)` | Minimum |
+| `array.max(arr)` | Maximum |
+| `array.median(arr)` | Median |
+| `array.mode(arr)` | Mode |
+| `array.stdev(arr)` | Standard deviation |
+| `array.variance(arr)` | Variance |
+| `array.covariance(arr1, arr2)` | Covariance |
+| `array.range(arr)` | Range (max - min) |
+| `array.percentrank(arr, value)` | Percentile rank |
+
+---
+
+## Map (11 methods)
+
+Key-value dictionaries for associative data:
+
+```javascript
+const m = map.new();
+map.put(m, 'ema', ta.ema(close, 20));
+map.put(m, 'sma', ta.sma(close, 20));
+
+const emaValue = map.get(m, 'ema');
+const hasKey = map.contains(m, 'ema');     // true
+const allKeys = map.keys(m);               // ['ema', 'sma']
+```
+
+| Function | Description |
+|----------|-------------|
+| `map.new()` | Create empty map |
+| `map.get(m, key)` | Get value |
+| `map.put(m, key, value)` | Set value |
+| `map.put_all(m, other)` | Copy all from another map |
+| `map.contains(m, key)` | Check if key exists |
+| `map.remove(m, key)` | Delete key |
+| `map.keys(m)` | All keys |
+| `map.values(m)` | All values |
+| `map.size(m)` | Element count |
+| `map.clear(m)` | Remove all |
+| `map.copy(m)` | Duplicate |
+
+---
+
+## Matrix (50 methods)
+
+2D data structures for advanced mathematical operations:
+
+```javascript
+const m = matrix.new(3, 3, 0);  // 3x3 matrix of zeros
+matrix.set(m, 0, 0, 1);
+matrix.set(m, 1, 1, 1);
+matrix.set(m, 2, 2, 1);         // Identity matrix
+```
+
+### Key Operations
+
+| Category | Functions |
+|----------|-----------|
+| **Access** | `get`, `set`, `row`, `col` |
+| **Size** | `rows`, `columns`, `elements_count` |
+| **Modify** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
+| **Transform** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **Arithmetic** | `mult`, `pow`, `diff` |
+| **Linear Algebra** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
+| **Statistics** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Boolean Tests** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
+
+---
+
+## String (19 methods)
+
+String manipulation for labels, formatting, and text processing:
+
+| Function | Description |
+|----------|-------------|
+| `str.length(s)` | String length |
+| `str.contains(s, substr)` | Check if contains substring |
+| `str.startswith(s, prefix)` | Check prefix |
+| `str.endswith(s, suffix)` | Check suffix |
+| `str.pos(s, substr)` | Find position of substring |
+| `str.match(s, pattern)` | Regex match |
+| `str.substring(s, start, end)` | Extract substring |
+| `str.split(s, delimiter)` | Split into array |
+| `str.replace(s, old, new)` | Replace first occurrence |
+| `str.replace_all(s, old, new)` | Replace all occurrences |
+| `str.lower(s)` | To lowercase |
+| `str.upper(s)` | To uppercase |
+| `str.trim(s)` | Remove whitespace |
+| `str.repeat(s, count)` | Repeat string |
+| `str.format(fmt, ...)` | Format string |
+| `str.tonumber(s)` | Parse to number |
+| `str.tostring(value)` | Convert to string |
+
+---
+
+## Log (3 methods)
+
+Logging for debugging indicators during development:
+
+```javascript
+log.info('RSI value: ' + str.tostring(rsi));
+log.warning('Volume spike detected');
+log.error('Invalid input configuration');
+```

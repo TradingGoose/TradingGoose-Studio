@@ -4,7 +4,6 @@ title: Logging
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
 
 TradingGoose provides comprehensive logging for all workflow executions, giving you complete visibility into how your workflows run, what data flows through them, and where issues might occur.
 
@@ -16,17 +15,7 @@ TradingGoose offers two complementary logging interfaces to match different work
 
 During manual or chat workflow execution, logs appear in real-time in the Console panel on the right side of the workflow editor:
 
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/console.png"
-    alt="Real-time Console Panel"
-    width={400}
-    height={300}
-    className="my-6"
-  />
-</div>
-
-The console shows:
+The Console panel appears on the right side of the workflow editor and shows:
 - Block execution progress with active block highlighting
 - Real-time outputs as blocks complete
 - Execution timing for each block
@@ -36,16 +25,6 @@ The console shows:
 
 All workflow executions—whether triggered manually, via API, Chat, Schedule, or Webhook—are logged to the dedicated Logs page:
 
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs.png"
-    alt="Logs Page"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
-
 The Logs page provides:
 - Comprehensive filtering by time range, status, trigger type, folder, and workflow
 - Search functionality across all logs
@@ -54,17 +33,7 @@ The Logs page provides:
 
 ## Log Details Sidebar
 
-Clicking on any log entry opens a detailed sidebar view:
-
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs-sidebar.png"
-    alt="Logs Sidebar Details"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
+Clicking on any log entry opens a detailed sidebar view showing the execution timeline, block-level details, and cost summary.
 
 ### Block Input/Output
 
@@ -97,19 +66,7 @@ For workflow-level logs, view detailed execution metrics:
 
 ## Workflow Snapshots
 
-For any logged execution, click "View Snapshot" to see the exact workflow state at execution time:
-
-<div className="flex justify-center">
-  <Image
-    src="/static/logs/logs-frozen-canvas.png"
-    alt="Workflow Snapshot"
-    width={600}
-    height={400}
-    className="my-6"
-  />
-</div>
-
-The snapshot provides:
+For any logged execution, click "View Snapshot" to see the exact workflow state at execution time. The snapshot provides:
 - Frozen canvas showing the workflow structure
 - Block states and connections as they were during execution
 - Click any block to see its inputs and outputs

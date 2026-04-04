@@ -71,8 +71,8 @@ import {
   BookOpen,
   Bot,
   Cable,
+  CandlestickChart,
   Code2,
-  Flag,
   Gauge,
   LayoutGrid,
   Network,
@@ -86,16 +86,17 @@ import {
 import type { JSX } from 'react';
 import { getFolderSlug, getPageSlug } from '@/lib/page-tree';
 
-const nodeIconMap: Record<string, JSX.Element> = {
+/** Icons for top-level sidebar categories only. Child pages do not get icons. */
+const categoryIconMap: Record<string, JSX.Element> = {
   introduction: <Sparkles />,
-  'getting-started': <Flag />,
+  copilot: <Bot />,
+  indicators: <CandlestickChart />,
   triggers: <Zap />,
   blocks: <SquareStack />,
   widgets: <LayoutGrid />,
   tools: <Wrench />,
   connections: <Cable />,
-  mcp: <Network />,
-  copilot: <Bot />,
+  utilities: <Network />,
   knowledgebase: <BookOpen />,
   variables: <Variable />,
   execution: <Gauge />,
@@ -104,35 +105,38 @@ const nodeIconMap: Record<string, JSX.Element> = {
 };
 
 function addNodeIcons(root: PageTree.Root): PageTree.Root {
-  const withItemIcon = (item: PageTree.Item): PageTree.Item => {
+  /**
+   * Only top-level categories (folders) and top-level standalone pages get icons.
+   * Child pages inside a category folder do NOT get icons — keeps the sidebar clean.
+   */
+  const withTopLevelPageIcon = (item: PageTree.Item): PageTree.Item => {
     const slug = getPageSlug(item);
-    const icon = item.icon ?? (slug ? nodeIconMap[slug] : undefined);
+    const icon = item.icon ?? (slug ? categoryIconMap[slug] : undefined);
     if (!icon) return item;
-    return {
-      ...item,
-      icon,
-    };
+    return { ...item, icon };
   };
 
-  const mapNode = (node: PageTree.Node): PageTree.Node => {
+  const mapFolder = (node: PageTree.Node, isTopLevel: boolean): PageTree.Node => {
     if (node.type === 'folder') {
       const slug = getFolderSlug(node);
-      const icon = node.icon ?? (slug ? nodeIconMap[slug] : undefined);
+      const icon = node.icon ?? (slug ? categoryIconMap[slug] : undefined);
 
       return {
         ...node,
         icon,
-        index: node.index ? withItemIcon(node.index) : undefined,
+        // Folder index pages don't get icons
+        index: node.index ? node.index : undefined,
         children: node.children.map((child) => {
-          if (child.type === 'folder') return mapNode(child);
-          if (child.type === 'page') return withItemIcon(child);
+          if (child.type === 'folder') return mapFolder(child, false);
+          // Child pages inside folders: no icons
           return child;
         }),
       };
     }
 
-    if (node.type === 'page') {
-      return withItemIcon(node);
+    // Top-level standalone pages (introduction, getting-started) get icons
+    if (node.type === 'page' && isTopLevel) {
+      return withTopLevelPageIcon(node);
     }
 
     return node;
@@ -140,7 +144,7 @@ function addNodeIcons(root: PageTree.Root): PageTree.Root {
 
   return {
     ...root,
-    children: root.children.map(mapNode),
+    children: root.children.map((node) => mapFolder(node, true)),
     fallback: root.fallback ? addNodeIcons(root.fallback) : undefined,
   };
 }

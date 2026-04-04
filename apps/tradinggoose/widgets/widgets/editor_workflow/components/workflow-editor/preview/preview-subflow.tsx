@@ -14,12 +14,10 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewSubflowData>) {
 
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
+  const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
 
   return (
-    <div
-      className='relative rounded-md border border-border bg-card'
-      style={{ width, height }}
-    >
+    <div className='relative rounded-md border border-border bg-card' style={{ width, height }}>
       <Handle
         type='target'
         position={Position.Left}
@@ -46,20 +44,31 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewSubflowData>) {
         </div>
       </div>
 
-      <div className='relative h-[calc(100%-41px)] p-4'>
-        <div className='inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
-          Start
-          <Handle
-            type='source'
-            position={Position.Right}
-            id={startHandleId}
-            isConnectable={false}
-            className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
-            style={{ right: -8, top: '50%', transform: 'translateY(-50%)' }}
-          />
-        </div>
+      <div className='relative h-[calc(100%-41px)] p-4' />
+
+      <div className='-translate-y-1/2 absolute top-1/2 left-4 inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
+        Start
+        <Handle
+          type='source'
+          position={Position.Right}
+          id={startHandleId}
+          isConnectable={false}
+          className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
+          style={{ right: -8, top: '50%', transform: 'translateY(-50%)' }}
+        />
       </div>
 
+      <div className='-translate-y-1/2 absolute top-1/2 right-4 inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
+        <Handle
+          type='target'
+          position={Position.Left}
+          id={endTargetHandleId}
+          isConnectable={false}
+          className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
+          style={{ left: -8, top: '50%', transform: 'translateY(-50%)' }}
+        />
+        End
+      </div>
       <Handle
         type='source'
         position={Position.Right}

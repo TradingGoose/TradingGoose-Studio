@@ -3,13 +3,8 @@ title: Tags
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Video } from '@/components/ui/video'
 
 Connection tags are visual representations of the data available from connected blocks, providing an easy way to reference data between blocks and outputs from previous blocks in your workflow.
-
-<div className="mx-auto w-full overflow-hidden rounded-lg">
-  <Video src="connections.mp4" />
-</div>
 
 ### What Are Connection Tags?
 
@@ -70,21 +65,31 @@ Connection tags use a simple syntax to reference data:
 
 Where:
 
-- `blockName` is the name of the source block
-- `path.to.data` is the path to the specific data field
+- `blockName` is the name of the source block (or its ID)
+- `path.to.data` is the dot-separated path to the specific data field
 
 For example:
 
-- `<agent1.content>` - References the content field from a block with ID "agent1"
-- `<api2.data.users[0].name>` - References the name of the first user in the users array from the data field of a block with ID "api2"
+- `<agent1.content>` - References the content field from a block named "agent1"
+- `<api2.data.users[0].name>` - References the name of the first user in the users array from the data field of a block named "api2"
+
+### Special Reference Types
+
+In addition to block references, the resolver supports several special prefixes:
+
+- **Trigger aliases**: `<start.input>`, `<api.fieldName>`, `<chat.input>`, `<manual.input>` - shorthand references to trigger block outputs
+- **Variables**: `<variable.myVar>` - references workflow variables by name
+- **Loops**: `<loop.item>`, `<loop.index>` - references the current item or index within a loop
+- **Parallels**: `<parallel.item>`, `<parallel.index>` - references the current item or index within a parallel execution
 
 ## Dynamic Tag References
 
 Connection tags are evaluated at runtime, which means:
 
-1. They always reference the most current data
+1. They always reference the most current data from the execution context
 2. They can be used in expressions and combined with static text
 3. They can be nested within other data structures
+4. Array indexing is supported using bracket notation (e.g., `items[0]`)
 
 ### Examples
 
@@ -98,9 +103,11 @@ Connection tags are evaluated at runtime, which means:
   "orderTotal": <apiBlock.data.total>
 }
 
-// Reference in code
-const greeting = "Hello, <userBlock.name>!";
-const total = <apiBlock.data.total> * 1.1; // Add 10% tax
+// Using trigger aliases
+"User said: <start.input>"
+
+// Using loop references inside a loop
+"Processing item <loop.index>: <loop.item.name>"
 ```
 
 <Callout type="warning">

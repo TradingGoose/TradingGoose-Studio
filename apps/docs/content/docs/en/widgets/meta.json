@@ -1,12 +1,18 @@
 {
+  "title": "Widgets",
   "pages": [
     "index",
-    "workflow-list",
-    "workflow-variables",
-    "workflow-copilot",
-    "workflow-console",
+    "editor-workflow",
+    "list-workflow",
     "workflow-chat",
-    "editor-workflow"
+    "workflow-console",
+    "copilot",
+    "workflow-variables",
+    "editor-indicator",
+    "data-chart",
+    "watchlist",
+    "editor-skill",
+    "editor-mcp",
+    "editor-custom-tool"
   ]
 }
-

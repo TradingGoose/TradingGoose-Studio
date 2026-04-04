@@ -131,7 +131,7 @@ export default function LandingPricing() {
               >
                 <div
                   className={cn(
-                    'card group relative h-full overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out max-lg:last:col-span-full',
+                    'card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out max-lg:last:col-span-full',
                     { 'p-0': tier.featured }
                   )}
                 >
@@ -145,7 +145,7 @@ export default function LandingPricing() {
                   />
                   <Card
                     className={cn(
-                      'relative flex h-full flex-col gap-6 overflow-hidden rounded-xl border py-6 shadow-none transition-all duration-300 ease-in-out',
+                      'relative flex h-full flex-col gap-6 overflow-hidden rounded-lg border py-6 shadow-none transition-all duration-300 ease-in-out',
                       { 'border-2 border-primary': tier.featured }
                     )}
                   >

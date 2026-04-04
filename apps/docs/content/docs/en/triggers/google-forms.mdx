@@ -1,0 +1,116 @@
+---
+title: Google Forms Trigger
+description: Trigger workflow from Google Form submissions (via Apps Script forwarder)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+Trigger workflow from Google Form submissions (via Apps Script forwarder)
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/google_forms">
+    See workflow actions, operations, and tool inputs for Google Forms.
+  </Card>
+</Cards>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Forms Webhook"
+    type="google_forms_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Shared Secret",
+            "placeholder": "Enter a secret used by your Apps Script forwarder",
+            "description": "We validate requests using this secret. Send it as Authorization: Bearer &lt;token&gt; or a custom header.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Custom Secret Header",
+            "placeholder": "X-GForms-Secret",
+            "description": "If set, the webhook will validate this header equals your Shared Secret instead of Authorization."
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "Form ID",
+            "placeholder": "1FAIpQLSd... (Google Form ID)",
+            "description": "Optional, for clarity and matching in workflows. Not required for webhook to work."
+        },
+        {
+            "id": "includeRawPayload",
+            "type": "switch",
+            "title": "Include Raw Payload",
+            "description": "Include the original payload from Apps Script in the workflow input."
+        },
+        {
+            "id": "setupScript",
+            "type": "code",
+            "title": "Apps Script Code",
+            "description": "Copy this code and paste it into your Google Forms Apps Script editor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "responseId",
+          "type": "string",
+          "description": "Unique response identifier (if available)"
+      },
+      {
+          "name": "createTime",
+          "type": "string",
+          "description": "Response creation timestamp"
+      },
+      {
+          "name": "lastSubmittedTime",
+          "type": "string",
+          "description": "Last submitted timestamp"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "Google Form ID"
+      },
+      {
+          "name": "answers",
+          "type": "object",
+          "description": "Normalized map of question -&gt; answer"
+      },
+      {
+          "name": "raw",
+          "type": "object",
+          "description": "Original payload (when enabled)"
+      }
+  ]}
+/>
+
+

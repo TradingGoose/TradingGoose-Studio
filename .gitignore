@@ -28,6 +28,7 @@ tradinggoose-standalone.tar.gz
 
 # misc
 .DS_Store
+.codex
 *.pem
 
 # env files

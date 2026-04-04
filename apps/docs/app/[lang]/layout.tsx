@@ -25,20 +25,11 @@ const { provider } = defineI18nUI(i18n, {
     en: {
       displayName: 'English',
     },
-    es: {
-      displayName: 'Español',
-    },
-    fr: {
-      displayName: 'Français',
-    },
-    de: {
-      displayName: 'Deutsch',
-    },
-    ja: {
-      displayName: '日本語',
-    },
     zh: {
       displayName: '简体中文',
+    },
+    es: {
+      displayName: 'Español',
     },
   },
 })
@@ -48,9 +39,7 @@ type LayoutProps = {
   params: Promise<{ lang: string }>
 }
 
-function isSupportedLang(
-  lang: string,
-): lang is (typeof i18n.languages)[number] {
+function isSupportedLang(lang: string): lang is (typeof i18n.languages)[number] {
   return i18n.languages.includes(lang as (typeof i18n.languages)[number])
 }
 
@@ -121,7 +110,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               title: 'Documentations',
               url: `/${locale}`,
               logo: (
-                <div className="flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md">
+                <div className='flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md'>
                   <Image
                     src='/static/logo.png'
                     alt='TradingGoose'

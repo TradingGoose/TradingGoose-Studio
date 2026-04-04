@@ -103,7 +103,7 @@ function FeatureRowSection({
         transition={{ duration: 0.6 }}
         delay={index * 0.12}
         className={cn(
-          'card group group/feature relative isolate m-1 overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out lg:col-span-2',
+          'card group group/feature relative isolate m-1 overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out lg:col-span-2',
           contentOrder
         )}
       >
@@ -115,7 +115,7 @@ function FeatureRowSection({
           className='fake-blob absolute top-0 left-0 h-40 w-40 rounded-full'
           style={{ visibility: 'hidden' }}
         />
-        <Card className='relative flex h-full min-h-0 flex-col justify-between gap-10 overflow-hidden rounded-xl border p-6 shadow-none transition-all duration-300 ease-in-out'>
+        <Card className='relative flex h-full min-h-0 flex-col justify-between gap-10 overflow-hidden rounded-lg border p-6 shadow-none transition-all duration-300 ease-in-out'>
           <div
             className='pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'
             style={{

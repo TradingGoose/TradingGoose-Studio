@@ -1,0 +1,101 @@
+---
+title: Human in the Loop
+description: Pause workflow execution and wait for human approval before continuing
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="human_in_the_loop"
+  color="#10B981"
+  icon={true}
+/>
+
+The Human in the Loop block pauses a running workflow and waits for a person to review, provide input, or approve before execution continues. It is the primary mechanism for adding human oversight to automated pipelines.
+
+## Overview
+
+<Steps>
+  <Step>
+    <strong>Pause execution</strong>: The workflow halts at this block and enters a waiting state
+  </Step>
+  <Step>
+    <strong>Present context</strong>: Structured display data is shown to the reviewer so they can make an informed decision
+  </Step>
+  <Step>
+    <strong>Notify approvers</strong>: Optionally send a Slack message, email, or other notification with the review URL
+  </Step>
+  <Step>
+    <strong>Collect input and resume</strong>: The approver fills in the resume form and the workflow continues with their input available downstream
+  </Step>
+</Steps>
+
+## How It Works
+
+When the executor reaches a Human in the Loop block it:
+
+1. **Renders display data** -- The `builderData` fields are evaluated (including any `<variable.name>` references) and presented as a structured summary for the reviewer.
+2. **Generates a resume URL** -- A unique URL and API endpoint are created. The URL opens a review UI; the endpoint accepts a programmatic `POST` to resume.
+3. **Sends notifications** -- If a notification tool (Slack, Email, etc.) is configured, the resume URL is dispatched automatically.
+4. **Waits** -- Execution is suspended. No downstream blocks run until the reviewer acts.
+5. **Resumes** -- Once the reviewer submits the resume form, the workflow picks up where it left off. Any fields the reviewer filled in are available as block outputs.
+
+<Callout type="info">
+  The block outputs two values after it pauses: **url** (the review UI link) and **resumeEndpoint** (an API URL you can call with `curl` or any HTTP client to resume programmatically).
+</Callout>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Human in the Loop"
+    type="human_in_the_loop"
+    color="#10B981"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "builderData",
+            "type": "response-format",
+            "title": "Display Data",
+            "description": "Define the structure of your response data. Use <variable.name> in field names to reference workflow variables."
+        },
+        {
+            "id": "notification",
+            "type": "tool-input",
+            "title": "Notification (Send URL)",
+            "description": "Configure notification tools to alert approvers (e.g., Slack, Email)"
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "Resume Form",
+            "description": "Define the fields the approver can fill in when resuming"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### Fields
+
+| Field | Purpose |
+|---|---|
+| **Display Data** | Structured key-value data shown to the reviewer. Reference upstream variables with `<block.output>` syntax. |
+| **Notification** | Attach a tool (Slack, Email, etc.) that will fire when the block pauses, sending the resume URL to the right people. |
+| **Resume Form** | Define the input fields the approver must complete before the workflow resumes. These become block outputs. |
+
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `url` | string | URL to the review UI where the approver can act |
+| `resumeEndpoint` | string | API endpoint for resuming the workflow via HTTP POST |
+
+## Best Practices
+
+- **Always configure a notification** so approvers know a workflow is waiting for them. Without one the resume URL must be shared manually.
+- **Keep display data focused** -- include only the information the reviewer needs to make a decision.
+- **Design the resume form carefully** -- downstream blocks will depend on the fields you define here, so name them clearly.

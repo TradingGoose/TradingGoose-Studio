@@ -1,0 +1,844 @@
+---
+title: Video Generator
+description: Generate videos from text using AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="video_generator"
+  color="#888888"
+/>
+
+
+## Configuration
+
+### Runway Gen-4
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Video Generator"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "Runway Gen-4",
+                    "id": "runway"
+                },
+                {
+                    "label": "Google Veo 3",
+                    "id": "veo"
+                },
+                {
+                    "label": "Luma Dream Machine",
+                    "id": "luma"
+                },
+                {
+                    "label": "MiniMax Hailuo",
+                    "id": "minimax"
+                },
+                {
+                    "label": "Fal.ai (Multi-Model)",
+                    "id": "falai"
+                }
+            ],
+            "defaultValue": "runway"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe the video you want to generate...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your provider API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                },
+                {
+                    "label": "1:1",
+                    "id": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "visualReference",
+            "type": "file-upload",
+            "title": "Reference Image",
+            "placeholder": "Upload reference image",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | Generated video URL |
+| `videoFile` | json | Video file object with metadata |
+| `duration` | number | Video duration in seconds |
+| `width` | number | Video width in pixels |
+| `height` | number | Video height in pixels |
+| `provider` | string | Provider used |
+| `model` | string | Model used |
+
+</div>
+
+
+
+---
+
+### Google Veo 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Video Generator"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "Runway Gen-4",
+                    "id": "runway"
+                },
+                {
+                    "label": "Google Veo 3",
+                    "id": "veo"
+                },
+                {
+                    "label": "Luma Dream Machine",
+                    "id": "luma"
+                },
+                {
+                    "label": "MiniMax Hailuo",
+                    "id": "minimax"
+                },
+                {
+                    "label": "Fal.ai (Multi-Model)",
+                    "id": "falai"
+                }
+            ],
+            "defaultValue": "veo"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe the video you want to generate...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your provider API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "options": [
+                {
+                    "label": "Veo 3",
+                    "id": "veo-3"
+                },
+                {
+                    "label": "Veo 3 Fast",
+                    "id": "veo-3-fast"
+                },
+                {
+                    "label": "Veo 3.1",
+                    "id": "veo-3.1"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "4",
+                    "id": "4"
+                },
+                {
+                    "label": "6",
+                    "id": "6"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "Resolution",
+            "options": [
+                {
+                    "label": "720p",
+                    "id": "720p"
+                },
+                {
+                    "label": "1080p",
+                    "id": "1080p"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | Generated video URL |
+| `videoFile` | json | Video file object with metadata |
+| `duration` | number | Video duration in seconds |
+| `width` | number | Video width in pixels |
+| `height` | number | Video height in pixels |
+| `provider` | string | Provider used |
+| `model` | string | Model used |
+
+</div>
+
+
+
+---
+
+### Luma Dream Machine
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Video Generator"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "Runway Gen-4",
+                    "id": "runway"
+                },
+                {
+                    "label": "Google Veo 3",
+                    "id": "veo"
+                },
+                {
+                    "label": "Luma Dream Machine",
+                    "id": "luma"
+                },
+                {
+                    "label": "MiniMax Hailuo",
+                    "id": "minimax"
+                },
+                {
+                    "label": "Fal.ai (Multi-Model)",
+                    "id": "falai"
+                }
+            ],
+            "defaultValue": "luma"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe the video you want to generate...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your provider API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "options": [
+                {
+                    "label": "Ray 2",
+                    "id": "ray-2"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "9",
+                    "id": "9"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                },
+                {
+                    "label": "1:1",
+                    "id": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "Resolution",
+            "options": [
+                {
+                    "label": "540p",
+                    "id": "540p"
+                },
+                {
+                    "label": "720p",
+                    "id": "720p"
+                },
+                {
+                    "label": "1080p",
+                    "id": "1080p"
+                }
+            ]
+        },
+        {
+            "id": "cameraControl",
+            "type": "long-input",
+            "title": "Camera Controls",
+            "placeholder": "JSON: [{ \"key\": \"pan_right\" }, { \"key\": \"zoom_in\" }]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | Generated video URL |
+| `videoFile` | json | Video file object with metadata |
+| `duration` | number | Video duration in seconds |
+| `width` | number | Video width in pixels |
+| `height` | number | Video height in pixels |
+| `provider` | string | Provider used |
+| `model` | string | Model used |
+
+</div>
+
+
+
+---
+
+### MiniMax Hailuo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Video Generator"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "Runway Gen-4",
+                    "id": "runway"
+                },
+                {
+                    "label": "Google Veo 3",
+                    "id": "veo"
+                },
+                {
+                    "label": "Luma Dream Machine",
+                    "id": "luma"
+                },
+                {
+                    "label": "MiniMax Hailuo",
+                    "id": "minimax"
+                },
+                {
+                    "label": "Fal.ai (Multi-Model)",
+                    "id": "falai"
+                }
+            ],
+            "defaultValue": "minimax"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe the video you want to generate...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your provider API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "options": [
+                {
+                    "label": "Hailuo 2.3",
+                    "id": "hailuo-02"
+                }
+            ]
+        },
+        {
+            "id": "endpoint",
+            "type": "dropdown",
+            "title": "Quality Endpoint",
+            "options": [
+                {
+                    "label": "Pro",
+                    "id": "pro"
+                },
+                {
+                    "label": "Standard",
+                    "id": "standard"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "6",
+                    "id": "6"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "promptOptimizer",
+            "type": "switch",
+            "title": "Prompt Optimizer"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | Generated video URL |
+| `videoFile` | json | Video file object with metadata |
+| `duration` | number | Video duration in seconds |
+| `width` | number | Video width in pixels |
+| `height` | number | Video height in pixels |
+| `provider` | string | Provider used |
+| `model` | string | Model used |
+
+</div>
+
+
+
+---
+
+### Fal.ai (Multi-Model)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Video Generator"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Provider",
+            "required": true,
+            "options": [
+                {
+                    "label": "Runway Gen-4",
+                    "id": "runway"
+                },
+                {
+                    "label": "Google Veo 3",
+                    "id": "veo"
+                },
+                {
+                    "label": "Luma Dream Machine",
+                    "id": "luma"
+                },
+                {
+                    "label": "MiniMax Hailuo",
+                    "id": "minimax"
+                },
+                {
+                    "label": "Fal.ai (Multi-Model)",
+                    "id": "falai"
+                }
+            ],
+            "defaultValue": "falai"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe the video you want to generate...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duration (seconds)",
+            "options": [
+                {
+                    "label": "5",
+                    "id": "5"
+                },
+                {
+                    "label": "8",
+                    "id": "8"
+                },
+                {
+                    "label": "10",
+                    "id": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Aspect Ratio",
+            "options": [
+                {
+                    "label": "16:9",
+                    "id": "16:9"
+                },
+                {
+                    "label": "9:16",
+                    "id": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your provider API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "required": true,
+            "options": [
+                {
+                    "label": "Google Veo 3.1",
+                    "id": "veo-3.1"
+                },
+                {
+                    "label": "OpenAI Sora 2",
+                    "id": "sora-2"
+                },
+                {
+                    "label": "Kling 2.5 Turbo Pro",
+                    "id": "kling-2.5-turbo-pro"
+                },
+                {
+                    "label": "Kling 2.1 Pro",
+                    "id": "kling-2.1-pro"
+                },
+                {
+                    "label": "MiniMax Hailuo 2.3 Pro",
+                    "id": "minimax-hailuo-2.3-pro"
+                },
+                {
+                    "label": "MiniMax Hailuo 2.3 Standard",
+                    "id": "minimax-hailuo-2.3-standard"
+                },
+                {
+                    "label": "WAN 2.1",
+                    "id": "wan-2.1"
+                },
+                {
+                    "label": "LTXV 0.9.8",
+                    "id": "ltxv-0.9.8"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | Generated video URL |
+| `videoFile` | json | Video file object with metadata |
+| `duration` | number | Video duration in seconds |
+| `width` | number | Video width in pixels |
+| `height` | number | Video height in pixels |
+| `provider` | string | Provider used |
+| `model` | string | Model used |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Generate high-quality videos from text prompts using leading AI providers. Supports multiple models, aspect ratios, resolutions, and provider-specific features like world consistency, camera controls, and audio generation.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `video_generator`

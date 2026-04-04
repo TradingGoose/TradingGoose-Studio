@@ -1,5 +1,5 @@
 'use client';
-import { type ComponentProps, Fragment, useState } from 'react';
+import { type ComponentProps, type PointerEvent, Fragment, useState } from 'react';
 import { cva } from 'class-variance-authority';
 import Link from 'fumadocs-core/link';
 import { cn } from '../../../lib/cn';
@@ -225,7 +225,11 @@ export function MobileNavigationMenuTrigger({
   return (
     <NavigationMenuTrigger
       {...props}
-      onPointerMove={enableHover ? undefined : (e) => e.preventDefault()}
+      onPointerMove={
+        enableHover
+          ? undefined
+          : (e: PointerEvent<HTMLButtonElement>) => e.preventDefault()
+      }
     >
       {props.children}
     </NavigationMenuTrigger>

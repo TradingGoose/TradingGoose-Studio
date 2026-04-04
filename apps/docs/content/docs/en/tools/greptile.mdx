@@ -1,0 +1,492 @@
+---
+title: Greptile
+description: AI-powered codebase search and Q&A
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="greptile"
+  color="#44A775"
+/>
+
+
+## Configuration
+
+### Query
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Query",
+                    "id": "greptile_query"
+                },
+                {
+                    "label": "Search",
+                    "id": "greptile_search"
+                },
+                {
+                    "label": "Index Repository",
+                    "id": "greptile_index_repo"
+                },
+                {
+                    "label": "Check Status",
+                    "id": "greptile_status"
+                }
+            ],
+            "defaultValue": "greptile_query"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API Key",
+            "placeholder": "Enter your Greptile API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub Token",
+            "placeholder": "Enter your GitHub Personal Access Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Query",
+            "placeholder": "Ask a question about the codebase...",
+            "required": true
+        },
+        {
+            "id": "repositories",
+            "type": "long-input",
+            "title": "Repositories",
+            "placeholder": "owner/repo, github:main:owner/repo (comma-separated)",
+            "required": true
+        },
+        {
+            "id": "sessionId",
+            "type": "short-input",
+            "title": "Session ID",
+            "placeholder": "Optional session ID for conversation continuity"
+        },
+        {
+            "id": "genius",
+            "type": "switch",
+            "title": "Genius Mode"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Query (<code>greptile_query</code>)</div>
+
+Query repositories in natural language and get answers with relevant code references. Greptile uses AI to understand your codebase and answer questions.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Yes | Natural language question about the codebase |
+| `repositories` | string | Yes | Comma-separated list of repositories. Format: "github:branch:owner/repo" or just "owner/repo" \(defaults to github:main\) |
+| `sessionId` | string | No | Session ID for conversation continuity |
+| `genius` | boolean | No | Enable genius mode for more thorough analysis \(slower but more accurate\) |
+| `apiKey` | string | Yes | Greptile API key |
+| `githubToken` | string | Yes | GitHub Personal Access Token with repo read access |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | AI-generated answer to the query |
+| `repository` | string | Repository name \(owner/repo\) |
+| `remote` | string | Git remote \(github/gitlab\) |
+| `branch` | string | Branch name |
+| `filepath` | string | Path to the file |
+| `linestart` | number | Starting line number |
+| `lineend` | number | Ending line number |
+| `summary` | string | Summary of the code section |
+
+</div>
+
+
+
+---
+
+### Search
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Query",
+                    "id": "greptile_query"
+                },
+                {
+                    "label": "Search",
+                    "id": "greptile_search"
+                },
+                {
+                    "label": "Index Repository",
+                    "id": "greptile_index_repo"
+                },
+                {
+                    "label": "Check Status",
+                    "id": "greptile_status"
+                }
+            ],
+            "defaultValue": "greptile_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API Key",
+            "placeholder": "Enter your Greptile API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub Token",
+            "placeholder": "Enter your GitHub Personal Access Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Search Query",
+            "placeholder": "Search for code patterns, functions, or concepts...",
+            "required": true
+        },
+        {
+            "id": "repositories",
+            "type": "long-input",
+            "title": "Repositories",
+            "placeholder": "owner/repo, github:main:owner/repo (comma-separated)",
+            "required": true
+        },
+        {
+            "id": "sessionId",
+            "type": "short-input",
+            "title": "Session ID",
+            "placeholder": "Optional session ID for conversation continuity"
+        },
+        {
+            "id": "genius",
+            "type": "switch",
+            "title": "Genius Mode"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>greptile_search</code>)</div>
+
+Search repositories in natural language and get relevant code references without generating an answer. Useful for finding specific code locations.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Yes | Natural language search query to find relevant code |
+| `repositories` | string | Yes | Comma-separated list of repositories. Format: "github:branch:owner/repo" or just "owner/repo" \(defaults to github:main\) |
+| `sessionId` | string | No | Session ID for conversation continuity |
+| `genius` | boolean | No | Enable genius mode for more thorough search \(slower but more accurate\) |
+| `apiKey` | string | Yes | Greptile API key |
+| `githubToken` | string | Yes | GitHub Personal Access Token with repo read access |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `repository` | string | Repository name \(owner/repo\) |
+| `remote` | string | Git remote \(github/gitlab\) |
+| `branch` | string | Branch name |
+| `filepath` | string | Path to the file |
+| `linestart` | number | Starting line number |
+| `lineend` | number | Ending line number |
+| `summary` | string | Summary of the code section |
+
+</div>
+
+
+
+---
+
+### Index Repository
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Query",
+                    "id": "greptile_query"
+                },
+                {
+                    "label": "Search",
+                    "id": "greptile_search"
+                },
+                {
+                    "label": "Index Repository",
+                    "id": "greptile_index_repo"
+                },
+                {
+                    "label": "Check Status",
+                    "id": "greptile_status"
+                }
+            ],
+            "defaultValue": "greptile_index_repo"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API Key",
+            "placeholder": "Enter your Greptile API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub Token",
+            "placeholder": "Enter your GitHub Personal Access Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Git Remote",
+            "options": [
+                {
+                    "label": "GitHub",
+                    "id": "github"
+                },
+                {
+                    "label": "GitLab",
+                    "id": "gitlab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "Repository",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Branch",
+            "placeholder": "main",
+            "required": true
+        },
+        {
+            "id": "reload",
+            "type": "switch",
+            "title": "Force Re-index"
+        },
+        {
+            "id": "notify",
+            "type": "switch",
+            "title": "Email Notification"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Index Repository (<code>greptile_index_repo</code>)</div>
+
+Submit a repository to be indexed by Greptile. Indexing must complete before the repository can be queried. Small repos take 3-5 minutes, larger ones can take over an hour.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | Yes | Git remote type: github or gitlab |
+| `repository` | string | Yes | Repository in owner/repo format \(e.g., "facebook/react"\) |
+| `branch` | string | Yes | Branch to index \(e.g., "main" or "master"\) |
+| `reload` | boolean | No | Force re-indexing even if already indexed |
+| `notify` | boolean | No | Send email notification when indexing completes |
+| `apiKey` | string | Yes | Greptile API key |
+| `githubToken` | string | Yes | GitHub Personal Access Token with repo read access |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `repositoryId` | string | Unique identifier for the indexed repository \(format: remote:branch:owner/repo\) |
+| `statusEndpoint` | string | URL endpoint to check indexing status |
+
+</div>
+
+
+
+---
+
+### Check Status
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Query",
+                    "id": "greptile_query"
+                },
+                {
+                    "label": "Search",
+                    "id": "greptile_search"
+                },
+                {
+                    "label": "Index Repository",
+                    "id": "greptile_index_repo"
+                },
+                {
+                    "label": "Check Status",
+                    "id": "greptile_status"
+                }
+            ],
+            "defaultValue": "greptile_status"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API Key",
+            "placeholder": "Enter your Greptile API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub Token",
+            "placeholder": "Enter your GitHub Personal Access Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Git Remote",
+            "options": [
+                {
+                    "label": "GitHub",
+                    "id": "github"
+                },
+                {
+                    "label": "GitLab",
+                    "id": "gitlab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "Repository",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Branch",
+            "placeholder": "main",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Check Status (<code>greptile_status</code>)</div>
+
+Check the indexing status of a repository. Use this to verify if a repository is ready to be queried or to monitor indexing progress.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | Yes | Git remote type: github or gitlab |
+| `repository` | string | Yes | Repository in owner/repo format \(e.g., "facebook/react"\) |
+| `branch` | string | Yes | Branch name \(e.g., "main" or "master"\) |
+| `apiKey` | string | Yes | Greptile API key |
+| `githubToken` | string | Yes | GitHub Personal Access Token with repo read access |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `repository` | string | Repository name \(owner/repo\) |
+| `remote` | string | Git remote \(github/gitlab\) |
+| `branch` | string | Branch name |
+| `private` | boolean | Whether the repository is private |
+| `status` | string | Indexing status: submitted, cloning, processing, completed, or failed |
+| `filesProcessed` | number | Number of files processed so far |
+| `numFiles` | number | Total number of files in the repository |
+| `sampleQuestions` | array | Sample questions for the indexed repository |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Query and search codebases using natural language with Greptile. Get AI-generated answers about your code, find relevant files, and understand complex codebases.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `greptile`

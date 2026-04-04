@@ -1,0 +1,86 @@
+---
+title: Historical Data
+description: Fetch historical market series from registered providers.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="historical_data"
+  color="#0EA5E9"
+/>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Historical Data"
+    type="historical_data"
+    color="#0EA5E9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Data Provider",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listing",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Interval",
+            "layout": "full",
+            "placeholder": "Select interval"
+        },
+        {
+            "id": "normalizationMode",
+            "type": "dropdown",
+            "title": "Normalization",
+            "layout": "full",
+            "placeholder": "Optional normalization mode"
+        },
+        {
+            "id": "start",
+            "type": "datetime-input",
+            "title": "Start",
+            "layout": "full",
+            "placeholder": "Start time",
+            "required": true
+        },
+        {
+            "id": "end",
+            "type": "datetime-input",
+            "title": "End",
+            "layout": "full",
+            "placeholder": "End time",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+
+## Usage Instructions
+
+Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Start and end can be ISO strings or UNIX timestamps.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `historical_data`

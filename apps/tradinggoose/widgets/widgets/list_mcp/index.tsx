@@ -41,7 +41,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { resolveMcpServerId } from '@/widgets/widgets/mcp/utils'
+import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const DEFAULT_MCP_SERVER = {
   name: 'New MCP Server',

@@ -4,51 +4,92 @@ description: Interact with X
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+
+<BlockInfoCard
   type="x"
-  color="#000000"
-  icon={true}
-  iconSvg={`<svg className="block-icon" xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'   >
-      <path
-        d='M 5.9199219 6 L 20.582031 27.375 L 6.2304688 44 L 9.4101562 44 L 21.986328 29.421875 L 31.986328 44 L 44 44 L 28.681641 21.669922 L 42.199219 6 L 39.029297 6 L 27.275391 19.617188 L 17.933594 6 L 5.9199219 6 z M 9.7167969 8 L 16.880859 8 L 40.203125 42 L 33.039062 42 L 9.7167969 8 z'
-        fill='currentColor'
-        stroke='currentColor'
-        strokeWidth='0.5'
-      />
-    </svg>`}
+  color=""
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[X](https://x.com/) (formerly Twitter) is a popular social media platform that enables real-time communication, content sharing, and engagement with audiences worldwide.
 
-The X integration in TradingGoose leverages OAuth authentication to securely connect with the X API, allowing your agents to interact with the platform programmatically. This OAuth implementation ensures secure access to X's features while maintaining user privacy and security.
+## Configuration
 
-With the X integration, your agents can:
+### Post a New Tweet
 
-- **Post content**: Create new tweets, reply to existing conversations, or share media directly from your workflows
-- **Monitor conversations**: Track mentions, keywords, or specific accounts to stay informed about relevant discussions
-- **Engage with audiences**: Automatically respond to mentions, direct messages, or specific triggers
-- **Analyze trends**: Gather insights from trending topics, hashtags, or user engagement patterns
-- **Research information**: Search for specific content, user profiles, or conversations to inform agent decisions
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Post a New Tweet",
+                    "id": "x_write"
+                },
+                {
+                    "label": "Get Tweet Details",
+                    "id": "x_read"
+                },
+                {
+                    "label": "Search Tweets",
+                    "id": "x_search"
+                },
+                {
+                    "label": "Get User Profile",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X Account",
+            "layout": "full",
+            "placeholder": "Select X account",
+            "provider": "x"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Tweet Text",
+            "layout": "full",
+            "placeholder": "What's happening?",
+            "required": true
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "Reply To (Tweet ID)",
+            "layout": "full",
+            "placeholder": "Enter tweet ID to reply to"
+        },
+        {
+            "id": "mediaIds",
+            "type": "short-input",
+            "title": "Media IDs",
+            "layout": "full",
+            "placeholder": "Enter comma-separated media IDs"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-In TradingGoose, the X integration enables sophisticated social media automation scenarios. Your agents can monitor brand mentions and respond appropriately, schedule and publish content based on specific triggers, conduct social listening for market research, or create interactive experiences that span both conversational AI and social media engagement. By connecting TradingGoose with X through OAuth, you can build intelligent agents that maintain a consistent and responsive social media presence while adhering to platform policies and best practices for API usage.
-{/* MANUAL-CONTENT-END */}
-
-
-## Usage Instructions
-
-Integrate X into the workflow. Can post a new tweet, get tweet details, search tweets, and get user profile.
-
-
-
-## Tools
-
-### `x_write`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Post a New Tweet (<code>x_write</code>)</div>
 
 Post new tweets, reply to tweets, or create polls on X (Twitter)
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -57,34 +98,216 @@ Post new tweets, reply to tweets, or create polls on X (Twitter)
 | `mediaIds` | array | No | Array of media IDs to attach to the tweet |
 | `poll` | object | No | Poll configuration for the tweet |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `tweet` | object | The newly created tweet data |
+| `id` | string | Tweet ID |
+| `text` | string | Tweet content text |
+| `createdAt` | string | Tweet creation timestamp |
+| `authorId` | string | ID of the tweet author |
+| `conversationId` | string | Conversation thread ID |
+| `mediaKeys` | array | Media attachment keys |
 
-### `x_read`
+</div>
+
+
+
+---
+
+### Get Tweet Details
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Post a New Tweet",
+                    "id": "x_write"
+                },
+                {
+                    "label": "Get Tweet Details",
+                    "id": "x_read"
+                },
+                {
+                    "label": "Search Tweets",
+                    "id": "x_search"
+                },
+                {
+                    "label": "Get User Profile",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X Account",
+            "layout": "full",
+            "placeholder": "Select X account",
+            "provider": "x"
+        },
+        {
+            "id": "tweetId",
+            "type": "short-input",
+            "title": "Tweet ID",
+            "layout": "full",
+            "placeholder": "Enter tweet ID to read",
+            "required": true
+        },
+        {
+            "id": "includeReplies",
+            "type": "dropdown",
+            "title": "Include Replies",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "true",
+                    "id": "true"
+                },
+                {
+                    "label": "false",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Tweet Details (<code>x_read</code>)</div>
 
 Read tweet details, including replies and conversation context
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `tweetId` | string | Yes | ID of the tweet to read |
 | `includeReplies` | boolean | No | Whether to include replies to the tweet |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `tweet` | object | The main tweet data |
+| `id` | string | Tweet ID |
+| `text` | string | Tweet content text |
+| `createdAt` | string | Tweet creation timestamp |
 
-### `x_search`
+</div>
+
+
+
+---
+
+### Search Tweets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Post a New Tweet",
+                    "id": "x_write"
+                },
+                {
+                    "label": "Get Tweet Details",
+                    "id": "x_read"
+                },
+                {
+                    "label": "Search Tweets",
+                    "id": "x_search"
+                },
+                {
+                    "label": "Get User Profile",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_search"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X Account",
+            "layout": "full",
+            "placeholder": "Select X account",
+            "provider": "x"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Search Query",
+            "layout": "full",
+            "placeholder": "Enter search terms (supports X search operators)",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Sort Order",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "recency",
+                    "id": "recency"
+                },
+                {
+                    "label": "relevancy",
+                    "id": "relevancy"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "Start Time",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "endTime",
+            "type": "datetime-input",
+            "title": "End Time",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Tweets (<code>x_search</code>)</div>
 
 Search for tweets using keywords, hashtags, or advanced queries
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -94,27 +317,107 @@ Search for tweets using keywords, hashtags, or advanced queries
 | `endTime` | string | No | End time for search \(ISO 8601 format\) |
 | `sortOrder` | string | No | Sort order for results \(recency or relevancy\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `tweets` | array | Array of tweets matching the search query |
+| `id` | string | Tweet ID |
+| `text` | string | Tweet content |
+| `createdAt` | string | Creation timestamp |
 
-### `x_user`
+</div>
+
+
+
+---
+
+### Get User Profile
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Post a New Tweet",
+                    "id": "x_write"
+                },
+                {
+                    "label": "Get Tweet Details",
+                    "id": "x_read"
+                },
+                {
+                    "label": "Search Tweets",
+                    "id": "x_search"
+                },
+                {
+                    "label": "Get User Profile",
+                    "id": "x_user"
+                }
+            ],
+            "defaultValue": "x_user"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X Account",
+            "layout": "full",
+            "placeholder": "Select X account",
+            "provider": "x"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "layout": "full",
+            "placeholder": "Enter username (without @)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get User Profile (<code>x_user</code>)</div>
 
 Get user profile information
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `username` | string | Yes | Username to look up \(without @ symbol\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `user` | object | X user profile information |
+| `id` | string | User ID |
+| `username` | string | Username without @ symbol |
+| `name` | string | Display name |
+| `description` | string | User bio/description |
+| `verified` | boolean | Whether the user is verified |
+| `followersCount` | number | Number of followers |
+| `followingCount` | number | Number of users following |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate X into the workflow. Can post a new tweet, get tweet details, search tweets, and get user profile.
 
 
 

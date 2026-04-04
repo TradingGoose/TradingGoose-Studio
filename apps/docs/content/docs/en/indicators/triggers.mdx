@@ -1,0 +1,139 @@
+---
+title: Indicator Triggers
+description: Connect indicator signals to TradingGoose workflows with the trigger() API
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The `trigger()` function is a TradingGoose extension to PineTS that lets your indicators fire workflow executions when conditions are met. This bridges the gap between technical analysis and workflow automation — an indicator can detect a signal and immediately trigger an action like sending a notification, placing a trade, or running a complex multi-step workflow.
+
+## Syntax
+
+```javascript
+trigger(event, options)
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event` | `string` | Yes | Event name identifier |
+| `options` | `object` | Yes | Trigger configuration (see below) |
+
+### Options Object
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `condition` | `any` | Yes | Condition that must be truthy for the trigger to fire |
+| `input` | `string` | Yes | Text input passed to the workflow (e.g., a description of what happened) |
+| `signal` | `'long' \| 'short' \| 'flat'` | Yes | Trading signal direction |
+| `position` | `'aboveBar' \| 'belowBar' \| 'inBar'` | No | Marker position on chart (default: `'aboveBar'`) |
+| `color` | `string` | No | Marker color (hex string, e.g., `'#FF0000'`) |
+
+### Event Name Rules
+
+- Must match pattern: `/^[a-z][a-z0-9_]{0,63}$/`
+- Starts with a lowercase letter
+- Only lowercase letters, digits, and underscores
+- Maximum 64 characters
+
+## Basic Example
+
+```javascript
+indicator('RSI Trigger Example');
+
+const rsi = ta.rsi(close, 14);
+plot(rsi, 'RSI');
+hline(70, { linestyle: hline.style_dashed });
+hline(30, { linestyle: hline.style_dashed });
+
+// Fire when RSI crosses above 70 (overbought)
+if (ta.crossover(rsi, 70)) {
+  trigger('rsi_overbought', {
+    condition: ta.crossover(rsi, 70),
+    input: 'RSI crossed above 70 — overbought signal',
+    signal: 'short',
+    position: 'aboveBar',
+    color: '#FF0000'
+  });
+}
+
+// Fire when RSI crosses below 30 (oversold)
+if (ta.crossunder(rsi, 30)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, 30),
+    input: 'RSI crossed below 30 — oversold signal',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## Multiple Triggers
+
+An indicator can define multiple trigger events. Each event can connect to a different workflow:
+
+```javascript
+indicator('Multi-Signal', { overlay: true });
+
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+// EMA crossover trigger
+if (ta.crossover(fast, slow)) {
+  trigger('ema_bullish_cross', {
+    condition: ta.crossover(fast, slow),
+    input: 'Fast EMA crossed above slow EMA',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#26A69A'
+  });
+}
+
+// MACD histogram reversal trigger
+if (hist > 0 && hist[1] <= 0) {
+  trigger('macd_positive_flip', {
+    condition: hist > 0 && hist[1] <= 0,
+    input: 'MACD histogram flipped positive',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#2962FF'
+  });
+}
+```
+
+## How It Works
+
+1. **Evaluation** — On each bar, PineTS evaluates your indicator code including `trigger()` calls
+2. **Condition check** — The `condition` property is resolved for the current bar. If falsy, the trigger is silently skipped
+3. **Validation** — Event name, options structure, input, and signal are validated. Invalid calls generate warnings (not errors)
+4. **Capture** — Valid triggers are captured with their metadata (event, input, signal, position, color, bar time, bar index)
+5. **Workflow dispatch** — When running live, captured trigger events are dispatched to connected workflows via the Indicator Trigger
+
+## Connecting to Workflows
+
+To use indicator triggers in a workflow:
+
+1. Create an indicator with `trigger()` calls
+2. In the workflow editor, add an **Indicator Trigger** block as your workflow's start point
+3. Configure it to listen for your indicator's events
+4. The workflow receives the trigger's `input` text and `signal` as workflow input data
+
+## Validation Warnings
+
+Invalid trigger calls produce warnings (not errors) so your indicator continues running:
+
+| Warning Code | Cause |
+|-------------|-------|
+| `indicator_trigger_invalid_event` | Event name doesn't match the required pattern |
+| `indicator_trigger_invalid_options` | Options parameter is not an object |
+| `indicator_trigger_condition_unresolved` | Condition value could not be resolved |
+| `indicator_trigger_invalid_input` | Input is missing or not a string |
+| `indicator_trigger_invalid_signal` | Signal is not `'long'`, `'short'`, or `'flat'` |
+| `indicator_trigger_invalid_time` | Bar open time is unavailable |
+
+<Callout type="info">
+  The `trigger()` API is a TradingGoose-specific extension. It does not exist in standard Pine Script or PineTS. Indicators with `trigger()` calls work normally in all environments — the trigger simply has no effect outside of TradingGoose.
+</Callout>

@@ -1,0 +1,942 @@
+---
+title: Grain
+description: Access meeting recordings, transcripts, and AI summaries
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="grain"
+  color="#00B96C"
+/>
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/grain">
+    See trigger events, setup, and event payloads for Grain.
+  </Card>
+</Cards>
+
+
+## Configuration
+
+### List Recordings
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_recordings"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Pagination Cursor",
+            "placeholder": "Cursor for next page (optional)"
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Before Date",
+            "placeholder": "ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "After Date",
+            "placeholder": "ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Participant Scope",
+            "options": [
+                {
+                    "label": "Internal",
+                    "id": "internal"
+                },
+                {
+                    "label": "External",
+                    "id": "external"
+                }
+            ]
+        },
+        {
+            "id": "titleSearch",
+            "type": "short-input",
+            "title": "Title Search",
+            "placeholder": "Search by recording title"
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "Team ID",
+            "placeholder": "Filter by team UUID (optional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "Meeting Type ID",
+            "placeholder": "Filter by meeting type UUID (optional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Include Highlights"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Include Participants"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Include AI Summary"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Recordings (<code>grain_list_recordings</code>)</div>
+
+List recordings from Grain with optional filters and pagination
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+| `cursor` | string | No | Pagination cursor for next page |
+| `beforeDatetime` | string | No | Only recordings before this ISO8601 timestamp |
+| `afterDatetime` | string | No | Only recordings after this ISO8601 timestamp |
+| `participantScope` | string | No | Filter: "internal" or "external" |
+| `titleSearch` | string | No | Search term to filter by recording title |
+| `teamId` | string | No | Filter by team UUID |
+| `meetingTypeId` | string | No | Filter by meeting type UUID |
+| `includeHighlights` | boolean | No | Include highlights/clips in response |
+| `includeParticipants` | boolean | No | Include participant list in response |
+| `includeAiSummary` | boolean | No | Include AI-generated summary |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Recording UUID |
+| `title` | string | Recording title |
+| `start_datetime` | string | ISO8601 start timestamp |
+| `end_datetime` | string | ISO8601 end timestamp |
+| `duration_ms` | number | Duration in milliseconds |
+| `media_type` | string | audio, transcript, or video |
+| `source` | string | Recording source |
+| `url` | string | URL to view in Grain |
+| `thumbnail_url` | string | Thumbnail URL |
+| `tags` | array | Array of tags |
+| `teams` | array | Teams the recording belongs to |
+
+</div>
+
+
+
+---
+
+### Get Recording
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_get_recording"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "Recording ID",
+            "placeholder": "Enter recording UUID",
+            "required": true
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Include Highlights"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Include Participants"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Include AI Summary"
+        },
+        {
+            "id": "includeCalendarEvent",
+            "type": "switch",
+            "title": "Include Calendar Event"
+        },
+        {
+            "id": "includeHubspot",
+            "type": "switch",
+            "title": "Include HubSpot Data"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Recording (<code>grain_get_recording</code>)</div>
+
+Get details of a single recording by ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+| `recordingId` | string | Yes | The recording UUID |
+| `includeHighlights` | boolean | No | Include highlights/clips |
+| `includeParticipants` | boolean | No | Include participant list |
+| `includeAiSummary` | boolean | No | Include AI summary |
+| `includeCalendarEvent` | boolean | No | Include calendar event data |
+| `includeHubspot` | boolean | No | Include HubSpot associations |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Recording UUID |
+| `title` | string | Recording title |
+| `start_datetime` | string | ISO8601 start timestamp |
+| `end_datetime` | string | ISO8601 end timestamp |
+| `duration_ms` | number | Duration in milliseconds |
+| `media_type` | string | audio, transcript, or video |
+| `source` | string | Recording source \(zoom, meet, teams, etc.\) |
+| `url` | string | URL to view in Grain |
+| `thumbnail_url` | string | Thumbnail image URL |
+| `tags` | array | Array of tag strings |
+| `teams` | array | Teams the recording belongs to |
+| `meeting_type` | object | Meeting type info \(id, name, scope\) |
+| `highlights` | array | Highlights \(if included\) |
+| `participants` | array | Participants \(if included\) |
+| `ai_summary` | object | AI summary text \(if included\) |
+| `calendar_event` | object | Calendar event data \(if included\) |
+
+</div>
+
+
+
+---
+
+### Get Transcript
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_get_transcript"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "Recording ID",
+            "placeholder": "Enter recording UUID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Transcript (<code>grain_get_transcript</code>)</div>
+
+Get the full transcript of a recording
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+| `recordingId` | string | Yes | The recording UUID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `participant_id` | string | Participant UUID \(nullable\) |
+| `speaker` | string | Speaker name |
+| `start` | number | Start timestamp in ms |
+| `end` | number | End timestamp in ms |
+
+</div>
+
+
+
+---
+
+### List Teams
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_teams"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Teams (<code>grain_list_teams</code>)</div>
+
+List all teams in the workspace
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Team UUID |
+
+</div>
+
+
+
+---
+
+### List Meeting Types
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_meeting_types"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Meeting Types (<code>grain_list_meeting_types</code>)</div>
+
+List all meeting types in the workspace
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Meeting type UUID |
+| `name` | string | Meeting type name |
+
+</div>
+
+
+
+---
+
+### Create Webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_create_hook"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Before Date",
+            "placeholder": "ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "After Date",
+            "placeholder": "ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Participant Scope",
+            "options": [
+                {
+                    "label": "Internal",
+                    "id": "internal"
+                },
+                {
+                    "label": "External",
+                    "id": "external"
+                }
+            ]
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "Team ID",
+            "placeholder": "Filter by team UUID (optional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "Meeting Type ID",
+            "placeholder": "Filter by meeting type UUID (optional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Include Highlights"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Include Participants"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Include AI Summary"
+        },
+        {
+            "id": "hookUrl",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "placeholder": "Enter webhook endpoint URL",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Webhook (<code>grain_create_hook</code>)</div>
+
+Create a webhook to receive recording events
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+| `hookUrl` | string | Yes | Webhook endpoint URL \(must respond 2xx\) |
+| `filterBeforeDatetime` | string | No | Filter: recordings before this date |
+| `filterAfterDatetime` | string | No | Filter: recordings after this date |
+| `filterParticipantScope` | string | No | Filter: "internal" or "external" |
+| `filterTeamId` | string | No | Filter: specific team UUID |
+| `filterMeetingTypeId` | string | No | Filter: specific meeting type |
+| `includeHighlights` | boolean | No | Include highlights in webhook payload |
+| `includeParticipants` | boolean | No | Include participants in webhook payload |
+| `includeAiSummary` | boolean | No | Include AI summary in webhook payload |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Hook UUID |
+| `enabled` | boolean | Whether hook is active |
+| `hook_url` | string | The webhook URL |
+| `filter` | object | Applied filters |
+| `include` | object | Included fields |
+
+</div>
+
+
+
+---
+
+### List Webhooks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_list_hooks"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Webhooks (<code>grain_list_hooks</code>)</div>
+
+List all webhooks for the account
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | Hook UUID |
+| `enabled` | boolean | Whether hook is active |
+| `hook_url` | string | Webhook URL |
+| `filter` | object | Applied filters |
+| `include` | object | Included fields |
+
+</div>
+
+
+
+---
+
+### Delete Webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "List Recordings",
+                    "id": "grain_list_recordings"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "grain_get_recording"
+                },
+                {
+                    "label": "Get Transcript",
+                    "id": "grain_get_transcript"
+                },
+                {
+                    "label": "List Teams",
+                    "id": "grain_list_teams"
+                },
+                {
+                    "label": "List Meeting Types",
+                    "id": "grain_list_meeting_types"
+                },
+                {
+                    "label": "Create Webhook",
+                    "id": "grain_create_hook"
+                },
+                {
+                    "label": "List Webhooks",
+                    "id": "grain_list_hooks"
+                },
+                {
+                    "label": "Delete Webhook",
+                    "id": "grain_delete_hook"
+                }
+            ],
+            "defaultValue": "grain_delete_hook"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Grain API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "hookId",
+            "type": "short-input",
+            "title": "Webhook ID",
+            "placeholder": "Enter webhook UUID to delete",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Webhook (<code>grain_delete_hook</code>)</div>
+
+Delete a webhook by ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Grain API key \(Personal Access Token\) |
+| `hookId` | string | Yes | The hook UUID to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Grain into your workflow. Access meeting recordings, transcripts, highlights, and AI-generated summaries. Can also trigger workflows based on Grain webhook events.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `grain`

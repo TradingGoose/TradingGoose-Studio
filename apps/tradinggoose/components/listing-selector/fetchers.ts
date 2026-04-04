@@ -1,5 +1,5 @@
-import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import type { ListingOption } from '@/lib/listing/identity'
+import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 
 export async function fetchListings(
   params: Record<string, string>,
@@ -16,11 +16,13 @@ export async function fetchListings(
   const payload = (await response.json()) as {
     data?: ListingOption[] | ListingOption | null
   }
-  const rows = !payload?.data
-    ? []
-    : Array.isArray(payload.data)
-      ? payload.data
-      : [payload.data]
+  return normalizeListingOptions(payload)
+}
+
+export function normalizeListingOptions(payload: {
+  data?: ListingOption[] | ListingOption | null
+}): ListingOption[] {
+  const rows = !payload?.data ? [] : Array.isArray(payload.data) ? payload.data : [payload.data]
   return rows.map((option) => normalizeListingOption(option))
 }
 

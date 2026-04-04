@@ -1,19 +1,31 @@
 ---
-    title: Variables
-    description: Working with workflow and environment variables.
+title: Variables
+description: Working with workflow and environment variables.
 ---
+
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-    ## Overview
+TradingGoose supports two complementary variable systems. **Environment variables** store configuration values and secrets (API keys, tokens, database URLs) that stay outside your workflow definitions and are resolved at execution time. **Workflow variables** act as a global data store inside a single workflow, letting any block read and write shared state during a run.
 
-    This page introduces the variables section.
+Together they cover both external configuration and internal data flow. Environment variables keep secrets safe and portable across workflows, while workflow variables let blocks pass data to each other without direct connections.
 
-    <Cards>
-      <Card title="Environment Variables" href="/environment-variables" >
-        Jump into the detailed guides for Environment Variables.
-      </Card>
-      
-      <Card title="Workflow Variables" href="/workflow-variables" >
-        Jump into the detailed guides for Workflow Variables .
-      </Card>
-    </Cards>
+## Variable Types
+
+<Cards>
+  <Card title="Environment Variables" href="/variables/environment-variables">
+    Manage API keys, tokens, and other secrets at the personal or workspace level. Referenced with double-brace syntax and resolved when a workflow runs.
+  </Card>
+  <Card title="Workflow Variables" href="/variables/workflow-variables">
+    Global key-value store scoped to a single workflow. Create, read, and update variables from any block to share state across your workflow.
+  </Card>
+</Cards>
+
+## Quick Comparison
+
+| | Environment Variables | Workflow Variables |
+|---|---|---|
+| **Scope** | Personal or workspace-wide | Single workflow |
+| **Lifetime** | Persistent across all runs | Persists between runs unless reset |
+| **Typical use** | API keys, tokens, config | Passing data between blocks, state |
+| **Access syntax** | `{{VARIABLE_NAME}}` | `<variable_name>` via dropdown |
+| **Who can edit** | Settings page (permissions apply) | Variables panel in the editor |

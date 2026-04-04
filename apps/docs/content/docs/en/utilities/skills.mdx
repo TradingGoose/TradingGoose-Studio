@@ -1,0 +1,79 @@
+---
+title: Skills
+description: Reusable instruction sets scoped to a workspace that Agent blocks load at runtime
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+Skills are reusable instruction sets that define specialized behaviors for Agent blocks. Create a skill once and attach it to any agent in any workflow within the same workspace.
+
+## Skill Definition
+
+Every skill is stored as a `SkillDefinition` with four user-facing fields:
+
+| Field | Rules | Purpose |
+|---|---|---|
+| **name** | Kebab-case, 1-64 chars (e.g. `market-analyst`) | Unique identifier within the workspace |
+| **description** | 1-1024 chars | Tells agents and teammates what the skill does |
+| **content** | 1-50 000 chars | The full prompt: instructions, context, rules, and examples |
+| **id** | Auto-generated | Immutable reference used by the API and store |
+
+Each skill also carries `workspaceId`, `userId`, `createdAt`, and an optional `updatedAt` timestamp.
+
+## Creating and Editing Skills
+
+<Steps>
+  <Step>
+    Open the [Skill Editor](/widgets/editor-skill) widget in your workspace.
+  </Step>
+  <Step>
+    Enter a **name** (kebab-case), a short **description**, and the full **content** -- the instructions your agent should follow.
+  </Step>
+  <Step>
+    **Save** the skill. The API validates all fields and rejects duplicates within the same workspace.
+  </Step>
+</Steps>
+
+To update an existing skill, select it in the Skill Editor, change any field, and save. All workflows referencing that skill will pick up the new content on their next run.
+
+To delete a skill, use the delete action in the Skill Editor. Deletion requires `admin` or `write` permission on the workspace.
+
+## Using Skills in Agent Blocks
+
+The Agent block exposes a **Skills** input (`skill-input` type). At configuration time you select one or more skills from the workspace. At runtime the agent receives each selected skill's content as additional instructions alongside its system and user prompts.
+
+<Callout type="info">
+  Skills are workspace-scoped. Every team member with access to the workspace can browse, use, and (with write permission) edit or delete skills.
+</Callout>
+
+## How Skills Work at Runtime
+
+1. The workflow executor reads the agent's `skills` input -- an array of selected skill references.
+2. The skills store (`useSkillsStore`) resolves each reference against the active workspace using `getSkill(id, workspaceId)`.
+3. Resolved skill content is merged into the agent's prompt context before the LLM call.
+
+The store keeps skills indexed by workspace (`skillsByWorkspace`) so switching workspaces instantly loads the correct set.
+
+## Permissions
+
+| Action | Required Permission |
+|---|---|
+| List / read skills | Any workspace access |
+| Create / update / delete | `admin` or `write` |
+
+## Best Practices
+
+- **One skill per role** -- keep each skill focused on a single persona or task type.
+- **Include examples** in the content to anchor the agent's behavior.
+- **Iterate in place** -- editing a skill updates every workflow that references it, no re-wiring needed.
+- **Use descriptive names** -- the kebab-case name (e.g. `code-reviewer`, `financial-analyst`) doubles as a human-readable identifier in the UI.
+
+## Related
+
+<Cards>
+  <Card title="Skill Editor" href="/widgets/editor-skill">
+    Widget for creating, editing, and deleting skills.
+  </Card>
+</Cards>

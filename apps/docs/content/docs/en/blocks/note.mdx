@@ -1,0 +1,56 @@
+---
+title: Note
+description: Add visual annotations to the workflow canvas without affecting execution
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+/>
+
+The Note block is a visual-only annotation that lives on the workflow canvas. It does not execute, has no inputs or outputs, and is completely ignored by the executor. Use it to document decisions, leave instructions for collaborators, or explain complex sections of a workflow.
+
+## Overview
+
+Note blocks serve a purely organizational purpose:
+
+- **Document design decisions** -- explain why a certain branching strategy or model was chosen.
+- **Leave instructions** -- tell collaborators how to configure environment variables or what a section of the workflow does.
+- **Embed references** -- paste YouTube links and they render as embedded videos directly on the canvas.
+
+<Callout type="info">
+  Note blocks have no effect on workflow execution. They produce no outputs and cannot be connected to other blocks. They are stripped out entirely when the workflow runs.
+</Callout>
+
+## Configuration
+
+The only field is a Markdown text area. Write plain text, use Markdown formatting (headings, lists, bold, code blocks), or paste a YouTube URL to embed a video.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Note"
+    type="note"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "Add context or instructions for collaborators...",
+            "description": "Write your note using Markdown. YouTube links will display as embedded videos."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Best Practices
+
+- **Place notes near the blocks they describe** so the context is immediately visible.
+- **Use Markdown headings and lists** to keep longer notes scannable.
+- **Prefer notes over comments in code blocks** -- notes are visible at the canvas level without opening a block's configuration.

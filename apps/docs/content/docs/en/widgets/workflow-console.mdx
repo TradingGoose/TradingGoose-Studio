@@ -1,11 +1,10 @@
 ---
-title: Workflow Console
-description: Real-time workflow execution console with logs and streaming output
+title: "Workflow Console"
+description: "Live workflow execution console with logs and streaming output."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-The Workflow Console widget provides a real-time view of workflow execution, displaying logs, debug information, and streaming output as your workflow runs.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Overview
 
@@ -13,47 +12,58 @@ The Workflow Console widget provides a real-time view of workflow execution, dis
 |----------|-------|
 | **Key** | `workflow_console` |
 | **Category** | Utility |
-| **Icon** | Activity |
+
+The Workflow Console widget displays a real-time log of everything that happens during workflow execution. Each entry is tagged with the block that produced it, its status, and a timestamp. The widget is responsive to panel width and adjusts its layout automatically.
 
 ## Features
 
-- **Real-time Logs**: View execution logs as they happen
-- **Streaming Output**: See block outputs in real-time
-- **Execution Status**: Monitor the current state of workflow execution
-- **Error Display**: Quickly identify and debug errors
-- **Log Filtering**: Filter logs by type, block, or severity
-- **Clear Console**: Reset the console output
+- **Real-time log stream** -- entries appear as each block executes, showing block name, type, status, and output
+- **Filter by status and block** -- a filter popover lets you toggle visibility for `error` and `info` statuses, and check or uncheck individual blocks by name; active filters are highlighted on the filter icon
+- **Sort by time** -- toggle between ascending and descending chronological order with a single header button
+- **Structured view** -- a toggle that switches log entries into a formatted JSON-style layout for inspecting complex output objects
+- **Wrap text** -- a toggle that controls whether long log lines wrap or scroll horizontally
+- **Export to CSV** -- downloads the current (filtered) console entries as a CSV file
+- **Clear console** -- deletes all entries for the active workflow from the console store
+- **Workflow selector** -- header dropdown to switch between workflows; respects pair-color syncing when linked
 
 ## Usage
 
-The Workflow Console is essential for:
+### Adding the widget
 
-- Debugging workflow execution
-- Monitoring long-running workflows
-- Viewing intermediate block outputs
-- Identifying errors and bottlenecks
+Open the widget picker and select **Workflow Console**. It loads entries for the active workflow in the current workspace.
 
-### Log Types
+### Header layout
 
-| Type | Description |
-|------|-------------|
-| **Info** | General execution information |
-| **Debug** | Detailed debugging information |
-| **Warning** | Non-critical issues |
-| **Error** | Execution errors and failures |
-| **Output** | Block output data |
+- **Center** -- workflow selector dropdown
+- **Right** -- toolbar with filter, sort, structured view, wrap text, export CSV, and clear buttons (all grouped)
 
-### Viewing Execution Flow
+### Key interactions
 
-The console shows the execution path through your workflow:
+1. Run a workflow from the editor or chat and watch entries stream into the console
+2. Open the filter popover to narrow results to specific blocks or error-only entries
+3. Toggle structured view to read JSON payloads more easily
+4. Toggle wrap text when entries contain long single-line strings
+5. Click the download button to export filtered entries as CSV for offline analysis
+6. Click the trash button to clear the console for the current workflow
 
-1. **Start**: Workflow execution begins
-2. **Block Entry**: Each block starts processing
-3. **Block Output**: Results from each block
-4. **Block Exit**: Block completes
-5. **End**: Workflow execution completes
+### Pair color syncing
+
+When assigned a pair color, the console automatically follows the workflow selected in the paired editor. When the pair color is `gray`, you can independently choose which workflow to monitor via the header dropdown.
 
 <Callout>
-This widget supports the **pairColor** mechanism. Pair it with a Workflow Editor to see logs for the workflow you're editing.
+Pair this widget with the **Workflow Editor** to see live execution logs for the workflow you are building.
 </Callout>
 
+## Related
+
+<Cards>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+  <Card title="Execution Guide" href="/execution">
+    Learn how workflow execution works.
+  </Card>
+  <Card title="Workflow Chat" href="/widgets/workflow-chat">
+    Conversational interface for running workflows.
+  </Card>
+</Cards>
