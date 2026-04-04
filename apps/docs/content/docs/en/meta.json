@@ -2,10 +2,10 @@
   "title": "TradingGoose Documentation",
   "pages": [
     "./introduction/index",
-    "./getting-started/index",
-    "./mcp/index",
     "./copilot/index",
+    "utilities",
     "./permissions/index",
+    "indicators",
     "triggers",
     "blocks",
     "widgets",

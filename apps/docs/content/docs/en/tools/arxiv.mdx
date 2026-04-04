@@ -4,60 +4,149 @@ description: Search and retrieve academic papers from ArXiv
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+
+<BlockInfoCard
   type="arxiv"
-  color="#E0E0E0"
-  icon={true}
-  iconSvg={`<svg className="block-icon"  id='logomark' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17.732 24.269'>
-      <g id='tiny'>
-        <path
-          d='M573.549,280.916l2.266,2.738,6.674-7.84c.353-.47.52-.717.353-1.117a1.218,1.218,0,0,0-1.061-.748h0a.953.953,0,0,0-.712.262Z'
-          transform='translate(-566.984 -271.548)'
-          fill='#bdb9b4'
-        />
-        <path
-          d='M579.525,282.225l-10.606-10.174a1.413,1.413,0,0,0-.834-.5,1.09,1.09,0,0,0-1.027.66c-.167.4-.047.681.319,1.206l8.44,10.242h0l-6.282,7.716a1.336,1.336,0,0,0-.323,1.3,1.114,1.114,0,0,0,1.04.69A.992.992,0,0,0,571,293l8.519-7.92A1.924,1.924,0,0,0,579.525,282.225Z'
-          transform='translate(-566.984 -271.548)'
-          fill='#b31b1b'
-        />
-        <path
-          d='M584.32,293.912l-8.525-10.275,0,0L573.53,280.9l-1.389,1.254a2.063,2.063,0,0,0,0,2.965l10.812,10.419a.925.925,0,0,0,.742.282,1.039,1.039,0,0,0,.953-.667A1.261,1.261,0,0,0,584.32,293.912Z'
-          transform='translate(-566.984 -271.548)'
-          fill='#bdb9b4'
-        />
-      </g>
-    </svg>`}
+  color=""
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[ArXiv](https://arxiv.org/) is a free, open-access repository of scientific research papers in fields such as physics, mathematics, computer science, quantitative biology, quantitative finance, statistics, electrical engineering, systems science, and economics. ArXiv provides a vast collection of preprints and published articles, making it a primary resource for researchers and practitioners worldwide.
 
-With ArXiv, you can:
+## Configuration
 
-- **Search for academic papers**: Find research by keywords, author names, titles, categories, and more
-- **Retrieve paper metadata**: Access abstracts, author lists, publication dates, and other bibliographic information
-- **Download full-text PDFs**: Obtain the complete text of most papers for in-depth study
-- **Explore author contributions**: View all papers by a specific author
-- **Stay up-to-date**: Discover the latest submissions and trending topics in your field
+### Search Papers
 
-In TradingGoose, the ArXiv integration enables your agents to programmatically search, retrieve, and analyze scientific papers from ArXiv. This allows you to automate literature reviews, build research assistants, or incorporate up-to-date scientific knowledge into your agentic workflows. Use ArXiv as a dynamic data source for research, discovery, and knowledge extraction within your TradingGoose projects.
-{/* MANUAL-CONTENT-END */}
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_search"
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "Search Query",
+            "layout": "full",
+            "placeholder": "Enter search terms (e.g., \"machine learning\", \"quantum physics\")...",
+            "required": true
+        },
+        {
+            "id": "searchField",
+            "type": "dropdown",
+            "title": "Search Field",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "All Fields",
+                    "id": "all"
+                },
+                {
+                    "label": "Title",
+                    "id": "ti"
+                },
+                {
+                    "label": "Author",
+                    "id": "au"
+                },
+                {
+                    "label": "Abstract",
+                    "id": "abs"
+                },
+                {
+                    "label": "Comment",
+                    "id": "co"
+                },
+                {
+                    "label": "Journal Reference",
+                    "id": "jr"
+                },
+                {
+                    "label": "Category",
+                    "id": "cat"
+                },
+                {
+                    "label": "Report Number",
+                    "id": "rn"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "Sort By",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Relevance",
+                    "id": "relevance"
+                },
+                {
+                    "label": "Last Updated Date",
+                    "id": "lastUpdatedDate"
+                },
+                {
+                    "label": "Submitted Date",
+                    "id": "submittedDate"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Sort Order",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "descending"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "ascending"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-
-## Usage Instructions
-
-Integrates ArXiv into the workflow. Can search for papers, get paper details, and get author papers. Does not require OAuth or an API key.
-
-
-
-## Tools
-
-### `arxiv_search`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Papers (<code>arxiv_search</code>)</div>
 
 Search for academic papers on ArXiv by keywords, authors, titles, or other fields.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -67,44 +156,193 @@ Search for academic papers on ArXiv by keywords, authors, titles, or other field
 | `sortBy` | string | No | Sort by: relevance, lastUpdatedDate, submittedDate \(default: relevance\) |
 | `sortOrder` | string | No | Sort order: ascending, descending \(default: descending\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `papers` | json | Array of papers matching the search query |
+| `id` | string | id output |
+| `title` | string | title output |
+| `summary` | string | summary output |
+| `authors` | string | authors output |
+| `published` | string | published output |
+| `updated` | string | updated output |
+| `link` | string | link output |
+| `pdfLink` | string | pdfLink output |
+| `categories` | string | categories output |
+| `primaryCategory` | string | primaryCategory output |
+| `comment` | string | comment output |
+| `journalRef` | string | journalRef output |
 
-### `arxiv_get_paper`
+</div>
+
+
+
+---
+
+### Get Paper Details
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_paper"
+        },
+        {
+            "id": "paperId",
+            "type": "short-input",
+            "title": "Paper ID",
+            "layout": "full",
+            "placeholder": "Enter ArXiv paper ID (e.g., 1706.03762, cs.AI/0001001)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Paper Details (<code>arxiv_get_paper</code>)</div>
 
 Get detailed information about a specific ArXiv paper by its ID.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `paperId` | string | Yes | ArXiv paper ID \(e.g., "1706.03762"\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `paper` | json | Detailed information about the requested ArXiv paper |
+| `id` | string | id output |
+| `title` | string | title output |
+| `summary` | string | summary output |
+| `authors` | string | authors output |
+| `published` | string | published output |
+| `updated` | string | updated output |
+| `link` | string | link output |
+| `pdfLink` | string | pdfLink output |
+| `categories` | string | categories output |
+| `primaryCategory` | string | primaryCategory output |
+| `comment` | string | comment output |
+| `journalRef` | string | journalRef output |
 
-### `arxiv_get_author_papers`
+</div>
+
+
+
+---
+
+### Get Author Papers
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_author_papers"
+        },
+        {
+            "id": "authorName",
+            "type": "short-input",
+            "title": "Author Name",
+            "layout": "full",
+            "placeholder": "Enter author name (e.g., \"John Smith\")...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Max Results",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Author Papers (<code>arxiv_get_author_papers</code>)</div>
 
 Search for papers by a specific author on ArXiv.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `authorName` | string | Yes | Author name to search for |
 | `maxResults` | number | No | Maximum number of results to return \(default: 10, max: 2000\) |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `authorPapers` | json | Array of papers authored by the specified author |
+| `id` | string | id output |
+| `title` | string | title output |
+| `summary` | string | summary output |
+| `authors` | string | authors output |
+| `published` | string | published output |
+| `updated` | string | updated output |
+| `link` | string | link output |
+| `pdfLink` | string | pdfLink output |
+| `categories` | string | categories output |
+| `primaryCategory` | string | primaryCategory output |
+| `comment` | string | comment output |
+| `journalRef` | string | journalRef output |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrates ArXiv into the workflow. Can search for papers, get paper details, and get author papers. Does not require OAuth or an API key.
 
 
 

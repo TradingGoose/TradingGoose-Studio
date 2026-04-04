@@ -1,7 +1,7 @@
 import type React from 'react'
-import { memo, useMemo, useRef } from 'react'
+import { type CSSProperties, memo, useEffect } from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
-import { Handle, type NodeProps, Position, useReactFlow } from 'reactflow'
+import { Handle, type NodeProps, Position, useReactFlow, useUpdateNodeInternals } from 'reactflow'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -76,7 +76,7 @@ export interface SubflowNodeData {
 
 export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<SubflowNodeData>) => {
   const { getNodes } = useReactFlow()
-  const blockRef = useRef<HTMLDivElement>(null)
+  const updateNodeInternals = useUpdateNodeInternals()
   const userPermissions = useUserPermissionsContext()
   const workflowRoute = useOptionalWorkflowRoute()
 
@@ -91,50 +91,41 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const isEnabled = currentBlock?.enabled ?? true
   const isLocked = currentBlock?.locked ?? false
 
-  const nestingLevel = useMemo(() => {
-    let level = 0
-    let currentParentId = data?.parentId
-
-    while (currentParentId) {
-      level++
-      const parentNode = getNodes().find((node) => node.id === currentParentId)
-      if (!parentNode) break
-      currentParentId = parentNode.data?.parentId
-    }
-
-    return level
-  }, [data?.parentId, getNodes])
-
-  const nestedStyles = useMemo(() => {
-    const styles: Record<string, string> = {
-      backgroundColor: 'rgba(125, 126, 127, 0.05)',
-    }
-
-    if (nestingLevel > 0) {
-      const colors = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#475569']
-      const colorIndex = (nestingLevel - 1) % colors.length
-      styles.backgroundColor = `${colors[colorIndex]}20`
-    }
-
-    return styles
-  }, [nestingLevel])
-
   const isLoop = data.kind === 'loop'
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
+  const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
   const blockColor = isLoop ? '#00ccff' : '#ffdd00'
   const blockName = data.name || (isLoop ? 'Loop' : 'Parallel')
   const BlockIcon = isLoop ? RepeatIcon : SplitIcon
+  const hasPriorityRing =
+    Boolean(data?.hasNestedError) || diffStatus === 'new' || diffStatus === 'edited'
 
   const getHandleClasses = (position: 'left' | 'right') => {
     const baseClasses =
       '!w-[7px] !h-5 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)] !cursor-crosshair transition-[colors] duration-150'
 
     if (position === 'left') {
-      return `${baseClasses} hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none !left-[-7px]`
+      return `${baseClasses} hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none !left-[-8px]`
     }
 
-    return `${baseClasses} hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !right-[-7px]`
+    return `${baseClasses} hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !right-[-8px]`
+  }
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      updateNodeInternals(id)
+    })
+
+    return () => {
+      cancelAnimationFrame(frameId)
+    }
+  }, [data.height, data.width, id, updateNodeInternals])
+
+  const isEndTargetConnectionValid = (sourceId: string | null | undefined) => {
+    const sourceNode = getNodes().find((node) => node.id === sourceId)
+    const sourceParentId = sourceNode?.parentId || sourceNode?.data?.parentId
+    return sourceParentId === id
   }
 
   return (
@@ -142,32 +133,30 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
       <SubflowNodeStyles />
       <div className='group relative'>
         <Card
-          ref={blockRef}
           className={cn(
             'relative cursor-default select-none rounded-md border border-border shadow-xs',
             'transition-block-bg transition-ring',
             'z-[20]',
             !isEnabled && 'shadow-sm',
-            nestingLevel > 0 &&
-              `border border-[0.5px] ${nestingLevel % 2 === 0 ? 'border-slate-300/60' : 'border-slate-400/60'}`,
-            data?.hasNestedError && 'border-2 border-red-500 bg-red-50/50',
+            data?.hasNestedError && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
             diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
             diffStatus === 'edited' &&
               'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
-            selected && 'border-2'
+            !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]'
           )}
-          style={{
-            width: data.width || 500,
-            height: data.height || 300,
-            position: 'relative',
-            overflow: 'visible',
-            ...nestedStyles,
-            ...(selected ? { borderColor: blockColor } : {}),
-            pointerEvents: isPreview ? 'none' : 'all',
-          }}
+          style={
+            {
+              '--block-hover-color': blockColor,
+              width: data.width || 500,
+              height: data.height || 300,
+              position: 'relative',
+              overflow: 'visible',
+              pointerEvents: 'auto',
+              ...(selected ? { borderColor: blockColor, borderWidth: '1px' } : {}),
+            } as CSSProperties & Record<'--block-hover-color', string>
+          }
           data-node-id={id}
           data-type='subflowNode'
-          data-nesting-level={nestingLevel}
           data-subflow-selected={selected ? 'true' : 'false'}
         >
           {!isPreview && workflowRoute && (
@@ -182,7 +171,11 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
 
           <div
             className='workflow-drag-handle flex cursor-grab items-center justify-between border-b bg-card p-3 [&:active]:cursor-grabbing'
-            onMouseDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => {
+              if (!isPreview) {
+                event.stopPropagation()
+              }
+            }}
           >
             <div className='flex min-w-0 flex-1 items-center gap-3'>
               <div
@@ -233,34 +226,59 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               position: 'relative',
               pointerEvents: isPreview ? 'none' : 'auto',
             }}
+          />
+
+          <div
+            className='-translate-y-1/2 absolute top-1/2 left-4 flex items-center justify-center rounded-md border border-border bg-card px-3 py-1.5'
+            style={{ pointerEvents: isPreview ? 'none' : 'auto' }}
+            data-parent-id={id}
+            data-node-role={`${data.kind}-start`}
+            data-extent='parent'
           >
-            <div
-              className='absolute top-4 left-4 flex items-center justify-center rounded-md border border-border bg-card px-3 py-1.5'
-              style={{ pointerEvents: isPreview ? 'none' : 'auto' }}
+            <span className='font-medium text-sm'>Start</span>
+            <Handle
+              type='source'
+              position={Position.Right}
+              id={startHandleId}
+              className='!w-[6px] !h-4 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
+              style={{
+                right: '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'auto',
+              }}
               data-parent-id={id}
-              data-node-role={`${data.kind}-start`}
-              data-extent='parent'
-            >
-              <span className='font-medium text-sm'>Start</span>
-              <Handle
-                type='source'
-                position={Position.Right}
-                id={startHandleId}
-                className='!w-[6px] !h-4 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
-                style={{
-                  right: '-6px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  pointerEvents: 'auto',
-                }}
-                data-parent-id={id}
-              />
-            </div>
+            />
+          </div>
+
+          <div
+            className='-translate-y-1/2 absolute top-1/2 right-4 flex items-center justify-center rounded-md border border-border bg-card px-3 py-1.5'
+            style={{ pointerEvents: isPreview ? 'none' : 'auto' }}
+            data-parent-id={id}
+            data-node-role={`${data.kind}-end`}
+            data-extent='parent'
+          >
+            <Handle
+              type='target'
+              position={Position.Left}
+              id={endTargetHandleId}
+              isValidConnection={(connection) => isEndTargetConnectionValid(connection.source)}
+              className='!w-[6px] !h-4 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none !cursor-crosshair transition-[colors] duration-150'
+              style={{
+                left: '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'auto',
+              }}
+              data-parent-id={id}
+            />
+            <span className='font-medium text-sm'>End</span>
           </div>
 
           <Handle
             type='target'
             position={Position.Left}
+            id='target'
             className={getHandleClasses('left')}
             style={{
               top: '50%',
@@ -268,17 +286,16 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               pointerEvents: 'auto',
             }}
           />
-
           <Handle
             type='source'
             position={Position.Right}
+            id={endHandleId}
             className={getHandleClasses('right')}
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'auto',
             }}
-            id={endHandleId}
           />
         </Card>
       </div>

@@ -10,16 +10,20 @@ import {
   useRef,
   useState,
 } from 'react'
-import { AlertCircle, Check, Loader2, Pencil, X } from 'lucide-react'
+import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
+import { useGeneralSettings } from '@/hooks/queries/general-settings'
+import { useGeneralStore } from '@/stores/settings/general/store'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -33,6 +37,37 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 export function AccountSettings() {
   const { data: session } = useSession()
   const userId = session?.user?.id ?? null
+
+  // Telemetry state from general store
+  const { isPending: isSettingsPending } = useGeneralSettings()
+  const storeIsLoading = useGeneralStore((state) => state.isLoading)
+  const telemetryEnabled = useGeneralStore((state) => state.telemetryEnabled)
+  const isTelemetryLoading = useGeneralStore((state) => state.isTelemetryLoading)
+  const setTelemetryEnabled = useGeneralStore((state) => state.setTelemetryEnabled)
+  const isTelemetrySettingsLoading = isSettingsPending || storeIsLoading
+
+  const handleTelemetryToggle = (checked: boolean) => {
+    if (checked === telemetryEnabled || isTelemetryLoading) {
+      return
+    }
+
+    void setTelemetryEnabled(checked)
+
+    if (checked && typeof window !== 'undefined') {
+      fetch('/api/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'consent',
+          action: 'enable_from_settings',
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {
+        // Silently fail - this is just telemetry
+      })
+    }
+  }
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -514,6 +549,56 @@ export function AccountSettings() {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className='px-6 pb-6'>
+        <Card className='border-none shadow-none'>
+          <CardHeader className='space-y-1 pb-5'>
+            <CardTitle className='text-lg font-semibold'>Privacy</CardTitle>
+            <p className='text-muted-foreground text-sm'>Manage how your data is collected.</p>
+          </CardHeader>
+          <CardContent>
+            <TooltipProvider>
+              <div className='flex flex-col gap-2'>
+                <div className='flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <Label htmlFor='telemetry' className='font-normal'>
+                      Allow anonymous telemetry
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='h-7 p-1 text-gray-500'
+                          aria-label='Learn more about telemetry data collection'
+                          disabled={isTelemetrySettingsLoading || isTelemetryLoading}
+                        >
+                          <Info className='h-5 w-5' />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side='top' className='max-w-[300px] p-3'>
+                        <p className='text-sm'>
+                          We collect anonymous data about feature usage, performance, and errors to improve the application.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Switch
+                    id='telemetry'
+                    checked={telemetryEnabled}
+                    onCheckedChange={handleTelemetryToggle}
+                    disabled={isTelemetrySettingsLoading || isTelemetryLoading}
+                  />
+                </div>
+                <p className='text-muted-foreground text-xs'>
+                  We use OpenTelemetry to collect anonymous usage data to improve TradingGoose. All data is
+                  collected in accordance with our privacy policy, and you can opt-out at any time.
+                  This setting applies to your account on all devices.
+                </p>
+              </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
       </div>

@@ -81,7 +81,7 @@ export function InviteStatusCard({
         >
           Need help?{' '}
           <a
-            href='mailto:help@tradinggoose.ai'
+            href='mailto:support@tradinggoose.ai'
             className='hover:text-primary underline underline-offset-4'
           >
             Contact support

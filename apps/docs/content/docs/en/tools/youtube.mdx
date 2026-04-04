@@ -4,53 +4,92 @@ description: Interact with YouTube videos, channels, and playlists
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+
+<BlockInfoCard
   type="youtube"
-  color="#FF0000"
-  icon={true}
-  iconSvg={`<svg className="block-icon"
-      
-      
-      viewBox='0 0 28 20'
-      fill='currentColor'
-      xmlns='http://www.w3.org/2000/svg'
-      
-    >
-      <path
-        d='M11.2 14L18.466 9.8L11.2 5.6V14ZM27.384 3.038C27.566 3.696 27.692 4.578 27.776 5.698C27.874 6.818 27.916 7.784 27.916 8.624L28 9.8C28 12.866 27.776 15.12 27.384 16.562C27.034 17.822 26.222 18.634 24.962 18.984C24.304 19.166 23.1 19.292 21.252 19.376C19.432 19.474 17.766 19.516 16.226 19.516L14 19.6C8.134 19.6 4.48 19.376 3.038 18.984C1.778 18.634 0.966 17.822 0.616 16.562C0.434 15.904 0.308 15.022 0.224 13.902C0.126 12.782 0.0839999 11.816 0.0839999 10.976L0 9.8C0 6.734 0.224 4.48 0.616 3.038C0.966 1.778 1.778 0.966 3.038 0.616C3.696 0.434 4.9 0.308 6.748 0.224C8.568 0.126 10.234 0.0839999 11.774 0.0839999L14 0C19.866 0 23.52 0.224 24.962 0.616C26.222 0.966 27.034 1.778 27.384 3.038Z'
-        fill='currentColor'
-      />
-    </svg>`}
+  color=""
 />
 
-{/* MANUAL-CONTENT-START:intro */}
-[YouTube](https://www.youtube.com/) is the world's largest video sharing platform, hosting billions of videos and serving over 2 billion logged-in monthly users.
 
-With YouTube's extensive API capabilities, you can:
+## Configuration
 
-- **Search content**: Find relevant videos across YouTube's vast library using specific keywords, filters, and parameters
-- **Access metadata**: Retrieve detailed information about videos including titles, descriptions, view counts, and engagement metrics
-- **Analyze trends**: Identify popular content and trending topics within specific categories or regions
-- **Extract insights**: Gather data about audience preferences, content performance, and engagement patterns
+### Search Videos
 
-In TradingGoose, the YouTube integration enables your agents to programmatically search and analyze YouTube content as part of their workflows. This allows for powerful automation scenarios that require up-to-date video information. Your agents can search for instructional videos, research content trends, gather information from educational channels, or monitor specific creators for new uploads. This integration bridges the gap between your AI workflows and the world's largest video repository, enabling more sophisticated and content-aware automations. By connecting TradingGoose with YouTube, you can create agents that stay current with the latest information, provide more accurate responses, and deliver more value to users - all without requiring manual intervention or custom code.
-{/* MANUAL-CONTENT-END */}
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Key",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Search Query",
+            "layout": "full",
+            "placeholder": "Enter search query",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Max Results",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-
-## Usage Instructions
-
-Integrate YouTube into the workflow. Can search for videos, get video details, get channel information, get playlist items, and get video comments.
-
-
-
-## Tools
-
-### `youtube_search`
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Videos (<code>youtube_search</code>)</div>
 
 Search for videos on YouTube using the YouTube Data API.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -58,24 +97,92 @@ Search for videos on YouTube using the YouTube Data API.
 | `maxResults` | number | No | Maximum number of videos to return |
 | `apiKey` | string | Yes | YouTube API Key |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `items` | array | Array of YouTube videos matching the search query |
+| `videoId` | string | YouTube video ID |
+| `title` | string | Video title |
+| `description` | string | Video description |
 
-### `youtube_video_details`
+</div>
+
+
+
+---
+
+### Get Video Details
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_video_details"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Key",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "Video ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube video ID (e.g., dQw4w9WgXcQ)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Video Details (<code>youtube_video_details</code>)</div>
 
 Get detailed information about a specific YouTube video.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `videoId` | string | Yes | YouTube video ID |
 | `apiKey` | string | Yes | YouTube API Key |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -90,13 +197,85 @@ Get detailed information about a specific YouTube video.
 | `likeCount` | number | Number of likes |
 | `commentCount` | number | Number of comments |
 | `thumbnail` | string | Video thumbnail URL |
-| `tags` | array | Video tags |
+| `items` | string | items output |
 
-### `youtube_channel_info`
+</div>
+
+
+
+---
+
+### Get Channel Info
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_channel_info"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Key",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "channelId",
+            "type": "short-input",
+            "title": "Channel ID",
+            "layout": "full",
+            "placeholder": "Enter channel ID (or leave blank to use username)"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Channel Username",
+            "layout": "full",
+            "placeholder": "Enter channel username (if not using channel ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Channel Info (<code>youtube_channel_info</code>)</div>
 
 Get detailed information about a YouTube channel.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -104,7 +283,7 @@ Get detailed information about a YouTube channel.
 | `username` | string | No | YouTube channel username \(use either channelId or username\) |
 | `apiKey` | string | Yes | YouTube API Key |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -116,13 +295,87 @@ Get detailed information about a YouTube channel.
 | `viewCount` | number | Total channel views |
 | `publishedAt` | string | Channel creation date |
 | `thumbnail` | string | Channel thumbnail URL |
-| `customUrl` | string | Channel custom URL |
 
-### `youtube_playlist_items`
+</div>
+
+
+
+---
+
+### Get Playlist Items
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_playlist_items"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Key",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "playlistId",
+            "type": "short-input",
+            "title": "Playlist ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube playlist ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Max Results",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Playlist Items (<code>youtube_playlist_items</code>)</div>
 
 Get videos from a YouTube playlist.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -131,17 +384,113 @@ Get videos from a YouTube playlist.
 | `pageToken` | string | No | Page token for pagination |
 | `apiKey` | string | Yes | YouTube API Key |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `items` | array | Array of videos in the playlist |
+| `videoId` | string | YouTube video ID |
+| `title` | string | Video title |
+| `description` | string | Video description |
+| `thumbnail` | string | Video thumbnail URL |
+| `publishedAt` | string | Date added to playlist |
+| `channelTitle` | string | Channel name |
 
-### `youtube_comments`
+</div>
+
+
+
+---
+
+### Get Video Comments
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_comments"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Key",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "Video ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube video ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Max Results",
+            "layout": "half",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Sort Order",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Most Relevant",
+                    "id": "relevance"
+                },
+                {
+                    "label": "Most Recent",
+                    "id": "time"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Video Comments (<code>youtube_comments</code>)</div>
 
 Get comments from a YouTube video.
 
-#### Input
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
@@ -151,11 +500,29 @@ Get comments from a YouTube video.
 | `pageToken` | string | No | Page token for pagination |
 | `apiKey` | string | Yes | YouTube API Key |
 
-#### Output
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `items` | array | Array of comments from the video |
+| `commentId` | string | Comment ID |
+| `authorDisplayName` | string | Comment author name |
+| `authorChannelUrl` | string | Comment author channel URL |
+| `textDisplay` | string | Comment text \(HTML formatted\) |
+| `textOriginal` | string | Comment text \(plain text\) |
+| `likeCount` | number | Number of likes |
+| `publishedAt` | string | Comment publish date |
+| `updatedAt` | string | Comment last updated date |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate YouTube into the workflow. Can search for videos, get video details, get channel information, get playlist items, and get video comments.
 
 
 

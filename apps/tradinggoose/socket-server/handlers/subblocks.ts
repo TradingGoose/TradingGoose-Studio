@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowBlocks } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import type { HandlerDependencies } from '@/socket-server/handlers/workflow'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
@@ -148,7 +149,13 @@ async function flushSubblockUpdate(
     let blockLocked = false
     await db.transaction(async (tx) => {
       const [block] = await tx
-        .select({ subBlocks: workflowBlocks.subBlocks, type: workflowBlocks.type, data: workflowBlocks.data })
+        .select({
+          subBlocks: workflowBlocks.subBlocks,
+          outputs: workflowBlocks.outputs,
+          triggerMode: workflowBlocks.triggerMode,
+          type: workflowBlocks.type,
+          data: workflowBlocks.data,
+        })
         .from(workflowBlocks)
         .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
         .limit(1)
@@ -192,8 +199,7 @@ async function flushSubblockUpdate(
       const subBlocks = (block.subBlocks as any) || {}
       if (!subBlocks[subblockId]) {
         const config = block.type ? getBlock(block.type) : null
-        const resolvedType =
-          config?.subBlocks?.find((subBlock) => subBlock.id === subblockId)?.type
+        const resolvedType = config?.subBlocks?.find((subBlock) => subBlock.id === subblockId)?.type
         subBlocks[subblockId] = {
           id: subblockId,
           type: resolvedType ?? 'unkown',
@@ -203,9 +209,14 @@ async function flushSubblockUpdate(
         subBlocks[subblockId] = { ...subBlocks[subblockId], value }
       }
 
+      const config = block.type ? getBlock(block.type) : null
+      const outputs = config
+        ? getBlockOutputs(block.type, subBlocks, block.triggerMode ?? false)
+        : ((block.outputs as Record<string, unknown>) ?? {})
+
       await tx
         .update(workflowBlocks)
-        .set({ subBlocks, updatedAt: new Date() })
+        .set({ subBlocks, outputs, updatedAt: new Date() })
         .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
 
       updateSuccessful = true

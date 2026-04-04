@@ -19,7 +19,6 @@ import {
   humanizeSlug,
   supportedLanguages,
 } from '@/lib/page-tree'
-import { BackgroundRippleEffect } from '../../ui/background-ripple-effect'
 
 export function Navbar(props: ComponentProps<'header'>) {
   return (
@@ -49,7 +48,6 @@ export function LayoutBody({ sidebar, navbar, children, className, ...props }: L
         className,
       )}
     >
-      <BackgroundRippleEffect rows={15} cellSize={90} />
       {sidebar}
       <div
         className='flex min-h-screen flex-1 flex-col'

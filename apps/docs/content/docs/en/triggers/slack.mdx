@@ -1,0 +1,117 @@
+---
+title: Slack Trigger
+description: Trigger workflow from Slack events like mentions, messages, and reactions
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+Trigger workflow from Slack events like mentions, messages, and reactions
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/slack">
+    See workflow actions, operations, and tool inputs for Slack.
+  </Card>
+</Cards>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack Webhook"
+    type="slack_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "signingSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Enter your Slack app signing secret",
+            "description": "The signing secret from your Slack app to validate request authenticity.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "object",
+          "description": "event",
+          "children": [
+              {
+                  "name": "event_type",
+                  "type": "string",
+                  "description": "Type of Slack event (e.g., app_mention, message)"
+              },
+              {
+                  "name": "channel",
+                  "type": "string",
+                  "description": "Slack channel ID where the event occurred"
+              },
+              {
+                  "name": "channel_name",
+                  "type": "string",
+                  "description": "Human-readable channel name"
+              },
+              {
+                  "name": "user",
+                  "type": "string",
+                  "description": "User ID who triggered the event"
+              },
+              {
+                  "name": "user_name",
+                  "type": "string",
+                  "description": "Username who triggered the event"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Message text content"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "Message timestamp from the triggering event"
+              },
+              {
+                  "name": "thread_ts",
+                  "type": "string",
+                  "description": "Parent thread timestamp (if message is in a thread)"
+              },
+              {
+                  "name": "team_id",
+                  "type": "string",
+                  "description": "Slack workspace/team ID"
+              },
+              {
+                  "name": "event_id",
+                  "type": "string",
+                  "description": "Unique event identifier"
+              }
+          ]
+      }
+  ]}
+/>
+
+

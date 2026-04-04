@@ -12,7 +12,7 @@ import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
-import { resolveMcpServerId } from '@/widgets/widgets/mcp/utils'
+import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const McpEditorSelector = ({
   workspaceId,

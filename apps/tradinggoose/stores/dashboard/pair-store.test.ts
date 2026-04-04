@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { usePairColorStore } from '@/stores/dashboard/pair-store'
-import { PAIR_COLORS } from '@/widgets/pair-colors'
+import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
+import { type PairColor, PAIR_COLORS } from '@/widgets/pair-colors'
 
 function resetPairContexts() {
   usePairColorStore.setState({
-    contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])),
+    contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])) as Record<PairColor, PairColorContext>,
   })
 }
 

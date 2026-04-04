@@ -1,0 +1,2339 @@
+---
+title: Elasticsearch
+description: Search, index, and manage data in Elasticsearch
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="elasticsearch"
+  color="#E0E0E0"
+/>
+
+
+## Configuration
+
+### Search
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_search"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Search Query",
+            "placeholder": "{ \"match\": { \"field\": \"search term\" } }",
+            "language": "json"
+        },
+        {
+            "id": "size",
+            "type": "short-input",
+            "title": "Number of Results",
+            "placeholder": "10"
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "0"
+        },
+        {
+            "id": "sort",
+            "type": "code",
+            "title": "Sort",
+            "placeholder": "[{ \"field\": { \"order\": \"asc\" } }]",
+            "language": "json"
+        },
+        {
+            "id": "sourceIncludes",
+            "type": "short-input",
+            "title": "Fields to Include",
+            "placeholder": "field1, field2 (comma-separated)"
+        },
+        {
+            "id": "sourceExcludes",
+            "type": "short-input",
+            "title": "Fields to Exclude",
+            "placeholder": "field1, field2 (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>elasticsearch_search</code>)</div>
+
+Search documents in Elasticsearch using Query DSL. Returns matching documents with scores and metadata.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name to search |
+| `query` | string | No | Query DSL as JSON string |
+| `from` | number | No | Starting offset for pagination \(default: 0\) |
+| `size` | number | No | Number of results to return \(default: 10\) |
+| `sort` | string | No | Sort specification as JSON string |
+| `sourceIncludes` | string | No | Comma-separated list of fields to include in _source |
+| `sourceExcludes` | string | No | Comma-separated list of fields to exclude from _source |
+| `trackTotalHits` | boolean | No | Track accurate total hit count \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `took` | number | Time in milliseconds the search took |
+| `timed_out` | boolean | Whether the search timed out |
+| `hits` | object | Search results with total count and matching documents |
+
+</div>
+
+
+
+---
+
+### Index Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_index_document"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "Document ID",
+            "placeholder": "Leave empty for auto-generated ID"
+        },
+        {
+            "id": "document",
+            "type": "code",
+            "title": "Document",
+            "placeholder": "{ \"field\": \"value\", \"another_field\": 123 }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "Refresh",
+            "options": [
+                {
+                    "label": "Wait For",
+                    "id": "wait_for"
+                },
+                {
+                    "label": "Immediate",
+                    "id": "true"
+                },
+                {
+                    "label": "None",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Index Document (<code>elasticsearch_index_document</code>)</div>
+
+Index (create or update) a document in Elasticsearch.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Target index name |
+| `documentId` | string | No | Document ID \(auto-generated if not provided\) |
+| `document` | string | Yes | Document body as JSON string |
+| `refresh` | string | No | Refresh policy: true, false, or wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `_index` | string | Index where the document was stored |
+| `_id` | string | Document ID |
+| `_version` | number | Document version |
+
+</div>
+
+
+
+---
+
+### Get Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_get_document"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "Document ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "sourceIncludes",
+            "type": "short-input",
+            "title": "Fields to Include",
+            "placeholder": "field1, field2 (comma-separated)"
+        },
+        {
+            "id": "sourceExcludes",
+            "type": "short-input",
+            "title": "Fields to Exclude",
+            "placeholder": "field1, field2 (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Document (<code>elasticsearch_get_document</code>)</div>
+
+Retrieve a document by ID from Elasticsearch.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name |
+| `documentId` | string | Yes | Document ID to retrieve |
+| `sourceIncludes` | string | No | Comma-separated list of fields to include |
+| `sourceExcludes` | string | No | Comma-separated list of fields to exclude |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `_index` | string | Index name |
+| `_id` | string | Document ID |
+| `_version` | number | Document version |
+| `found` | boolean | Whether the document was found |
+
+</div>
+
+
+
+---
+
+### Update Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_update_document"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "Document ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "document",
+            "type": "code",
+            "title": "Partial Document",
+            "placeholder": "{ \"field_to_update\": \"new_value\" }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "retryOnConflict",
+            "type": "short-input",
+            "title": "Retry on Conflict",
+            "placeholder": "3"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Document (<code>elasticsearch_update_document</code>)</div>
+
+Partially update a document in Elasticsearch using doc merge.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name |
+| `documentId` | string | Yes | Document ID to update |
+| `document` | string | Yes | Partial document to merge as JSON string |
+| `retryOnConflict` | number | No | Number of retries on version conflict |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `_index` | string | Index name |
+| `_id` | string | Document ID |
+| `_version` | number | New document version |
+
+</div>
+
+
+
+---
+
+### Delete Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_delete_document"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "Document ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "Refresh",
+            "options": [
+                {
+                    "label": "Wait For",
+                    "id": "wait_for"
+                },
+                {
+                    "label": "Immediate",
+                    "id": "true"
+                },
+                {
+                    "label": "None",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Document (<code>elasticsearch_delete_document</code>)</div>
+
+Delete a document from Elasticsearch by ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name |
+| `documentId` | string | Yes | Document ID to delete |
+| `refresh` | string | No | Refresh policy: true, false, or wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `_index` | string | Index name |
+| `_id` | string | Document ID |
+| `_version` | number | Document version |
+
+</div>
+
+
+
+---
+
+### Bulk Operations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_bulk"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "operations",
+            "type": "code",
+            "title": "Bulk Operations",
+            "placeholder": "{ \"index\": { \"_index\": \"my-index\", \"_id\": \"1\" } }\\n{ \"field\": \"value\" }\\n{ \"delete\": { \"_index\": \"my-index\", \"_id\": \"2\" } }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "Refresh",
+            "options": [
+                {
+                    "label": "Wait For",
+                    "id": "wait_for"
+                },
+                {
+                    "label": "Immediate",
+                    "id": "true"
+                },
+                {
+                    "label": "None",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk Operations (<code>elasticsearch_bulk</code>)</div>
+
+Perform multiple index, create, delete, or update operations in a single request for high performance.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | No | Default index for operations that do not specify one |
+| `operations` | string | Yes | Bulk operations as NDJSON string \(newline-delimited JSON\) |
+| `refresh` | string | No | Refresh policy: true, false, or wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `took` | number | Time in milliseconds the bulk operation took |
+| `errors` | boolean | Whether any operation had an error |
+
+</div>
+
+
+
+---
+
+### Count Documents
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_count"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Query",
+            "placeholder": "{ \"match\": { \"field\": \"value\" } }",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Count Documents (<code>elasticsearch_count</code>)</div>
+
+Count documents matching a query in Elasticsearch.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name to count documents in |
+| `query` | string | No | Optional query to filter documents \(JSON string\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `count` | number | Number of documents matching the query |
+
+</div>
+
+
+
+---
+
+### Create Index
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_create_index"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "settings",
+            "type": "code",
+            "title": "Index Settings",
+            "placeholder": "{ \"number_of_shards\": 1, \"number_of_replicas\": 1 }",
+            "language": "json"
+        },
+        {
+            "id": "mappings",
+            "type": "code",
+            "title": "Index Mappings",
+            "placeholder": "{ \"properties\": { \"field\": { \"type\": \"text\" } } }",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Index (<code>elasticsearch_create_index</code>)</div>
+
+Create a new index with optional settings and mappings.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name to create |
+| `settings` | string | No | Index settings as JSON string |
+| `mappings` | string | No | Index mappings as JSON string |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `acknowledged` | boolean | Whether the request was acknowledged |
+| `shards_acknowledged` | boolean | Whether the shards were acknowledged |
+
+</div>
+
+
+
+---
+
+### Delete Index
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_delete_index"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Index (<code>elasticsearch_delete_index</code>)</div>
+
+Delete an index and all its documents. This operation is irreversible.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Index Info
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_get_index"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "Index Name",
+            "placeholder": "my-index",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Index Info (<code>elasticsearch_get_index</code>)</div>
+
+Retrieve index information including settings, mappings, and aliases.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `index` | string | Yes | Index name to retrieve info for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Cluster Health
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_cluster_health"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "waitForStatus",
+            "type": "dropdown",
+            "title": "Wait for Status",
+            "options": [
+                {
+                    "label": "Green",
+                    "id": "green"
+                },
+                {
+                    "label": "Yellow",
+                    "id": "yellow"
+                },
+                {
+                    "label": "Red",
+                    "id": "red"
+                }
+            ]
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout (seconds)",
+            "placeholder": "30"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cluster Health (<code>elasticsearch_cluster_health</code>)</div>
+
+Get the health status of the Elasticsearch cluster.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+| `waitForStatus` | string | No | Wait until cluster reaches this status: green, yellow, or red |
+| `timeout` | string | No | Timeout for the wait operation \(e.g., 30s, 1m\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `cluster_name` | string | Name of the cluster |
+| `status` | string | Cluster health status: green, yellow, or red |
+| `number_of_nodes` | number | Total number of nodes in the cluster |
+| `number_of_data_nodes` | number | Number of data nodes |
+| `active_shards` | number | Number of active shards |
+
+</div>
+
+
+
+---
+
+### Cluster Stats
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "elasticsearch_search"
+                },
+                {
+                    "label": "Index Document",
+                    "id": "elasticsearch_index_document"
+                },
+                {
+                    "label": "Get Document",
+                    "id": "elasticsearch_get_document"
+                },
+                {
+                    "label": "Update Document",
+                    "id": "elasticsearch_update_document"
+                },
+                {
+                    "label": "Delete Document",
+                    "id": "elasticsearch_delete_document"
+                },
+                {
+                    "label": "Bulk Operations",
+                    "id": "elasticsearch_bulk"
+                },
+                {
+                    "label": "Count Documents",
+                    "id": "elasticsearch_count"
+                },
+                {
+                    "label": "Create Index",
+                    "id": "elasticsearch_create_index"
+                },
+                {
+                    "label": "Delete Index",
+                    "id": "elasticsearch_delete_index"
+                },
+                {
+                    "label": "Get Index Info",
+                    "id": "elasticsearch_get_index"
+                },
+                {
+                    "label": "Cluster Health",
+                    "id": "elasticsearch_cluster_health"
+                },
+                {
+                    "label": "Cluster Stats",
+                    "id": "elasticsearch_cluster_stats"
+                }
+            ],
+            "defaultValue": "elasticsearch_cluster_stats"
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "Deployment Type",
+            "options": [
+                {
+                    "label": "Self-Hosted",
+                    "id": "self_hosted"
+                },
+                {
+                    "label": "Elastic Cloud",
+                    "id": "cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch Host",
+            "placeholder": "https://localhost:9200",
+            "required": true
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "options": [
+                {
+                    "label": "API Key",
+                    "id": "api_key"
+                },
+                {
+                    "label": "Basic Auth",
+                    "id": "basic_auth"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter encoded API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "Enter username",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Enter password",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cluster Stats (<code>elasticsearch_cluster_stats</code>)</div>
+
+Get comprehensive statistics about the Elasticsearch cluster.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | Yes | Deployment type: self_hosted or cloud |
+| `host` | string | No | Elasticsearch host URL \(for self-hosted\) |
+| `cloudId` | string | No | Elastic Cloud ID \(for cloud deployments\) |
+| `authMethod` | string | Yes | Authentication method: api_key or basic_auth |
+| `apiKey` | string | No | Elasticsearch API key |
+| `username` | string | No | Username for basic auth |
+| `password` | string | No | Password for basic auth |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `cluster_name` | string | Name of the cluster |
+| `status` | string | Cluster health status |
+| `nodes` | object | Node statistics including count and versions |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Elasticsearch into workflows for powerful search, indexing, and data management. Supports document CRUD operations, advanced search queries, bulk operations, index management, and cluster monitoring. Works with both self-hosted and Elastic Cloud deployments.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `elasticsearch`

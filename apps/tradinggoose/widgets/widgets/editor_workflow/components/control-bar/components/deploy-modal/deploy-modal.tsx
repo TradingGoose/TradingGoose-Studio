@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ComponentType, type WheelEvent } from 'react'
+import {
+  type ComponentType,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type WheelEvent,
+} from 'react'
 import { Check, CreditCard, History, Loader2, MoreVertical, PanelLeft, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
@@ -44,6 +51,7 @@ import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTrigger, isNativeTrigger } from '@/triggers'
 import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import {
   DeployForm,
   DeploymentInfo,
@@ -128,7 +136,7 @@ interface TriggerDeployTab {
 
 interface TriggerDeployValidationState {
   key: string
-  requiredFieldValues: unknown[]
+  missingRequiredFieldLabels: string[]
   requiresSavedConfig: boolean
   webhookIdValue: unknown
   hasUnsavedDeployConfig: boolean
@@ -154,88 +162,6 @@ const deployNavButtonClass =
   'flex h-8 w-full items-center gap-2 overflow-hidden rounded-md bg-background px-2 text-left text-sm text-muted-foreground outline-none transition-colors hover:bg-secondary/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground'
 const deployInlineNavButtonClass =
   'inline-flex h-8 items-center rounded-md bg-background px-3 text-sm text-muted-foreground outline-none transition-colors hover:bg-secondary/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground'
-
-function getSubBlockValue(block: WorkflowState['blocks'][string], subBlockId: string): unknown {
-  return block.subBlocks?.[subBlockId]?.value
-}
-
-function resolveTriggerIdForBlock(block: WorkflowState['blocks'][string]): string | null {
-  const blockConfig = getBlock(block.type)
-  const isPureTriggerBlock = blockConfig?.category === 'triggers'
-  if (!isPureTriggerBlock && !block.triggerMode) {
-    return null
-  }
-
-  const selectedTriggerId = getSubBlockValue(block, 'selectedTriggerId')
-  if (typeof selectedTriggerId === 'string' && getTrigger(selectedTriggerId)) {
-    return selectedTriggerId
-  }
-
-  const triggerIdValue = getSubBlockValue(block, 'triggerId')
-  if (typeof triggerIdValue === 'string' && getTrigger(triggerIdValue)) {
-    return triggerIdValue
-  }
-
-  const fallbackTriggerId = blockConfig?.triggers?.available?.[0]
-  if (!fallbackTriggerId || !getTrigger(fallbackTriggerId)) {
-    return null
-  }
-  return fallbackTriggerId
-}
-
-function shouldRenderTriggerSubBlockForTriggerId(
-  subBlock: SubBlockConfig,
-  triggerId: string
-): boolean {
-  if (!subBlock.condition) {
-    return true
-  }
-
-  const condition =
-    typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
-  if (condition.field !== 'selectedTriggerId') {
-    return true
-  }
-
-  if (Array.isArray(condition.value)) {
-    const hasTriggerId = condition.value.includes(triggerId)
-    return condition.not ? !hasTriggerId : hasTriggerId
-  }
-
-  return condition.not ? condition.value !== triggerId : condition.value === triggerId
-}
-
-function getDeployManagedTriggerSubBlocks({
-  triggerId,
-  stateToUse,
-  isPureTriggerBlock,
-  availableTriggerIds,
-}: {
-  triggerId: string
-  stateToUse: Record<string, any>
-  isPureTriggerBlock: boolean
-  availableTriggerIds?: string[]
-}): SubBlockConfig[] {
-  const triggerDef = getTrigger(triggerId)
-  if (!triggerDef) {
-    return []
-  }
-
-  const rows = buildSubBlockRows({
-    subBlocks: triggerDef.subBlocks,
-    stateToUse,
-    isAdvancedMode: false,
-    isTriggerMode: true,
-    isPureTriggerBlock,
-    availableTriggerIds,
-    hideFromPreview: false,
-    triggerSubBlockOwner: 'deploy',
-  })
-
-  return rows
-    .flat()
-    .filter((subBlock) => shouldRenderTriggerSubBlockForTriggerId(subBlock, triggerId))
-}
 
 function isMissingConfigValue(value: unknown): boolean {
   if (value === null || value === undefined) {
@@ -275,7 +201,7 @@ function isDeployableTriggerId(triggerId: string): boolean {
 
 function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): boolean {
   return (
-    !tabState.requiredFieldValues.some((value) => isMissingConfigValue(value)) &&
+    tabState.missingRequiredFieldLabels.length === 0 &&
     (!tabState.requiresSavedConfig || !isMissingConfigValue(tabState.webhookIdValue)) &&
     !tabState.hasUnsavedDeployConfig
   )
@@ -355,22 +281,23 @@ export function DeployModal({
         return null
       }
 
-      const subBlocks = getDeployManagedTriggerSubBlocks({
-        triggerId,
+      const subBlocks = buildSubBlockRows({
+        subBlocks: blockConfig?.subBlocks ?? [],
         stateToUse: block.subBlocks || {},
+        isAdvancedMode: false,
+        isTriggerMode: true,
         isPureTriggerBlock: blockConfig?.category === 'triggers',
         availableTriggerIds: blockConfig?.triggers?.available,
-      })
+        hideFromPreview: false,
+      }).flat()
       const hasConfigurableFields = subBlocks.some(isConfigurableTriggerDeploySubBlock)
 
       return {
         key: `trigger-${block.id}`,
         blockId: block.id,
-        label: blockConfig?.name || triggerDef?.name || triggerId,
+        label: block.name || blockConfig?.name || triggerDef?.name || triggerId,
         triggerId,
-        icon:
-          triggerDef?.icon ??
-          (blockConfig?.icon as ComponentType<{ className?: string }> | undefined),
+        icon: blockConfig?.icon as ComponentType<{ className?: string }> | undefined,
         iconAccentColor: blockConfig?.bgColor,
         subBlocks,
         hasConfigurableFields,
@@ -405,15 +332,16 @@ export function DeployModal({
 
         return triggerDeployTabs.map((tab) => {
           const configurableSubBlocks = tab.subBlocks.filter(isConfigurableTriggerDeploySubBlock)
-          const requiredFieldValues = configurableSubBlocks
+          const missingRequiredFieldLabels = configurableSubBlocks
             .filter((subBlock) => subBlock.required)
-            .map((subBlock) => {
+            .filter((subBlock) => {
               const value = state.getValue(tab.blockId, subBlock.id, workflowId)
               if (isMissingConfigValue(value) && subBlock.defaultValue !== undefined) {
-                return subBlock.defaultValue
+                return isMissingConfigValue(subBlock.defaultValue)
               }
-              return value
+              return isMissingConfigValue(value)
             })
+            .map((subBlock) => subBlock.title || subBlock.id)
 
           const requiresSavedConfig = tab.subBlocks.some(
             (subBlock) => subBlock.id === 'triggerSave' || subBlock.type === 'trigger-save'
@@ -437,7 +365,7 @@ export function DeployModal({
 
           return {
             key: tab.key,
-            requiredFieldValues,
+            missingRequiredFieldLabels,
             requiresSavedConfig,
             webhookIdValue,
             hasUnsavedDeployConfig,
@@ -452,8 +380,8 @@ export function DeployModal({
   )
   const isChatTriggerReady = chatTriggerBlock
     ? isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(chatTriggerBlock), {
-      hasPasswordFallback: Boolean(publishedChat?.hasPassword),
-    })
+        hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+      })
     : false
   const isApiTriggerReady = hasApiTriggerTab
     ? Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed)
@@ -502,14 +430,14 @@ export function DeployModal({
   const infoTabItems: TriggerTabItem[] = [
     ...(showBillingTab
       ? [
-        {
-          key: BILLING_TAB_KEY,
-          label: 'Billing',
-          icon: CreditCard,
-          iconAccentColor: undefined,
-          isReady: undefined,
-        },
-      ]
+          {
+            key: BILLING_TAB_KEY,
+            label: 'Billing',
+            icon: CreditCard,
+            iconAccentColor: undefined,
+            isReady: undefined,
+          },
+        ]
       : []),
     {
       key: 'versions',
@@ -522,25 +450,25 @@ export function DeployModal({
   const nativeTriggerTabItems: TriggerTabItem[] = [
     ...(hasChatTrigger
       ? [
-        {
-          key: 'chat',
-          label: 'Chat',
-          icon: getTrigger('chat')?.icon,
-          iconAccentColor: getBlock('chat_trigger')?.bgColor,
-          isReady: isChatTriggerReady,
-        },
-      ]
+          {
+            key: 'chat',
+            label: 'Chat',
+            icon: getTrigger('chat')?.icon,
+            iconAccentColor: getBlock('chat_trigger')?.bgColor,
+            isReady: isChatTriggerReady,
+          },
+        ]
       : []),
     ...(hasApiTriggerTab
       ? [
-        {
-          key: API_TRIGGER_TAB_KEY,
-          label: 'API Trigger',
-          icon: getTrigger('api')?.icon,
-          iconAccentColor: getBlock('api_trigger')?.bgColor,
-          isReady: isApiTriggerReady,
-        },
-      ]
+          {
+            key: API_TRIGGER_TAB_KEY,
+            label: 'API Trigger',
+            icon: getTrigger('api')?.icon,
+            iconAccentColor: getBlock('api_trigger')?.bgColor,
+            isReady: isApiTriggerReady,
+          },
+        ]
       : []),
     ...triggerDeployTabs
       .filter((tab) => isNativeTrigger(tab.triggerId))
@@ -577,38 +505,38 @@ export function DeployModal({
   const activeTabMeta =
     activeTab === BILLING_TAB_KEY
       ? {
-        title: 'Billing',
-        description:
-          'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
-      }
+          title: 'Billing',
+          description:
+            'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
+        }
       : activeTab === API_TRIGGER_TAB_KEY
         ? {
-          title: 'API Trigger Deployment',
-          description:
-            'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
-        }
+            title: 'API Trigger Deployment',
+            description:
+              'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
+          }
         : activeTab === 'versions'
           ? {
-            title: 'Deployment Versions',
-            description:
-              'Inspect previous deployments, rename versions, or activate an older snapshot.',
-          }
+              title: 'Deployment Versions',
+              description:
+                'Inspect previous deployments, rename versions, or activate an older snapshot.',
+            }
           : activeTab === 'chat'
             ? {
-              title: 'Chat Deployment',
-              description:
-                'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
-            }
+                title: 'Chat Deployment',
+                description:
+                  'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
+              }
             : activeTriggerDeployTab
               ? {
-                title: activeTriggerDeployTab.label,
-                description:
-                  activeTriggerDeployTab.triggerId === 'indicator_trigger'
-                    ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
-                    : activeTriggerDeployTab.hasConfigurableFields
-                      ? 'Configure deploy-time trigger settings here. Keep workflow logic and non-deploy fields in the editor.'
-                      : 'This trigger deploys with the workflow. No additional deployment fields are required here.',
-              }
+                  title: activeTriggerDeployTab.label,
+                  description:
+                    activeTriggerDeployTab.triggerId === 'indicator_trigger'
+                      ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
+                      : activeTriggerDeployTab.hasConfigurableFields
+                        ? 'Review trigger settings here before deployment. These fields mirror the workflow editor, and webhook-backed triggers should be saved after changes.'
+                        : 'Review this trigger before deployment. No additional configuration is required.',
+                }
               : null
   const sharedApiKeyDisplay =
     deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
@@ -644,7 +572,9 @@ export function DeployModal({
     ((isInitialWorkflowDeployAction && !selectedApiKeyId) ||
       (isWorkflowRedeployAction && !hasReusableApiKey && !selectedApiKeyId))
   const footerPrimaryMissingConfiguredTrigger =
-    !isVersionActivationAction && deployableTriggerStates.length > 0 && !hasConfiguredTriggerToDeploy
+    !isVersionActivationAction &&
+    deployableTriggerStates.length > 0 &&
+    !hasConfiguredTriggerToDeploy
   const footerPrimaryDisabled =
     isSubmitting ||
     isChatConfigBusy ||
@@ -1148,11 +1078,11 @@ export function DeployModal({
       setDeploymentInfo((prev) =>
         prev
           ? {
-            ...prev,
-            needsRedeployment: false,
-            pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
-            hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
-          }
+              ...prev,
+              needsRedeployment: false,
+              pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
+              hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
+            }
           : prev
       )
     } catch (error: unknown) {
@@ -1206,12 +1136,10 @@ export function DeployModal({
     void handleUndeploy()
   }
 
-  const renderTriggerTab = (
-    blockId: string | null,
-    subBlocks: SubBlockConfig[],
-    emptyMessage = 'This trigger deploys with the workflow. No additional deployment fields are required here.'
-  ) => {
-    if (!blockId) {
+  const renderTriggerTab = (tab: TriggerDeployTab) => {
+    const validationState = triggerValidationStateByKey.get(tab.key)
+
+    if (!tab.blockId) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
           Trigger configuration is unavailable.
@@ -1219,23 +1147,49 @@ export function DeployModal({
       )
     }
 
-    if (subBlocks.length === 0) {
+    if (tab.subBlocks.length === 0) {
       return (
-        <div className='rounded-md border p-4 text-muted-foreground text-sm'>{emptyMessage}</div>
+        <div className='rounded-md border p-4 text-muted-foreground text-sm'>
+          This trigger deploys with the workflow. No additional configuration is required.
+        </div>
       )
     }
 
     return (
       <div className='space-y-4'>
-        {subBlocks.some(isConfigurableTriggerDeploySubBlock) && (
-          <div className='text-muted-foreground text-sm'>
-            Configure deployment fields here. Keep custom trigger fields in the workflow editor.
+        {validationState && (
+          <div className='rounded-md border bg-muted/20 p-3 text-sm'>
+            {validationState.missingRequiredFieldLabels.length > 0 ? (
+              <div className='text-amber-600 dark:text-amber-400'>
+                Complete required fields before deploying:{' '}
+                {validationState.missingRequiredFieldLabels.join(', ')}.
+              </div>
+            ) : validationState.requiresSavedConfig &&
+              isMissingConfigValue(validationState.webhookIdValue) ? (
+              <div className='text-amber-600 dark:text-amber-400'>
+                Save this trigger configuration to provision its webhook before deploying.
+              </div>
+            ) : validationState.hasUnsavedDeployConfig ? (
+              <div className='text-amber-600 dark:text-amber-400'>
+                Trigger settings changed since the last save. Save the trigger before deploying.
+              </div>
+            ) : (
+              <div className='text-emerald-600 dark:text-emerald-400'>
+                Trigger configuration looks ready. Review the values below before deploying.
+              </div>
+            )}
           </div>
         )}
-        {subBlocks.map((subBlock) => (
+        {tab.subBlocks.some(isConfigurableTriggerDeploySubBlock) && (
+          <div className='text-muted-foreground text-sm'>
+            These settings mirror the workflow editor so you can do a final check here before
+            deployment.
+          </div>
+        )}
+        {tab.subBlocks.map((subBlock) => (
           <SubBlock
-            key={`${blockId}-${subBlock.id}`}
-            blockId={blockId}
+            key={`${tab.blockId}-${subBlock.id}`}
+            blockId={tab.blockId}
             config={subBlock}
             isConnecting={false}
           />
@@ -1257,9 +1211,9 @@ export function DeployModal({
             const Icon = tab.icon
             const iconTileStyle = tab.iconAccentColor
               ? {
-                backgroundColor: `${tab.iconAccentColor}20`,
-                color: tab.iconAccentColor,
-              }
+                  backgroundColor: `${tab.iconAccentColor}20`,
+                  color: tab.iconAccentColor,
+                }
               : undefined
             const button = (
               <button
@@ -1277,7 +1231,9 @@ export function DeployModal({
                 >
                   {Icon ? <Icon className='h-5 w-5' /> : null}
                 </div>
-                {!isSidebarCollapsed && <span className='min-w-0 flex-1 truncate'>{tab.label}</span>}
+                {!isSidebarCollapsed && (
+                  <span className='min-w-0 flex-1 truncate'>{tab.label}</span>
+                )}
                 {!isSidebarCollapsed && tab.isReady && (
                   <Check className='h-4 w-4 shrink-0 text-green-500' />
                 )}
@@ -1320,7 +1276,7 @@ export function DeployModal({
               aria-labelledby='deploy-workflow-title'
               className='pointer-events-auto relative flex h-full max-h-full w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-background/95 shadow-2xl'
             >
-              <div className='justify-center border-b gap-3 space-y-3 p-3'>
+              <div className='justify-center gap-3 space-y-3 border-b p-3'>
                 <div className='flex flex-shrink-0 items-center justify-between'>
                   <div className='flex items-center gap-1'>
                     <Button
@@ -1357,13 +1313,12 @@ export function DeployModal({
                   </Button>
                 </div>
                 {apiDeployError && (
-                  <div className='border border-destructive/20 bg-destructive/10 p-3 rounded-md text-destructive text-sm'>
+                  <div className='rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm'>
                     <div className='font-semibold'>Deployment Error</div>
                     <div>{apiDeployError}</div>
                   </div>
                 )}
               </div>
-
 
               <div className='flex flex-1 overflow-hidden'>
                 <div
@@ -1595,10 +1550,11 @@ export function DeployModal({
                                         >
                                           <td className='px-4 py-2.5'>
                                             <div
-                                              className={`h-2 w-2 rounded-full ${v.isActive
-                                                ? 'bg-green-500'
-                                                : 'bg-muted-foreground/40'
-                                                }`}
+                                              className={`h-2 w-2 rounded-full ${
+                                                v.isActive
+                                                  ? 'bg-green-500'
+                                                  : 'bg-muted-foreground/40'
+                                              }`}
                                               title={v.isActive ? 'Active' : 'Inactive'}
                                             />
                                           </td>
@@ -1726,7 +1682,7 @@ export function DeployModal({
                       {triggerDeployTabs
                         .filter((tab) => tab.key === activeTab)
                         .map((tab) => (
-                          <div key={tab.key}>{renderTriggerTab(tab.blockId, tab.subBlocks)}</div>
+                          <div key={tab.key}>{renderTriggerTab(tab)}</div>
                         ))}
 
                       {hasChatTrigger && activeTab === 'chat' && chatTriggerBlock && (

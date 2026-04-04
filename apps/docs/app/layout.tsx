@@ -1,11 +1,20 @@
 import type { ReactNode } from 'react'
+import { i18n } from '@/lib/i18n'
+
+const baseUrl = 'https://docs.tradinggoose.ai'
+const languageAlternates = Object.fromEntries(
+  i18n.languages.map((lang) => [
+    lang,
+    lang === i18n.defaultLanguage ? baseUrl : `${baseUrl}/${lang}`,
+  ])
+)
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return children
 }
 
 export const metadata = {
-  metadataBase: new URL('https://docs.tradinggoose.ai'),
+  metadataBase: new URL(baseUrl),
   title: {
     default: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     template: '%s',
@@ -50,8 +59,7 @@ export const metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    alternateLocale: ['es_ES', 'fr_FR', 'de_DE', 'ja_JP', 'zh_CN'],
-    url: 'https://docs.tradinggoose.ai',
+    url: baseUrl,
     siteName: 'TradingGoose Documentation',
     title: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     description:
@@ -78,15 +86,10 @@ export const metadata = {
     },
   },
   alternates: {
-    canonical: 'https://docs.tradinggoose.ai',
+    canonical: baseUrl,
     languages: {
-      'x-default': 'https://docs.tradinggoose.ai',
-      en: 'https://docs.tradinggoose.ai',
-      es: 'https://docs.tradinggoose.ai/es',
-      fr: 'https://docs.tradinggoose.ai/fr',
-      de: 'https://docs.tradinggoose.ai/de',
-      ja: 'https://docs.tradinggoose.ai/ja',
-      zh: 'https://docs.tradinggoose.ai/zh',
+      'x-default': baseUrl,
+      ...languageAlternates,
     },
   },
 }

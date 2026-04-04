@@ -1,9 +1,10 @@
 {
   "$schema": "https://lingo.dev/schema/i18n.json",
-  "version": 1.8,
+  "version": 1.15,
+  "engineId": "eng_RF7UdAqExlX8Wc62",
   "locale": {
     "source": "en",
-    "targets": ["es", "fr", "zh", "ja", "de"]
+    "targets": []
   },
   "buckets": {
     "mdx": {

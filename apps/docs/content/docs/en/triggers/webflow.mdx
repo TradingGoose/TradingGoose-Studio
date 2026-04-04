@@ -1,0 +1,418 @@
+---
+title: Webflow Trigger
+description: Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="webflow"
+  color=""
+/>
+
+Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Use as a Tool" href="/tools/webflow">
+    See workflow actions, operations, and tool inputs for Webflow.
+  </Card>
+</Cards>
+
+
+## Events
+
+### Collection Item Created
+
+Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Created"
+    type="webflow_collection_item_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true,
+            "options": [
+                {
+                    "label": "Collection Item Created",
+                    "id": "webflow_collection_item_created"
+                },
+                {
+                    "label": "Collection Item Changed",
+                    "id": "webflow_collection_item_changed"
+                },
+                {
+                    "label": "Collection Item Deleted",
+                    "id": "webflow_collection_item_deleted"
+                }
+            ]
+        },
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Collection",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filter to monitor only a specific collection"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the event occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "The collection ID where the item was created"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "The ID of the created item"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS locale ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Last published timestamp"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Last updated timestamp"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Timestamp when the item was created"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Whether the item is archived"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Whether the item is a draft"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "The field data of the item"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Form Submission
+
+Trigger workflow when a form is submitted on a Webflow site (requires Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Form Submission"
+    type="webflow_form_submission"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "Form ID",
+            "placeholder": "form-123abc (optional)",
+            "description": "The ID of the specific form to monitor (optional - leave empty for all forms)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the form was submitted"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "The form ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "The name of the form"
+      },
+      {
+          "name": "id",
+          "type": "string",
+          "description": "The unique ID of the form submission"
+      },
+      {
+          "name": "submittedAt",
+          "type": "string",
+          "description": "Timestamp when the form was submitted"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "The form submission field data (keys are field names)"
+      },
+      {
+          "name": "schema",
+          "type": "object",
+          "description": "Form schema information"
+      },
+      {
+          "name": "formElementId",
+          "type": "string",
+          "description": "The form element ID"
+      }
+  ]}
+/>
+
+---
+
+### Collection Item Changed
+
+Trigger workflow when an item is updated in a Webflow CMS collection (requires Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Changed"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Collection",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filter to monitor only a specific collection"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the event occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "The collection ID where the item was changed"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "The ID of the changed item"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS locale ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Last published timestamp"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Last updated timestamp"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Timestamp when the item was created"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Whether the item is archived"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Whether the item is a draft"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "The updated field data of the item"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Collection Item Deleted
+
+Trigger workflow when an item is deleted from a Webflow CMS collection (requires Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Deleted"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Collection",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filter to monitor only a specific collection"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the event occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "The collection ID where the item was deleted"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "The ID of the deleted item"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "Timestamp when the item was deleted"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+

@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { SubBlockConfig } from '@/blocks/types'
 import { getBlock } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
 import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { SubBlockStore } from '@/stores/workflows/subblock/types'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
 import { isTriggerValid } from '@/triggers'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 
 /**
  * SubBlockState stores values for all subblocks in workflows
@@ -142,21 +143,7 @@ export const useSubBlockStore = create<SubBlockStore>()(
         const isTriggerBlock = blockConfig.category === 'triggers' || block.triggerMode === true
         if (!isTriggerBlock) return
 
-        let triggerId: string | undefined
-        if (blockConfig.category === 'triggers') {
-          triggerId = block.type
-        } else if (block.triggerMode === true && blockConfig.triggers?.enabled) {
-          const selectedTriggerIdValue = block.subBlocks?.selectedTriggerId?.value
-          const triggerIdValue = block.subBlocks?.triggerId?.value
-          triggerId =
-            (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)
-              ? selectedTriggerIdValue
-              : undefined) ||
-            (typeof triggerIdValue === 'string' && isTriggerValid(triggerIdValue)
-              ? triggerIdValue
-              : undefined) ||
-            blockConfig.triggers?.available?.[0]
-        }
+        const triggerId = resolveTriggerIdForBlock(block) ?? undefined
 
         if (!triggerId || !isTriggerValid(triggerId)) {
           return

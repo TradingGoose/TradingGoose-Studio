@@ -1,6 +1,6 @@
+import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import { marketClient } from '@/lib/market/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { type ListingIdentity, type ListingResolved } from '@/lib/listing/identity'
 
 export type ResolvedListingDetails = {
   base?: string
@@ -42,10 +42,7 @@ const toCodeRow = (row: unknown): CodeRow | null => {
   return { code: record.code, name: record.name ?? null, iconUrl: record.iconUrl ?? null }
 }
 
-const fetchMarketSearch = async <T>(
-  path: string,
-  params: URLSearchParams
-): Promise<T | null> => {
+const fetchMarketSearch = async <T>(path: string, params: URLSearchParams): Promise<T | null> => {
   if (!params.get('version')) {
     params.set('version', MARKET_API_VERSION)
   }
@@ -110,9 +107,7 @@ const getBatchRow = async <T>(path: string, paramName: string, id: string): Prom
   return records[id] ?? null
 }
 
-const resolveListingById = async (
-  listingId: string
-): Promise<ResolvedListingDetails | null> => {
+const resolveListingById = async (listingId: string): Promise<ResolvedListingDetails | null> => {
   const listing = await getBatchRow<any>('listing', 'listing_id', listingId)
   if (!listing || typeof listing !== 'object') return null
   return {
@@ -251,17 +246,17 @@ function buildResolvedListing(
   const normalizedIdentity: ListingIdentity =
     listing.listing_type === 'default'
       ? {
-        listing_id: listing.listing_id?.trim() ?? '',
-        base_id: '',
-        quote_id: '',
-        listing_type: listing.listing_type,
-      }
+          listing_id: listing.listing_id?.trim() ?? '',
+          base_id: '',
+          quote_id: '',
+          listing_type: listing.listing_type,
+        }
       : {
-        listing_id: '',
-        base_id: listing.base_id?.trim() ?? '',
-        quote_id: listing.quote_id?.trim() ?? '',
-        listing_type: listing.listing_type,
-      }
+          listing_id: '',
+          base_id: listing.base_id?.trim() ?? '',
+          quote_id: listing.quote_id?.trim() ?? '',
+          listing_type: listing.listing_type,
+        }
 
   return {
     ...normalizedIdentity,

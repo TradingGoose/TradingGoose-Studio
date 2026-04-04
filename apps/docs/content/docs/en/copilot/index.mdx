@@ -1,162 +1,113 @@
 ---
 title: Copilot
+description: AI assistant that manages workflows, MCP servers, skills, custom tools, knowledge bases, and more
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Image } from '@/components/ui/image'
-import { MessageCircle, Package, Zap, Infinity as InfinityIcon, Brain, BrainCircuit } from 'lucide-react'
 
-Copilot is your in-editor assistant that helps you build and edit workflows with TradingGoose Copilot, as well as understand and improve them. It can:
+Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. Copilot runs inside the [Copilot widget](/widgets/copilot).
 
-- **Explain**: Answer questions about TradingGoose and your current workflow
-- **Guide**: Suggest edits and best practices
-- **Edit**: Make changes to blocks, connections, and settings when you approve
+## Capabilities
 
-<Callout type="info">
-  Copilot is a TradingGoose-managed service. For self-hosted deployments, generate a Copilot API key in the hosted app (tradinggoose.ai → Settings → Copilot)
-  1. Go to [tradinggoose.ai](https://tradinggoose.ai) → Settings → Copilot and generate a Copilot API key
-  2. Set `COPILOT_API_KEY` in your self-hosted environment to that value
+Copilot has access to a comprehensive set of tools spanning the entire platform:
+
+### Workflow Management
+- **Edit workflows** — add, remove, or reconfigure blocks and connections. Edits stream in real time as inline previews before being committed.
+- **Deploy workflows** — check deployment status and trigger new deployments.
+- **Run workflows** — execute workflows and inspect results.
+- **Manage variables** — get and set global workflow variables.
+- **View console** — retrieve execution logs and streaming output.
+
+### Workspace Tools
+- **Manage MCP servers** — create, update, and configure MCP server connections.
+- **Manage skills** — create, edit, and delete reusable skill definitions.
+- **Manage custom tools** — create and edit custom tool schemas and code.
+- **Knowledge base** — query and reference knowledge base documents.
+
+### General
+- **Explain** — answer questions about TradingGoose concepts or any workflow in your workspace.
+- **Plan** — for larger tasks, Copilot generates a todo list that tracks progress as it works through each step.
+- **Reference context** — use the `@` mention menu to pull in previous chats, other workflows, specific blocks, knowledge-base documents, docs, templates, or execution logs.
+- **File attachments** — attach files directly to a message for additional context.
+
+## Access Levels
+
+The access-level toggle in the input bar controls how much autonomy Copilot has.
+
+<Cards>
+  <Card title="Limited (default)">
+    Copilot pauses before executing any tool call that has an interrupt flag and before running integration tools. You review and approve each action.
+  </Card>
+  <Card title="Full">
+    Copilot auto-executes all tool calls, integration tools, and workflow edits without confirmation. Use this when you trust the current task and want faster iteration.
+  </Card>
+</Cards>
+
+## Supported Models
+
+Copilot supports models from both Anthropic and OpenAI. You can enable or disable individual models in **Settings > Copilot**. The active model can be switched per-message from the input bar.
+
+**Anthropic** -- claude-4.5-haiku, claude-4-sonnet, claude-4.5-sonnet, claude-4.1-opus
+
+**OpenAI** -- gpt-4o, gpt-4.1, gpt-5-fast, gpt-5, gpt-5-medium, gpt-5-high, o3
+
+Models are grouped by capability tier (fast, standard, reasoning). Enabled models sync across the widget and settings so your selection is consistent everywhere.
+
+## Setup
+
+<Steps>
+  <Step>
+    ### Hosted (tradinggoose.ai)
+
+    Copilot works out of the box. Open any workspace, add the **Copilot** widget to a panel, and start chatting.
+  </Step>
+  <Step>
+    ### Self-hosted
+
+    Self-hosted instances need a Copilot API key to connect to the managed inference service.
+
+    1. Sign in at [tradinggoose.ai](https://tradinggoose.ai) and open **Settings > Copilot**.
+    2. Click **Create** to generate a new API key. Copy it immediately -- it is shown only once.
+    3. Set the `COPILOT_API_KEY` environment variable in your self-hosted deployment to the copied value.
+    4. Restart the application. The Copilot widget will now connect through the key.
+  </Step>
+</Steps>
+
+<Callout type="warn">
+  API keys grant full Copilot access. Store them securely and rotate them if compromised. You can delete a key at any time from the same settings page; deletion revokes access immediately.
 </Callout>
 
-## Context Menu (@)
+## Chat Management
 
-Use the `@` symbol to reference various resources and give Copilot more context about your workspace:
+Each Copilot session is scoped to the active panel context. The header dropdown lists all past chats grouped by recency (Today, Yesterday, This Week, Last Week, Older). From the header you can:
 
-<Image
-  src="/static/copilot/copilot-menu.png"
-  alt="Copilot context menu showing available reference options"
-  width={600}
-  height={400}
-/>
+- **Switch chats** -- click any previous conversation to resume it.
+- **Start a new chat** -- click the **+** button in the header to create a fresh session.
+- **Delete a chat** -- hover a chat entry and click the trash icon. A confirmation dialog prevents accidental deletion.
 
-The `@` menu provides access to:
-- **Chats**: Reference previous copilot conversations
-- **All workflows**: Reference any workflow in your workspace
-- **Workflow Blocks**: Reference specific blocks from workflows
-- **Blocks**: Reference block types and templates
-- **Knowledge**: Reference your uploaded documents and knowledgebase
-- **Docs**: Reference TradingGoose Documentation
-- **Templates**: Reference workflow templates
-- **Logs**: Reference execution logs and results
+Chat state persists across page reloads and panel resizes. When a widget is paired with an editor panel, the chat channel is scoped to that specific panel so you can run independent conversations side by side.
 
-This contextual information helps Copilot provide more accurate and relevant assistance for your specific use case.
+## Editor Integration
 
-## Modes
+Copilot is context-aware — when paired with an editor panel, it automatically includes the active context (workflow, indicator, skill, MCP server, or custom tool) when sending messages, so it can reference and modify the correct resources without extra prompting.
 
-<Cards>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <MessageCircle className="h-4 w-4 text-muted-foreground" />
-        Ask
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">
-      Q&A mode for explanations, guidance, and suggestions without making changes to your workflow.
-    </div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Package className="h-4 w-4 text-muted-foreground" />
-        Agent
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">
-      Build-and-edit mode. Copilot proposes specific edits (add blocks, wire variables, tweak settings) and applies them when you approve.
-    </div>
-  </Card>
-</Cards>
+When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered as an inline preview. In **Limited** mode you approve or reject each change; in **Full** mode changes are applied automatically.
 
-## Depth Levels
+If you need to undo a Copilot action, you can revert or edit any previous message directly in the chat. Messages after the edited point are dimmed to indicate they will be regenerated.
 
-<Cards>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Zap className="h-4 w-4 text-muted-foreground" />
-        Fast
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">Quickest and cheapest. Best for small edits, simple workflows, and minor tweaks.</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <InfinityIcon className="h-4 w-4 text-muted-foreground" />
-        Auto
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">Balanced speed and reasoning. Recommended default for most tasks.</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <Brain className="h-4 w-4 text-muted-foreground" />
-        Advanced
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">More reasoning for larger workflows and complex edits while staying performant.</div>
-  </Card>
-  <Card
-    title={
-      <span className="inline-flex items-center gap-2">
-        <BrainCircuit className="h-4 w-4 text-muted-foreground" />
-        Behemoth
-      </span>
-    }
-  >
-    <div className="m-0 text-sm">Maximum reasoning for deep planning, debugging, and complex architectural changes.</div>
-  </Card>
-</Cards>
+## Billing
 
-### Mode Selection Interface
+Copilot usage is billed per token from the underlying LLM provider:
 
-You can easily switch between different reasoning modes using the mode selector in the Copilot interface:
+- **Input tokens** -- billed at the provider's base rate (at-cost).
+- **Output tokens** -- billed at 1.5x the provider's base output rate.
 
-<Image
-  src="/static/copilot/copilot-models.png"
-  alt="Copilot mode selection showing Advanced mode with MAX toggle"
-  width={600}
-  height={300}
-/>
-
-The interface allows you to:
-- **Select reasoning level**: Choose from Fast, Auto, Advanced, or Behemoth
-- **Enable MAX mode**: Toggle for maximum reasoning capabilities when you need the most thorough analysis
-- **See mode descriptions**: Understand what each mode is optimized for
-
-Choose your mode based on the complexity of your task - use Fast for simple questions and Behemoth for complex architectural changes.
-
-## Billing and Cost Calculation
-
-### How Costs Are Calculated
-
-Copilot usage is billed per token from the underlying LLM:
-
-- **Input tokens**: billed at the provider's base rate (**at-cost**)
-- **Output tokens**: billed at **1.5×** the provider's base output rate
-
-```javascript
-copilotCost = (inputTokens × inputPrice + outputTokens × (outputPrice × 1.5)) / 1,000,000
+```
+cost = (inputTokens * inputPrice + outputTokens * outputPrice * 1.5) / 1_000_000
 ```
 
-| Component | Rate Applied         |
-|----------|----------------------|
-| Input    | inputPrice           |
-| Output   | outputPrice × 1.5    |
-
-<Callout type="warning">
-  Pricing shown reflects rates as of September 4, 2025. Check provider documentation for current pricing.
-</Callout>
-
 <Callout type="info">
-  Model prices are per million tokens. The calculation divides by 1,000,000 to get the actual cost. See <a href="/execution/costs">the Cost Calculation page</a> for background and examples.
+  Prices are per million tokens. See the [Cost Calculation](/execution/costs) page for detailed examples.
 </Callout>
-

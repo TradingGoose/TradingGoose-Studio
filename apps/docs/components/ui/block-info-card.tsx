@@ -1,44 +1,38 @@
 'use client'
 
-import type * as React from 'react'
+import { type ReactNode, useRef } from 'react'
+import { getBlockTypeIcon } from './block-type-icon'
+import { sanitizeSolidIconColor } from './icon-colors'
+import { RippleBg } from './showcase-card'
 
 interface BlockInfoCardProps {
   type: string
   color: string
-  icon?: boolean
-  iconSvg?: string
 }
 
-export function BlockInfoCard({
-  type,
-  color,
-  icon = false,
-  iconSvg,
-}: BlockInfoCardProps): React.ReactNode {
+export function BlockInfoCard({ type, color }: BlockInfoCardProps): ReactNode {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const bgColor = sanitizeSolidIconColor(color)
+  const IconComponent = getBlockTypeIcon(type)
+
   return (
-    <div className='mb-6 overflow-hidden rounded-lg border border-border'>
-      <div className='flex items-center justify-center p-6'>
+    <div
+      ref={containerRef}
+      className='relative mb-6 overflow-hidden rounded-lg border border-fd-border bg-fd-card shadow-sm dark:bg-fd-card/50'
+    >
+      <RippleBg containerRef={containerRef} rows={6} />
+      <div className='relative z-10 flex items-center justify-center p-8'>
         <div
-          className='flex h-20 w-20 items-center justify-center rounded-lg'
-          style={{ backgroundColor: color }}
+          className='flex h-10 w-10 items-center justify-center rounded-md bg-fd-secondary'
+          style={
+            bgColor
+              ? { backgroundColor: `${bgColor}20`, color: bgColor }
+              : undefined
+          }
         >
-          {iconSvg ? (
-            <div className='h-10 w-10 text-white' dangerouslySetInnerHTML={{ __html: iconSvg }} />
-          ) : (
-            <div className='font-mono text-xl opacity-70'>{type.substring(0, 2)}</div>
-          )}
+          <IconComponent className='h-6 w-6' />
         </div>
       </div>
-      {icon && (
-        <style jsx global>{`
-          .block-icon {
-            width: 80px;
-            height: 80px;
-            margin: 1rem auto;
-            display: block;
-          }
-        `}</style>
-      )}
     </div>
   )
 }

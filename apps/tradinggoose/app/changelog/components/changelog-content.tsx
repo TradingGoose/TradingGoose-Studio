@@ -2,6 +2,7 @@ import { BookOpen, Github, Rss } from 'lucide-react'
 import Link from 'next/link'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import ChangelogList from './timeline-list'
 
 export interface ChangelogEntry {
@@ -24,7 +25,7 @@ export default async function ChangelogContent() {
 
   try {
     const res = await fetch(
-      'https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases?per_page=10&page=1',
+      'https://api.github.com/repos/tradinggoose/tradinggoose-studio/releases?per_page=10&page=1',
       {
         headers: { Accept: 'application/vnd.github+json' },
         next: { revalidate: 3600 },
@@ -46,12 +47,25 @@ export default async function ChangelogContent() {
   }
 
   return (
-    <div className='min-h-screen bg-background'>
+    <div className='bg-background'>
       <div className='relative grid md:grid-cols-2'>
         {/* Left intro panel */}
-        <div className='relative top-0 overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:sticky md:h-dvh md:border-r md:border-b-0 md:px-12 md:py-24'>
-          <div className='absolute inset-0 bg-grid-pattern opacity-[0.03] dark:opacity-[0.06]' />
-          <div className='absolute inset-0 bg-gradient-to-tr from-background via-transparent to-background/60' />
+        <div
+          className='md:absolute relative md:top-12 md:h-[95vh] overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:sticky md:overflow-hidden md:border-r md:border-b-0 md:px-12 md:py-24'
+        >
+          <div
+            className='pointer-events-none absolute inset-0 z-0'
+            style={{
+              maskImage:
+                'linear-gradient(to bottom, transparent, black 30%, black 70%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, transparent, black 30%, black 70%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+              maskComposite: 'intersect',
+              WebkitMaskComposite: 'destination-in',
+            }}
+          >
+            <BackgroundRippleEffect cellSize={60} rows={20} cols={15} maskClassName='' interactive />
+          </div>
 
           <div className='relative mx-auto h-full max-w-xl md:flex md:flex-col md:justify-center'>
             <h1
@@ -60,31 +74,31 @@ export default async function ChangelogContent() {
               Changelog
             </h1>
             <p className={`${inter.className} mt-4 text-muted-foreground text-sm`}>
-              Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose. All
-              changes are documented here with detailed release notes.
+              Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose.
+              All changes are documented here with detailed release notes.
             </p>
             <hr className='mt-6 border-border' />
 
             <div className='mt-6 flex flex-wrap items-center gap-3 text-sm'>
               <Link
-                href='https://github.com/TradingGoose/TradingGoose-Studio/releases'
+                href='https://github.com/tradinggoose/tradinggoose-studio/releases'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='group inline-flex items-center justify-center gap-2 rounded-md border border-[#6F3DFA] bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] py-[6px] pr-[10px] pl-[12px] text-[14px] text-white shadow-[inset_0_2px_4px_0_#9B77FF] transition-all sm:text-[16px]'
+                className='inline-flex bg-foreground text-background items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted-foreground'
               >
                 <Github className='h-4 w-4' />
                 View on GitHub
               </Link>
               <Link
                 href='https://docs.tradinggoose.ai'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-card'
+                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <BookOpen className='h-4 w-4' />
                 Documentation
               </Link>
               <Link
                 href='/changelog.xml'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-card'
+                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <Rss className='h-4 w-4' />
                 RSS Feed

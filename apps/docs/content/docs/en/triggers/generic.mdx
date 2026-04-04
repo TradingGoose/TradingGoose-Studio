@@ -1,0 +1,68 @@
+---
+title: Generic Trigger
+description: Receive webhooks from any service or API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="generic"
+  color=""
+/>
+
+Receive webhooks from any service or API
+
+<Callout type="info">
+  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+</Callout>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "requireAuth",
+            "type": "switch",
+            "title": "Require Authentication",
+            "description": "Require authentication for all webhook requests"
+        },
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Authentication Token",
+            "placeholder": "Enter an auth token",
+            "description": "Token used to authenticate webhook requests via Bearer token or custom header",
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Secret Header Name (Optional)",
+            "placeholder": "X-Secret-Key",
+            "description": "Custom HTTP header name for the auth token. If blank, uses \"Authorization: Bearer TOKEN\""
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "Input Format",
+            "description": "Define the expected JSON input schema for this webhook (optional). Use type \"files\" for file uploads."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
+
+

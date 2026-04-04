@@ -1,0 +1,114 @@
+---
+title: Indicator Trigger
+description: Trigger workflow from indicator monitor events
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="indicator"
+  color=""
+/>
+
+Trigger workflow from indicator monitor events
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+</Callout>
+
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Primary workflow text input."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Event key passed to trigger(...)."
+      },
+      {
+          "name": "time",
+          "type": "number",
+          "description": "Bar time in unix seconds."
+      },
+      {
+          "name": "signal",
+          "type": "string",
+          "description": "Signal: long, short, flat."
+      },
+      {
+          "name": "listingBase",
+          "type": "string",
+          "description": "Listing base value from market series."
+      },
+      {
+          "name": "listingQuote",
+          "type": "string",
+          "description": "Listing quote value from market series."
+      },
+      {
+          "name": "marketSeries",
+          "type": "json",
+          "description": "Market historical series data."
+      },
+      {
+          "name": "listing",
+          "type": "json",
+          "description": "Listing information."
+      },
+      {
+          "name": "indicator",
+          "type": "object",
+          "description": "indicator",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Indicator name."
+              },
+              {
+                  "name": "settings",
+                  "type": "object",
+                  "description": "settings",
+                  "children": [
+                      {
+                          "name": "options",
+                          "type": "object",
+                          "description": "Resolved indicator options."
+                      },
+                      {
+                          "name": "interval",
+                          "type": "string",
+                          "description": "Execution interval."
+                      }
+                  ]
+              },
+              {
+                  "name": "output",
+                  "type": "object",
+                  "description": "output",
+                  "children": [
+                      {
+                          "name": "series",
+                          "type": "array",
+                          "description": "Normalized series output."
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+

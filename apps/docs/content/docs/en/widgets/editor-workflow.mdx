@@ -1,11 +1,10 @@
 ---
 title: Workflow Editor
-description: Canvas interface for building and editing workflows
+description: "Canvas interface to build and edit workflows."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-
-The Workflow Editor is the core visual interface for building AI workflows in TradingGoose. It provides a canvas where you can drag, drop, and connect blocks to create powerful automation pipelines.
+import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Overview
 
@@ -13,31 +12,92 @@ The Workflow Editor is the core visual interface for building AI workflows in Tr
 |----------|-------|
 | **Key** | `editor_workflow` |
 | **Category** | Editor |
-| **Icon** | Workflow |
+
+The Workflow Editor is the main canvas for building AI workflows. It renders a full React Flow graph where you place blocks, draw connections between them, and configure each step of your automation pipeline. The widget runs inside its own socket connection and workflow store, so multiple editors can operate independently in the same workspace.
 
 ## Features
 
-- **Visual Canvas**: Intuitive drag-and-drop interface for workflow design
-- **Block Placement**: Add blocks from the block library to the canvas
-- **Connection Management**: Draw connections between block outputs and inputs
-- **Zoom & Pan**: Navigate large workflows with zoom and pan controls
-- **Block Configuration**: Click on blocks to configure their settings
-- **Real-time Validation**: Instant feedback on connection compatibility
+- **React Flow canvas** with pan, zoom, and node selection built in
+- **Block toolbar** in the header with searchable dropdown that lists blocks, tools, and triggers grouped by category; drag a block from the toolbar onto the canvas to add it
+- **Loop and parallel blocks** available as special toolbar items for control-flow logic
+- **Floating controls** for quick canvas actions (enabled by default in the widget configuration)
+- **Training controls** toggle that lets you switch training-mode overlays on or off per widget
+- **Diff controls** for reviewing version changes against a previous workflow state
+- **Trigger list** showing all triggers attached to the workflow
+- **Viewport-aware positioning** -- the widget tracks its own bounding rect so new blocks drop at the visible center of the canvas, even when the widget is embedded in a small panel
+- **Nested subflow validation** with real-time error highlighting when a subflow reference is invalid
+- **Trigger warning dialog** that fires when you add a duplicate trigger or hit another trigger constraint
 
 ## Usage
 
-The Workflow Editor is typically the main widget in your workspace, providing the visual environment where you design and modify your AI workflows.
+### Adding the widget
 
-### Basic Operations
+Open the widget picker in any workspace panel and select **Workflow Editor**. The widget loads the active workflow for the current workspace. If no workflows exist yet, it displays a placeholder message.
 
-1. **Add Blocks**: Drag blocks from the sidebar or use the context menu
-2. **Connect Blocks**: Click and drag from an output port to an input port
-3. **Configure Blocks**: Click on a block to open its configuration panel
-4. **Delete Elements**: Select and press Delete, or use the context menu
-5. **Undo/Redo**: Use Ctrl+Z / Ctrl+Shift+Z for history navigation
+### Header layout
 
+The header is split into three sections:
+
+- **Left**: the block toolbar -- a dropdown to browse and search available blocks, tools, and triggers, then add them to the canvas
+- **Center**: a workflow selector dropdown that lets you switch between workflows in the workspace
+- **Right**: the control bar with execution, save, and workflow-level actions
+
+### Key interactions
+
+1. **Add a block** -- open the toolbar dropdown, search or browse, then click a block to place it at the viewport center
+2. **Connect blocks** -- drag from an output handle to an input handle to create an edge
+3. **Select and configure** -- click a node to select it; its settings appear in the paired Copilot or Variables widget
+4. **Delete** -- select a node or edge and press Delete
+5. **Undo / Redo** -- standard keyboard shortcuts
+
+### Pair color syncing
+
+When assigned a pair color, the editor synchronizes its active workflow with other widgets sharing the same color. Changing the workflow in the header selector broadcasts the selection to all paired widgets. When the pair color is `gray` (unlinked), the widget manages its own selection independently via widget params.
 
 <Callout>
-This widget supports the **pairColor** mechanism for synchronization with other workflow widgets like Console, Chat, and Variables.
+Pair this widget with **Console**, **Chat**, **Variables**, or **Copilot** using matching pair colors to build a full workflow development workspace.
 </Callout>
 
+## Configuration
+
+The canvas UI is controlled by `WorkflowCanvasUIConfig`:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `floatingControls` | `true` | Show floating action buttons on the canvas |
+| `trainingControls` | `true` | Enable training-mode control overlays |
+| `forceTrainingControls` | `false` | Always show training controls regardless of user toggle |
+| `diffControls` | `true` | Show diff review controls |
+| `triggerList` | `true` | Display the trigger list panel |
+| `controlBar` | `false` | Show the legacy control bar (off by default in the widget) |
+
+These defaults are set at the widget level and merged with any layout-level overrides.
+
+## Related
+
+<Cards>
+  <Card title="Blocks Overview" href="/blocks">
+    Browse all available workflow blocks.
+  </Card>
+  <Card title="Tools Overview" href="/tools">
+    Browse all available workflow tools.
+  </Card>
+  <Card title="Triggers Overview" href="/triggers">
+    Browse all available workflow triggers.
+  </Card>
+  <Card title="Workflow List" href="/widgets/list-workflow">
+    Browse and manage workflow files.
+  </Card>
+  <Card title="Workflow Console" href="/widgets/workflow-console">
+    View execution logs and streaming output.
+  </Card>
+  <Card title="Workflow Chat" href="/widgets/workflow-chat">
+    Interact with a running workflow.
+  </Card>
+  <Card title="Copilot" href="/widgets/copilot">
+    AI assistant for workflows, MCP, skills, custom tools, and more.
+  </Card>
+  <Card title="Workflow Variables" href="/widgets/workflow-variables">
+    Inspect and edit variable state.
+  </Card>
+</Cards>

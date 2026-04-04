@@ -1,0 +1,147 @@
+---
+title: Technical Analysis
+description: 57+ built-in technical analysis functions in the ta namespace
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The `ta` namespace provides 57+ technical analysis functions covering moving averages, oscillators, volatility, volume, trend detection, and statistics.
+
+## Moving Averages
+
+| Function | Description |
+|----------|-------------|
+| `ta.sma(source, length)` | Simple Moving Average |
+| `ta.ema(source, length)` | Exponential Moving Average |
+| `ta.wma(source, length)` | Weighted Moving Average |
+| `ta.vwma(source, length)` | Volume Weighted Moving Average |
+| `ta.rma(source, length)` | Rolling/Running Moving Average (Wilder's smoothing) |
+| `ta.hma(source, length)` | Hull Moving Average |
+| `ta.alma(source, length, offset?, sigma?)` | Arnaud Legoux Moving Average |
+| `ta.swma(source)` | Symmetrically Weighted Moving Average |
+| `ta.linreg(source, length, offset?)` | Linear Regression |
+| `ta.vwap` | Volume Weighted Average Price (variable) |
+| `ta.vwap(source)` | Volume Weighted Average Price (function) |
+
+```javascript
+const fast = ta.ema(close, 9);
+const slow = ta.ema(close, 21);
+plot(fast, 'Fast EMA', { color: '#2962FF' });
+plot(slow, 'Slow EMA', { color: '#FF6D00' });
+```
+
+## Oscillators & Momentum
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `ta.rsi(source, length)` | `number` | Relative Strength Index |
+| `ta.macd(source, fast, slow, signal)` | `[macd, signal, hist]` | MACD (returns tuple) |
+| `ta.stoch(source, high, low, length)` | `number` | Stochastic Oscillator |
+| `ta.cci(source, length)` | `number` | Commodity Channel Index |
+| `ta.mfi(series, length)` | `number` | Money Flow Index |
+| `ta.mom(source, length)` | `number` | Momentum |
+| `ta.roc(source, length)` | `number` | Rate of Change |
+| `ta.tsi(source, short, long)` | `number` | True Strength Index |
+| `ta.cmo(source, length)` | `number` | Chande Momentum Oscillator |
+| `ta.cog(source, length)` | `number` | Center of Gravity |
+| `ta.wpr(length)` | `number` | Williams %R |
+| `ta.change(source, length?)` | `number` | Price change over N bars |
+
+```javascript
+const rsi = ta.rsi(close, 14);
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+```
+
+## Volatility & Range
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `ta.atr(length)` | `number` | Average True Range |
+| `ta.bb(source, length, mult)` | `[middle, upper, lower]` | Bollinger Bands (tuple) |
+| `ta.bbw(source, length, mult)` | `number` | Bollinger Bands Width |
+| `ta.kc(source, length, mult)` | `[middle, upper, lower]` | Keltner Channels (tuple) |
+| `ta.kcw(source, length, mult)` | `number` | Keltner Channels Width |
+| `ta.stdev(source, length)` | `number` | Standard Deviation |
+| `ta.dev(source, length)` | `number` | Mean Absolute Deviation |
+| `ta.variance(source, length)` | `number` | Variance |
+| `ta.range(source, length)` | `number` | Range (highest - lowest) |
+| `ta.tr` | `number` | True Range (variable) |
+| `ta.tr(handleNa?)` | `number` | True Range (function) |
+
+```javascript
+const [middle, upper, lower] = ta.bb(close, 20, 2);
+const atr = ta.atr(14);
+```
+
+## Volume Indicators
+
+These are accessed as variables (not function calls):
+
+| Variable | Description |
+|----------|-------------|
+| `ta.obv` | On-Balance Volume |
+| `ta.accdist` | Accumulation/Distribution |
+| `ta.pvt` | Price-Volume Trend |
+| `ta.wad` | Williams Accumulation/Distribution |
+| `ta.wvad` | Williams Variable Accumulation/Distribution |
+| `ta.nvi` | Negative Volume Index |
+| `ta.pvi` | Positive Volume Index |
+| `ta.iii` | Intraday Intensity Index |
+
+```javascript
+plot(ta.obv, 'OBV');
+plot(ta.accdist, 'A/D');
+```
+
+## Trend Analysis
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `ta.crossover(a, b)` | `boolean` | True when `a` crosses above `b` |
+| `ta.crossunder(a, b)` | `boolean` | True when `a` crosses below `b` |
+| `ta.cross(a, b)` | `boolean` | True when `a` crosses `b` in either direction |
+| `ta.rising(source, length)` | `boolean` | True when source has been rising for `length` bars |
+| `ta.falling(source, length)` | `boolean` | True when source has been falling for `length` bars |
+| `ta.supertrend(factor, atrLength)` | `[value, direction]` | SuperTrend (tuple) |
+| `ta.sar(start, inc, max)` | `number` | Parabolic SAR |
+| `ta.dmi(diLength, adxSmoothing)` | `[plus, minus, adx]` | Directional Movement Index (tuple) |
+
+```javascript
+if (ta.crossover(fast, slow)) {
+  plotshape(close, 'Buy', { style: shape.triangleup, location: location.belowbar });
+}
+```
+
+## Statistical Functions
+
+| Function | Description |
+|----------|-------------|
+| `ta.highest(source, length)` | Highest value over N bars |
+| `ta.lowest(source, length)` | Lowest value over N bars |
+| `ta.highestbars(source, length)` | Bars since highest value |
+| `ta.lowestbars(source, length)` | Bars since lowest value |
+| `ta.median(source, length)` | Median value |
+| `ta.mode(source, length)` | Mode value |
+| `ta.percentile_linear_interpolation(source, length, pct)` | Percentile (linear) |
+| `ta.percentile_nearest_rank(source, length, pct)` | Percentile (nearest rank) |
+| `ta.percentrank(source, length)` | Percentile rank |
+| `ta.correlation(a, b, length)` | Correlation coefficient |
+| `ta.max(a, b)` | Maximum of two values |
+| `ta.min(a, b)` | Minimum of two values |
+
+## Utility Functions
+
+| Function | Description |
+|----------|-------------|
+| `ta.barssince(condition)` | Number of bars since condition was true |
+| `ta.valuewhen(condition, source, occurrence)` | Value when condition was true |
+| `ta.cum(source)` | Cumulative sum |
+| `ta.rci(source, length)` | Rank Correlation Index |
+
+## Support & Resistance
+
+| Function | Description |
+|----------|-------------|
+| `ta.pivothigh(source, leftbars, rightbars)` | Detect pivot highs |
+| `ta.pivotlow(source, leftbars, rightbars)` | Detect pivot lows |
+| `ta.pivot_point_levels(type, anchor)` | Calculate pivot point levels |

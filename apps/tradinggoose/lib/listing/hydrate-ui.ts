@@ -1,3 +1,4 @@
+import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import {
   type ListingIdentity,
   type ListingInputValue,
@@ -14,6 +15,7 @@ import {
 
 type ListingRecord = Record<string, unknown>
 type ListingHydrationCache = Map<string, ListingResolved | null>
+const SHARED_LISTING_CACHE_TTL_SECONDS = 5 * 60
 
 const buildListingKey = (listing: ListingIdentity) =>
   `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
@@ -90,7 +92,15 @@ const resolveListingValue = async (
 
   const key = buildListingKey(listingIdentity)
   if (!cache.has(key)) {
-    const resolved = await resolveListingIdentity(listingIdentity).catch(() => null)
+    const sharedCacheKey = `listing-resolve:${key}`
+    const cachedResolved = await readServerJsonCache<ListingResolved | null>(sharedCacheKey)
+    const resolved =
+      cachedResolved ?? (await resolveListingIdentity(listingIdentity).catch(() => null))
+
+    if (cachedResolved === null && resolved) {
+      await writeServerJsonCache(sharedCacheKey, resolved, SHARED_LISTING_CACHE_TTL_SECONDS)
+    }
+
     cache.set(key, resolved ?? null)
   }
   const resolved = cache.get(key)

@@ -1,90 +1,29 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { DiscordIcon, GithubIcon, LinkedInIcon, xIcon as XIcon } from '@/components/icons/icons'
-import { Separator } from '@/components/ui/separator'
+import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text'
+import { soehne } from '@/app/fonts/soehne/soehne'
 
-const blocks = [
-  'Agent',
-  'API',
-  'Condition',
-  'Evaluator',
-  'Function',
-  'Loop',
-  'Parallel',
-  'Response',
-  'Router',
-  'Starter',
-  'Webhook',
-  'Workflow',
+type FooterLink = {
+  label: string
+  href: string
+  external: boolean
+}
+
+const productLinks: FooterLink[] = [
+  { label: 'Docs', href: 'https://docs.tradinggoose.ai', external: true },
+  { label: 'Widgets', href: 'https://docs.tradinggoose.ai/widgets', external: true },
+  { label: 'Blocks', href: 'https://docs.tradinggoose.ai/blocks', external: true },
+  { label: 'Tools', href: 'https://docs.tradinggoose.ai/tools', external: true },
+  //{ label: 'Pricing', href: '/#pricing', external: false },
+  { label: 'Changelog', href: '/changelog', external: false },
+  //{ label: 'Enterprise', href: '', external: true },
 ]
 
-const tools = [
-  'Airtable',
-  'ArXiv',
-  'Browser Use',
-  'Clay',
-  'Confluence',
-  'Discord',
-  'ElevenLabs',
-  'Exa',
-  'File',
-  'Firecrawl',
-  'Generic Webhook',
-  'GitHub',
-  'Gmail',
-  'Google Calendar',
-  'Google Docs',
-  'Google Drive',
-  'Google Vault',
-  'Google Search',
-  'Google Sheets',
-  'HuggingFace',
-  'Hunter',
-  'Image Generator',
-  'Jina',
-  'Jira',
-  'Knowledge',
-  'Linear',
-  'LinkUp',
-  'Mem0',
-  'Memory',
-  'Microsoft Excel',
-  'Microsoft Planner',
-  'Microsoft Teams',
-  'Mistral Parse',
-  'MySQL',
-  'Notion',
-  'OneDrive',
-  'OpenAI',
-  'Outlook',
-  'Parallel AI',
-  'Perplexity',
-  'Pinecone',
-  'PostgreSQL',
-  'Qdrant',
-  'Reddit',
-  'S3',
-  'Schedule',
-  'Serper',
-  'SharePoint',
-  'Slack',
-  'Stagehand',
-  'Stagehand Agent',
-  'Supabase',
-  'Tavily',
-  'Telegram',
-  'Thinking',
-  'Translate',
-  'Twilio SMS',
-  'Typeform',
-  'Vision',
-  'Wealthbox',
-  'Webhook',
-  'WhatsApp',
-  'Wikipedia',
-  'X',
-  'YouTube',
-  'Zep',
+const legalLinks: FooterLink[] = [
+  { label: 'Privacy Policy', href: '/privacy', external: false },
+  { label: 'Licenses', href: '/licenses', external: false },
+  { label: 'Terms of Service', href: '/terms', external: false },
 ]
 
 interface FooterProps {
@@ -92,219 +31,134 @@ interface FooterProps {
 }
 
 export default function Footer({ fullWidth = false }: FooterProps) {
+  const maxWidthClass = fullWidth ? 'max-w-[90vw]' : 'max-w-7xl'
+
   return (
-    <footer>
-      <div className='mx-auto grid max-w-[90vw] gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-5'>
-        {/* Logo, description, socials, and standalone links */}
-        <div className='flex flex-col items-start gap-4 lg:col-span-1'>
-          <Link href='/' aria-label='TradingGoose Studio home' className='flex items-center gap-3'>
-            <Image
-              src='/icon.svg'
-              alt=''
-              width={28}
-              height={28}
-              className='h-7 w-7'
-              priority
-              quality={100}
-            />
-            <span className='font-semibold text-xl'>TradingGoose Studio</span>
-          </Link>
-          <p className='text-balance text-muted-foreground'>
-            Workspace layouts, charting with indicators, and a visual workflow editor for trading.
-          </p>
-          <div className='flex items-center gap-4'>
-            <a
-              href='https://discord.gg/Hr4UWYEcTT'
-              target='_blank'
-              rel='noopener noreferrer'
-              aria-label='Discord'
+    <footer className={`${soehne.className} relative`}>
+      <div
+        className={`relative mx-auto flex ${maxWidthClass} flex-col gap-6 px-4 pt-6 pb-6 sm:px-6 sm:pt-8 lg:px-8`}
+      >
+        <div className='relative z-10 flex flex-col gap-8 text-muted-foreground sm:gap-10 lg:flex-row lg:items-end lg:justify-between'>
+          <div className='flex max-w-[30rem] flex-col gap-5 max-sm:items-center max-sm:text-center'>
+            <Link
+              href='/'
+              aria-label='TradingGoose Studio home'
+              className='flex items-center gap-3'
+              prefetch={false}
             >
-              <DiscordIcon className='h-[20px] w-[20px]' aria-hidden='true' />
-            </a>
-            <a
-              href='https://x.com/simdotai'
-              target='_blank'
-              rel='noopener noreferrer'
-              aria-label='X (Twitter)'
-            >
-              <XIcon className='h-[18px] w-[18px]' aria-hidden='true' />
-            </a>
-            <a
-              href='https://www.linkedin.com/company/tradinggoose/'
-              target='_blank'
-              rel='noopener noreferrer'
-              aria-label='LinkedIn'
-            >
-              <LinkedInIcon className='h-[18px] w-[18px]' aria-hidden='true' />
-            </a>
-            <a
-              href='https://github.com/TradingGoose/TradingGoose-Studio'
-              target='_blank'
-              rel='noopener noreferrer'
-              aria-label='GitHub'
-            >
-              <GithubIcon className='h-[20px] w-[20px]' aria-hidden='true' />
-            </a>
-          </div>
-          <Separator className='!w-35' />
-          <Link
-            href='/changelog'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Changelog
-          </Link>
-          <Link
-            href='https://docs.tradinggoose.ai'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Docs
-          </Link>
-          <Link
-            href='#pricing'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Pricing
-          </Link>
-          <Link
-            href='https://form.typeform.com/to/jqCO12pF'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Enterprise
-          </Link>
-          {/*
-          <Link
-            href='/careers'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Careers
-          </Link>
-          */}
-          <Link
-            href='/privacy'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Privacy Policy
-          </Link>
-          <Link
-            href='/licenses'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Licenses
-          </Link>
-          <Link
-            href='/terms'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Terms of Service
-          </Link>
-        </div>
+              <Image
+                src='/icon.svg'
+                alt=''
+                width={28}
+                height={28}
+                className='h-7 w-7'
+                priority
+                quality={100}
+              />
+              <span className='font-semibold text-foreground text-xl'>TradingGoose Studio</span>
+            </Link>
 
-        {/* Blocks */}
-        <div className='hidden flex-col gap-5 sm:flex'>
-          <div className='font-medium text-lg'>Blocks</div>
-          <ul className='space-y-3 text-muted-foreground'>
-            {blocks.map((block) => (
-              <li key={block}>
+            <p className='max-w-[28rem] text-balance text-sm leading-relaxed'>
+              AI workflow platform for technical LLM trading
+            </p>
+
+            <div className='flex items-center gap-4 max-sm:justify-center'>
+              <a
+                href='https://discord.gg/wavf5JWhuT'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='Discord'
+                className='transition-colors duration-300 hover:text-foreground'
+              >
+                <DiscordIcon className='h-5 w-5' aria-hidden='true' />
+              </a>
+              <a
+                href='https://x.com/simdotai'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='X (Twitter)'
+                className='transition-colors duration-300 hover:text-foreground'
+              >
+                <XIcon className='h-[18px] w-[18px]' aria-hidden='true' />
+              </a>
+              <a
+                href='https://www.linkedin.com/company/tradinggoose/'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='LinkedIn'
+                className='transition-colors duration-300 hover:text-foreground'
+              >
+                <LinkedInIcon className='h-[18px] w-[18px]' aria-hidden='true' />
+              </a>
+              <a
+                href='https://github.com/TradingGoose/TradingGoose-Studio'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='GitHub'
+                className='transition-colors duration-300 hover:text-foreground'
+              >
+                <GithubIcon className='h-5 w-5' aria-hidden='true' />
+              </a>
+            </div>
+
+            <p className='max-w-[28rem] text-balance font-light text-xs leading-relaxed'>
+              {`© ${new Date().getFullYear()} TradingGoose Studio. Built for visual trading workflows.`}
+            </p>
+
+            <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs max-sm:justify-center'>
+              {legalLinks.map((link) => (
                 <Link
-                  href={`https://docs.tradinggoose.ai/blocks/${block.toLowerCase().replace(' ', '-')}`}
-                  target='_blank'
-                  rel='noopener noreferrer'
+                  key={link.label}
+                  href={link.href}
                   className='transition-colors duration-300 hover:text-foreground'
+                  prefetch={false}
                 >
-                  {block}
+                  {link.label}
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Tools */}
-        <div className='hidden flex-col gap-5 sm:flex'>
-          <div className='font-medium text-lg'>Tools</div>
-          <div className='flex gap-[80px]'>
-            <ul className='space-y-3 text-muted-foreground'>
-              {tools.slice(0, Math.ceil(tools.length / 4)).map((tool) => (
-                <li key={tool}>
-                  <Link
-                    href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
+          <div className='text-sm sm:max-w-[28rem] sm:self-start lg:items-end'>
+            <div className='grid grid-cols-4 gap-x-8 gap-y-3 sm:gap-x-12'>
+              {productLinks.map((link) =>
+                link.external ? (
+                  <a
+                    key={link.label}
+                    href={link.href}
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
+                    className='transition-colors duration-300 hover:text-foreground'
                   >
-                    {tool}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <ul className='space-y-3 text-muted-foreground'>
-              {tools
-                .slice(Math.ceil(tools.length / 4), Math.ceil((tools.length * 2) / 4))
-                .map((tool) => (
-                  <li key={tool}>
-                    <Link
-                      href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
-                    >
-                      {tool}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-            <ul className='space-y-3 text-muted-foreground'>
-              {tools
-                .slice(Math.ceil((tools.length * 2) / 4), Math.ceil((tools.length * 3) / 4))
-                .map((tool) => (
-                  <li key={tool}>
-                    <Link
-                      href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
-                    >
-                      {tool}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-            <ul className='space-y-3 text-muted-foreground'>
-              {tools.slice(Math.ceil((tools.length * 3) / 4)).map((tool) => (
-                <li key={tool}>
+                    {link.label}
+                  </a>
+                ) : (
                   <Link
-                    href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
+                    key={link.label}
+                    href={link.href}
+                    className='transition-colors duration-300 hover:text-foreground'
+                    prefetch={false}
                   >
-                    {tool}
+                    {link.label}
                   </Link>
-                </li>
-              ))}
-            </ul>
+                )
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <Separator />
-
-      <div className='mx-auto flex max-w-7xl justify-center p-4 sm:px-6'>
-        <p className='text-balance text-center font-medium'>
-          {`©${new Date().getFullYear()} `}
-          <Link href='/' className='transition-colors duration-300 hover:text-foreground'>
-            TradingGoose Studio
-          </Link>
-        </p>
+        <div
+          aria-hidden='true'
+          className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 absolute left-1/2 z-0 w-full max-w-70 overflow-hidden'
+        >
+          <FooterHoverText text='HONK!' />
+          <div
+            className='pointer-events-none absolute inset-x-0 bottom-0 h-1/3'
+            style={{
+              background: 'linear-gradient(to bottom, transparent, hsl(var(--background)))',
+            }}
+          />
+        </div>
       </div>
     </footer>
   )

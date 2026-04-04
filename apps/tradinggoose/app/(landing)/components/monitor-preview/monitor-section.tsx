@@ -4,7 +4,6 @@ import MonitorPreview from '@/app/(landing)/components/monitor-preview/monitor-p
 
 export default async function MonitorSection() {
   const stocks = await fetchMonitorStocks()
-
   return (
     <section className='py-8 sm:py-16 lg:py-24'>
       <div className='mx-auto px-10 sm:px-16 lg:px-24'>

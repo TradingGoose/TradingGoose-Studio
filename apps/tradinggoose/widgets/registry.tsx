@@ -18,7 +18,7 @@ import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
-import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
+import { copilotWidget } from '@/widgets/widgets/copilot'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
@@ -43,7 +43,7 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   editor_workflow: workflowEditorWidget,
   workflow_chat: chatWidget,
   workflow_console: workflowConsoleWidget,
-  workflow_copilot: workflowCopilotWidget,
+  copilot: copilotWidget,
   list_indicator: listIndicatorWidget,
   list_mcp: listMcpWidget,
   editor_indicator: editorIndicatorWidget,

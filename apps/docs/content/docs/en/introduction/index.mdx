@@ -5,81 +5,87 @@ title: Introduction
 import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Image } from '@/components/ui/image'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-TradingGoose is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
+<ShowcaseCard>
+  <img src="/static/introduction/hero-light.png" alt="TradingGoose Studio" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/hero-dark.png" alt="TradingGoose Studio" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
 
-<div className="flex justify-center">
-  <Image
-    src="/static/introduction.png"
-    alt="TradingGoose visual workflow canvas"
-    width={700}
-    height={450}
-    className="my-6"
-  />
-</div>
+TradingGoose Studio is an AI workflow platform for technical LLM trading. It combines technical analysis with large language models to power your trading decisions — from analytics and research to charting, monitoring, and workflow automation.
+
+Build workflows visually on a canvas by connecting blocks — AI agents, trading actions, technical indicators, API integrations, and more. No coding required for most workflows, with full PineTS scripting support for custom indicators and strategies.
 
 ## What You Can Build
 
-**AI Assistants & Chatbots**
-Create intelligent agents that can search the web, access your calendar, send emails, and interact with your business tools.
+**Trading Automation**
+Connect to brokers (Alpaca, Tradier, Robinhood), execute orders, monitor holdings, and automate trading strategies driven by AI analysis and technical indicators.
 
-**Business Process Automation**
-Automate repetitive tasks like data entry, report generation, customer support responses, and content creation.
+**Technical Analysis & Charting**
+Write custom indicators in PineTS, visualize OHLCV data with interactive candlestick charts, manage watchlists with live market data, and trigger workflows when indicator conditions are met.
 
-**Data Processing & Analysis**
-Extract insights from documents, analyze datasets, generate reports, and sync data between systems.
+**AI-Powered Research**
+Build research agents that analyze market data, scan news, process financial documents, and generate reports using models from OpenAI, Anthropic, Google, and more.
 
-**API Integration Workflows**
-Connect multiple services into unified endpoints, orchestrate complex business logic, and handle event-driven automation.
+**Data Processing & Integration**
+Connect to 120+ services — databases, communication tools, CRMs, and APIs. Orchestrate complex data pipelines with conditions, loops, parallel execution, and error handling.
 
-## How It Works
+## Platform Overview
 
-**Visual Canvas**
-Drag and drop blocks to build workflows. Connect AI models, databases, APIs, and business tools with simple point-and-click connections.
+<ShowcaseCard>
+  <img src="/static/introduction/overview-light.png" alt="TradingGoose Platform Overview" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/overview-dark.png" alt="TradingGoose Platform Overview" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
 
-**Smart Blocks**
-Choose from processing blocks (AI agents, APIs, functions), logic blocks (conditions, loops, routers), and output blocks (responses, evaluators).
+**Visual Workflow Canvas**
+Drag and drop blocks to build workflows. Connect AI models, trading services, databases, and APIs with point-and-click connections.
+
+**Trading Infrastructure**
+Built-in broker integrations (Alpaca, Tradier, Robinhood) and market data providers (Alpha Vantage, Finnhub, Yahoo Finance) for live and paper trading.
+
+**PineTS Scripting**
+Write custom indicators in PineTS — a JavaScript/TypeScript runtime compatible with Pine Script. Connect indicator signals to workflow automation via the `trigger()` API.
+
+**Extensibility**
+Extend the platform with MCP servers, custom tools, reusable skills, and knowledge bases. The AI Copilot helps you build and manage everything across the workspace.
 
 **Multiple Triggers**
-Start workflows via chat interface, REST API, webhooks, scheduled jobs, or external events from services like Slack and GitHub.
-
-**Team Collaboration**
-Work simultaneously with team members on the same workflow with real-time editing and permissions management.
+Start workflows via chat interface, REST API, webhooks, scheduled jobs, indicator signals, or external events from services like Slack and GitHub.
 
 ## Built-in Integrations
 
-TradingGoose connects to 80+ services out of the box:
+TradingGoose connects to 120+ services:
 
-- **AI Models**: OpenAI, Anthropic, Google, Groq, Cerebras, local Ollama models
-- **Communication**: Gmail, Slack, Teams, Telegram, WhatsApp  
-- **Productivity**: Notion, Google Sheets, Airtable, Monday.com
-- **Development**: GitHub, Jira, Linear, browser automation
-- **Search & Web**: Google Search, Perplexity, Firecrawl, Exa AI
-- **Databases**: PostgreSQL, MySQL, Supabase, Pinecone, Qdrant
+- **Trading**: Alpaca, Tradier, Robinhood, Kalshi, Polymarket
+- **Market Data**: Alpha Vantage, Finnhub, Yahoo Finance
+- **AI Models**: OpenAI, Anthropic, Google, Groq, Cerebras, DeepSeek, Ollama (local)
+- **Communication**: Gmail, Slack, Teams, Telegram, WhatsApp, Discord
+- **Productivity**: Notion, Google Sheets, Airtable, Jira, Linear
+- **Development**: GitHub, GitLab, browser automation (Stagehand)
+- **Search & Web**: Google Search, Perplexity, Tavily, Exa, Firecrawl
+- **Databases**: PostgreSQL, MySQL, MongoDB, Supabase, Pinecone, Qdrant
 
-Need something custom? Use our [MCP integration](/mcp) to connect any external service.
+Need something custom? Use [MCP integration](/utilities/mcp) to connect any external service, or build [Custom Tools](/utilities/custom-tools).
 
 ## Deployment Options
 
-**Cloud-hosted**: Get started instantly at [tradinggoose.ai](https://tradinggoose.ai) with managed infrastructure, automatic scaling, and built-in monitoring.
+**Cloud-hosted**: Coming soon — managed infrastructure with automatic scaling and built-in monitoring.
 
 **Self-hosted**: Deploy on your own infrastructure using Docker, with support for local AI models via Ollama for complete data privacy.
 
 ## Next Steps
 
-Ready to build your first AI workflow?
-
 <Cards>
-  <Card title="Getting Started" href="/getting-started">
-    Create your first workflow in 10 minutes
+  <Card title="Indicators" href="/indicators">
+    Write custom PineTS indicators for technical analysis
   </Card>
-  <Card title="Workflow Blocks" href="/blocks">
-    Learn about the building blocks
+  <Card title="Blocks" href="/blocks">
+    Explore all available workflow blocks
   </Card>
   <Card title="Tools & Integrations" href="/tools">
-    Explore 60+ built-in integrations
+    Browse 120+ built-in integrations
   </Card>
-  <Card title="Team Permissions" href="/permissions/roles-and-permissions">
-    Set up workspace roles and permissions
+  <Card title="Utilities" href="/utilities">
+    MCP, Skills, Custom Tools, and Copilot
   </Card>
 </Cards>

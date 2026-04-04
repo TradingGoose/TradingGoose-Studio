@@ -1,0 +1,58 @@
+{/*
+  TEMPLATE: Indicator Scripting Guide (sub-page)
+  OUTPUT:   apps/docs/content/docs/en/indicators/{slug}.mdx
+  
+  The indicators section documents PineTS as a scripting platform,
+  NOT individual indicators. Structure:
+  
+    /indicators/
+      index.mdx            — Overview: what indicators are, how they work
+      getting-started.mdx  — Quick start: write your first indicator
+      syntax.mdx           — PineTS syntax guide (let/var, loops, functions)
+      inputs.mdx           — input.* namespace (parameters UI generates from)
+      ta.mdx               — ta.* technical analysis functions reference
+      math.mdx             — math.* functions reference
+      plots.mdx            — plot/plotshape/fill/bgcolor reference
+      data-series.mdx      — Built-in data (OHLCV, time, bar_index, na/nz)
+      data-structures.mdx  — array.*, map.*, matrix.*, str.* reference
+      triggers.mdx         — TradingGoose trigger() API extension
+      api-reference.mdx    — Full function table (auto-generated from cheat sheet)
+  
+  Each sub-page uses this general structure. Customize per topic.
+*/}
+---
+title: "{{PAGE_TITLE}}"
+description: "{{PAGE_DESCRIPTION}}"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+{{INTRO_PARAGRAPH}}
+
+## {{SECTION_1_TITLE}}
+
+{/*
+  Use tables for API reference lists:
+  | Function | Description |
+  |----------|-------------|
+  | `ta.sma()` | Simple Moving Average |
+*/}
+
+## {{SECTION_2_TITLE}}
+
+{/*
+  Use code blocks for examples:
+  ```pinescript
+  indicator('My Indicator');
+  const length = input.int(14, 'Length');
+  const rsi = ta.rsi(close, length);
+  plot(rsi, 'RSI');
+  ```
+*/}
+
+{/* Use Callout for important notes about TradingGoose-specific behavior */}
+<Callout type="info">
+  {{IMPORTANT_NOTE}}
+</Callout>

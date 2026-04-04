@@ -23,6 +23,7 @@ import type { ExecutionResult } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 import { getTrigger } from '@/triggers'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 
 const logger = createLogger('TriggerWebhookExecution')
 
@@ -419,7 +420,7 @@ async function executeWebhookJobInternal(
     if (input && payload.blockId && blocks[payload.blockId]) {
       try {
         const triggerBlock = blocks[payload.blockId]
-        const triggerId = triggerBlock?.subBlocks?.triggerId?.value
+        const triggerId = triggerBlock ? resolveTriggerIdForBlock(triggerBlock) : null
 
         if (triggerId && typeof triggerId === 'string') {
           const triggerConfig = getTrigger(triggerId)

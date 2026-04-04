@@ -34,6 +34,19 @@ class MarketClient {
     const controller = timeoutMs ? new AbortController() : null
     const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
 
+    const buildTimeoutResponse = (): MarketClientResponse<T> => {
+      logger.warn(`[${requestId}] Market request timed out`, {
+        endpoint,
+        timeoutMs,
+      })
+
+      return {
+        success: false,
+        error: `Request timed out after ${timeoutMs}ms`,
+        status: 408,
+      }
+    }
+
     try {
       const url = `${this.baseUrl}${endpoint}`
 
@@ -72,6 +85,10 @@ class MarketClient {
         const responseText = await response.text()
         responseData = responseText ? JSON.parse(responseText) : null
       } catch (parseError) {
+        if (parseError instanceof Error && parseError.name === 'AbortError') {
+          return buildTimeoutResponse()
+        }
+
         logger.error(`[${requestId}] Failed to parse response`, parseError)
         return {
           success: false,
@@ -94,15 +111,7 @@ class MarketClient {
       }
     } catch (fetchError) {
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        logger.warn(`[${requestId}] Market request timed out`, {
-          endpoint,
-          timeoutMs,
-        })
-        return {
-          success: false,
-          error: `Request timed out after ${timeoutMs}ms`,
-          status: 408,
-        }
+        return buildTimeoutResponse()
       }
 
       logger.error(`[${requestId}] Request failed`, fetchError)

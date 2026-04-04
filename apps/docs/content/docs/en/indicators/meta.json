@@ -1,0 +1,16 @@
+{
+  "title": "Indicators",
+  "pages": [
+    "index",
+    "getting-started",
+    "syntax",
+    "inputs",
+    "data-series",
+    "ta",
+    "math",
+    "plots",
+    "data-structures",
+    "triggers",
+    "api-reference"
+  ]
+}

@@ -1,0 +1,112 @@
+---
+title: Webhook Request
+description: Send outbound HTTP POST webhook calls with optional HMAC signing
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="webhook_request"
+  color="#10B981"
+  icon={true}
+/>
+
+The Webhook Request block sends an **outbound** HTTP POST request to an external webhook URL. Use it to push workflow results to third-party services such as Zapier, Make, n8n, or any custom endpoint that accepts webhook payloads.
+
+<Callout type="warning">
+  This block sends **outbound** webhook calls (your workflow calls an external URL). It is different from the **Webhook Trigger**, which listens for **inbound** requests that start a workflow.
+</Callout>
+
+## Overview
+
+<Steps>
+  <Step>
+    <strong>Set the destination URL</strong>: Point to any endpoint that accepts HTTP POST requests
+  </Step>
+  <Step>
+    <strong>Build the JSON payload</strong>: Include data from upstream blocks using variable references like `<agent.content>`
+  </Step>
+  <Step>
+    <strong>Optionally sign the request</strong>: Provide an HMAC-SHA256 signing secret so the receiver can verify authenticity
+  </Step>
+  <Step>
+    <strong>Add custom headers</strong>: Include API keys, content types, or any extra headers the receiver requires
+  </Step>
+</Steps>
+
+## How It Works
+
+When the block executes it:
+
+1. Resolves any variable references (`<block.output>`) in the URL, payload, and headers.
+2. Serializes the payload as JSON.
+3. If a **Signing Secret** is provided, computes an HMAC-SHA256 signature over the payload and attaches it as a webhook header so the receiving server can verify the request was not tampered with.
+4. Sends the POST request with `Content-Type: application/json` and any additional headers you configured.
+5. Returns the response data, status code, and response headers as block outputs.
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook"
+    type="webhook_request"
+    color="#10B981"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "placeholder": "https://example.com/webhook",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "code",
+            "title": "Payload",
+            "placeholder": "Enter JSON payload...",
+            "language": "json"
+        },
+        {
+            "id": "secret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Optional: Secret for HMAC signature",
+            "password": true
+        },
+        {
+            "id": "headers",
+            "type": "table",
+            "title": "Additional Headers",
+            "description": "Optional custom headers to include with the webhook request"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### Fields
+
+| Field | Required | Description |
+|---|---|---|
+| **Webhook URL** | Yes | The destination endpoint. Must accept HTTP POST. |
+| **Payload** | No | JSON body to send. Use `<block.output>` to reference upstream data. |
+| **Signing Secret** | No | A shared secret used to generate an HMAC-SHA256 signature header for payload verification. |
+| **Additional Headers** | No | Key-value pairs appended to the request (e.g., `Authorization: Bearer ...`). |
+
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `data` | json | The parsed response body from the external endpoint |
+| `status` | number | HTTP status code returned by the endpoint |
+| `headers` | json | Response headers |
+
+## Best Practices
+
+- **Store secrets in environment variables** -- reference your signing secret with `{{WEBHOOK_SECRET}}` instead of pasting it directly.
+- **Check the status output** -- use a Condition or Router block after the webhook to handle non-2xx responses gracefully.
+- **Keep payloads small** -- send only the data the receiver needs. Large payloads increase latency and may be rejected by some endpoints.

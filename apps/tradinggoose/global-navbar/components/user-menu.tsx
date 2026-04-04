@@ -14,7 +14,6 @@ import {
   LogOut,
   Monitor,
   Moon,
-  Settings,
   Sun,
   Users,
   type LucideIcon,
@@ -361,21 +360,6 @@ export function UserMenu({
                 >
                   <User />
                   Account Detail
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('general')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'general' } })
-                      )
-                    }
-                  }}
-                >
-                  <Settings />
-                  General Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={(event) => {

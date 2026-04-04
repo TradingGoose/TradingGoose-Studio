@@ -29,7 +29,7 @@ import {
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   resolveCustomToolId,
-} from '@/widgets/widgets/custom_tool/utils'
+} from '@/widgets/widgets/_shared/custom_tool/utils'
 import {
   CustomToolEditor,
   type CustomToolEditorSection,

@@ -1,0 +1,183 @@
+---
+title: Imap Trigger
+description: Triggers when new emails are received via IMAP (works with any email provider)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="imap"
+  color=""
+/>
+
+Triggers when new emails are received via IMAP (works with any email provider)
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+</Callout>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="IMAP Email Trigger"
+    type="imap_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "IMAP Server",
+            "placeholder": "imap.example.com",
+            "description": "IMAP server hostname (e.g., imap.gmail.com, outlook.office365.com)",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "placeholder": "993",
+            "description": "IMAP port (993 for SSL/TLS, 143 for STARTTLS)",
+            "required": true
+        },
+        {
+            "id": "secure",
+            "type": "switch",
+            "title": "Use SSL/TLS",
+            "description": "Enable SSL/TLS encryption (recommended for port 993)"
+        },
+        {
+            "id": "rejectUnauthorized",
+            "type": "switch",
+            "title": "Verify TLS Certificate",
+            "description": "Verify server TLS certificate. Disable for self-signed certificates."
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "user@example.com",
+            "description": "Email address or username for authentication",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "App password or email password",
+            "description": "Password or app-specific password (for Gmail, use an App Password)",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "mailbox",
+            "type": "dropdown",
+            "title": "Mailboxes to Monitor",
+            "placeholder": "Select mailboxes to monitor",
+            "description": "Choose which mailbox/folder(s) to monitor for new emails. Leave empty to monitor INBOX."
+        },
+        {
+            "id": "searchCriteria",
+            "type": "code",
+            "title": "Search Criteria",
+            "placeholder": "{ \"unseen\": true }",
+            "description": "ImapFlow search criteria as JSON object. Default: unseen messages only."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Mark as Read",
+            "description": "Automatically mark emails as read (SEEN) after processing"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Include Attachments",
+            "description": "Download and include email attachments in the trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "RFC Message-ID header"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Email subject line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Sender email address"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Recipient email address"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC recipients"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Email date in ISO format"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain text email body"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email body"
+              },
+              {
+                  "name": "mailbox",
+                  "type": "string",
+                  "description": "Mailbox/folder where email was received"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Whether email has attachments"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Array of email attachments as files (if includeAttachments is enabled)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Event timestamp"
+      }
+  ]}
+/>
+
+

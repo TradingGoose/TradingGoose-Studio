@@ -9,7 +9,7 @@ import { LegalLayout } from '@/app/(landing)/components'
 export default function PrivacyPolicy() {
   const brand = useBrandConfig()
   const projectName = brand.name || 'TradingGoose Studio'
-  const supportEmail = brand.supportEmail || 'help@tradinggoose.ai'
+  const supportEmail = brand.supportEmail || 'support@tradinggoose.ai'
   const supportEmailHref = `mailto:${supportEmail}`
 
   useEffect(() => {

@@ -31,23 +31,26 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                       <td align='center' style={{ padding: '0 8px' }}>
                         <Link href='https://discord.gg/wavf5JWhuT' rel='noopener noreferrer'>
                           <Img
-                            src='https://cdn-icons-png.flaticon.com/512/5968/5968756.png'
+                            src='https://avatars.githubusercontent.com/u/1965106'
                             width='24'
                             height='24'
                             alt='Discord'
+                            style={{ borderRadius: '50%' }}
                           />
                         </Link>
                       </td>
                       <td align='center' style={{ padding: '0 8px' }}>
                         <Link href='https://github.com/TradingGoose/TradingGoose-Studio' rel='noopener noreferrer'>
                           <Img
-                            src='https://cdn.iconscout.com/icon/free/png-256/free-github-icon-svg-download-png-3073768.png'
+                            src='https://avatars.githubusercontent.com/u/9919'
                             width='24'
                             height='24'
                             alt='GitHub'
+                            style={{ borderRadius: '50%' }}
                           />
                         </Link>
                       </td>
+
                     </tr>
                   </tbody>
                 </table>
@@ -127,7 +130,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             href={
                               unsubscribe?.unsubscribeToken && unsubscribe?.email
                                 ? `${baseUrl}/unsubscribe?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
-                                : `mailto:${brand.supportEmail}?subject=Unsubscribe%20Request&body=Please%20unsubscribe%20me%20from%20all%20emails.`
+                                : '{{{RESEND_UNSUBSCRIBE_URL}}}'
                             }
                             style={{
                               color: baseStyles.link.color,

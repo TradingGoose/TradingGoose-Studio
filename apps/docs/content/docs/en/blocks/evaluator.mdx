@@ -1,24 +1,38 @@
 ---
 title: Evaluator
+description: Score and assess content quality with AI
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Image } from '@/components/ui/image'
-import { Video } from '@/components/ui/video'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="number"
+  color="#4D5FFF"
+/>
 
 The Evaluator block uses AI to score and assess content quality using customizable evaluation metrics that you define. Perfect for quality control, A/B testing, and ensuring your AI outputs meet specific standards.
 
-<div className="flex justify-center">
-  <Image
-    src="/static/blocks/evaluator.png"
-    alt="Evaluator Block Configuration"
-    width={500}
-    height={400}
-    className="my-6"
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Evaluator"
+    type="evaluator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+      { "id": "metrics", "title": "Evaluation Metrics", "type": "eval-input", "layout": "full", "required": true },
+      { "id": "content", "title": "Content", "type": "short-input", "layout": "full", "placeholder": "Enter the content to evaluate", "required": true },
+      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 ## Overview
 
@@ -83,10 +97,6 @@ Choose an AI model to perform the evaluation:
 **Google**: Gemini 2.5 Pro, Gemini 2.0 Flash
 **Other Providers**: Groq, Cerebras, xAI, DeepSeek
 **Local Models**: Any model running on Ollama
-
-<div className="w-full max-w-2xl mx-auto overflow-hidden rounded-lg">
-  <Video src="models.mp4" width={500} height={350} />
-</div>
 
 **Recommendation**: Use models with strong reasoning capabilities like GPT-4o or Claude 3.7 Sonnet for more accurate evaluations.
 

@@ -1,18 +1,36 @@
 ---
-    title: SDKs
-    description: Client libraries to integrate TradingGoose programmatically.
+title: SDKs
+description: Programmatic access to TradingGoose workflows
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-    ## Overview
+Integrate TradingGoose workflows into your applications with our SDKs.
 
-    This page introduces the sdks section.
+<Callout type="warn">
+  SDKs are currently under development. The API endpoints documented in the [Execution API](/execution/api) page are available now for direct HTTP integration.
+</Callout>
 
-    <Cards>
-      <Card title="TypeScript SDK" href="/typescript">
-        Jump into the detailed guides for TypeScript SDK.
-      </Card>
-      <Card title="Python SDK" href="/python">
-        Jump into the detailed guides for Python SDK.
-      </Card>
-    </Cards>
+<Cards>
+  <Card title="Python SDK" href="/sdks/python">
+    Coming soon
+  </Card>
+  <Card title="TypeScript SDK" href="/sdks/typescript">
+    Coming soon
+  </Card>
+</Cards>
+
+## Direct API Access
+
+While SDKs are in development, you can integrate with TradingGoose using the REST API directly:
+
+```bash
+curl -X POST \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_KEY' \
+  -d '{"input": "your data"}'
+```
+
+See the [Execution API](/execution/api) docs for complete endpoint documentation, streaming, and webhook callbacks.

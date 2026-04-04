@@ -1,0 +1,896 @@
+---
+title: Mailgun
+description: Send emails and manage mailing lists with Mailgun
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mailgun"
+  color="#E0E0E0"
+/>
+
+
+## Configuration
+
+### Send Message
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "send_message"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "From Email",
+            "placeholder": "sender@example.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To Email",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Subject",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Text Body",
+            "placeholder": "Plain text email body"
+        },
+        {
+            "id": "html",
+            "type": "code",
+            "title": "HTML Body",
+            "placeholder": "<html><body>HTML email body</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Tags",
+            "placeholder": "tag1, tag2"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### Get Message
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "get_message"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "messageKey",
+            "type": "short-input",
+            "title": "Message Key",
+            "placeholder": "Message storage key",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### List Messages
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "list_messages"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "event",
+            "type": "dropdown",
+            "title": "Event Type",
+            "options": [
+                {
+                    "label": "Accepted",
+                    "id": "accepted"
+                },
+                {
+                    "label": "Delivered",
+                    "id": "delivered"
+                },
+                {
+                    "label": "Failed",
+                    "id": "failed"
+                },
+                {
+                    "label": "Opened",
+                    "id": "opened"
+                },
+                {
+                    "label": "Clicked",
+                    "id": "clicked"
+                },
+                {
+                    "label": "Unsubscribed",
+                    "id": "unsubscribed"
+                },
+                {
+                    "label": "Complained",
+                    "id": "complained"
+                },
+                {
+                    "label": "Stored",
+                    "id": "stored"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### Create Mailing List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "create_mailing_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "List Address",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "List Name",
+            "placeholder": "My Mailing List"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Description",
+            "placeholder": "Description of the mailing list"
+        },
+        {
+            "id": "accessLevel",
+            "type": "dropdown",
+            "title": "Access Level",
+            "options": [
+                {
+                    "label": "Read Only",
+                    "id": "readonly"
+                },
+                {
+                    "label": "Members",
+                    "id": "members"
+                },
+                {
+                    "label": "Everyone",
+                    "id": "everyone"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### Get Mailing List
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "get_mailing_list"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "List Address",
+            "placeholder": "list@example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### Add List Member
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "add_list_member"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "List Address",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "memberAddress",
+            "type": "short-input",
+            "title": "Member Email",
+            "placeholder": "member@example.com",
+            "required": true
+        },
+        {
+            "id": "memberName",
+            "type": "short-input",
+            "title": "Member Name",
+            "placeholder": "John Doe"
+        },
+        {
+            "id": "vars",
+            "type": "code",
+            "title": "Custom Variables",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        },
+        {
+            "id": "subscribed",
+            "type": "dropdown",
+            "title": "Subscribed",
+            "options": [
+                {
+                    "label": "Yes",
+                    "id": "true"
+                },
+                {
+                    "label": "No",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### List Domains
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "list_domains"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+### Get Domain
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send_message"
+                },
+                {
+                    "label": "Get Message",
+                    "id": "get_message"
+                },
+                {
+                    "label": "List Messages",
+                    "id": "list_messages"
+                },
+                {
+                    "label": "Create Mailing List",
+                    "id": "create_mailing_list"
+                },
+                {
+                    "label": "Get Mailing List",
+                    "id": "get_mailing_list"
+                },
+                {
+                    "label": "Add List Member",
+                    "id": "add_list_member"
+                },
+                {
+                    "label": "List Domains",
+                    "id": "list_domains"
+                },
+                {
+                    "label": "Get Domain",
+                    "id": "get_domain"
+                }
+            ],
+            "defaultValue": "get_domain"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API Key",
+            "placeholder": "Enter your Mailgun API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "mg.example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Operation success status |
+| `id` | string | Message ID |
+| `message` | string | Response message |
+| `items` | json | Array of items \(messages, domains\) |
+| `list` | json | Mailing list details |
+| `member` | json | Member details |
+| `domain` | json | Domain details |
+| `totalCount` | number | Total count of items |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Mailgun into your workflow. Send transactional emails, manage mailing lists and members, view domain information, and track email events. Supports text and HTML emails, tags for tracking, and comprehensive list management.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `mailgun`

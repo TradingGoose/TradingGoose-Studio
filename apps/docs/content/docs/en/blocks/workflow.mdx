@@ -3,20 +3,30 @@ title: Workflow Block
 description: Run another workflow inside the current flow
 ---
 
+import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Image } from '@/components/ui/image'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="workflow"
+  color="#705335"
+/>
 
 ## What It Does
 
-<div className='flex justify-center my-6'>
-  <Image
-    src='/static/blocks/workflow.png'
-    alt='Workflow block configuration'
-    width={400}
-    height={280}
-    className='rounded-xl border border-border shadow-sm'
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow"
+    color="#705335"
+    hideHeader
+    subBlocks={[
+      { "id": "workflowId", "title": "Select Workflow", "type": "dropdown", "required": true },
+      { "id": "input", "title": "Input Variable (Optional)", "type": "short-input", "placeholder": "Select a variable to pass to the child workflow", "description": "This variable will be available as start.input in the child workflow" }
+    ]}
   />
-</div>
+</ShowcaseCard>
 
 Drop a Workflow block when you want to call a child workflow as part of a larger flow. The block runs the latest deployed version of that workflow, waits for it to finish, and then continues with the parent.
 

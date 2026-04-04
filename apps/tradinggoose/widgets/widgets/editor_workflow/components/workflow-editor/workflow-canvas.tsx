@@ -240,6 +240,7 @@ const WorkflowCanvas = React.memo(
 
     // Extract workflow data from the abstraction
     const { blocks, edges, isDiffMode } = currentWorkflow
+    const resolvedSelectedNodeId = selectedNodeId && blocks[selectedNodeId] ? selectedNodeId : null
     const hasLockedBlocks = useMemo(
       () => Object.values(blocks).some((block) => Boolean(block.locked)),
       [blocks]
@@ -249,6 +250,12 @@ const WorkflowCanvas = React.memo(
     const isWorkflowEmpty = useMemo(() => {
       return Object.keys(blocks).length === 0
     }, [blocks])
+
+    useEffect(() => {
+      if (selectedNodeId && !blocks[selectedNodeId]) {
+        setSelectedNodeId(null)
+      }
+    }, [blocks, selectedNodeId])
 
     // Get diff analysis for edge reconstruction
     const { diffAnalysis, isShowingDiff, isDiffReady } = useWorkflowDiffStore()
@@ -1201,7 +1208,7 @@ const WorkflowCanvas = React.memo(
 
       return derivedNodes.map((node) => ({
         ...node,
-        selected: selectedNodeId !== null && node.id === selectedNodeId,
+        selected: resolvedSelectedNodeId !== null && node.id === resolvedSelectedNodeId,
       }))
     }, [
       blocksHash,
@@ -1211,7 +1218,7 @@ const WorkflowCanvas = React.memo(
       isDebugging,
       nestedSubflowErrors,
       getBlockConfig,
-      selectedNodeId,
+      resolvedSelectedNodeId,
     ])
 
     // Update nodes - use store version to avoid collaborative feedback loops
@@ -1664,7 +1671,7 @@ const WorkflowCanvas = React.memo(
             autoPanOnNodeDrag={effectivePermissions.canEdit}
           >
             <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
-            <NodeEditorPanel selectedNodeId={selectedNodeId} />
+            <NodeEditorPanel selectedNodeId={resolvedSelectedNodeId} />
           </ReactFlow>
 
           {/* Show DiffControls if diff is available (regardless of current view mode) */}

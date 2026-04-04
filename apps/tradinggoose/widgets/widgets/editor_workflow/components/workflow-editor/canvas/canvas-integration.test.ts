@@ -1,12 +1,14 @@
+import type { Node } from 'reactflow'
 import { describe, expect, it, vi } from 'vitest'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 import { resolveCanvasNodeDescriptor } from './block-registry'
 import { createConnectionEdge } from './connection-manager'
 import { deriveCanvasNodes } from './derive-canvas-nodes'
 import { updateNodeParentForCanvas } from './parenting-manager'
-import type { BlockState } from '@/stores/workflows/workflow/types'
-import type { Node } from 'reactflow'
 
-function createBlock(overrides: Partial<BlockState> & Pick<BlockState, 'id' | 'type' | 'name'>): BlockState {
+function createBlock(
+  overrides: Partial<BlockState> & Pick<BlockState, 'id' | 'type' | 'name'>
+): BlockState {
   return {
     id: overrides.id,
     type: overrides.type,
@@ -86,22 +88,24 @@ describe('canvas integration sequence', () => {
       }
     })
 
-    const updateNodeDimensions = vi.fn((id: string, dimensions: { width: number; height: number }) => {
-      blocks[id].data = {
-        ...(blocks[id].data ?? {}),
-        width: dimensions.width,
-        height: dimensions.height,
-      }
-
-      const node = nodes.find((n) => n.id === id)
-      if (node) {
-        node.data = {
-          ...(node.data as any),
+    const updateNodeDimensions = vi.fn(
+      (id: string, dimensions: { width: number; height: number }) => {
+        blocks[id].data = {
+          ...(blocks[id].data ?? {}),
           width: dimensions.width,
           height: dimensions.height,
         }
+
+        const node = nodes.find((n) => n.id === id)
+        if (node) {
+          node.data = {
+            ...(node.data as any),
+            width: dimensions.width,
+            height: dimensions.height,
+          }
+        }
       }
-    })
+    )
 
     const parentUpdate = updateNodeParentForCanvas({
       nodeId: 'target1',
@@ -144,6 +148,30 @@ describe('canvas integration sequence', () => {
       id: 'edge-loop-target',
       source: 'loop1',
       target: 'target1',
+      type: 'workflowEdge',
+      data: {
+        parentId: 'loop1',
+        isInsideContainer: true,
+      },
+    })
+
+    const internalEndEdge = createConnectionEdge({
+      connection: {
+        source: 'target1',
+        sourceHandle: 'source',
+        target: 'loop1',
+        targetHandle: 'loop-end-target',
+      },
+      nodes,
+      blocks,
+      createEdgeId: () => 'edge-target-loop-end',
+    })
+
+    expect(internalEndEdge).toMatchObject({
+      id: 'edge-target-loop-end',
+      source: 'target1',
+      target: 'loop1',
+      targetHandle: 'loop-end-target',
       type: 'workflowEdge',
       data: {
         parentId: 'loop1',

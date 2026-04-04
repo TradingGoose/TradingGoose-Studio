@@ -183,7 +183,11 @@ export function LandingIndicatorDropdown({
                         >
                           <Activity className='h-4 w-4' style={{ color: option.color }} />
                         </div>
-                        <span className={widgetHeaderMenuTextClassName}>{option.name}</span>
+                        <span
+                          className={cn(widgetHeaderMenuTextClassName, 'min-w-0 flex-1 truncate')}
+                        >
+                          {option.name}
+                        </span>
                         {isSelected ? <Check className='h-4 w-4 text-foreground' /> : null}
                       </DropdownMenuItem>
                     )

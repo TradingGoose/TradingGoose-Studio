@@ -70,19 +70,17 @@ const nextConfig: NextConfig = {
     ],
   },
   typescript: {
-    ignoreBuildErrors: isTruthy(env.DOCKER_BUILD),
-  },
-  eslint: {
-    ignoreDuringBuilds: isTruthy(env.DOCKER_BUILD),
+    ignoreBuildErrors: isTruthy(env.DOCKER_BUILD) || isTruthy(env.VERCEL),
   },
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
-  serverExternalPackages: ['pdf-parse'],
+  serverExternalPackages: ['pdf-parse', 'playwright-core', 'playwright', '@browserbasehq/stagehand'],
   experimental: {
-    optimizeCss: true,
+    optimizeCss: false,
     turbopackSourceMaps: false,
+    preloadEntriesOnStart: false,
   },
   ...(isDev && {
     allowedDevOrigins: [

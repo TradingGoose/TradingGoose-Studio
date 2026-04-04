@@ -1,17 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubflowNodeComponent } from '@/widgets/widgets/editor_workflow/components/subflows/subflow-node'
 
-// Shared spies used across mocks
-const mockRemoveBlock = vi.fn()
 const mockGetNodes = vi.fn()
 
 // Mocks
-vi.mock('@/hooks/use-collaborative-workflow', () => ({
-  useCollaborativeWorkflow: vi.fn(() => ({
-    collaborativeRemoveBlock: mockRemoveBlock,
-  })),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -32,6 +24,7 @@ vi.mock('reactflow', () => ({
   useReactFlow: () => ({
     getNodes: mockGetNodes,
   }),
+  useUpdateNodeInternals: () => vi.fn(),
   memo: (component: any) => component,
 }))
 
@@ -40,26 +33,14 @@ vi.mock('react', async () => {
   return {
     ...actual,
     memo: (component: any) => component,
+    useEffect: (fn: any) => fn(),
     useMemo: (fn: any) => fn(),
-    useRef: () => ({ current: null }),
   }
 })
-
-vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, ...props }: any) => ({ children, onClick, ...props }),
-}))
 
 vi.mock('@/components/ui/card', () => ({
   Card: ({ children, ...props }: any) => ({ children, ...props }),
 }))
-
-vi.mock('@/components/icons/icons', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
-  return {
-    ...actual,
-    StartIcon: ({ className }: any) => ({ className }),
-  }
-})
 
 vi.mock('@/lib/utils', () => ({
   cn: (...classes: any[]) => classes.filter(Boolean).join(' '),
@@ -148,73 +129,6 @@ describe('SubflowNodeComponent', () => {
     })
   })
 
-  describe('Hook Integration', () => {
-    it.concurrent('should provide collaborativeRemoveBlock', () => {
-      expect(mockRemoveBlock).toBeDefined()
-      expect(typeof mockRemoveBlock).toBe('function')
-      mockRemoveBlock('test-id')
-      expect(mockRemoveBlock).toHaveBeenCalledWith('test-id')
-    })
-  })
-
-  describe('Component Logic Tests', () => {
-    it.concurrent('should handle nesting level calculation logic', () => {
-      const testCases = [
-        { nodes: [], parentId: undefined, expectedLevel: 0 },
-        { nodes: [{ id: 'parent', data: {} }], parentId: 'parent', expectedLevel: 1 },
-        {
-          nodes: [
-            { id: 'parent', data: { parentId: 'grandparent' } },
-            { id: 'grandparent', data: {} },
-          ],
-          parentId: 'parent',
-          expectedLevel: 2,
-        },
-      ]
-
-      testCases.forEach(({ nodes, parentId, expectedLevel }) => {
-        mockGetNodes.mockReturnValue(nodes)
-
-        // Simulate the nesting level calculation logic
-        let level = 0
-        let currentParentId = parentId
-
-        while (currentParentId) {
-          level++
-          const parentNode = nodes.find((n) => n.id === currentParentId)
-          if (!parentNode) break
-          currentParentId = parentNode.data?.parentId
-        }
-
-        expect(level).toBe(expectedLevel)
-      })
-    })
-
-    it.concurrent('should handle nested styles generation', () => {
-      // Test the nested styles logic
-      const testCases = [
-        { nestingLevel: 0, expectedBg: 'rgba(34,197,94,0.05)' },
-        { nestingLevel: 1, expectedBg: '#e2e8f030' },
-        { nestingLevel: 2, expectedBg: '#cbd5e130' },
-      ]
-
-      testCases.forEach(({ nestingLevel, expectedBg }) => {
-        // Simulate the getNestedStyles logic
-        const styles: Record<string, string> = {
-          backgroundColor: 'rgba(34,197,94,0.05)',
-        }
-
-        if (nestingLevel > 0) {
-          const colors = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#475569']
-          const colorIndex = (nestingLevel - 1) % colors.length
-          styles.backgroundColor = `${colors[colorIndex]}30`
-        }
-
-        expect(styles.backgroundColor).toBe(expectedBg)
-      })
-    })
-  })
-
   describe('Component Configuration', () => {
     it.concurrent('should handle different dimensions', () => {
       const dimensionTests = [
@@ -229,28 +143,6 @@ describe('SubflowNodeComponent', () => {
         expect(data.width).toBe(width)
         expect(data.height).toBe(height)
       })
-    })
-  })
-
-  describe('Event Handling Logic', () => {
-    it.concurrent('should handle delete button click logic (simulated)', () => {
-      const mockEvent = { stopPropagation: vi.fn() }
-
-      const handleDelete = (e: any, nodeId: string) => {
-        e.stopPropagation()
-        mockRemoveBlock(nodeId)
-      }
-
-      handleDelete(mockEvent, 'test-id')
-
-      expect(mockEvent.stopPropagation).toHaveBeenCalled()
-      expect(mockRemoveBlock).toHaveBeenCalledWith('test-id')
-    })
-
-    it.concurrent('should handle event propagation prevention', () => {
-      const mockEvent = { stopPropagation: vi.fn() }
-      mockEvent.stopPropagation()
-      expect(mockEvent.stopPropagation).toHaveBeenCalled()
     })
   })
 
@@ -388,31 +280,18 @@ describe('SubflowNodeComponent', () => {
   })
 
   describe('CSS Class Generation', () => {
-    it.concurrent('should generate proper CSS classes for nested loops', () => {
-      const nestingLevel = 2
-      const expectedBorderClass =
-        nestingLevel > 0 &&
-        `border border-[0.5px] ${nestingLevel % 2 === 0 ? 'border-slate-300/60' : 'border-slate-400/60'}`
-
-      expect(expectedBorderClass).toBeTruthy()
-      expect(expectedBorderClass).toContain('border-slate-300/60') // even nesting level
-    })
-
-    it.concurrent('should generate proper CSS classes for odd nested levels', () => {
-      const nestingLevel = 3
-      const expectedBorderClass =
-        nestingLevel > 0 &&
-        `border border-[0.5px] ${nestingLevel % 2 === 0 ? 'border-slate-300/60' : 'border-slate-400/60'}`
-
-      expect(expectedBorderClass).toBeTruthy()
-      expect(expectedBorderClass).toContain('border-slate-400/60') // odd nesting level
-    })
-
     it.concurrent('should handle error state styling', () => {
       const hasNestedError = true
-      const errorClasses = hasNestedError && 'border-2 border-red-500 bg-red-50/50'
+      const errorClasses = hasNestedError && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10'
 
-      expect(errorClasses).toBe('border-2 border-red-500 bg-red-50/50')
+      expect(errorClasses).toBe('bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10')
+    })
+
+    it.concurrent('should use the shared hover ring styling pattern', () => {
+      const hoverClasses = 'hover:ring-1 hover:ring-[var(--block-hover-color)]'
+
+      expect(hoverClasses).toContain('hover:ring-1')
+      expect(hoverClasses).toContain('--block-hover-color')
     })
 
     it.concurrent('should handle diff status styling', () => {
@@ -433,94 +312,6 @@ describe('SubflowNodeComponent', () => {
           expect(diffClass).toContain('ring-orange-500')
         }
       })
-    })
-  })
-
-  describe('Edge Cases and Error Handling', () => {
-    it.concurrent('should handle circular parent references', () => {
-      const nodes = [
-        { id: 'node1', data: { parentId: 'node2' } },
-        { id: 'node2', data: { parentId: 'node1' } },
-      ]
-
-      mockGetNodes.mockReturnValue(nodes)
-
-      let level = 0
-      let currentParentId = 'node1'
-      const visited = new Set<string>()
-
-      while (currentParentId) {
-        if (visited.has(currentParentId)) {
-          break
-        }
-
-        visited.add(currentParentId)
-        level++
-
-        const parentNode = nodes.find((n) => n.id === currentParentId)
-        if (!parentNode) break
-        currentParentId = parentNode.data?.parentId
-      }
-
-      expect(level).toBe(2)
-      expect(visited.has('node1')).toBe(true)
-      expect(visited.has('node2')).toBe(true)
-    })
-
-    it.concurrent('should handle complex circular reference chains', () => {
-      const nodes = [
-        { id: 'node1', data: { parentId: 'node2' } },
-        { id: 'node2', data: { parentId: 'node3' } },
-        { id: 'node3', data: { parentId: 'node1' } },
-      ]
-
-      mockGetNodes.mockReturnValue(nodes)
-
-      let level = 0
-      let currentParentId = 'node1'
-      const visited = new Set<string>()
-
-      while (currentParentId) {
-        if (visited.has(currentParentId)) {
-          break
-        }
-
-        visited.add(currentParentId)
-        level++
-
-        const parentNode = nodes.find((n) => n.id === currentParentId)
-        if (!parentNode) break
-        currentParentId = parentNode.data?.parentId
-      }
-
-      expect(level).toBe(3)
-      expect(visited.size).toBe(3)
-    })
-
-    it.concurrent('should handle self-referencing nodes', () => {
-      const nodes = [{ id: 'node1', data: { parentId: 'node1' } }]
-
-      mockGetNodes.mockReturnValue(nodes)
-
-      let level = 0
-      let currentParentId = 'node1'
-      const visited = new Set<string>()
-
-      while (currentParentId) {
-        if (visited.has(currentParentId)) {
-          break
-        }
-
-        visited.add(currentParentId)
-        level++
-
-        const parentNode = nodes.find((n) => n.id === currentParentId)
-        if (!parentNode) break
-        currentParentId = parentNode.data?.parentId
-      }
-
-      expect(level).toBe(1)
-      expect(visited.has('node1')).toBe(true)
     })
   })
 })

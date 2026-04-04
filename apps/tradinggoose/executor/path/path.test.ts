@@ -236,6 +236,23 @@ describe('PathTracker', () => {
         expect(mockContext.activeExecutionPath.has('block2')).toBe(false)
       })
 
+      it('should ignore internal end-target connections for path activation and active-path checks', () => {
+        mockWorkflow.connections.push({
+          source: 'block1',
+          target: 'loop1',
+          targetHandle: 'loop-end-target',
+        })
+
+        mockContext.activeExecutionPath.add('block1')
+        mockContext.executedBlocks.add('block1')
+
+        expect(pathTracker.isInActivePath('loop1', mockContext)).toBe(false)
+
+        pathTracker.updateExecutionPaths(['block1'], mockContext)
+
+        expect(mockContext.activeExecutionPath.has('loop1')).toBe(false)
+      })
+
       it('should not activate loop-start connections when loop is completed', () => {
         mockContext.completedLoops.add('loop1')
         pathTracker.updateExecutionPaths(['loop1'], mockContext)

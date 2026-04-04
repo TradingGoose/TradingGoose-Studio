@@ -17,7 +17,7 @@ import {
   SkillList,
   SkillListMessage,
 } from '@/widgets/widgets/list_skill/components/skill-list/skill-list'
-import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/skill/utils'
+import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 
 const DEFAULT_SKILL_NAME = 'new-skill'
 

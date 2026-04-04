@@ -1,0 +1,2307 @@
+---
+title: Polymarket
+description: Access prediction markets data from Polymarket
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="polymarket"
+  color="#4C82FB"
+/>
+
+
+## Configuration
+
+### Get Markets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_markets"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "Status",
+            "options": [
+                {
+                    "label": "Active Only",
+                    "id": "false"
+                },
+                {
+                    "label": "Closed Only",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Sort By",
+            "options": [
+                {
+                    "label": "Volume",
+                    "id": "volumeNum"
+                },
+                {
+                    "label": "Liquidity",
+                    "id": "liquidityNum"
+                },
+                {
+                    "label": "Start Date",
+                    "id": "startDate"
+                },
+                {
+                    "label": "End Date",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Created At",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Updated At",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "Sort Order",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "Tag ID",
+            "placeholder": "Filter by tag ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Markets (<code>polymarket_get_markets</code>)</div>
+
+Retrieve a list of prediction markets from Polymarket with optional filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `closed` | string | No | Filter by closed status \(true/false\). Use false for active markets only. |
+| `order` | string | No | Sort field \(e.g., volumeNum, liquidityNum, startDate, endDate, createdAt\) |
+| `ascending` | string | No | Sort direction \(true for ascending, false for descending\) |
+| `tagId` | string | No | Filter by tag ID |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset \(skip this many results\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Market
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_market"
+        },
+        {
+            "id": "marketId",
+            "type": "short-input",
+            "title": "Market ID",
+            "placeholder": "Market ID (required if no slug)"
+        },
+        {
+            "id": "marketSlug",
+            "type": "short-input",
+            "title": "Market Slug",
+            "placeholder": "Market slug (required if no ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Market (<code>polymarket_get_market</code>)</div>
+
+Retrieve details of a specific prediction market by ID or slug
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `marketId` | string | No | The market ID. Required if slug is not provided. |
+| `slug` | string | No | The market slug \(e.g., "will-trump-win"\). Required if marketId is not provided. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Events
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_events"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "Status",
+            "options": [
+                {
+                    "label": "Active Only",
+                    "id": "false"
+                },
+                {
+                    "label": "Closed Only",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "orderEvents",
+            "type": "dropdown",
+            "title": "Sort By",
+            "options": [
+                {
+                    "label": "Volume",
+                    "id": "volume"
+                },
+                {
+                    "label": "Liquidity",
+                    "id": "liquidity"
+                },
+                {
+                    "label": "Start Date",
+                    "id": "startDate"
+                },
+                {
+                    "label": "End Date",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Created At",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Updated At",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "Sort Order",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "Tag ID",
+            "placeholder": "Filter by tag ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Events (<code>polymarket_get_events</code>)</div>
+
+Retrieve a list of events from Polymarket with optional filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `closed` | string | No | Filter by closed status \(true/false\). Use false for active events only. |
+| `order` | string | No | Sort field \(e.g., volume, liquidity, startDate, endDate, createdAt\) |
+| `ascending` | string | No | Sort direction \(true for ascending, false for descending\) |
+| `tagId` | string | No | Filter by tag ID |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset \(skip this many results\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Event
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_event"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "Event ID",
+            "placeholder": "Event ID (required if no slug)"
+        },
+        {
+            "id": "eventSlug",
+            "type": "short-input",
+            "title": "Event Slug",
+            "placeholder": "Event slug (required if no ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Event (<code>polymarket_get_event</code>)</div>
+
+Retrieve details of a specific event by ID or slug
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `eventId` | string | No | The event ID. Required if slug is not provided. |
+| `slug` | string | No | The event slug \(e.g., "2024-presidential-election"\). Required if eventId is not provided. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Tags
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tags"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Tags (<code>polymarket_get_tags</code>)</div>
+
+Retrieve available tags for filtering markets from Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset \(skip this many results\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Search
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Search Query",
+            "placeholder": "Search term",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>polymarket_search</code>)</div>
+
+Search for markets, events, and profiles on Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Yes | Search query term |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Series
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Series (<code>polymarket_get_series</code>)</div>
+
+Retrieve series (related market groups) from Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset \(skip this many results\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Series by ID
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series_by_id"
+        },
+        {
+            "id": "seriesId",
+            "type": "short-input",
+            "title": "Series ID",
+            "placeholder": "Series ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Series by ID (<code>polymarket_get_series_by_id</code>)</div>
+
+Retrieve a specific series (related market group) by ID from Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `seriesId` | string | Yes | The series ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Orderbook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_orderbook"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Orderbook (<code>polymarket_get_orderbook</code>)</div>
+
+Retrieve the order book summary for a specific token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Price
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Side",
+            "required": true,
+            "options": [
+                {
+                    "label": "Buy",
+                    "id": "buy"
+                },
+                {
+                    "label": "Sell",
+                    "id": "sell"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Price (<code>polymarket_get_price</code>)</div>
+
+Retrieve the market price for a specific token and side
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+| `side` | string | Yes | Order side: buy or sell |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Midpoint
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_midpoint"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Midpoint (<code>polymarket_get_midpoint</code>)</div>
+
+Retrieve the midpoint price for a specific token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Price History
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price_history"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Interval",
+            "options": [
+                {
+                    "label": "1 Minute",
+                    "id": "1m"
+                },
+                {
+                    "label": "1 Hour",
+                    "id": "1h"
+                },
+                {
+                    "label": "6 Hours",
+                    "id": "6h"
+                },
+                {
+                    "label": "1 Day",
+                    "id": "1d"
+                },
+                {
+                    "label": "1 Week",
+                    "id": "1w"
+                },
+                {
+                    "label": "Max",
+                    "id": "max"
+                }
+            ]
+        },
+        {
+            "id": "fidelity",
+            "type": "short-input",
+            "title": "Fidelity (minutes)",
+            "placeholder": "Data resolution in minutes (e.g., 60)"
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "Start Timestamp",
+            "placeholder": "Unix timestamp UTC (if no interval)"
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "End Timestamp",
+            "placeholder": "Unix timestamp UTC (if no interval)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Price History (<code>polymarket_get_price_history</code>)</div>
+
+Retrieve historical price data for a specific market token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+| `interval` | string | No | Duration ending at current time \(1m, 1h, 6h, 1d, 1w, max\). Mutually exclusive with startTs/endTs. |
+| `fidelity` | number | No | Data resolution in minutes \(e.g., 60 for hourly\) |
+| `startTs` | number | No | Start timestamp \(Unix seconds UTC\) |
+| `endTs` | number | No | End timestamp \(Unix seconds UTC\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Last Trade Price
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_last_trade_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Last Trade Price (<code>polymarket_get_last_trade_price</code>)</div>
+
+Retrieve the last trade price for a specific token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Spread
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_spread"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Spread (<code>polymarket_get_spread</code>)</div>
+
+Retrieve the bid-ask spread for a specific token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Tick Size
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tick_size"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "Token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Tick Size (<code>polymarket_get_tick_size</code>)</div>
+
+Retrieve the minimum tick size for a specific token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | string | Yes | The CLOB token ID \(from market clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Positions
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_positions"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "User Wallet Address",
+            "placeholder": "Wallet address",
+            "required": true
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "Market ID",
+            "placeholder": "Market ID (optional filter)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Positions (<code>polymarket_get_positions</code>)</div>
+
+Retrieve user positions from Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `user` | string | Yes | User wallet address |
+| `market` | string | No | Optional market ID to filter positions |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+### Get Trades
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_trades"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "User Wallet Address",
+            "placeholder": "Wallet address (optional filter)"
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "Market ID",
+            "placeholder": "Market ID (optional filter)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Limit",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Offset",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Trades (<code>polymarket_get_trades</code>)</div>
+
+Retrieve trade history from Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `user` | string | No | User wallet address to filter trades |
+| `market` | string | No | Market ID to filter trades |
+| `limit` | string | No | Number of results per page \(max 50\) |
+| `offset` | string | No | Pagination offset \(skip this many results\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+Refer to the block outputs for this operation.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Polymarket prediction markets into the workflow. Can get markets, market, events, event, tags, series, orderbook, price, midpoint, price history, last trade price, spread, tick size, positions, trades, and search.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `polymarket`

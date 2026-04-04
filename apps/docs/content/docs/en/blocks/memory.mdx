@@ -1,0 +1,152 @@
+---
+title: Memory
+description: Persist conversation messages across workflow executions
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="memory"
+  color="#F64F9E"
+  icon={true}
+/>
+
+The Memory block stores and retrieves conversation messages that persist across workflow executions. It is designed to work alongside Agent blocks, giving your agents long-term conversational context that survives between runs.
+
+## Overview
+
+<Steps>
+  <Step>
+    <strong>Add Memory</strong>: Store a message with a role (user, assistant, or system) under a named memory ID
+  </Step>
+  <Step>
+    <strong>Get Memory</strong>: Retrieve a single memory entry by its ID
+  </Step>
+  <Step>
+    <strong>Get All Memories</strong>: Fetch every stored memory for the current workflow
+  </Step>
+  <Step>
+    <strong>Delete Memory</strong>: Remove a memory entry by ID
+  </Step>
+</Steps>
+
+## How It Works
+
+Memory entries are stored as chat-style messages with three required fields: an **ID** to scope the memory, a **Role** (`user`, `assistant`, or `system`), and the **Content** text. When you later retrieve memories and pass them into an Agent block's Memories input, the agent sees them as prior conversation turns -- enabling multi-turn dialogue across separate executions.
+
+A typical conversational workflow uses three Memory blocks around an Agent:
+
+1. **Memory (Add, role: user)** -- save the incoming user message before the Agent runs
+2. **Agent** -- processes the message with retrieved memories as context
+3. **Memory (Add, role: assistant)** -- save the Agent's response after it runs
+
+<Callout type="info">
+  Memory IDs scope the conversation. Use the same ID across executions to build a continuous conversation history, or use different IDs to maintain separate threads.
+</Callout>
+
+## Operations
+
+<Tabs items={['Add Memory', 'Get Memory', 'Get All Memories', 'Delete Memory']}>
+  <Tab>
+    Stores a new message in the memory store.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **ID** | Yes | Memory identifier -- groups messages into a conversation |
+    | **Role** | Yes | `user`, `assistant`, or `system` |
+    | **Content** | Yes | The message text to store |
+  </Tab>
+  <Tab>
+    Retrieves all messages stored under a specific memory ID.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **ID** | Yes | The memory identifier to retrieve |
+  </Tab>
+  <Tab>
+    Returns every memory entry for the current workflow. No additional fields required.
+  </Tab>
+  <Tab>
+    Removes a memory entry by ID.
+
+    | Field | Required | Description |
+    |---|---|---|
+    | **ID** | Yes | The memory identifier to delete |
+  </Tab>
+</Tabs>
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memory"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "placeholder": "Select operation",
+            "options": [
+                { "label": "Add Memory", "id": "add" },
+                { "label": "Get All Memories", "id": "getAll" },
+                { "label": "Get Memory", "id": "get" },
+                { "label": "Delete Memory", "id": "delete" }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Enter memory identifier",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Role",
+            "layout": "full",
+            "placeholder": "Select agent role",
+            "required": true,
+            "options": [
+                { "label": "User", "id": "user" },
+                { "label": "Assistant", "id": "assistant" },
+                { "label": "System", "id": "system" }
+            ],
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "Content",
+            "layout": "full",
+            "placeholder": "Enter message content",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `memories` | json | The retrieved memory data (messages array) |
+| `id` | string | The memory identifier that was operated on |
+
+## Best Practices
+
+- **Use consistent IDs** -- the memory ID is the key that groups messages into a conversation. Use a stable identifier (such as a user ID or session ID) so memories accumulate correctly across runs.
+- **Store both sides of the conversation** -- add a `user` role message before the Agent and an `assistant` role message after it so the full dialogue is preserved.
+- **Clean up when needed** -- use the Delete operation to clear stale conversations and prevent unbounded memory growth.

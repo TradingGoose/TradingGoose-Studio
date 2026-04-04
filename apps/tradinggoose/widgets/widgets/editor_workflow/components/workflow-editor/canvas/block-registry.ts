@@ -60,6 +60,8 @@ const resolveSubflowNodeDescriptor = (
 
   return {
     nodeType: 'subflowNode',
+    width,
+    height,
     data: {
       ...block.data,
       name: block.name,

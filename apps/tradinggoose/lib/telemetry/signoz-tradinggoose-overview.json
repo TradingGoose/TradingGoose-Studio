@@ -1,0 +1,747 @@
+{
+  "title": "TradingGoose Studio - Overview",
+  "description": "Observability dashboard for TradingGoose AI workflow platform. Covers workflow executions, AI/LLM operations, block and tool activity, platform events, and client-side telemetry.",
+  "tags": ["tradinggoose", "opentelemetry", "ai-workflows"],
+  "version": "v5",
+  "uploadedGrafana": false,
+  "variables": {},
+  "panelMap": {},
+  "layout": [
+    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000001", "moved": false, "static": false, "w": 3, "x": 0, "y": 0 },
+    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000002", "moved": false, "static": false, "w": 3, "x": 3, "y": 0 },
+    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000003", "moved": false, "static": false, "w": 3, "x": 6, "y": 0 },
+    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000004", "moved": false, "static": false, "w": 3, "x": 9, "y": 0 },
+    { "h": 6, "i": "d1a2b3c4-2222-4a22-b222-000000000005", "moved": false, "static": false, "w": 6, "x": 0, "y": 3 },
+    { "h": 6, "i": "d1a2b3c4-2222-4a22-b222-000000000006", "moved": false, "static": false, "w": 6, "x": 6, "y": 3 },
+    { "h": 6, "i": "d1a2b3c4-3333-4a33-b333-000000000007", "moved": false, "static": false, "w": 6, "x": 0, "y": 9 },
+    { "h": 6, "i": "d1a2b3c4-3333-4a33-b333-000000000008", "moved": false, "static": false, "w": 6, "x": 6, "y": 9 },
+    { "h": 6, "i": "d1a2b3c4-4444-4a44-b444-000000000009", "moved": false, "static": false, "w": 6, "x": 0, "y": 15 },
+    { "h": 6, "i": "d1a2b3c4-4444-4a44-b444-000000000010", "moved": false, "static": false, "w": 6, "x": 6, "y": 15 },
+    { "h": 6, "i": "d1a2b3c4-5555-4a55-b555-000000000011", "moved": false, "static": false, "w": 6, "x": 0, "y": 21 },
+    { "h": 6, "i": "d1a2b3c4-5555-4a55-b555-000000000012", "moved": false, "static": false, "w": 6, "x": 6, "y": 21 },
+    { "h": 6, "i": "d1a2b3c4-6666-4a66-b666-000000000013", "moved": false, "static": false, "w": 6, "x": 0, "y": 27 },
+    { "h": 6, "i": "d1a2b3c4-6666-4a66-b666-000000000014", "moved": false, "static": false, "w": 6, "x": 6, "y": 27 }
+  ],
+  "widgets": [
+    {
+      "id": "d1a2b3c4-1111-4a11-b111-000000000001",
+      "title": "Total Workflow Executions",
+      "description": "",
+      "panelTypes": "value",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.workflow.execute'"
+          }
+        ],
+        "id": "f7a1b2c3-0001-4d01-a001-aaaaaaaaa001",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-1111-4a11-b111-000000000002",
+      "title": "Failed Executions",
+      "description": "",
+      "panelTypes": "value",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.workflow.execute'\n    AND has_error = true"
+          }
+        ],
+        "id": "f7a1b2c3-0002-4d02-a002-aaaaaaaaa002",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-1111-4a11-b111-000000000003",
+      "title": "Total AI Cost ($)",
+      "description": "",
+      "panelTypes": "value",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT round(sum(toFloat64OrZero(attributes_string['gen_ai.cost.total'])), 4) AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.agent.execute'\n    AND attributes_string['gen_ai.cost.total'] != ''"
+          }
+        ],
+        "id": "f7a1b2c3-0003-4d03-a003-aaaaaaaaa003",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-1111-4a11-b111-000000000004",
+      "title": "Total Tokens",
+      "description": "",
+      "panelTypes": "value",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT sum(toFloat64OrZero(attributes_string['gen_ai.usage.total_tokens'])) AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.agent.execute'\n    AND attributes_string['gen_ai.usage.total_tokens'] != ''"
+          }
+        ],
+        "id": "f7a1b2c3-0004-4d04-a004-aaaaaaaaa004",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-2222-4a22-b222-000000000005",
+      "title": "Workflow Executions Over Time",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{status}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    if(has_error = true, 'error', 'success') AS status,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.workflow.execute'\nGROUP BY ts, status\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0005-4d05-a005-aaaaaaaaa005",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-2222-4a22-b222-000000000006",
+      "title": "Workflow Duration P50/P95",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "ms",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "p50",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    quantile(0.50)(duration_nano) / 1000000 AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.workflow.execute'\nGROUP BY ts\nORDER BY ts ASC"
+          },
+          {
+            "disabled": false,
+            "legend": "p95",
+            "name": "B",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    quantile(0.95)(duration_nano) / 1000000 AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.workflow.execute'\nGROUP BY ts\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0006-4d06-a006-aaaaaaaaa006",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-3333-4a33-b333-000000000007",
+      "title": "Token Usage by Model",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{model}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    attributes_string['gen_ai.request.model'] AS model,\n    sum(toFloat64OrZero(attributes_string['gen_ai.usage.total_tokens'])) AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.agent.execute'\n    AND attributes_string['gen_ai.request.model'] != ''\nGROUP BY ts, model\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0007-4d07-a007-aaaaaaaaa007",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-3333-4a33-b333-000000000008",
+      "title": "AI Cost Over Time",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "cost ($)",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    round(sum(toFloat64OrZero(attributes_string['gen_ai.cost.total'])), 4) AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.agent.execute'\n    AND attributes_string['gen_ai.cost.total'] != ''\nGROUP BY ts\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0008-4d08-a008-aaaaaaaaa008",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-4444-4a44-b444-000000000009",
+      "title": "Tool Calls by Name",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{tool_name}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    attributes_string['gen_ai.tool.name'] AS tool_name,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'gen_ai.tool.call'\n    AND attributes_string['gen_ai.tool.name'] != ''\nGROUP BY ts, tool_name\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0009-4d09-a009-aaaaaaaaa009",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-4444-4a44-b444-000000000010",
+      "title": "Block Executions by Type",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{block_type}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    attributes_string['span.type'] AS block_type,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND attributes_string['span.type'] != ''\nGROUP BY ts, block_type\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0010-4d10-a010-aaaaaaaaa010",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-5555-4a55-b555-000000000011",
+      "title": "Platform Lifecycle Events",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{event_name}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    name AS event_name,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name IN (\n        'platform.workflow.created',\n        'platform.workflow.deployed',\n        'platform.workflow.undeployed',\n        'platform.workflow.executed',\n        'platform.template.used',\n        'platform.schedule.created',\n        'platform.mcp.server_added',\n        'platform.mcp.tool_executed',\n        'platform.knowledge_base.documents_uploaded'\n    )\nGROUP BY ts, event_name\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0011-4d11-a011-aaaaaaaaa011",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-5555-4a55-b555-000000000012",
+      "title": "Workflow Execution Stats",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{exec_status}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    attributes_string['execution.status'] AS exec_status,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name = 'platform.workflow.executed'\nGROUP BY ts, exec_status\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0012-4d12-a012-aaaaaaaaa012",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-6666-4a66-b666-000000000013",
+      "title": "Client Errors",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{error_type}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    name AS error_type,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name IN ('error.unhandled_error', 'error.unhandled_rejection')\nGROUP BY ts, error_type\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0013-4d13-a013-aaaaaaaaa013",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    },
+    {
+      "id": "d1a2b3c4-6666-4a66-b666-000000000014",
+      "title": "Feature Usage",
+      "description": "",
+      "panelTypes": "graph",
+      "bucketCount": 30,
+      "bucketWidth": 0,
+      "columnUnits": {},
+      "contextLinks": { "linksData": [] },
+      "customLegendColors": {},
+      "decimalPrecision": 2,
+      "fillSpans": false,
+      "isLogScale": false,
+      "isStacked": false,
+      "legendPosition": "bottom",
+      "mergeAllActiveQueries": false,
+      "nullZeroValues": "zero",
+      "opacity": "1",
+      "softMax": 0,
+      "softMin": 0,
+      "stackedBarChart": false,
+      "thresholds": [],
+      "timePreferance": "GLOBAL_TIME",
+      "yAxisUnit": "none",
+      "selectedLogFields": [
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
+        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+      ],
+      "selectedTracesFields": [
+        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
+        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+      ],
+      "query": {
+        "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
+        "clickhouse_sql": [
+          {
+            "disabled": false,
+            "legend": "{{feature_name}}",
+            "name": "A",
+            "query": "WITH __resource_filter AS (\n    SELECT fingerprint\n    FROM signoz_traces.distributed_traces_v3_resource\n    WHERE (simpleJSONExtractString(labels, 'service.name') = 'tradinggoose-studio')\n    AND seen_at_ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n)\nSELECT\n    toStartOfInterval(timestamp, toIntervalSecond(60)) AS ts,\n    name AS feature_name,\n    count() AS value\nFROM signoz_traces.distributed_signoz_index_v3\nWHERE resource_fingerprint GLOBAL IN __resource_filter\n    AND timestamp BETWEEN $start_datetime AND $end_datetime\n    AND ts_bucket_start BETWEEN $start_timestamp - 1800 AND $end_timestamp\n    AND name LIKE 'feature_usage.%%'\nGROUP BY ts, feature_name\nORDER BY ts ASC"
+          }
+        ],
+        "id": "f7a1b2c3-0014-4d14-a014-aaaaaaaaa014",
+        "promql": [{ "disabled": false, "legend": "", "name": "A", "query": "" }],
+        "queryType": "clickhouse_sql",
+        "unit": ""
+      }
+    }
+  ]
+}

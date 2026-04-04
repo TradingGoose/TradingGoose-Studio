@@ -4,7 +4,6 @@ import { ReactNode, useMemo } from 'react'
 import { SettingsModal } from './settings-modal'
 import { AccountSettings } from './components/account/account-settings'
 import { CopilotSettings } from './components/copilot/copilot-settings'
-import { GeneralSettings } from './components/general/general-settings'
 import { SSOSettings } from './components/sso/sso-settings'
 import { SubscriptionSettings } from './components/subscription/subscription-settings'
 import { TeamManagementSettings } from './components/team-management/team-management-settings'
@@ -30,10 +29,6 @@ const SECTION_CONFIG: Record<SettingsSection, SectionConfig> = {
   account: {
     title: 'Account Settings',
     render: () => <AccountSettings />,
-  },
-  general: {
-    title: 'General Settings',
-    render: ({ isActive }) => <GeneralSettings isActive={isActive} />,
   },
   copilot: {
     title: 'Copilot Settings',

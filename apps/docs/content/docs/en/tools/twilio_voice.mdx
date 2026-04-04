@@ -1,0 +1,429 @@
+---
+title: Twilio Voice
+description: Make and manage phone calls
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="twilio_voice"
+  color="#F22F46"
+/>
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/twilio-voice">
+    See trigger events, setup, and event payloads for Twilio Voice.
+  </Card>
+</Cards>
+
+
+## Configuration
+
+### Make Call
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio Voice"
+    type="twilio_voice"
+    color="#F22F46"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Make Call",
+                    "id": "make_call"
+                },
+                {
+                    "label": "List Calls",
+                    "id": "list_calls"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "get_recording"
+                }
+            ],
+            "defaultValue": "make_call"
+        },
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "Twilio Account SID",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Auth Token",
+            "placeholder": "Your Twilio Auth Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "To Phone Number",
+            "placeholder": "+14155551234",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "From Twilio Number",
+            "placeholder": "+14155556789",
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "TwiML URL",
+            "placeholder": "https://example.com/twiml"
+        },
+        {
+            "id": "twiml",
+            "type": "long-input",
+            "title": "TwiML Instructions",
+            "placeholder": "[Response][Say]Hello from Twilio![/Say][/Response]",
+            "description": "Use square brackets instead of angle brackets (e.g., [Response] instead of <Response>)"
+        },
+        {
+            "id": "record",
+            "type": "switch",
+            "title": "Record Call"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout (seconds)",
+            "placeholder": "60"
+        },
+        {
+            "id": "statusCallback",
+            "type": "short-input",
+            "title": "Status Callback URL",
+            "placeholder": "https://example.com/status"
+        },
+        {
+            "id": "machineDetection",
+            "type": "dropdown",
+            "title": "Machine Detection",
+            "options": [
+                {
+                    "label": "Enable",
+                    "id": "Enable"
+                },
+                {
+                    "label": "Detect Message End",
+                    "id": "DetectMessageEnd"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Make Call (<code>twilio_voice_make_call</code>)</div>
+
+Make an outbound phone call using Twilio Voice API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Yes | Phone number to call \(E.164 format, e.g., +14155551234\) |
+| `from` | string | Yes | Your Twilio phone number to call from \(E.164 format\) |
+| `url` | string | No | URL that returns TwiML instructions for the call |
+| `twiml` | string | No | TwiML instructions to execute \(alternative to URL\). Use square brackets instead of angle brackets, e.g., \[Response\]\[Say\]Hello\[/Say\]\[/Response\] |
+| `statusCallback` | string | No | Webhook URL for call status updates |
+| `statusCallbackMethod` | string | No | HTTP method for status callback \(GET or POST\) |
+| `accountSid` | string | Yes | Twilio Account SID |
+| `authToken` | string | Yes | Twilio Auth Token |
+| `record` | boolean | No | Whether to record the call |
+| `recordingStatusCallback` | string | No | Webhook URL for recording status updates |
+| `timeout` | number | No | Time to wait for answer before giving up \(seconds, default: 60\) |
+| `machineDetection` | string | No | Answering machine detection: Enable or DetectMessageEnd |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the call was successfully initiated |
+| `callSid` | string | Unique identifier for the call |
+| `status` | string | Call status \(queued, ringing, in-progress, completed, etc.\) |
+| `direction` | string | Call direction \(outbound-api\) |
+| `from` | string | Phone number the call is from |
+| `to` | string | Phone number the call is to |
+| `duration` | number | Call duration in seconds |
+| `price` | string | Cost of the call |
+| `priceUnit` | string | Currency of the price |
+
+</div>
+
+
+
+---
+
+### List Calls
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio Voice"
+    type="twilio_voice"
+    color="#F22F46"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Make Call",
+                    "id": "make_call"
+                },
+                {
+                    "label": "List Calls",
+                    "id": "list_calls"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "get_recording"
+                }
+            ],
+            "defaultValue": "list_calls"
+        },
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "Twilio Account SID",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Auth Token",
+            "placeholder": "Your Twilio Auth Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listTo",
+            "type": "short-input",
+            "title": "To Number",
+            "placeholder": "+14155551234"
+        },
+        {
+            "id": "listFrom",
+            "type": "short-input",
+            "title": "From Number",
+            "placeholder": "+14155556789"
+        },
+        {
+            "id": "listStatus",
+            "type": "dropdown",
+            "title": "Status",
+            "options": [
+                {
+                    "label": "Queued",
+                    "id": "queued"
+                },
+                {
+                    "label": "Ringing",
+                    "id": "ringing"
+                },
+                {
+                    "label": "In Progress",
+                    "id": "in-progress"
+                },
+                {
+                    "label": "Completed",
+                    "id": "completed"
+                },
+                {
+                    "label": "Failed",
+                    "id": "failed"
+                },
+                {
+                    "label": "Busy",
+                    "id": "busy"
+                },
+                {
+                    "label": "No Answer",
+                    "id": "no-answer"
+                },
+                {
+                    "label": "Canceled",
+                    "id": "canceled"
+                }
+            ]
+        },
+        {
+            "id": "listPageSize",
+            "type": "short-input",
+            "title": "Page Size",
+            "placeholder": "50"
+        },
+        {
+            "id": "startTimeAfter",
+            "type": "datetime-input",
+            "title": "After (YYYY-MM-DD)",
+            "placeholder": "2025-01-01"
+        },
+        {
+            "id": "startTimeBefore",
+            "type": "datetime-input",
+            "title": "Before (YYYY-MM-DD)",
+            "placeholder": "2025-12-31"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Calls (<code>twilio_voice_list_calls</code>)</div>
+
+Retrieve a list of calls made to and from an account.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accountSid` | string | Yes | Twilio Account SID |
+| `authToken` | string | Yes | Twilio Auth Token |
+| `to` | string | No | Filter by calls to this phone number |
+| `from` | string | No | Filter by calls from this phone number |
+| `status` | string | No | Filter by call status \(queued, ringing, in-progress, completed, etc.\) |
+| `startTimeAfter` | string | No | Filter calls that started on or after this date \(YYYY-MM-DD\) |
+| `startTimeBefore` | string | No | Filter calls that started on or before this date \(YYYY-MM-DD\) |
+| `pageSize` | number | No | Number of records to return \(max 1000, default 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the calls were successfully retrieved |
+| `calls` | array | Array of call objects |
+| `total` | number | Total number of calls returned |
+| `page` | number | Current page number |
+| `pageSize` | number | Number of calls per page |
+
+</div>
+
+
+
+---
+
+### Get Recording
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio Voice"
+    type="twilio_voice"
+    color="#F22F46"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "options": [
+                {
+                    "label": "Make Call",
+                    "id": "make_call"
+                },
+                {
+                    "label": "List Calls",
+                    "id": "list_calls"
+                },
+                {
+                    "label": "Get Recording",
+                    "id": "get_recording"
+                }
+            ],
+            "defaultValue": "get_recording"
+        },
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "Twilio Account SID",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Auth Token",
+            "placeholder": "Your Twilio Auth Token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingSid",
+            "type": "short-input",
+            "title": "Recording SID",
+            "placeholder": "RExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Recording (<code>twilio_voice_get_recording</code>)</div>
+
+Retrieve call recording information and transcription (if enabled via TwiML).
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `recordingSid` | string | Yes | Recording SID to retrieve |
+| `accountSid` | string | Yes | Twilio Account SID |
+| `authToken` | string | Yes | Twilio Auth Token |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the recording was successfully retrieved |
+| `recordingSid` | string | Unique identifier for the recording |
+| `callSid` | string | Call SID this recording belongs to |
+| `duration` | number | Duration of the recording in seconds |
+| `status` | string | Recording status \(completed, processing, etc.\) |
+| `channels` | number | Number of channels \(1 for mono, 2 for dual\) |
+| `source` | string | How the recording was created |
+| `mediaUrl` | string | URL to download the recording media file |
+| `price` | string | Cost of the recording |
+| `priceUnit` | string | Currency of the price |
+| `uri` | string | Relative URI of the recording resource |
+| `transcriptionText` | string | Transcribed text from the recording \(if available\) |
+| `transcriptionStatus` | string | Transcription status \(completed, in-progress, failed\) |
+| `transcriptionPrice` | string | Cost of the transcription |
+| `transcriptionPriceUnit` | string | Currency of the transcription price |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Twilio Voice into the workflow. Make outbound calls and retrieve call recordings.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `twilio_voice`
