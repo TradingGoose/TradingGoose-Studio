@@ -130,12 +130,14 @@ export default function LandingPricing() {
                 delay={0.1 + index * 0.1}
               >
                 <div
+                  suppressHydrationWarning
                   className={cn(
                     'card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out max-lg:last:col-span-full',
                     { 'p-0': tier.featured }
                   )}
                 >
                   <div
+                    suppressHydrationWarning
                     className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
                     style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
                   />

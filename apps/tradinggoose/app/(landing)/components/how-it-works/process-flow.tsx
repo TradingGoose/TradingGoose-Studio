@@ -50,8 +50,12 @@ const ProcessFlow = ({ initialProcess }: { initialProcess: Process[] }) => {
             delay: index * 0.05,
           }}
         >
-          <div className='card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out'>
+          <div
+            suppressHydrationWarning
+            className='card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out'
+          >
             <div
+              suppressHydrationWarning
               className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
               style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
             />

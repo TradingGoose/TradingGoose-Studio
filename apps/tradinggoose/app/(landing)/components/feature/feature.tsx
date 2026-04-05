@@ -106,8 +106,14 @@ function FeatureRowSection({
           'card group group/feature relative isolate m-1 overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out lg:col-span-2',
           contentOrder
         )}
+        // useCardGlow() mutates --shine-x/--shine-y on this .card node
+        // imperatively on every mousemove, and Framer Motion renders
+        // initial `opacity: 0` as a string in SSR vs number on the client.
+        // Both are known-benign mismatches; skip hydration diffing here.
+        motionProps={{ suppressHydrationWarning: true }}
       >
         <div
+          suppressHydrationWarning
           className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
           style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
         />
@@ -162,7 +168,7 @@ function FeatureRowSection({
         transition={{ duration: 0.75 }}
         delay={index * 0.12 + 0.15}
         className={cn(
-          'flex min-h-[40vh] w-full lg:col-span-3 lg:h-full lg:min-h-0',
+          'flex h-[60vh] min-h-[560px] w-full lg:col-span-3 lg:h-full lg:min-h-0',
           previewOrder,
           previewIsLeft ? 'lg:justify-start' : 'lg:justify-end'
         )}
@@ -202,7 +208,7 @@ export default function Feature() {
         />
       </div>
 
-      <div className='mx-auto px-12 sm:px-6 lg:px-20 xl:px-24'>
+      <div className='px-4 sm:px-6 lg:px-20 xl:px-24'>
         <div className='mx-auto max-w-3xl text-center'>
           <MotionPreset
             fade

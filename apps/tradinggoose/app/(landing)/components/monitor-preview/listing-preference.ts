@@ -1,12 +1,21 @@
 import type { ListingOption } from '@/lib/listing/identity'
 
-const PREFERRED_MARKET_CODES = [
+export const PREFERRED_MARKET_CODES = [
   'NASDAQ',
-  'NYSE',
   'HKEX',
-  'SHG',
-  'BVC',
+  'LSE',
+  'NYSE',
+  'SHE'
 ] as const
+
+const PREFERRED_MARKET_CODE_SET = new Set<string>(PREFERRED_MARKET_CODES)
+
+export function filterToPreferredMarkets(listings: ListingOption[]): ListingOption[] {
+  return listings.filter((listing) => {
+    const marketCode = listing.marketCode?.trim().toUpperCase()
+    return marketCode != null && PREFERRED_MARKET_CODE_SET.has(marketCode)
+  })
+}
 
 const PREFERRED_MARKET_RANK = new Map<string, number>(PREFERRED_MARKET_CODES.map((code, index) => [code, index]))
 

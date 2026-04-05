@@ -9,7 +9,7 @@
 </p>
 
 <p align='center'>
-  <a href="https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20google%20gemini-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white" alt="Gemini"></a>
+  <a href="https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20google%20AI-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white" alt="Gemini"></a>
 <a href="https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20perplexity-088F8F?style=for-the-badge&logo=perplexity&logoColor=000000" alt="Perplexity"></a>
 </p>
 
@@ -29,6 +29,13 @@
 TradingGoose Studio is an **AI workflow platform for technical LLM trading**, it combines both technical + LLM analysis for your trading decision.
 It is built for analytics, research, charting, monitoring, and workflow automation. 
 
+> **Early Stage Notice**
+>
+> TradingGoose Studio is still in a very early development stage.
+> You should expect rough edges, incomplete features, and a meaningful number of bugs.
+> Breaking changes are normal at this stage and may happen very frequently, including on a near-weekly basis.
+> If you are building on top of the project, expect to update your setup, workflows, and integrations often.
+
 
 
 <picture>
@@ -46,7 +53,7 @@ It is built for analytics, research, charting, monitoring, and workflow automati
 
 ### Requirements
 
-- **Bun** v1.2+
+- **Bun** v1.3+
 - **Docker** (for PostgreSQL)
 - **Colima** or **Docker Desktop** (macOS)
 
@@ -82,6 +89,23 @@ bunx drizzle-kit migrate --config=./drizzle.config.ts
 cd ../..
 bun run dev:full
 ```
+
+## Contributing
+
+Pull requests are welcome.
+
+If you want to improve TradingGoose Studio, fix a bug, tighten the docs, or ship
+an idea that makes the platform better for traders and builders, open a PR.
+Small, focused changes are preferred and easier to review.
+
+This project is moving quickly and is expected to have bugs and frequent breaking
+changes. Contributors should expect the codebase, interfaces, and workflows to
+change often, sometimes week to week.
+
+- Read the [Contributing Guide](.github/CONTRIBUTING.md) for setup, workflow, and PR expectations
+- Review the [Code of Conduct](.github/CODE_OF_CONDUCT.md) before participating in project spaces
+- Open an issue first if you want feedback on larger changes or architecture work
+
 | Tech Stack       |                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Framework        | <a href="https://nextjs.org/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.JS"></a>                                                                                                                                                                                                                                |
@@ -130,5 +154,5 @@ terms that continue to apply to that directory.
 ---
 
 <p align="center">
-  Built with ❤️ by the TradingGoose Team
+  <b>HONK !</b>
 </p>

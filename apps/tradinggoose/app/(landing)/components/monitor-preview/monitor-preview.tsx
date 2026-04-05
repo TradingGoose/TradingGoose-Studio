@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { fetchListings } from '@/components/listing-selector/fetchers'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
-import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -15,7 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { ListingOption } from '@/lib/listing/identity'
-import { sortMonitorListings } from '@/app/(landing)/components/monitor-preview/listing-preference'
+import {
+  filterToPreferredMarkets,
+  PREFERRED_MARKET_CODES,
+  sortMonitorListings,
+} from '@/app/(landing)/components/monitor-preview/listing-preference'
 
 type MonitorEntry = {
   id: string
@@ -46,16 +49,29 @@ const WORKFLOWS = [
   { name: 'Sector Correlation', color: '#14b8a6' },
 ]
 
-const STATUS_CONFIG: Record<MonitorEntry['status'], { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-muted text-muted-foreground' },
-  running: { label: 'Running', className: 'bg-blue-500/15 text-blue-500 border-blue-500/20' },
+const STATUS_CONFIG: Record<
+  MonitorEntry['status'],
+  { label: string; className: string; dotClassName: string }
+> = {
+  pending: {
+    label: 'Pending',
+    className: 'bg-muted text-muted-foreground',
+    dotClassName: 'bg-muted-foreground/60',
+  },
+  running: {
+    label: 'Running',
+    className: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+    dotClassName: 'bg-blue-500',
+  },
   success: {
     label: 'Success',
     className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
+    dotClassName: 'bg-emerald-500',
   },
   failed: {
     label: 'Failed',
     className: 'bg-destructive/15 text-destructive border-destructive/20',
+    dotClassName: 'bg-destructive',
   },
 }
 
@@ -71,16 +87,18 @@ const RANDOM_STATUSES: MonitorEntry['status'][] = ['pending', 'pending', 'runnin
 const INITIAL_ROWS = 6
 const MAX_ROWS = 20
 
-const MONITOR_REFRESH_QUERY = buildMarketSearchRequest({
-  rawQuery: 'a',
-  providerConfig: {
-    assetClasses: ['stock'],
-    marketCodes: [],
-    listingQuoteCodes: [],
-    cryptoQuoteCodes: [],
-    currencyQuoteCodes: [],
-  },
-}).queryParams
+const MONITOR_REFRESH_PER_MARKET_LIMIT = 10
+
+function buildMarketRefreshParams(marketCode: string): Record<string, string> {
+  return {
+    search_query: 'a',
+    filters: JSON.stringify({
+      limit: MONITOR_REFRESH_PER_MARKET_LIMIT,
+      asset_class: ['stock'],
+      market: [marketCode],
+    }),
+  }
+}
 
 function createRandomEntry(stocks: ListingOption[], counter: number): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
@@ -121,7 +139,11 @@ function isFallbackStock(stock: ListingOption): boolean {
 
 export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
   const [liveStocks, setLiveStocks] = useState(stocks)
-  const [entries, setEntries] = useState<MonitorEntry[]>(() => seedEntries(stocks))
+  // Entries pick stock/indicator/workflow via Math.random(). Seeding in
+  // useState would diverge between SSR and hydration, producing different
+  // text on server vs. client → React hydration mismatch. Start empty so
+  // SSR output is deterministic, then seed once on the client after mount.
+  const [entries, setEntries] = useState<MonitorEntry[]>([])
 
   useEffect(() => {
     setLiveStocks(stocks)
@@ -136,11 +158,19 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
 
     const controller = new AbortController()
 
-    void fetchListings(MONITOR_REFRESH_QUERY, controller.signal)
-      .then((rows) => {
-        if (rows.length > 0) setLiveStocks(sortMonitorListings(rows).slice(0, MAX_ROWS))
+    void Promise.allSettled(
+      PREFERRED_MARKET_CODES.map((code) =>
+        fetchListings(buildMarketRefreshParams(code), controller.signal)
+      )
+    )
+      .then((results) => {
+        const combined = results.flatMap((result) =>
+          result.status === 'fulfilled' ? result.value : []
+        )
+        const filtered = sortMonitorListings(filterToPreferredMarkets(combined))
+        if (filtered.length > 0) setLiveStocks(filtered.slice(0, MAX_ROWS))
       })
-      .catch(() => {})
+      .catch(() => { })
 
     return () => controller.abort()
   }, [stocks])
@@ -170,13 +200,15 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
   return (
     <div className='relative max-h-[420px] w-full overflow-hidden rounded-lg border bg-background/50 backdrop-blur-sm'>
       <div className='pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-1/3 bg-gradient-to-t from-background to-transparent' />
-      <Table>
+      <Table className='table-fixed'>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
-            <TableHead>Listing</TableHead>
-            <TableHead>Indicator</TableHead>
-            <TableHead>Workflow</TableHead>
-            <TableHead className='text-right'>Status</TableHead>
+            <TableHead className='w-[14rem] max-sm:w-[3rem] max-sm:px-2'>Listing</TableHead>
+            <TableHead className='w-[10rem] max-sm:w-auto max-sm:px-2'>Indicator</TableHead>
+            <TableHead className='w-[12rem] max-sm:w-auto max-sm:px-2'>Workflow</TableHead>
+            <TableHead className='w-[6rem] text-right max-sm:w-[3rem] max-sm:px-2'>
+              Status
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -192,29 +224,41 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
                   transition={{ duration: 0.3 }}
                   className='border-b transition-colors hover:bg-muted/50'
                 >
-                  <TableCell className='min-w-0'>
+                  <TableCell className='min-w-0 max-sm:w-10 max-sm:px-2 max-sm:[&_.flex-col]:hidden'>
                     <MarketListingRow listing={entry.stock} className='w-full min-w-0 pr-0' />
                   </TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-2'>
+                  <TableCell className='max-w-[7rem] min-w-0 max-sm:max-w-[5rem] max-sm:px-2'>
+                    <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className='size-2 shrink-0 rounded-full'
                         style={{ backgroundColor: entry.indicatorColor }}
                       />
-                      <span className='text-muted-foreground text-sm'>{entry.indicator}</span>
+                      <span className='min-w-0 truncate text-muted-foreground text-sm'>
+                        {entry.indicator}
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-2'>
+                  <TableCell className='max-w-[8rem] min-w-0 max-sm:max-w-[5rem] max-sm:px-2'>
+                    <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className='size-2 shrink-0 rounded-full'
                         style={{ backgroundColor: entry.workflowColor }}
                       />
-                      <span className='text-muted-foreground text-sm'>{entry.workflow}</span>
+                      <span className='min-w-0 truncate text-muted-foreground text-sm'>
+                        {entry.workflow}
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell className='text-right'>
-                    <Badge variant='outline' className={`text-xs ${statusConfig.className}`}>
+                  <TableCell className='text-right max-sm:px-2'>
+                    <span
+                      className={`inline-block size-2.5 shrink-0 rounded-full sm:hidden ${statusConfig.dotClassName}`}
+                      aria-label={statusConfig.label}
+                      title={statusConfig.label}
+                    />
+                    <Badge
+                      variant='outline'
+                      className={`hidden text-xs sm:inline-flex ${statusConfig.className}`}
+                    >
                       {statusConfig.label}
                     </Badge>
                   </TableCell>

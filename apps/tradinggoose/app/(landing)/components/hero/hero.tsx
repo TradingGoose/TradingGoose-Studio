@@ -21,6 +21,37 @@ import { Button } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
 import { isHosted } from '@/lib/environment'
 
+const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
+
+const PROMPT_INTROS = [
+  'I am exploring https://tradinggoose.ai.',
+  'I just discovered TradingGoose-Studio at https://tradinggoose.ai.',
+  'I want to try TradingGoose-Studio at https://tradinggoose.ai for my trading setup.',
+] as const
+
+const PROMPT_ACTIONS = [
+  'How do I',
+  'Can you show me how to',
+  'What is the best way to',
+  'Walk me through how to',
+] as const
+
+const PROMPT_TOPICS = [
+  'automate a trading strategy end-to-end',
+  'build a custom indicator using PineTS',
+  'connect a live data provider and stream real-time prices',
+  'create an AI agent workflow that places trades automatically',
+  'set up workspace layouts with split panels and widgets',
+  'integrate Slack or Discord alerts into a workflow',
+  'backtest a strategy using historical candle data',
+  'use condition and loop blocks to build branching logic',
+  'deploy a workflow that monitors RSI and triggers a buy order',
+  'combine multiple indicators on a single chart',
+] as const
+
+const buildPrompt = () =>
+  `${pick(PROMPT_INTROS)} ${pick(PROMPT_ACTIONS)} ${pick(PROMPT_TOPICS)}?`
+
 const Hero = () => {
   const containerRef = useRef<HTMLDivElement>(null)
   const iconRef1 = useRef<HTMLDivElement>(null)
@@ -38,35 +69,6 @@ const Hero = () => {
   const spanRef6 = useRef<HTMLSpanElement>(null)
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
-
-  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
-
-  const buildPrompt = () => {
-    const intros = [
-      'I am exploring TradingGoose-Studio (https://github.com/TradingGoose/TradingGoose-Studio).',
-      'I just discovered TradingGoose-Studio from https://github.com/TradingGoose/TradingGoose-Studio.',
-      'I want to try TradingGoose-Studio (https://github.com/TradingGoose/TradingGoose-Studio) for my trading setup.',
-    ]
-    const actions = [
-      'How do I',
-      'Can you show me how to',
-      'What is the best way to',
-      'Walk me through how to',
-    ]
-    const topics = [
-      'automate a trading strategy end-to-end',
-      'build a custom indicator using PineTS',
-      'connect a live data provider and stream real-time prices',
-      'create an AI agent workflow that places trades automatically',
-      'set up workspace layouts with split panels and widgets',
-      'integrate Slack or Discord alerts into a workflow',
-      'backtest a strategy using historical candle data',
-      'use condition and loop blocks to build branching logic',
-      'deploy a workflow that monitors RSI and triggers a buy order',
-      'combine multiple indicators on a single chart',
-    ]
-    return `${pick(intros)} ${pick(actions)} ${pick(topics)}?`
-  }
 
   const handleAskClick = useCallback(
     (base: string) => () => {
@@ -127,7 +129,7 @@ const Hero = () => {
                   onClick={handleAskClick('https://google.com/ai?q=')}
                 >
                   <GeminiIcon className='size-4 bg-background' />
-                  Ask Google Gemini
+                  Ask Google AI
                 </Button>
                 <Button
                   variant='outline'

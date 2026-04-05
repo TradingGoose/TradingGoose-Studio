@@ -8,23 +8,23 @@ export default function StructuredData() {
         name: 'TradingGoose',
         alternateName: 'TradingGoose Studio',
         description:
-          'Open-source AI agent workflow builder used by developers at trail-blazing startups to Fortune 500 companies',
+          'Open-source visual workflow platform for technical LLM-driven trading. Build custom indicators, monitor live markets, and trigger AI agent workflows.',
         url: 'https://tradinggoose.ai',
         logo: {
           '@type': 'ImageObject',
           '@id': 'https://tradinggoose.ai/#logo',
-          url: 'https://tradinggoose.ai/logo/b&w/text/b&w.svg',
-          contentUrl: 'https://tradinggoose.ai/logo/b&w/text/b&w.svg',
-          width: 49.78314,
-          height: 24.276,
+          url: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
+          contentUrl: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
+          width: 512,
+          height: 512,
           caption: 'TradingGoose Logo',
         },
         image: { '@id': 'https://tradinggoose.ai/#logo' },
         sameAs: [
-          'https://x.com/simdotai',
+          'https://x.com/tradinggoose',
           'https://github.com/TradingGoose/TradingGoose-Studio',
-          'https://www.linkedin.com/company/tradinggoose/',
           'https://discord.gg/wavf5JWhuT',
+          'https://docs.tradinggoose.ai',
         ],
         contactPoint: {
           '@type': 'ContactPoint',
@@ -36,9 +36,9 @@ export default function StructuredData() {
         '@type': 'WebSite',
         '@id': 'https://tradinggoose.ai/#website',
         url: 'https://tradinggoose.ai',
-        name: 'TradingGoose - AI Agent Workflow Builder',
+        name: 'TradingGoose - Visual Workflow Platform for LLM Trading',
         description:
-          'Open-source AI agent workflow builder. 50,000+ developers build and deploy agentic workflows. SOC2 and HIPAA compliant.',
+          'Open-source platform for technical LLM-driven trading. Connect data providers, write custom indicators in PineTS, trigger AI agent workflows on market signals.',
         publisher: {
           '@id': 'https://tradinggoose.ai/#organization',
         },
@@ -59,17 +59,17 @@ export default function StructuredData() {
         '@type': 'WebPage',
         '@id': 'https://tradinggoose.ai/#webpage',
         url: 'https://tradinggoose.ai',
-        name: 'TradingGoose - Workflows for LLMs | Build AI Agent Workflows',
+        name: 'TradingGoose - Build your Trading Analysis with AI Agent Workflows',
         isPartOf: {
           '@id': 'https://tradinggoose.ai/#website',
         },
         about: {
           '@id': 'https://tradinggoose.ai/#software',
         },
-        datePublished: '2024-01-01T00:00:00+00:00',
+        datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: new Date().toISOString(),
         description:
-          'Build and deploy AI agent workflows with TradingGoose. Visual drag-and-drop interface for creating powerful LLM-powered automations.',
+          'Build AI-powered trading analysis workflows with TradingGoose. Connect live data providers, write custom indicators, and deploy agents that trigger on market signals.',
         breadcrumb: {
           '@id': 'https://tradinggoose.ai/#breadcrumb',
         },
@@ -96,35 +96,32 @@ export default function StructuredData() {
       {
         '@type': 'SoftwareApplication',
         '@id': 'https://tradinggoose.ai/#software',
-        name: 'TradingGoose - AI Agent Workflow Builder',
+        name: 'TradingGoose Studio',
         description:
-          'Open-source AI agent workflow builder used by 50,000+ developers. Build agentic workflows with visual drag-and-drop interface. SOC2 and HIPAA compliant. Integrate with 100+ apps.',
-        applicationCategory: 'DeveloperApplication',
-        applicationSubCategory: 'AI Development Tools',
+          'Open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that place trades, send alerts, or rebalance portfolios.',
+        applicationCategory: 'FinanceApplication',
+        applicationSubCategory: 'Trading Platform',
         operatingSystem: 'Web, Windows, macOS, Linux',
-        softwareVersion: '1.0',
+        softwareVersion: '2026.04.04',
         offers: [
           {
             '@type': 'Offer',
-            '@id': 'https://tradinggoose.ai/#offer-free',
-            name: 'Community Plan',
+            '@id': 'https://tradinggoose.ai/#offer-community',
+            name: 'Community',
+            description:
+              'For individuals exploring indicators, AI workflows, and strategy prototyping.',
             price: '0',
             priceCurrency: 'USD',
-            priceValidUntil: '2025-12-31',
-            itemCondition: 'https://schema.org/NewCondition',
             availability: 'https://schema.org/InStock',
-            seller: {
-              '@id': 'https://tradinggoose.ai/#organization',
-            },
-            eligibleRegion: {
-              '@type': 'Place',
-              name: 'Worldwide',
-            },
+            seller: { '@id': 'https://tradinggoose.ai/#organization' },
+            eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
           },
           {
             '@type': 'Offer',
             '@id': 'https://tradinggoose.ai/#offer-pro',
-            name: 'Pro Plan',
+            name: 'Pro',
+            description:
+              'For active users who need higher throughput, more storage, and unlimited workspaces.',
             price: '20',
             priceCurrency: 'USD',
             priceSpecification: {
@@ -134,17 +131,15 @@ export default function StructuredData() {
               unitText: 'MONTH',
               billingIncrement: 1,
             },
-            priceValidUntil: '2025-12-31',
-            itemCondition: 'https://schema.org/NewCondition',
             availability: 'https://schema.org/InStock',
-            seller: {
-              '@id': 'https://tradinggoose.ai/#organization',
-            },
+            seller: { '@id': 'https://tradinggoose.ai/#organization' },
           },
           {
             '@type': 'Offer',
             '@id': 'https://tradinggoose.ai/#offer-team',
-            name: 'Team Plan',
+            name: 'Team',
+            description:
+              'For teams sharing workflows, pooled storage, and a dedicated support channel.',
             price: '40',
             priceCurrency: 'USD',
             priceSpecification: {
@@ -154,38 +149,25 @@ export default function StructuredData() {
               unitText: 'MONTH',
               billingIncrement: 1,
             },
-            priceValidUntil: '2025-12-31',
-            itemCondition: 'https://schema.org/NewCondition',
             availability: 'https://schema.org/InStock',
-            seller: {
-              '@id': 'https://tradinggoose.ai/#organization',
-            },
+            seller: { '@id': 'https://tradinggoose.ai/#organization' },
           },
         ],
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: '4.8',
-          reviewCount: '150',
-          bestRating: '5',
-          worstRating: '1',
-        },
         featureList: [
-          'Visual workflow builder',
-          'Drag-and-drop interface',
-          '100+ integrations',
-          'AI model support (OpenAI, Anthropic, Google, xAI, Mistral, Perplexity)',
-          'Real-time collaboration',
-          'Version control',
-          'API access',
-          'Custom functions',
-          'Scheduled workflows',
-          'Event triggers',
+          'Visual workflow canvas for trading strategies',
+          'Custom indicator editor (PineTS)',
+          'Live market data provider integrations',
+          'Backtesting against historical candle data',
+          'AI model support (OpenAI, Anthropic, Google, xAI, Mistral, Perplexity, Ollama)',
+          'Split-panel workspace with saved widget layouts',
+          'Workflow triggers on indicator signals (RSI, Bollinger Bands, Supertrend, custom)',
+          'Scheduled and event-driven automations',
         ],
         screenshot: [
           {
             '@type': 'ImageObject',
-            url: 'https://tradinggoose.ai/screenshots/workflow-builder.png',
-            caption: 'TradingGoose workflow builder interface',
+            url: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
+            caption: 'TradingGoose visual trading workflow builder',
           },
         ],
       },
@@ -198,7 +180,7 @@ export default function StructuredData() {
             name: 'What is TradingGoose?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'TradingGoose is an open-source AI agent workflow builder used by 50,000+ developers at trail-blazing startups to Fortune 500 companies. It provides a visual drag-and-drop interface for building and deploying agentic workflows. TradingGoose is SOC2 and HIPAA compliant.',
+              text: 'TradingGoose is an open-source visual workflow platform for technical LLM-driven trading. You connect your own market data providers, write custom indicators in PineTS, monitor live prices, and wire signals into AI agent workflows that can place trades, send alerts, rebalance portfolios, or run any action you define.',
             },
           },
           {
@@ -206,15 +188,31 @@ export default function StructuredData() {
             name: 'Which AI models does TradingGoose support?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'TradingGoose supports all major AI models including OpenAI (GPT-5, GPT-4o), Anthropic (Claude), Google (Gemini), xAI (Grok), Mistral, Perplexity, and many more. You can also connect to open-source models via Ollama.',
+              text: 'TradingGoose supports major AI models including OpenAI (GPT-5, GPT-4o), Anthropic Claude, Google Gemini, xAI Grok, Mistral, and Perplexity. You can also connect open-source models via Ollama for local inference.',
             },
           },
           {
             '@type': 'Question',
-            name: 'Do I need coding skills to use TradingGoose?',
+            name: 'Is TradingGoose open source?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'No coding skills are required! TradingGoose features a visual drag-and-drop interface that makes it easy to build AI workflows. However, developers can also use custom functions and our API for advanced use cases.',
+              text: 'Yes. TradingGoose Studio is open source and available on GitHub at github.com/TradingGoose/TradingGoose-Studio. You can self-host it, inspect the code, and contribute.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I write custom trading indicators in TradingGoose?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes. TradingGoose ships with built-in indicators (RSI, Bollinger Bands, Supertrend and more) plus a PineTS editor for writing your own. You can connect any streaming data provider with your own credentials and monitor prices at any interval.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Does TradingGoose provide financial advice?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'No. TradingGoose is a workflow platform, not a financial advisor. It provides the building blocks to create your own trading automations. You define the strategies, the signals, and the actions. Use it at your own risk.',
             },
           },
         ],
@@ -228,11 +226,11 @@ export default function StructuredData() {
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      {/* LLM-friendly semantic HTML comments */}
-      {/* About: TradingGoose is a visual workflow builder for AI agents and large language models (LLMs) */}
-      {/* Purpose: Enable users to create AI-powered automations without coding */}
-      {/* Features: Drag-and-drop interface, 100+ integrations, multi-model support */}
-      {/* Use cases: Email automation, chatbots, data analysis, content generation */}
+      {/* LLM-friendly semantic hints */}
+      {/* About: TradingGoose is a visual workflow platform for technical LLM-driven trading */}
+      {/* Purpose: Connect market data, build custom indicators, trigger AI agent workflows on signals */}
+      {/* Features: PineTS custom indicators, live market data, backtesting, workflow canvas, widget workspaces */}
+      {/* Use cases: Algorithmic trading automation, indicator-based alerts, portfolio rebalancing, AI trade execution */}
     </>
   )
 }

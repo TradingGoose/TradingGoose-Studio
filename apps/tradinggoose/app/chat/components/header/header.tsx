@@ -69,11 +69,11 @@ export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
             aria-label='TradingGoose home'
           >
             <Image
-              src='/logo/b&w/text/small.png'
-              alt='TradingGoose - Workflows for LLMs'
-              width={29.869884}
-              height={14.5656}
-              className='h-[14.5656px] w-auto pb-[1px]'
+              src='/favicon/goose.png'
+              alt='TradingGoose'
+              width={24}
+              height={24}
+              className='h-6 w-6'
               priority
               loading='eager'
               quality={100}

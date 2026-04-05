@@ -1,25 +1,47 @@
 ## Summary
-Brief description of what this PR does and why.
+<!-- What changed? Keep this concrete. -->
 
-Fixes #(issue)
+## Why
+<!-- Why is this change needed? What problem does it solve? -->
 
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature  
-- [ ] Breaking change
-- [ ] Documentation
-- [ ] Other: ___________
+## Affected Areas
+<!-- Check all that apply. -->
+- [ ] `apps/tradinggoose`
+- [ ] `apps/docs`
+- [ ] `packages/*`
+- [ ] Workflows / execution
+- [ ] Realtime / sockets
+- [ ] Market data / charting
+- [ ] Dev tooling / CI / infra
+- [ ] Documentation only
+- [ ] Other:
 
-## Testing
-How has this been tested? What should reviewers focus on?
+## Issue Links( if any )
+<!-- Example: Fixes #123 -->
+
+## Validation
+<!-- List the exact commands you ran and the result. -->
+```bash
+# example
+bun run test
+bun run type-check
+```
+
+## Risk / Rollout Notes
+<!-- Call out breaking changes, rollout concerns, follow-up work, or backout plan. -->
+
+## Config / Data Changes
+<!-- Delete lines that do not apply. -->
+- Env vars added or changed:
+- Database schema or migration impact:
+- External services or provider behavior changed:
+
+## Screenshots / Video
+<!-- Required for visible UI changes. Include before/after when useful. -->
 
 ## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-reviewed my changes
-- [ ] Tests added/updated and passing
-- [ ] No new warnings introduced
-- [ ] I confirm that I have read and agree to the terms outlined in the [Contributor License Agreement (CLA)](./CONTRIBUTING.md#contributor-license-agreement-cla)
-
-## Screenshots/Videos
-<!-- If applicable, add screenshots or videos to help explain your changes -->
-<!-- For UI changes, before/after screenshots are especially helpful -->
+- [ ] I kept the change focused and reviewed my own diff
+- [ ] I validated the change locally and documented the results above
+- [ ] I updated docs, examples, or copy if behavior/user-facing flows changed
+- [ ] I called out any env, schema, provider, or rollout impact
+- [ ] I did not include secrets, tokens, or private credentials in this PR

@@ -8,13 +8,13 @@ import { LandingNode } from './landing-block/landing-node'
 import { CARD_WIDTH, type LandingCanvasProps } from './landing-canvas'
 import { LandingEdge } from './landing-edge/landing-edge'
 
-const nodeTypes = {
+const landingNodeTypes = {
   landing: LandingNode,
   landingLoop: LandingLoopNode,
   group: LandingLoopNode,
 }
 
-const edgeTypes = { landingEdge: LandingEdge }
+const landingEdgeTypes = { landingEdge: LandingEdge }
 
 /**
  * Props for the LandingFlow component
@@ -41,6 +41,9 @@ export function LandingFlow({
   const { setViewport, getViewport } = useReactFlow()
   const [rfReady, setRfReady] = React.useState(false)
   const [localNodes, setLocalNodes] = React.useState(nodes)
+  // Stabilize across HMR re-evaluations — React Flow warns on ref change.
+  const nodeTypes = React.useMemo(() => landingNodeTypes, [])
+  const edgeTypes = React.useMemo(() => landingEdgeTypes, [])
 
   // Update local nodes when props change
   React.useEffect(() => {
