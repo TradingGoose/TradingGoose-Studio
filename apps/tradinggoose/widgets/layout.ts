@@ -3,7 +3,7 @@ import { normalizeOptionalString } from '@/lib/utils'
 import type { PairReviewTarget } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
-import { normalizeWorkflowCopilotWidgetParams } from '@/widgets/widgets/workflow_copilot/review-target-params'
+import { normalizeWorkflowCopilotWidgetParams } from '@/widgets/widgets/copilot/review-target-params'
 
 export type WidgetInstance = {
   key: string

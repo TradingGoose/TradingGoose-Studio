@@ -68,7 +68,7 @@ type MockChain = {
   leftJoin: ReturnType<typeof vi.fn>
 }
 
-const mockDb = db as { select: ReturnType<typeof vi.fn> }
+const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> }
 
 function createMockChain(finalResult: any): MockChain {
   const chain: any = {}

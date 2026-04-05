@@ -299,10 +299,10 @@ describe('saveReviewEntity shared session access', () => {
       },
     })
 
-    await expect(request).rejects.toMatchObject<Partial<SaveReviewEntityError>>({
+    await expect(request).rejects.toMatchObject({
       status: 404,
       message: 'Review session not found',
-    })
+    } satisfies Partial<SaveReviewEntityError>)
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       reviewSessionId,
       'collaborator-user',
@@ -343,10 +343,10 @@ describe('saveReviewEntity shared session access', () => {
       },
     })
 
-    await expect(request).rejects.toMatchObject<Partial<SaveReviewEntityError>>({
+    await expect(request).rejects.toMatchObject({
       status: 409,
       message: 'replay_unsafe',
-    })
+    } satisfies Partial<SaveReviewEntityError>)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })

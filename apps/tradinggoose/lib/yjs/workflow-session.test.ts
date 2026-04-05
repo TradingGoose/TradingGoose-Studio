@@ -18,6 +18,7 @@ describe('workflow session text fields', () => {
         id: 'block-1',
         type: 'script',
         name: 'Script',
+        enabled: true,
         position: { x: 0, y: 0 },
         subBlocks: {
           code: {
@@ -54,6 +55,7 @@ describe('workflow session text fields', () => {
           id: 'block-1',
           type: 'script',
           name: 'Script',
+          enabled: true,
           position: { x: 0, y: 0 },
           subBlocks: {
             code: {
