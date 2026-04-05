@@ -7,7 +7,7 @@ on:
 
 jobs:
   reset-staging:
-    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'staging'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
