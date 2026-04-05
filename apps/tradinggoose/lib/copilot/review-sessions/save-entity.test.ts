@@ -280,6 +280,10 @@ describe('saveReviewEntity shared session access', () => {
 
   it('keeps draft review sessions creator-owned', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue(null)
+    const expectedError: Partial<SaveReviewEntityError> = {
+      status: 404,
+      message: 'Review session not found',
+    }
 
     const request = saveReviewEntity('collaborator-user', {
       entityKind: 'custom_tool',
@@ -299,10 +303,7 @@ describe('saveReviewEntity shared session access', () => {
       },
     })
 
-    await expect(request).rejects.toMatchObject({
-      status: 404,
-      message: 'Review session not found',
-    } satisfies Partial<SaveReviewEntityError>)
+    await expect(request).rejects.toMatchObject(expectedError)
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       reviewSessionId,
       'collaborator-user',
@@ -324,6 +325,10 @@ describe('saveReviewEntity shared session access', () => {
       userId: 'creator-user',
       model: 'claude-4.5-sonnet',
     })
+    const expectedError: Partial<SaveReviewEntityError> = {
+      status: 409,
+      message: 'replay_unsafe',
+    }
 
     const request = saveReviewEntity('collaborator-user', {
       entityKind: 'custom_tool',
@@ -343,10 +348,7 @@ describe('saveReviewEntity shared session access', () => {
       },
     })
 
-    await expect(request).rejects.toMatchObject({
-      status: 409,
-      message: 'replay_unsafe',
-    } satisfies Partial<SaveReviewEntityError>)
+    await expect(request).rejects.toMatchObject(expectedError)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
