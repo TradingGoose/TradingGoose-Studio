@@ -6,7 +6,6 @@
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { v4 as uuidv4 } from 'uuid'
 
 // ---------- Minimal env helpers ----------
 function getEnv(name: string): string | undefined {
@@ -293,7 +292,7 @@ async function migrateWorkflows() {
 
         if (state) {
           deploymentVersions.push({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             workflowId: wf.id,
             version: 1,
             state,

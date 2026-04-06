@@ -75,7 +75,6 @@
     "@y/protocols": "1.0.6-1",
     "better-auth": "1.5.6",
     "binary-extensions": "2.3.0",
-    "@y/protocols": "1.0.6-1",
     "browser-image-compression": "^2.0.2",
     "chalk": "^4.1.2",
     "cheerio": "1.1.2",

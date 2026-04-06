@@ -248,6 +248,7 @@
       "name": "@tradinggoose/db",
       "version": "0.1.0",
       "devDependencies": {
+        "@types/node": "24.2.1",
         "typescript": "^5.7.3",
       },
       "peerDependencies": {
