@@ -3,6 +3,7 @@ import {
   normalizeColorPairsState,
   normalizeDashboardLayout,
   resolveWidgetParamsForPairColorChange,
+  serializeLayout,
 } from '@/widgets/layout'
 
 describe('resolveWidgetParamsForPairColorChange', () => {
@@ -106,10 +107,10 @@ describe('normalizeColorPairsState', () => {
           color: 'blue',
           workflowId: 'wf-1',
           listing: null,
-          indicatorId: null,
-          mcpServerId: null,
-          customToolId: null,
-          skillId: null,
+          indicatorId: undefined,
+          mcpServerId: undefined,
+          customToolId: undefined,
+          skillId: undefined,
         },
       ],
     })
@@ -126,7 +127,6 @@ describe('normalizeColorPairsState', () => {
             reviewEntityKind: 'skill',
             reviewEntityId: 'skill-1',
             reviewDraftSessionId: 'draft-1',
-            reviewModel: 'gpt-5',
           },
         ],
       })
@@ -141,12 +141,11 @@ describe('normalizeColorPairsState', () => {
             reviewEntityKind: 'skill',
             reviewEntityId: 'skill-1',
             reviewDraftSessionId: 'draft-1',
-            reviewModel: 'gpt-5',
           },
-          indicatorId: null,
-          mcpServerId: null,
-          customToolId: null,
-          skillId: null,
+          indicatorId: undefined,
+          mcpServerId: undefined,
+          customToolId: undefined,
+          skillId: undefined,
         },
       ],
     })
@@ -177,13 +176,12 @@ describe('normalizeColorPairsState', () => {
             reviewSessionId: 'review-2',
             reviewEntityKind: 'indicator',
             reviewEntityId: 'ind-1',
-            reviewDraftSessionId: null,
-            reviewModel: null,
+            reviewDraftSessionId: undefined,
           },
-          indicatorId: null,
-          mcpServerId: null,
-          customToolId: null,
-          skillId: null,
+          indicatorId: undefined,
+          mcpServerId: undefined,
+          customToolId: undefined,
+          skillId: undefined,
         },
       ],
     })
@@ -191,7 +189,39 @@ describe('normalizeColorPairsState', () => {
 })
 
 describe('normalizeDashboardLayout', () => {
-  it('drops legacy workflow copilot params instead of rewriting them', () => {
+  it('preserves persisted node ids so panel-scoped widget channels stay stable across reloads', () => {
+    const normalized = normalizeDashboardLayout({
+      id: 'group-1',
+      type: 'group',
+      direction: 'horizontal',
+      sizes: [100],
+      children: [
+        {
+          id: 'panel-1',
+          type: 'panel',
+          widget: {
+            key: 'copilot',
+            pairColor: 'gray',
+            params: null,
+          },
+        },
+      ],
+    })
+
+    expect(normalized.id).toBe('group-1')
+    expect(normalized.type).toBe('group')
+    if (normalized.type !== 'group') {
+      throw new Error('Expected normalized layout to remain a group')
+    }
+
+    expect(normalized.children[0]?.id).toBe('panel-1')
+    expect(serializeLayout(normalized)).toMatchObject({
+      id: 'group-1',
+      children: [{ id: 'panel-1', type: 'panel' }],
+    })
+  })
+
+  it('clears persisted copilot params instead of keeping sticky context state', () => {
     const normalized = normalizeDashboardLayout({
       type: 'panel',
       widget: {
@@ -205,7 +235,6 @@ describe('normalizeDashboardLayout', () => {
           reviewEntityKind: 'skill',
           reviewEntityId: 'skill-1',
           reviewDraftSessionId: 'draft-1',
-          reviewModel: 'gpt-5-fast',
           ignored: 'value',
         },
       },
@@ -219,17 +248,32 @@ describe('normalizeDashboardLayout', () => {
     expect(normalized.widget).toMatchObject({
       key: 'workflow_copilot',
       pairColor: 'blue',
-      params: {
-        workflowId: 'wf-1',
-        reviewSessionId: 'review-1',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-1',
-        reviewDraftSessionId: 'draft-1',
-        reviewModel: 'gpt-5-fast',
+      params: null,
+    })
+  })
+
+  it('clears persisted params for the current copilot widget key as well', () => {
+    const normalized = normalizeDashboardLayout({
+      type: 'panel',
+      widget: {
+        key: 'copilot',
+        pairColor: 'blue',
+        params: {
+          workflowId: 'wf-1',
+          reviewSessionId: 'review-1',
+        },
       },
     })
-    expect((normalized.widget?.params as Record<string, unknown>)?.chatId).toBeUndefined()
-    expect((normalized.widget?.params as Record<string, unknown>)?.copilotChatId).toBeUndefined()
-    expect((normalized.widget?.params as Record<string, unknown>)?.ignored).toBeUndefined()
+
+    expect(normalized.type).toBe('panel')
+    if (normalized.type !== 'panel') {
+      throw new Error('Expected normalized copilot layout to remain a panel')
+    }
+
+    expect(normalized.widget).toMatchObject({
+      key: 'copilot',
+      pairColor: 'blue',
+      params: null,
+    })
   })
 })

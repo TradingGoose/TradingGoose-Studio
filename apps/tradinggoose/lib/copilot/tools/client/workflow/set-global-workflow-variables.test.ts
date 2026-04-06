@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockGetRegisteredWorkflowSession = vi.fn()
-const mockGetVariablesSnapshot = vi.fn()
+const mockGetVariablesForWorkflow = vi.fn()
 const mockSetVariables = vi.fn()
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
+  getVariablesForWorkflow: (...args: any[]) => mockGetVariablesForWorkflow(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
   getVariablesMap: vi.fn(),
-  getVariablesSnapshot: (...args: any[]) => mockGetVariablesSnapshot(...args),
   setVariables: (...args: any[]) => mockSetVariables(...args),
 }))
 
@@ -21,14 +22,14 @@ describe('SetGlobalWorkflowVariablesClientTool', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     mockGetRegisteredWorkflowSession.mockReset()
-    mockGetVariablesSnapshot.mockReset()
+    mockGetVariablesForWorkflow.mockReset()
     mockSetVariables.mockReset()
   })
 
   it('uses execution-context workflowId and writes variables only through the live Yjs session', async () => {
     const doc = { kind: 'workflow-doc' }
     mockGetRegisteredWorkflowSession.mockReturnValue({ doc })
-    mockGetVariablesSnapshot.mockReturnValue({
+    mockGetVariablesForWorkflow.mockReturnValue({
       'var-1': {
         id: 'var-1',
         workflowId: 'wf-context',
@@ -76,7 +77,7 @@ describe('SetGlobalWorkflowVariablesClientTool', () => {
     })
 
     expect(mockGetRegisteredWorkflowSession).toHaveBeenCalledWith('wf-context')
-    expect(mockGetVariablesSnapshot).toHaveBeenCalledWith(doc)
+    expect(mockGetVariablesForWorkflow).toHaveBeenCalledWith('wf-context')
     expect(mockSetVariables).toHaveBeenCalledTimes(1)
     expect(mockSetVariables).toHaveBeenCalledWith(
       doc,
@@ -96,7 +97,7 @@ describe('SetGlobalWorkflowVariablesClientTool', () => {
           value: true,
         },
       },
-      'copilot'
+      YJS_ORIGINS.COPILOT_TOOL
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith(

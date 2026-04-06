@@ -94,7 +94,6 @@ describe('bootstrapYjsProvider', () => {
     entityId: 'workflow-1',
     draftSessionId: null,
     reviewSessionId: null,
-    reviewModel: null,
     yjsSessionId: 'workflow-1',
   }
 

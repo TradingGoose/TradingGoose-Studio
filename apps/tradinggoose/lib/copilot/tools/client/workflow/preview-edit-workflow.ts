@@ -8,7 +8,7 @@ import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   resolveWorkflowIdFromExecutionContext,
-  serializeLiveWorkflowSnapshot,
+  serializeReadableWorkflowSnapshot,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 
 interface PreviewEditWorkflowOperation {
@@ -63,18 +63,21 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Build the preview baseline from the live Yjs workflow doc.
+      // Build the preview baseline from the live Yjs workflow doc when available,
+      // but allow read-only previewing to fall back to the persisted workflow.
       let currentUserWorkflow = args?.currentUserWorkflow
 
       if (!currentUserWorkflow) {
         try {
-          currentUserWorkflow = serializeLiveWorkflowSnapshot(
-            executionContext,
-            workflowId
+          currentUserWorkflow = (
+            await serializeReadableWorkflowSnapshot(
+              executionContext,
+              workflowId
+            )
           ).currentUserWorkflow
         } catch (e) {
-          logger.warn('Failed to build currentUserWorkflow from Yjs session', e as any)
-          throw new Error('No active workflow session found')
+          logger.warn('Failed to build currentUserWorkflow from readable workflow snapshot', e as any)
+          throw new Error('Failed to read the current workflow')
         }
       }
 
@@ -107,8 +110,8 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
         throw new Error('No workflow state returned from preview')
       }
 
+      this.setState(ClientToolCallState.success, { result })
       await this.markToolComplete(200, 'Pre-edit check: SUCCESS', result)
-      this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('execute error', { message })

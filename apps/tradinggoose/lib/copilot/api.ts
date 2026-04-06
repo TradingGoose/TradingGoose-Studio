@@ -1,6 +1,7 @@
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ChatContext } from '@/stores/copilot/types'
+import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotAPI')
 
@@ -35,12 +36,12 @@ export interface CopilotMessage {
 export interface CopilotChat {
   reviewSessionId: string
   workspaceId: string | null
-  entityKind: ReviewEntityKind
+  channelId: string | null
+  entityKind: string | null
   entityId: string | null
   draftSessionId: string | null
   conversationId?: string | null
   title: string | null
-  reviewModel: string
   messages: CopilotMessage[]
   messageCount: number
   createdAt: Date
@@ -65,23 +66,11 @@ export interface SendMessageRequest {
   message: string
   userMessageId?: string // ID from frontend for the user message
   reviewSessionId?: string
+  channelId?: string
   workflowId?: string
-  entityKind?: ReviewEntityKind
-  entityId?: string
-  draftSessionId?: string
   workspaceId?: string
-  model?:
-    | 'gpt-5-fast'
-    | 'gpt-5'
-    | 'gpt-5-medium'
-    | 'gpt-5-high'
-    | 'gpt-4o'
-    | 'gpt-4.1'
-    | 'o3'
-    | 'claude-4-sonnet'
-    | 'claude-4.5-haiku'
-    | 'claude-4.5-sonnet'
-    | 'claude-4.1-opus'
+  model?: CopilotRuntimeModel
+  provider?: ProviderId
   prefetch?: boolean
   stream?: boolean
   fileAttachments?: MessageFileAttachment[]
@@ -136,6 +125,7 @@ export async function sendStreamingMessage(
           }))
         : undefined
       logger.info('Preparing to send streaming message', {
+        channelId: (requestBody as any).channelId,
         hasContexts: Array.isArray((requestBody as any).contexts),
         contextsCount: Array.isArray((requestBody as any).contexts)
           ? (requestBody as any).contexts.length

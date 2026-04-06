@@ -79,6 +79,7 @@ export class BaseClientTool {
   protected isMarkedComplete = false
   protected timeoutMs: number = DEFAULT_TOOL_TIMEOUT_MS
   private executionContext: ClientToolExecutionContext | null = null
+  private persistedToolCall: Record<string, any> | undefined
 
   constructor(toolCallId: string, name: string, metadata: BaseClientToolMetadata) {
     this.toolCallId = toolCallId
@@ -176,6 +177,14 @@ export class BaseClientTool {
     return this.executionContext
   }
 
+  hydratePersistedToolCall(toolCall?: Record<string, any>): void {
+    this.persistedToolCall = toolCall ? { ...toolCall } : undefined
+    const persistedState = toolCall?.state as ClientToolCallState | undefined
+    if (persistedState !== undefined && this.state === ClientToolCallState.generating) {
+      this.state = persistedState
+    }
+  }
+
   /**
    * Mark a tool as complete on the server (proxies to server-side route).
    * Once called, the tool is considered complete and won't be marked again.
@@ -245,9 +254,66 @@ export class BaseClientTool {
     this.setState(ClientToolCallState.executing)
   }
 
+  protected resolvePersistedToolCall(): Record<string, any> | undefined {
+    return this.persistedToolCall
+  }
+
+  protected resolvePersistedToolState(): ClientToolCallState | undefined {
+    return this.resolvePersistedToolCall()?.state as ClientToolCallState | undefined
+  }
+
+  protected resolvePersistedResult<T = any>(): T | undefined {
+    return this.resolvePersistedToolCall()?.result as T | undefined
+  }
+
+  protected resolveUserActionState(): ClientToolCallState {
+    if (this.state === ClientToolCallState.pending || this.state === ClientToolCallState.review) {
+      return this.state
+    }
+
+    return this.resolvePersistedToolState() ?? this.state
+  }
+
+  protected async getPendingUserAction(
+    _args?: Record<string, any>
+  ): Promise<'accept' | 'execute'> {
+    return this.getInterruptDisplays() ? 'accept' : 'execute'
+  }
+
+  protected async prepareReviewAccept(_args?: Record<string, any>): Promise<boolean> {
+    return true
+  }
+
+  protected getRejectCompletionMessage(): string {
+    return 'Tool execution was skipped by the user'
+  }
+
+  // Unified entry point for explicit user-triggered execution from the copilot UI.
+  async handleUserAction(args?: Record<string, any>): Promise<void> {
+    const effectiveState = this.resolveUserActionState()
+
+    if (effectiveState === ClientToolCallState.review) {
+      if (!(await this.prepareReviewAccept(args))) {
+        return
+      }
+      await (this as any).handleAccept?.(args)
+      return
+    }
+
+    if (effectiveState === ClientToolCallState.pending && this.getInterruptDisplays()) {
+      const action = await this.getPendingUserAction(args)
+      if (action === 'accept') {
+        await (this as any).handleAccept?.(args)
+        return
+      }
+    }
+
+    await (this as any).execute?.(args)
+  }
+
   // Reject (skip) for interrupt flows: mark complete with a standard skip message
   async handleReject(): Promise<void> {
-    await this.markToolComplete(200, 'Tool execution was skipped by the user')
+    await this.markToolComplete(200, this.getRejectCompletionMessage())
     this.setState(ClientToolCallState.rejected)
   }
 
@@ -265,6 +331,11 @@ export class BaseClientTool {
   setState(next: ClientToolCallState, options?: { result?: any }): void {
     const prev = this.state
     this.state = next
+    this.persistedToolCall = {
+      ...this.persistedToolCall,
+      ...(options?.result !== undefined ? { result: options.result } : {}),
+      state: next,
+    }
 
     // Notify store via manager to avoid import cycles
     try {

@@ -168,6 +168,7 @@ export async function applyAutoLayoutAndUpdateStore({
     // Import Yjs session registry for imperative access
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
     const { getWorkflowSnapshot, getWorkflowMap } = await import('@/lib/yjs/workflow-session')
+    const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
     const registryState = useWorkflowRegistry.getState()
@@ -241,7 +242,7 @@ export async function applyAutoLayoutAndUpdateStore({
       const wMap = getWorkflowMap(doc)
       wMap.set('blocks', result.layoutedBlocks!)
       wMap.set('lastSaved', Date.now())
-    }, 'user')
+    }, YJS_ORIGINS.USER)
 
     logger.info('Successfully updated Yjs doc with auto layout', {
       workflowId: resolvedWorkflowId,
@@ -328,7 +329,7 @@ export async function applyAutoLayoutAndUpdateStore({
       doc.transact(() => {
         const wMap = getWorkflowMap(doc)
         wMap.set('blocks', blocks) // Revert to original blocks
-      }, 'system')
+      }, YJS_ORIGINS.SYSTEM)
 
       return {
         success: false,

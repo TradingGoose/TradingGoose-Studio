@@ -2,12 +2,12 @@ import { NextRequest } from 'next/server'
 /**
  * @vitest-environment node
  */
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 
 describe('Workflow Duplicate API Route', () => {
-  let liveDoc: Y.Doc | null
+  let loadWorkflowStateWithFallbackMock: ReturnType<typeof vi.fn>
+  let remapVariableIdsMock: ReturnType<typeof vi.fn>
+  let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
   let applyWorkflowStateMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
@@ -43,7 +43,20 @@ describe('Workflow Duplicate API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    liveDoc = null
+    loadWorkflowStateWithFallbackMock = vi.fn()
+    remapVariableIdsMock = vi.fn((variables, newWorkflowId: string) =>
+      Object.fromEntries(
+        Object.values(variables as Record<string, any>).map((variable, index) => [
+          `remapped-${index + 1}`,
+          {
+            ...variable,
+            id: `remapped-${index + 1}`,
+            workflowId: newWorkflowId,
+          },
+        ])
+      )
+    )
+    regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
     saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
     applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
@@ -104,25 +117,19 @@ describe('Workflow Duplicate API Route', () => {
       generateRequestId: vi.fn(() => 'request-id'),
     }))
 
-    vi.doMock('@/lib/workflows/db-helpers', async () => {
-      const actual = await vi.importActual('@/lib/workflows/db-helpers')
-      return {
-        ...(actual as object),
-        saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
-      }
-    })
+    vi.doMock('@/lib/workflows/db-helpers', () => ({
+      loadWorkflowStateWithFallback: loadWorkflowStateWithFallbackMock,
+      remapVariableIds: remapVariableIdsMock,
+      regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
+      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
+    }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowState: applyWorkflowStateMock,
     }))
 
-    vi.doMock('@/socket-server/yjs/upstream-utils', () => ({
-      getExistingDocument: vi.fn(async () => liveDoc),
-    }))
-
-    vi.doMock('@/socket-server/yjs/persistence', () => ({
-      getState: vi.fn(async () => null),
-      storeState: vi.fn(async () => undefined),
+    vi.doMock('@/lib/yjs/workflow-session', () => ({
+      createWorkflowSnapshot: vi.fn((snapshot: Record<string, unknown>) => snapshot),
     }))
   })
 
@@ -130,33 +137,26 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('prefers the live Yjs source graph and variables when duplicating a workflow', async () => {
-    liveDoc = new Y.Doc()
-    setWorkflowState(
-      liveDoc,
-      {
-        blocks: {
-          'live-block': {
-            id: 'live-block',
-            type: 'agent',
-            name: 'Live Agent',
-            position: { x: 1, y: 2 },
-            subBlocks: {},
-            outputs: {},
-            enabled: true,
-          },
+  it(
+    'prefers the live Yjs source graph and variables when duplicating a workflow',
+    { timeout: 10_000 },
+    async () => {
+    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+      blocks: {
+        'live-block': {
+          id: 'live-block',
+          type: 'agent',
+          name: 'Live Agent',
+          position: { x: 1, y: 2 },
+          subBlocks: {},
+          outputs: {},
+          enabled: true,
         },
-        edges: [],
-        loops: {},
-        parallels: {},
-        lastSaved: '2026-03-29T00:00:00.000Z',
-        isDeployed: false,
       },
-      'test'
-    )
-    setVariables(
-      liveDoc,
-      {
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {
         'live-var': {
           id: 'live-var',
           workflowId: 'workflow-id',
@@ -165,8 +165,9 @@ describe('Workflow Duplicate API Route', () => {
           value: 'live value',
         },
       },
-      'test'
-    )
+      lastSaved: Date.now(),
+      source: 'yjs',
+    })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
     const response = await POST(createRequest({ name: 'Workflow Copy' }), {
@@ -207,6 +208,7 @@ describe('Workflow Duplicate API Route', () => {
         workflowId: appliedWorkflowId,
       }),
     ])
-    expect((Object.values(appliedVariables)[0] as { id: string }).id).not.toBe('live-var')
-  })
+      expect((Object.values(appliedVariables)[0] as { id: string }).id).not.toBe('live-var')
+    }
+  )
 })

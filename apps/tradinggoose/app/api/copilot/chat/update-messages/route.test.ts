@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
+import { EDIT_REPLAY_BLOCKED_MESSAGE } from '@/lib/copilot/chat-replay-safety'
 
 describe('Copilot Chat Update Messages Review Sessions', () => {
   const mockAuthenticate = vi.fn()
@@ -149,6 +150,15 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
             messageRole: message.role,
             content: message.content,
             timestamp: message.timestamp,
+            ...(Array.isArray(message.toolCalls) ? { toolCalls: message.toolCalls } : {}),
+            ...(Array.isArray(message.contentBlocks)
+              ? { contentBlocks: message.contentBlocks }
+              : {}),
+            ...(Array.isArray(message.contexts) ? { contexts: message.contexts } : {}),
+            ...(Array.isArray(message.citations) ? { citations: message.citations } : {}),
+            ...(Array.isArray(message.fileAttachments)
+              ? { fileAttachments: message.fileAttachments }
+              : {}),
           })
         })
 
@@ -159,6 +169,11 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
         role: row.messageRole,
         content: row.content,
         timestamp: row.timestamp,
+        ...(Array.isArray(row.toolCalls) ? { toolCalls: row.toolCalls } : {}),
+        ...(Array.isArray(row.contentBlocks) ? { contentBlocks: row.contentBlocks } : {}),
+        ...(Array.isArray(row.contexts) ? { contexts: row.contexts } : {}),
+        ...(Array.isArray(row.citations) ? { citations: row.citations } : {}),
+        ...(Array.isArray(row.fileAttachments) ? { fileAttachments: row.fileAttachments } : {}),
       })),
       REVIEW_ITEM_KINDS: {
         MESSAGE: 'message',
@@ -222,54 +237,106 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
       { requireWrite: true }
     )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(deleteWhere).toHaveBeenCalledTimes(2)
-    expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(insertValues).toHaveBeenNthCalledWith(
-      1,
-      expect.arrayContaining([
-        expect.objectContaining({
-          sessionId: 'review-session-1',
-          sequence: 0,
-          status: 'completed',
-          userMessageItemId: 'message-1',
-        }),
-        expect.objectContaining({
-          sessionId: 'review-session-1',
-          sequence: 1,
-          status: 'completed',
-          userMessageItemId: 'message-3',
-        }),
-      ])
-    )
-    expect(insertValues).toHaveBeenNthCalledWith(
-      2,
-      expect.arrayContaining([
-        expect.objectContaining({
-          sessionId: 'review-session-1',
-          itemId: 'message-1',
-          sequence: 0,
-          messageRole: 'user',
-          content: 'Please update this draft',
+    expect(deleteWhere).not.toHaveBeenCalled()
+    expect(insertValues).not.toHaveBeenCalled()
+    expect(updateWhere).not.toHaveBeenCalled()
+  })
+
+  it('preserves newer collaborator turns when the owner saves edits to older shared-session messages', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+    })
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      messages: [
+        {
+          id: 'message-1',
+          role: 'user',
+          content: 'Please update this draft with owner edits',
           timestamp: '2026-03-30T12:00:00.000Z',
-        }),
-        expect.objectContaining({
-          sessionId: 'review-session-1',
-          itemId: 'message-2',
-          sequence: 1,
-          messageRole: 'assistant',
+        },
+        {
+          id: 'message-2',
+          role: 'assistant',
           content: 'Updated draft saved.',
           timestamp: '2026-03-30T12:00:01.000Z',
-        }),
-        expect.objectContaining({
-          sessionId: 'review-session-1',
-          itemId: 'message-3',
-          sequence: 2,
-          messageRole: 'user',
-          content: 'Collaborator note added after load',
-          timestamp: '2026-03-30T12:00:02.000Z',
-        }),
-      ])
-    )
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      messageCount: 3,
+    })
+
+    expect(deleteWhere).toHaveBeenCalledTimes(2)
+    expect(insertValues).toHaveBeenCalledTimes(2)
+    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(insertValues.mock.calls[1]?.[0]).toEqual([
+      expect.objectContaining({
+        itemId: 'message-1',
+        content: 'Please update this draft with owner edits',
+      }),
+      expect.objectContaining({
+        itemId: 'message-2',
+        content: 'Updated draft saved.',
+      }),
+      expect.objectContaining({
+        itemId: 'message-3',
+        content: 'Collaborator note added after load',
+      }),
+    ])
+  })
+
+  it('uses exact rewrite mode for shared-session edit replay truncation', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+    })
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      preserveConcurrentHistory: false,
+      messages: [
+        {
+          id: 'message-1',
+          role: 'user',
+          content: 'Please update this draft',
+          timestamp: '2026-03-30T12:00:00.000Z',
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      messageCount: 1,
+    })
+
+    expect(deleteWhere).toHaveBeenCalledTimes(2)
+    expect(insertValues).toHaveBeenCalledTimes(2)
+    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(insertValues.mock.calls[1]?.[0]).toEqual([
+      expect.objectContaining({
+        itemId: 'message-1',
+        content: 'Please update this draft',
+      }),
+    ])
   })
 
   it('returns not found when the caller cannot access the review session', async () => {
@@ -288,5 +355,262 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
       error: 'Review session not found or unauthorized',
     })
     expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects rewrites that would drop later accepted workflow mutations', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'copilot',
+      entityId: null,
+      workspaceId: 'workspace-1',
+    })
+
+    selectOrderBy.mockResolvedValueOnce([
+      {
+        itemId: 'message-1',
+        sessionId: 'review-session-1',
+        messageRole: 'user',
+        content: 'Update the workflow',
+        timestamp: '2026-03-30T12:00:00.000Z',
+      },
+      {
+        itemId: 'message-2',
+        sessionId: 'review-session-1',
+        messageRole: 'assistant',
+        content: '',
+        timestamp: '2026-03-30T12:00:01.000Z',
+        toolCalls: [
+          {
+            id: 'tool-1',
+            name: 'edit_workflow',
+            state: 'success',
+          },
+        ],
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'tool-1',
+              name: 'edit_workflow',
+              state: 'success',
+            },
+          },
+        ],
+      },
+      {
+        itemId: 'message-3',
+        sessionId: 'review-session-1',
+        messageRole: 'user',
+        content: 'Follow-up after the workflow edit',
+        timestamp: '2026-03-30T12:00:02.000Z',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      messages: [
+        {
+          id: 'message-1',
+          role: 'user',
+          content: 'Update the workflow, but differently',
+          timestamp: '2026-03-30T12:00:00.000Z',
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: EDIT_REPLAY_BLOCKED_MESSAGE,
+    })
+    expect(deleteWhere).not.toHaveBeenCalled()
+    expect(insertValues).not.toHaveBeenCalled()
+    expect(updateWhere).not.toHaveBeenCalled()
+  })
+
+  it('rejects rewrites that would drop later accepted shared-entity mutations', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+    })
+
+    selectOrderBy.mockResolvedValueOnce([
+      {
+        itemId: 'message-1',
+        sessionId: 'review-session-1',
+        messageRole: 'user',
+        content: 'Edit the skill',
+        timestamp: '2026-03-30T12:00:00.000Z',
+      },
+      {
+        itemId: 'message-2',
+        sessionId: 'review-session-1',
+        messageRole: 'assistant',
+        content: '',
+        timestamp: '2026-03-30T12:00:01.000Z',
+        toolCalls: [
+          {
+            id: 'tool-entity-1',
+            name: 'manage_skill',
+            state: 'success',
+            params: {
+              operation: 'edit',
+            },
+          },
+        ],
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'tool-entity-1',
+              name: 'manage_skill',
+              state: 'success',
+              result: {
+                operation: 'edit',
+              },
+            },
+          },
+        ],
+      },
+      {
+        itemId: 'message-3',
+        sessionId: 'review-session-1',
+        messageRole: 'user',
+        content: 'Follow-up after the skill edit',
+        timestamp: '2026-03-30T12:00:02.000Z',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      preserveConcurrentHistory: false,
+      messages: [
+        {
+          id: 'message-1',
+          role: 'user',
+          content: 'Edit the skill differently',
+          timestamp: '2026-03-30T12:00:00.000Z',
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: EDIT_REPLAY_BLOCKED_MESSAGE,
+    })
+    expect(deleteWhere).not.toHaveBeenCalled()
+    expect(insertValues).not.toHaveBeenCalled()
+    expect(updateWhere).not.toHaveBeenCalled()
+  })
+
+  it('persists tool-state-only message updates when ids and text stay the same', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+    })
+
+    selectOrderBy.mockResolvedValueOnce([
+      {
+        itemId: 'message-1',
+        sessionId: 'review-session-1',
+        messageRole: 'assistant',
+        content: '',
+        timestamp: '2026-03-30T12:00:01.000Z',
+        toolCalls: [
+          {
+            id: 'tool-1',
+            name: 'edit_workflow',
+            state: 'pending',
+          },
+        ],
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'tool-1',
+              name: 'edit_workflow',
+              state: 'pending',
+            },
+          },
+        ],
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      messages: [
+        {
+          id: 'message-1',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-03-30T12:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'tool-1',
+              name: 'edit_workflow',
+              state: 'rejected',
+            },
+          ],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'tool-1',
+                name: 'edit_workflow',
+                state: 'rejected',
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      messageCount: 1,
+    })
+    expect(deleteWhere).toHaveBeenCalledTimes(2)
+    expect(insertValues).toHaveBeenCalledTimes(2)
+    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(insertValues.mock.calls[1]?.[0]).toEqual([
+      expect.objectContaining({
+        itemId: 'message-1',
+        toolCalls: [
+          expect.objectContaining({
+            id: 'tool-1',
+            state: 'rejected',
+          }),
+        ],
+        contentBlocks: [
+          expect.objectContaining({
+            type: 'tool_call',
+            toolCall: expect.objectContaining({
+              id: 'tool-1',
+              state: 'rejected',
+            }),
+          }),
+        ],
+      }),
+    ])
   })
 })

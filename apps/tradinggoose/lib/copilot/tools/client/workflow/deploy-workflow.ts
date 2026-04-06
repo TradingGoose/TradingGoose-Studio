@@ -165,10 +165,10 @@ export class DeployWorkflowClientTool extends BaseClientTool {
   }
 
   /**
-   * Opens the settings modal to the API keys tab
+   * Opens the workspace API keys page.
    */
-  private openApiKeysModal(): void {
-    window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'apikeys' } }))
+  private openApiKeysPage(workspaceId: string): void {
+    window.location.assign(`/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
   }
 
   /**
@@ -228,8 +228,8 @@ export class DeployWorkflowClientTool extends BaseClientTool {
           // Mark as rejected since we can't deploy without an API key
           this.setState(ClientToolCallState.rejected)
 
-          // Open the API keys modal to help user create one
-          this.openApiKeysModal()
+          // Open the workspace API keys page to help user create one
+          this.openApiKeysPage(workspaceId)
 
           await this.markToolComplete(
             200,
@@ -280,7 +280,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
         const apiKeyPlaceholder = '$TRADINGGOOSE_API_KEY'
 
         // Get input format example (returns empty string if no inputs, or -d flag with example data)
-        const inputExample = getInputFormatExample(false)
+        const inputExample = getInputFormatExample(false, [], workflowId)
 
         // Match the exact format from deploy modal
         const curlCommand = `curl -X POST -H "X-API-Key: ${apiKeyPlaceholder}" -H "Content-Type: application/json"${inputExample} ${endpoint}`

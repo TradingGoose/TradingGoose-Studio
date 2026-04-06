@@ -40,7 +40,6 @@ export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
 export interface EntitySessionSeedOptions {
   entityKind: ReviewEntityKind
   payload: Record<string, any>
-  reviewModel?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -60,9 +59,6 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
 
     // Set bootstrap-touch marker
     metadata.set('bootstrap-touch', Date.now())
-    if (options.reviewModel) {
-      metadata.set('reviewModel', options.reviewModel)
-    }
 
     switch (entityKind) {
       case 'skill':

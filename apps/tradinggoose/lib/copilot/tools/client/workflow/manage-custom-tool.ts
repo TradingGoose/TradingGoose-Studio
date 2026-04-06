@@ -108,11 +108,6 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     )
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: ManageCustomToolArgs): Promise<void> {
     await this.orchestration.handleAccept(this, args, this.requireExecutionContext())
   }

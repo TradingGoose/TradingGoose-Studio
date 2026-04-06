@@ -7,7 +7,11 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
-import { saveWorkflowToNormalizedTables, toISOStringOrUndefined } from '@/lib/workflows/db-helpers'
+import {
+  loadWorkflowStateFromYjs,
+  saveWorkflowToNormalizedTables,
+  toISOStringOrUndefined,
+} from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -112,6 +116,11 @@ const WorkflowStateSchema = z.object({
   variables: z.record(z.any()).optional(),
 })
 
+type ResolvedVariables = {
+  value: Record<string, any> | undefined
+  source: 'request' | 'live-doc' | 'persisted-yjs' | 'unavailable'
+}
+
 /**
  * PUT /api/workflows/[id]/state
  * Save complete workflow state to normalized database tables
@@ -197,19 +206,30 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       deployedAt: toISOStringOrUndefined(state.deployedAt),
     }
 
-    // Prefer explicit request variables, otherwise fall back to the live Yjs doc.
-    // If the doc is not mounted locally, preserve the current canonical row value.
-    //
-    // Note: getExistingDocument and the subsequent getDocument call inside
-    // tryApplyWorkflowState both hit the same in-memory docs Map, so the
-    // second lookup is an O(1) cache hit rather than a network round-trip.
-    let variables = state.variables
-    if (variables === undefined) {
+    // Preserve variables only from authoritative Yjs sources we can actually
+    // read in this process. Falling back to the workflow row is unsafe when
+    // Next.js and the socket server run as separate processes because the row
+    // may lag behind newer variable edits that exist only in the socket
+    // process's live Yjs doc.
+    let resolvedVariables: ResolvedVariables = {
+      value: state.variables,
+      source: state.variables === undefined ? 'unavailable' : 'request',
+    }
+    if (resolvedVariables.value === undefined) {
       const liveDoc = await getExistingDocument(workflowId)
       if (liveDoc) {
-        variables = getVariablesSnapshot(liveDoc)
+        resolvedVariables = {
+          value: getVariablesSnapshot(liveDoc),
+          source: 'live-doc',
+        }
       } else {
-        variables = (workflowData.variables as Record<string, any> | null) ?? undefined
+        const persistedYjsState = await loadWorkflowStateFromYjs(workflowId)
+        if (persistedYjsState) {
+          resolvedVariables = {
+            value: persistedYjsState.variables,
+            source: 'persisted-yjs',
+          }
+        }
       }
     }
 
@@ -223,8 +243,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    // Apply the validated state to the Yjs doc only after the canonical save succeeds.
-    await tryApplyWorkflowState(workflowId, workflowState as WorkflowSnapshot, variables)
+    // Apply the validated state to Yjs only when we can also preserve the
+    // current variables snapshot. Otherwise this process might publish a
+    // partial doc and wipe newer variables owned by the separate socket server.
+    if (resolvedVariables.source !== 'unavailable') {
+      await tryApplyWorkflowState(
+        workflowId,
+        workflowState as WorkflowSnapshot,
+        resolvedVariables.value
+      )
+    } else {
+      logger.warn(
+        `[${requestId}] Skipping Yjs workflow apply because no live or persisted Yjs variables were available for ${workflowId}`
+      )
+    }
 
     // Extract and persist custom tools to database
     try {
@@ -251,7 +283,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .set({
         lastSynced: new Date(),
         updatedAt: new Date(),
-        ...(variables ? { variables } : {}),
+        ...(resolvedVariables.source !== 'unavailable'
+          ? { variables: resolvedVariables.value ?? {} }
+          : {}),
       })
       .where(eq(workflow.id, workflowId))
 

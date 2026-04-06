@@ -405,8 +405,6 @@ export const settings = pgTable('settings', {
   showFloatingControls: boolean('show_floating_controls').notNull().default(true),
   showTrainingControls: boolean('show_training_controls').notNull().default(false),
 
-  // Copilot preferences - maps model_id to enabled/disabled boolean
-  copilotEnabledModels: jsonb('copilot_enabled_models').notNull().default('{}'),
   // Copilot auto-allowed integration tools
   copilotAutoAllowedTools: jsonb('copilot_auto_allowed_tools').notNull().default('[]'),
 
@@ -1541,7 +1539,7 @@ export const copilotReviewSessions = pgTable(
     entityKind: text('entity_kind').notNull(),
     entityId: text('entity_id'),
     draftSessionId: text('draft_session_id'),
-    sessionScopeKey: text('session_scope_key'),
+    channelId: text('channel_id'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -1569,9 +1567,21 @@ export const copilotReviewSessions = pgTable(
       table.entityKind,
       table.draftSessionId
     ),
-    sessionScopeKeyIdx: uniqueIndex('copilot_review_sessions_scope_key_unique')
-      .on(table.sessionScopeKey)
-      .where(sql`${table.sessionScopeKey} IS NOT NULL`),
+    userWorkspaceChannelIdx: index('copilot_review_sessions_user_workspace_channel_idx').on(
+      table.userId,
+      sql`coalesce(${table.workspaceId}, 'global')`,
+      table.channelId
+    ).where(sql`${table.channelId} IS NOT NULL AND ${table.entityKind} = 'copilot'`),
+    savedEntitySessionIdx: uniqueIndex('copilot_review_sessions_saved_entity_unique')
+      .on(table.workspaceId, table.entityKind, table.entityId)
+      .where(
+        sql`${table.channelId} IS NULL AND ${table.entityKind} <> 'workflow' AND ${table.entityId} IS NOT NULL`
+      ),
+    draftEntitySessionIdx: uniqueIndex('copilot_review_sessions_draft_entity_unique')
+      .on(table.userId, table.workspaceId, table.entityKind, table.draftSessionId)
+      .where(
+        sql`${table.channelId} IS NULL AND ${table.entityKind} <> 'workflow' AND ${table.entityId} IS NULL AND ${table.draftSessionId} IS NOT NULL`
+      ),
     createdAtIdx: index('copilot_review_sessions_created_at_idx').on(table.createdAt),
     updatedAtIdx: index('copilot_review_sessions_updated_at_idx').on(table.updatedAt),
   })

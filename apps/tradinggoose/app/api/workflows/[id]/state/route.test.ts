@@ -8,6 +8,7 @@ import { setVariables } from '@/lib/yjs/workflow-session'
 
 describe('Workflow State API Route', () => {
   let liveDoc: Y.Doc | null
+  let loadWorkflowStateFromYjsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
   let tryApplyWorkflowStateMock: ReturnType<typeof vi.fn>
   let updateSetMock: ReturnType<typeof vi.fn>
@@ -43,6 +44,7 @@ describe('Workflow State API Route', () => {
     vi.clearAllMocks()
 
     liveDoc = null
+    loadWorkflowStateFromYjsMock = vi.fn().mockResolvedValue(null)
     saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
     tryApplyWorkflowStateMock = vi.fn().mockResolvedValue({ success: true })
     updateSetMock = vi.fn().mockReturnValue({
@@ -113,7 +115,11 @@ describe('Workflow State API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
+      loadWorkflowStateFromYjs: loadWorkflowStateFromYjsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
+      toISOStringOrUndefined: vi.fn((value: string | number | Date | null | undefined) =>
+        value == null ? undefined : new Date(value).toISOString()
+      ),
     }))
 
     vi.doMock('@/lib/workflows/custom-tools-persistence', () => ({
@@ -180,7 +186,24 @@ describe('Workflow State API Route', () => {
     )
   })
 
-  it('falls back to canonical workflow-row variables when no live doc is mounted', async () => {
+  it('falls back to persisted Yjs variables when no live doc is mounted in-process', async () => {
+    loadWorkflowStateFromYjsMock.mockResolvedValueOnce({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {
+        'persisted-var': {
+          id: 'persisted-var',
+          workflowId: 'workflow-id',
+          name: 'persistedVar',
+          type: 'plain',
+          value: 'persisted value',
+        },
+      },
+      lastSaved: Date.now(),
+    })
+
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(createRequest(validStateBody), {
       params: Promise.resolve({ id: 'workflow-id' }),
@@ -191,20 +214,35 @@ describe('Workflow State API Route', () => {
       'workflow-id',
       expect.any(Object),
       {
-        'db-var': expect.objectContaining({
-          name: 'dbVar',
-          value: 'db value',
+        'persisted-var': expect.objectContaining({
+          name: 'persistedVar',
+          value: 'persisted value',
         }),
       }
     )
     expect(updateSetMock).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: {
-          'db-var': expect.objectContaining({
-            name: 'dbVar',
-            value: 'db value',
+          'persisted-var': expect.objectContaining({
+            name: 'persistedVar',
+            value: 'persisted value',
           }),
         },
+      })
+    )
+  })
+
+  it('does not republish workflow-row variables when no Yjs state is available in-process', async () => {
+    const { PUT } = await import('@/app/api/workflows/[id]/state/route')
+    const response = await PUT(createRequest(validStateBody), {
+      params: Promise.resolve({ id: 'workflow-id' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        variables: expect.anything(),
       })
     )
   })

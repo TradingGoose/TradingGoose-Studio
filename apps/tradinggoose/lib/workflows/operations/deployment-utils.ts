@@ -9,13 +9,14 @@ const logger = createLogger('DeploymentUtils')
  */
 export function getInputFormatExample(
   includeStreaming = false,
-  selectedStreamingOutputs: string[] = []
+  selectedStreamingOutputs: string[] = [],
+  workflowId?: string
 ): string {
   let inputFormatExample = ''
   try {
     // Read workflow blocks from the active Yjs session
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-    const snapshot = activeWorkflowId ? getSnapshotForWorkflow(activeWorkflowId) : null
+    const targetWorkflowId = workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
+    const snapshot = targetWorkflowId ? getSnapshotForWorkflow(targetWorkflowId) : null
     const blocks = Object.values(snapshot?.blocks ?? {})
 
     const apiTriggerBlock = blocks.find((block: any) => block.type === 'api_trigger')

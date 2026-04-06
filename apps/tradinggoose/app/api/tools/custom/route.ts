@@ -12,7 +12,7 @@ import { generateRequestId } from '@/lib/utils'
 const logger = createLogger('CustomToolsAPI')
 
 const CustomToolSchema = z.object({
-  workspaceId: z.string().min(1, 'workspaceId is required'),
+  workspaceId: z.string({ required_error: 'workspaceId is required' }).min(1, 'workspaceId is required'),
   tools: z.array(
     z.object({
       id: z.string().optional(),

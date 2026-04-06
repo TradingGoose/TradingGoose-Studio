@@ -3,7 +3,6 @@ import { normalizeOptionalString } from '@/lib/utils'
 import type { PairReviewTarget } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
-import { normalizeWorkflowCopilotWidgetParams } from '@/widgets/widgets/copilot/review-target-params'
 
 export type WidgetInstance = {
   key: string
@@ -44,10 +43,12 @@ export type LayoutNode =
 
 export type PersistedLayoutNode =
   | {
+      id?: string
       type: 'panel'
       widget: WidgetInstance
     }
   | {
+      id?: string
       type: 'group'
       direction: 'horizontal' | 'vertical'
       sizes: number[]
@@ -168,9 +169,6 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       reviewDraftSessionId: normalizeOptionalString(
         isNestedTarget ? (rawTarget as any).reviewDraftSessionId : (raw as any).reviewDraftSessionId
       ),
-      reviewModel: normalizeOptionalString(
-        isNestedTarget ? (rawTarget as any).reviewModel : (raw as any).reviewModel
-      ),
     }
 
     const hasReviewTarget = Object.values(reviewTarget).some(v => v != null)
@@ -244,10 +242,11 @@ export function normalizeDashboardLayout(state?: unknown): LayoutNode {
   }
 
   const node = state as Partial<LayoutNode>
+  const persistedId = normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
 
   if (node.type === 'panel') {
     return {
-      id: createLayoutNodeId(),
+      id: persistedId,
       type: 'panel',
       widget: normalizeWidgetInstance(node.widget ?? null),
     }
@@ -260,7 +259,7 @@ export function normalizeDashboardLayout(state?: unknown): LayoutNode {
         : new Array(node.children.length).fill(100 / Math.max(node.children.length, 1))
 
     return {
-      id: createLayoutNodeId(),
+      id: persistedId,
       type: 'group',
       direction: node.direction === 'vertical' ? 'vertical' : 'horizontal',
       sizes,
@@ -276,16 +275,11 @@ function normalizeWidgetInstance(widget: WidgetInstance): WidgetInstance {
 
   const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
 
-  let params = widget.params ?? null
-  if (widget.key === 'workflow_copilot') {
-    const normalized = normalizeWorkflowCopilotWidgetParams(params)
-    params = Object.keys(normalized).length > 0 ? normalized : null
-  }
-
   return {
     ...widget,
     pairColor,
-    params,
+    params:
+      widget.key === 'workflow_copilot' || widget.key === 'copilot' ? null : (widget.params ?? null),
   }
 }
 
@@ -294,25 +288,33 @@ export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
     const widget = node.widget
     if (!widget) {
       return {
+        id: node.id,
         type: 'panel',
         widget,
       }
     }
     const normalizedParams = normalizeListingParamsForStorage(widget.params ?? null)
     const nextWidget =
-      normalizedParams === widget.params
+      widget.key === 'workflow_copilot' || widget.key === 'copilot'
+        ? {
+            ...widget,
+            params: null,
+          }
+        : normalizedParams === widget.params
         ? widget
         : {
             ...widget,
             params: normalizedParams ?? null,
           }
     return {
+      id: node.id,
       type: 'panel',
       widget: nextWidget,
     }
   }
 
   return {
+    id: node.id,
     type: 'group',
     direction: node.direction,
     sizes: node.sizes,

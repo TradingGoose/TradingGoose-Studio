@@ -4,11 +4,11 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
 import {
-  getLiveWorkflowSnapshot,
+  getReadableWorkflowSnapshot,
   resolveWorkflowIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 
 interface GetUserWorkflowArgs {
@@ -49,10 +49,14 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         includeMetadata: args?.includeMetadata,
       })
 
-      const { workflowState } = getLiveWorkflowSnapshot(executionContext, workflowId)
+      const { workflowState, source } = await getReadableWorkflowSnapshot(
+        executionContext,
+        workflowId
+      )
 
       logger.info('Validating workflow state', {
         workflowId,
+        source,
         hasWorkflowState: !!workflowState,
         hasBlocks: !!workflowState?.blocks,
         workflowStateType: typeof workflowState,

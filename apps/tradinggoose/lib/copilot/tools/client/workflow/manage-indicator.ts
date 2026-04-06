@@ -75,11 +75,6 @@ export class ManageIndicatorClientTool extends BaseClientTool {
     }),
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: ManageIndicatorArgs): Promise<void> {
     const resolvedArgs = args ?? this.currentArgs
     await this.orchestration.handleAccept(this, resolvedArgs, this.requireExecutionContext())

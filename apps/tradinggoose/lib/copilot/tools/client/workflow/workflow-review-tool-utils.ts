@@ -1,7 +1,11 @@
 'use client'
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
-import { getWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import {
+  createWorkflowSnapshot,
+  getWorkflowSnapshot,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 import {
   getRegisteredWorkflowSession,
   type RegisteredWorkflowSession,
@@ -32,22 +36,61 @@ export function requireActiveWorkflowSession(
   return session
 }
 
-export function getLiveWorkflowSnapshot(
+/**
+ * Read-only workflow tools should prefer the live Yjs document when it exists,
+ * but they can safely fall back to the persisted workflow API when no client
+ * session is mounted yet. Mutating tools must continue using the live-session
+ * helpers above so they never write against stale state.
+ */
+export async function getReadableWorkflowSnapshot(
   executionContext: ClientToolExecutionContext,
   workflowId?: string
-): { workflowId: string; workflowState: WorkflowSnapshot } {
-  const session = requireActiveWorkflowSession(executionContext, workflowId)
+): Promise<{ workflowId: string; workflowState: WorkflowSnapshot; source: 'live' | 'db' }> {
+  const resolvedWorkflowId = resolveWorkflowIdFromExecutionContext(executionContext, workflowId)
+  const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
+
+  if (liveSession) {
+    return {
+      workflowId: liveSession.workflowId,
+      workflowState: getWorkflowSnapshot(liveSession.doc),
+      source: 'live',
+    }
+  }
+
+  const response = await fetch(`/api/workflows/${encodeURIComponent(resolvedWorkflowId)}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '')
+    throw new Error(
+      bodyText || `Failed to fetch workflow ${resolvedWorkflowId}: ${response.status}`
+    )
+  }
+
+  const payload = (await response.json().catch(() => null)) as {
+    data?: {
+      state?: Partial<WorkflowSnapshot> | null
+    } | null
+  } | null
+
   return {
-    workflowId: session.workflowId,
-    workflowState: getWorkflowSnapshot(session.doc),
+    workflowId: resolvedWorkflowId,
+    workflowState: createWorkflowSnapshot(payload?.data?.state ?? {}),
+    source: 'db',
   }
 }
 
-export function serializeLiveWorkflowSnapshot(
+export async function serializeReadableWorkflowSnapshot(
   executionContext: ClientToolExecutionContext,
   workflowId?: string
-): { workflowId: string; currentUserWorkflow: string; workflowState: WorkflowSnapshot } {
-  const { workflowId: resolvedWorkflowId, workflowState } = getLiveWorkflowSnapshot(
+): Promise<{
+  workflowId: string
+  currentUserWorkflow: string
+  workflowState: WorkflowSnapshot
+  source: 'live' | 'db'
+}> {
+  const { workflowId: resolvedWorkflowId, workflowState, source } = await getReadableWorkflowSnapshot(
     executionContext,
     workflowId
   )
@@ -56,5 +99,6 @@ export function serializeLiveWorkflowSnapshot(
     workflowId: resolvedWorkflowId,
     currentUserWorkflow: JSON.stringify(workflowState),
     workflowState,
+    source,
   }
 }

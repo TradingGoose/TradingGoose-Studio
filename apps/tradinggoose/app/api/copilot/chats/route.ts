@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { copilotReviewItems, copilotReviewSessions } from '@tradinggoose/db/schema'
-import { and, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import {
   authenticateCopilotRequestSessionOnly,
@@ -19,6 +19,9 @@ import {
   REVIEW_ENTITY_KINDS,
   type ReviewEntityKind,
 } from '@/lib/copilot/review-sessions/types'
+import {
+  COPILOT_SESSION_KIND,
+} from '@/lib/copilot/session-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const VALID_ENTITY_KINDS = new Set<string>(REVIEW_ENTITY_KINDS)
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
     const entityKind = searchParams.get('entityKind')
     const entityId = searchParams.get('entityId')
     const draftSessionId = searchParams.get('draftSessionId')
+    const channelId = searchParams.get('channelId')
     const workspaceId = searchParams.get('workspaceId')
 
     if (entityKind && !VALID_ENTITY_KINDS.has(entityKind)) {
@@ -52,6 +56,7 @@ export async function GET(req: NextRequest) {
       !entityKind &&
       !entityId &&
       !draftSessionId &&
+      !channelId &&
       !workspaceId
 
     if (isExactSessionLookup) {
@@ -88,7 +93,8 @@ export async function GET(req: NextRequest) {
       entityKind !== ENTITY_KIND_WORKFLOW &&
       !!entityId &&
       !!workspaceId &&
-      !draftSessionId
+      !draftSessionId &&
+      !channelId
 
     if (isSavedEntityListQuery) {
       const access = await verifyReviewTargetAccess(userId, {
@@ -106,26 +112,44 @@ export async function GET(req: NextRequest) {
 
     const conditions = []
 
-    if (!isSavedEntityListQuery) {
+    if (channelId) {
       conditions.push(eq(copilotReviewSessions.userId, userId))
+      conditions.push(eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND))
+      conditions.push(eq(copilotReviewSessions.channelId, channelId))
+      if (workspaceId) {
+        conditions.push(eq(copilotReviewSessions.workspaceId, workspaceId))
+      } else {
+        conditions.push(isNull(copilotReviewSessions.workspaceId))
+      }
+    } else {
+      if (!isSavedEntityListQuery) {
+        conditions.push(eq(copilotReviewSessions.userId, userId))
+      }
+
+      if (workflowId) {
+        conditions.push(eq(copilotReviewSessions.entityKind, ENTITY_KIND_WORKFLOW))
+        conditions.push(eq(copilotReviewSessions.entityId, workflowId))
+      } else {
+        if (entityKind) {
+          conditions.push(eq(copilotReviewSessions.entityKind, entityKind))
+        }
+        if (entityId) {
+          conditions.push(eq(copilotReviewSessions.entityId, entityId))
+        }
+      }
+
+      if (draftSessionId) {
+        conditions.push(eq(copilotReviewSessions.draftSessionId, draftSessionId))
+      }
+      if (workspaceId) {
+        conditions.push(eq(copilotReviewSessions.workspaceId, workspaceId))
+      }
     }
 
-    if (workflowId) {
-      conditions.push(eq(copilotReviewSessions.entityKind, ENTITY_KIND_WORKFLOW))
-      conditions.push(eq(copilotReviewSessions.entityId, workflowId))
-    } else {
-      if (entityKind) {
-        conditions.push(eq(copilotReviewSessions.entityKind, entityKind))
-      }
-      if (entityId) {
-        conditions.push(eq(copilotReviewSessions.entityId, entityId))
-      }
-    }
-    if (draftSessionId) {
-      conditions.push(eq(copilotReviewSessions.draftSessionId, draftSessionId))
-    }
-    if (workspaceId) {
-      conditions.push(eq(copilotReviewSessions.workspaceId, workspaceId))
+    if (conditions.length === 0) {
+      return createBadRequestResponse(
+        'channelId, workflowId, or entity filters are required when listing chats'
+      )
     }
 
     const sessionCondition = and(...conditions)
@@ -141,11 +165,11 @@ export async function GET(req: NextRequest) {
           id: copilotReviewSessions.id,
           userId: copilotReviewSessions.userId,
           workspaceId: copilotReviewSessions.workspaceId,
+          channelId: copilotReviewSessions.channelId,
           entityKind: copilotReviewSessions.entityKind,
           entityId: copilotReviewSessions.entityId,
           draftSessionId: copilotReviewSessions.draftSessionId,
           title: copilotReviewSessions.title,
-          reviewModel: copilotReviewSessions.model,
           conversationId: copilotReviewSessions.conversationId,
           createdAt: copilotReviewSessions.createdAt,
           updatedAt: copilotReviewSessions.updatedAt,
@@ -173,10 +197,7 @@ export async function GET(req: NextRequest) {
     )
 
     const chats = sessions.map((session) =>
-      mapSessionToApiResponse(
-        { ...session, model: session.reviewModel },
-        { messageCount: messageCounts[session.id] ?? 0 }
-      )
+      mapSessionToApiResponse(session, { messageCount: messageCounts[session.id] ?? 0 })
     )
 
     logger.info(`Retrieved ${chats.length} review sessions for user ${userId}`)

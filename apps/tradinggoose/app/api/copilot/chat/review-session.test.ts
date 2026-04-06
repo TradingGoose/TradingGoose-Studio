@@ -32,6 +32,7 @@ describe('Copilot Chat Review Session GET', () => {
       id: 'review-session-1',
       userId: 'creator-user',
       workspaceId: 'workspace-1',
+      channelId: null,
       entityKind: 'skill',
       entityId: 'skill-1',
       draftSessionId: null,
@@ -77,8 +78,9 @@ describe('Copilot Chat Review Session GET', () => {
         id: 'review-session-2',
         userId: 'creator-user',
         workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
+        channelId: 'workflow-review',
+        entityKind: 'copilot',
+        entityId: null,
         draftSessionId: null,
         title: 'Workflow review',
         model: 'claude-4.5-sonnet',
@@ -111,6 +113,7 @@ describe('Copilot Chat Review Session GET', () => {
         id: 'id',
         userId: 'userId',
         workspaceId: 'workspaceId',
+        channelId: 'channelId',
         entityKind: 'entityKind',
         entityId: 'entityId',
         draftSessionId: 'draftSessionId',
@@ -181,7 +184,39 @@ describe('Copilot Chat Review Session GET', () => {
       loadReviewSessionForUser: mockLoadReviewSessionForUser,
     }))
 
+    vi.doMock('@/lib/copilot/review-sessions/api-mapping', () => ({
+      SESSION_SELECT_COLUMNS: {
+        id: 'id',
+        userId: 'userId',
+        title: 'title',
+        model: 'model',
+        conversationId: 'conversationId',
+        workspaceId: 'workspaceId',
+        channelId: 'channelId',
+        entityKind: 'entityKind',
+        entityId: 'entityId',
+        draftSessionId: 'draftSessionId',
+        createdAt: 'createdAt',
+        updatedAt: 'updatedAt',
+      },
+      mapSessionToApiResponse: vi.fn((session: any, opts: { messageCount: number; messages?: any[] }) => ({
+        reviewSessionId: session.id,
+        workspaceId: session.workspaceId,
+        channelId: session.channelId,
+        entityKind: session.entityKind,
+        entityId: session.entityId,
+        draftSessionId: session.draftSessionId,
+        title: session.title,
+        messages: opts.messages ?? [],
+        messageCount: opts.messageCount,
+        conversationId: session.conversationId,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      })),
+    }))
+
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
+      ENTITY_KIND_WORKFLOW: 'workflow',
       REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
     }))
 
@@ -240,11 +275,11 @@ describe('Copilot Chat Review Session GET', () => {
         {
           reviewSessionId: 'review-session-1',
           workspaceId: 'workspace-1',
+          channelId: null,
           entityKind: 'skill',
           entityId: 'skill-1',
           draftSessionId: null,
           title: 'Shared skill review',
-          reviewModel: 'claude-4.5-sonnet',
           messages: [
             {
               id: 'message-1',
@@ -273,8 +308,15 @@ describe('Copilot Chat Review Session GET', () => {
     )
   })
 
-  it('hydrates messages for workflow review session lists', async () => {
-    const request = new NextRequest('http://localhost:3000/api/copilot/chat?workflowId=workflow-1')
+  it('hydrates messages for panel-scoped generic copilot chat lists', async () => {
+    mockSelect.mockReset()
+    mockSelect
+      .mockReturnValueOnce({ from: mockFromSessions })
+      .mockReturnValueOnce({ from: mockFromItems })
+
+    const request = new NextRequest(
+      'http://localhost:3000/api/copilot/chat?channelId=workflow-review&workspaceId=workspace-1'
+    )
 
     const { GET } = await import('@/app/api/copilot/chat/route')
     const response = await GET(request)
@@ -287,11 +329,11 @@ describe('Copilot Chat Review Session GET', () => {
         {
           reviewSessionId: 'review-session-2',
           workspaceId: 'workspace-1',
-          entityKind: 'workflow',
-          entityId: 'workflow-1',
+          channelId: 'workflow-review',
+          entityKind: 'copilot',
+          entityId: null,
           draftSessionId: null,
           title: 'Workflow review',
-          reviewModel: 'claude-4.5-sonnet',
           messages: [
             {
               id: 'workflow-message-1',
@@ -316,4 +358,5 @@ describe('Copilot Chat Review Session GET', () => {
 
     expect(mockSelect).toHaveBeenCalledTimes(2)
   })
+
 })

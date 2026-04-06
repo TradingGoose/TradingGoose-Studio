@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import {
   buildReviewTargetDescriptorFromEnvelope,
@@ -11,17 +11,14 @@ import {
   bootstrapReviewTarget,
   ReviewTargetBootstrapError,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  getYjsSnapshot,
-  YjsSnapshotBridgeError,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, YjsSnapshotBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getSession()
   if (!session?.user?.id) {
@@ -29,7 +26,7 @@ export async function GET(
   }
 
   const userId = session.user.id
-  const sessionId = params.sessionId
+  const { sessionId } = await params
 
   const queryParams: Record<string, string | undefined> = {}
   request.nextUrl.searchParams.forEach((value, key) => {
@@ -70,7 +67,9 @@ export async function GET(
   }
 
   try {
-    const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(authorizedDescriptor))
+    const bridgeParams = serializeYjsTransportEnvelope(
+      buildYjsTransportEnvelope(authorizedDescriptor)
+    )
     const snapshot = await getYjsSnapshot(sessionId, bridgeParams)
     return NextResponse.json(snapshot)
   } catch (error) {

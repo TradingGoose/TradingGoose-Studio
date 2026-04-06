@@ -5,6 +5,8 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -12,38 +14,25 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
+import { areCopilotContextsEqual } from '@/lib/copilot/chat-contexts'
+import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
+import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import type { ChatContext, CopilotChat } from '@/stores/copilot/types'
-import type { ReviewTargetMode } from '@/widgets/hooks/use-workflow-widget-state'
+import { usePairColorContext } from '@/stores/dashboard/pair-store'
+import type { ChatContext } from '@/stores/copilot/types'
 import type { PairColor } from '@/widgets/pair-colors'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
 const logger = createLogger('Copilot')
 
-// Default enabled/disabled state for all models (must match API)
-const DEFAULT_ENABLED_MODELS: Record<string, boolean> = {
-  'gpt-4o': false,
-  'gpt-4.1': false,
-  'gpt-5-fast': false,
-  'gpt-5': true,
-  'gpt-5-medium': true,
-  'gpt-5-high': false,
-  o3: true,
-  'claude-4-sonnet': false,
-  'claude-4.5-haiku': true,
-  'claude-4.5-sonnet': true,
-  'claude-4.1-opus': true,
-}
-
 interface CopilotProps {
   panelWidth: number
-  initialReviewSessionId?: string | null
-  onReviewSessionChange?: (reviewSessionId: string | null) => void
+  channelId: string
   pairColor?: PairColor
-  reviewTargetMode?: ReviewTargetMode
 }
 
 interface CopilotRef {
@@ -55,10 +44,8 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
   (
     {
       panelWidth,
-      initialReviewSessionId = null,
-      onReviewSessionChange,
-      pairColor: _pairColor = 'gray',
-      reviewTargetMode = { kind: 'workflow' },
+      channelId,
+      pairColor = 'gray',
     },
     ref
   ) => {
@@ -66,12 +53,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const userInputRef = useRef<UserInputRef>(null)
     const [isInitialized, setIsInitialized] = useState(false)
     const [todosCollapsed, setTodosCollapsed] = useState(false)
-    const lastTargetKeyRef = useRef<string | null>(null)
-    const hasLoadedModelsRef = useRef(false)
+    const lastScopeKeyRef = useRef<string | null>(null)
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
     const [isEditingMessage, setIsEditingMessage] = useState(false)
-    const pendingReviewSessionIdRef = useRef<string | null>(initialReviewSessionId ?? null)
-    const lastNotifiedReviewSessionIdRef = useRef<string | null>(initialReviewSessionId ?? null)
 
     // Scroll state
     const [isNearBottom, setIsNearBottom] = useState(true)
@@ -80,10 +64,23 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
     const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
 
-    const { workflowId: activeWorkflowId } = useWorkflowRoute()
-    const isEntityMode = reviewTargetMode.kind === 'entity'
-    const entityReviewSessionId =
-      reviewTargetMode.kind === 'entity' ? reviewTargetMode.reviewSessionId : null
+    const workspaceId = useWorkspaceId()
+    const pairContext = usePairColorContext(pairColor)
+    const implicitContexts = useMemo(
+      () =>
+        buildImplicitCopilotContexts({
+          workspaceId,
+          pairContext,
+        }),
+      [pairContext, workspaceId]
+    )
+    const liveContext = useMemo(
+      () => ({
+        workflowId: normalizeOptionalString(pairContext?.workflowId) ?? null,
+        workspaceId: normalizeOptionalString(workspaceId) ?? null,
+      }),
+      [pairContext?.workflowId, workspaceId]
+    )
 
     // Use the new copilot store
     const {
@@ -101,12 +98,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       createNewChat,
       setAccessLevel,
       setInputValue,
-      chatsLoadedForWorkflow,
-      setWorkflowId: setCopilotWorkflowId,
       loadChats,
-      selectChat,
-      enabledModels,
-      setEnabledModels,
       selectedModel,
       setSelectedModel,
       currentChat,
@@ -114,159 +106,47 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
 
-    useEffect(() => {
-      pendingReviewSessionIdRef.current = initialReviewSessionId ?? entityReviewSessionId ?? null
-    }, [entityReviewSessionId, initialReviewSessionId])
+    useLayoutEffect(() => {
+      const storeState = copilotStoreApi.getState()
+      const nextState: Record<string, unknown> = {}
 
-    const loadReviewSession = useCallback(
-      async (reviewSessionId: string): Promise<CopilotChat | null> => {
-        try {
-          const response = await fetch(
-            `/api/copilot/chat?reviewSessionId=${encodeURIComponent(reviewSessionId)}`
-          )
-          if (!response.ok) {
-            throw new Error(`Failed to fetch review session: ${response.status}`)
-          }
-
-          const data = await response.json()
-          if (!data.success || !Array.isArray(data.chats)) {
-            return null
-          }
-
-          const nextChat: CopilotChat | null =
-            data.chats.find((chat: CopilotChat) => chat.reviewSessionId === reviewSessionId) ??
-            data.chats[0] ??
-            null
-
-          if (!nextChat) {
-            return null
-          }
-
-          copilotStoreApi.setState({ chats: [nextChat] })
-          await selectChat(nextChat)
-          return nextChat
-        } catch (error) {
-          logger.error('Failed to load review session', { reviewSessionId, error })
-          return null
-        }
-      },
-      [copilotStoreApi, selectChat]
-    )
-
-    // Load user's enabled models on mount
-    useEffect(() => {
-      const loadEnabledModels = async () => {
-        if (hasLoadedModelsRef.current) return
-        hasLoadedModelsRef.current = true
-
-        try {
-          const res = await fetch('/api/copilot/user-models')
-          if (!res.ok) {
-            logger.warn('Failed to fetch user models, using defaults')
-            // Use defaults if fetch fails
-            const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
-              (key) => DEFAULT_ENABLED_MODELS[key]
-            )
-            setEnabledModels(enabledArray)
-            return
-          }
-
-          const data = await res.json()
-          const modelsMap = data.enabledModels || DEFAULT_ENABLED_MODELS
-
-          // Convert map to array of enabled model IDs
-          const enabledArray = Object.entries(modelsMap)
-            .filter(([_, enabled]) => enabled)
-            .map(([modelId]) => modelId)
-
-          setEnabledModels(enabledArray)
-          logger.info('Loaded user enabled models', { count: enabledArray.length })
-        } catch (error) {
-          logger.error('Failed to load enabled models', { error })
-          // Use defaults on error
-          const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
-            (key) => DEFAULT_ENABLED_MODELS[key]
-          )
-          setEnabledModels(enabledArray)
-        }
+      if (!areCopilotContextsEqual(storeState.implicitContexts, implicitContexts)) {
+        nextState.implicitContexts = implicitContexts
       }
 
-      loadEnabledModels()
-    }, [setEnabledModels])
-
-    // Ensure selected model is in the enabled models list
-    useEffect(() => {
-      if (!enabledModels || enabledModels.length === 0) return
-
-      // Check if current selected model is in the enabled list
-      if (selectedModel && !enabledModels.includes(selectedModel)) {
-        // Switch to the first enabled model (prefer claude-4.5-sonnet if available)
-        const preferredModel = 'claude-4.5-sonnet'
-        const fallbackModel = enabledModels[0] as typeof selectedModel
-
-        if (enabledModels.includes(preferredModel)) {
-          setSelectedModel(preferredModel)
-          logger.info('Selected model not enabled, switching to preferred model', {
-            from: selectedModel,
-            to: preferredModel,
-          })
-        } else if (fallbackModel) {
-          setSelectedModel(fallbackModel)
-          logger.info('Selected model not enabled, switching to first available', {
-            from: selectedModel,
-            to: fallbackModel,
-          })
-        }
+      const currentLiveContext = storeState.liveContext
+      if (
+        currentLiveContext.workflowId !== liveContext.workflowId ||
+        currentLiveContext.workspaceId !== liveContext.workspaceId
+      ) {
+        nextState.liveContext = liveContext
       }
-    }, [enabledModels, selectedModel, setSelectedModel])
+
+      if (Object.keys(nextState).length > 0) {
+        copilotStoreApi.setState(nextState as any)
+      }
+    }, [copilotStoreApi, implicitContexts, liveContext])
+
+    useEffect(() => {
+      if (!selectedModel) {
+        setSelectedModel(DEFAULT_COPILOT_RUNTIME_MODEL)
+      }
+    }, [selectedModel, setSelectedModel])
 
     useEffect(() => {
       let cancelled = false
 
       const initialize = async () => {
-        const targetKey = isEntityMode
-          ? `entity:${entityReviewSessionId ?? 'pending'}`
-          : `workflow:${activeWorkflowId ?? 'pending'}`
+        const scopeKey = `workspace:${workspaceId ?? 'pending'}`
 
-        if (targetKey === lastTargetKeyRef.current && isInitialized) {
+        if (scopeKey === lastScopeKeyRef.current && isInitialized) {
           return
         }
 
-        lastTargetKeyRef.current = targetKey
+        lastScopeKeyRef.current = scopeKey
         setIsInitialized(false)
 
-        if (isEntityMode) {
-          await setCopilotWorkflowId(null)
-          if (cancelled) return
-
-          if (!entityReviewSessionId) {
-            copilotStoreApi.setState({
-              currentChat: null,
-              chats: [],
-              messages: [],
-              toolCallsById: {},
-              contextUsage: null,
-              isLoadingChats: false,
-              chatsLoadedForWorkflow: null,
-            })
-            return
-          }
-
-          await loadReviewSession(entityReviewSessionId)
-          if (!cancelled) {
-            setIsInitialized(true)
-          }
-          return
-        }
-
-        if (!activeWorkflowId) {
-          return
-        }
-
-        await setCopilotWorkflowId(activeWorkflowId)
-        if (cancelled) return
-
-        await loadChats(true)
+        await loadChats(true, { workspaceId: workspaceId ?? null })
         if (!cancelled) {
           setIsInitialized(true)
         }
@@ -282,97 +162,17 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       return () => {
         cancelled = true
       }
-    }, [
-      activeWorkflowId,
-      copilotStoreApi,
-      entityReviewSessionId,
-      isEntityMode,
-      isInitialized,
-      loadChats,
-      loadReviewSession,
-      setCopilotWorkflowId,
-    ])
-
-    useEffect(() => {
-      const targetReviewSessionId = pendingReviewSessionIdRef.current
-      if (!targetReviewSessionId || !isInitialized) return
-
-      if (currentChat?.reviewSessionId === targetReviewSessionId) {
-        pendingReviewSessionIdRef.current = null
-        return
-      }
-
-      let cancelled = false
-
-      const alignSelectedChat = async () => {
-        if (isEntityMode) {
-          await loadReviewSession(targetReviewSessionId)
-          if (!cancelled) {
-            pendingReviewSessionIdRef.current = null
-          }
-          return
-        }
-
-        if (!activeWorkflowId || isLoadingChats || chatsLoadedForWorkflow !== activeWorkflowId) {
-          return
-        }
-
-        const match = (chats || []).find((chat) => chat.reviewSessionId === targetReviewSessionId)
-        if (match) {
-          await selectChat(match)
-        }
-
-        if (!cancelled) {
-          pendingReviewSessionIdRef.current = null
-        }
-      }
-
-      alignSelectedChat().catch((error) => {
-        logger.warn('Failed to align selected review session', {
-          reviewSessionId: targetReviewSessionId,
-          error,
-        })
-        pendingReviewSessionIdRef.current = null
-      })
-
-      return () => {
-        cancelled = true
-      }
-    }, [
-      activeWorkflowId,
-      chats,
-      chatsLoadedForWorkflow,
-      currentChat?.reviewSessionId,
-      isEntityMode,
-      isInitialized,
-      isLoadingChats,
-      loadReviewSession,
-      selectChat,
-    ])
+    }, [isInitialized, loadChats, workspaceId])
 
     // Fetch context usage when component is initialized and has a current chat
     useEffect(() => {
-      if (isInitialized && currentChat?.reviewSessionId && currentChat.entityKind === 'workflow') {
+      if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
         fetchContextUsage().catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [isInitialized, currentChat?.entityKind, currentChat?.reviewSessionId, fetchContextUsage])
-
-    // Keep widget params in sync with the active chat
-    useEffect(() => {
-      if (!onReviewSessionChange) return
-      if (!isInitialized) return
-
-      const nextId = currentChat?.reviewSessionId ?? null
-      if (nextId === lastNotifiedReviewSessionIdRef.current) return
-
-      if (nextId || lastNotifiedReviewSessionIdRef.current !== null) {
-        lastNotifiedReviewSessionIdRef.current = nextId
-        onReviewSessionChange(nextId)
-      }
-    }, [currentChat?.reviewSessionId, isInitialized, onReviewSessionChange])
+    }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
 
     // Scroll to bottom function
     const scrollToBottom = useCallback(() => {
@@ -552,10 +352,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
     // Handle new chat creation
     const handleStartNewChat = useCallback(() => {
-      if (isEntityMode) {
-        return
-      }
-
       createNewChat()
       logger.info('Started new chat')
 
@@ -563,7 +359,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       setTimeout(() => {
         userInputRef.current?.focus()
       }, 100) // Small delay to ensure DOM updates are complete
-    }, [createNewChat, isEntityMode])
+    }, [createNewChat])
 
     const handleSetInputValueAndFocus = useCallback(
       (value: string) => {
@@ -602,8 +398,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         contexts?: ChatContext[]
       ) => {
         if (!query || isSendingMessage) return
-        if (!isEntityMode && !activeWorkflowId) return
-        if (isEntityMode && !currentChat?.reviewSessionId) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -626,7 +420,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [activeWorkflowId, currentChat?.reviewSessionId, isEntityMode, isSendingMessage, sendMessage, showPlanTodos]
+      [isSendingMessage, sendMessage, showPlanTodos, copilotStoreApi]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -644,9 +438,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             <div className='flex h-full w-full items-center justify-center'>
               <div className='flex flex-col items-center gap-3'>
                 <LoadingAgent size='md' />
-                <p className='text-muted-foreground text-sm'>
-                  {isEntityMode ? 'Loading review session...' : 'Loading chat history...'}
-                </p>
+                <p className='text-muted-foreground text-sm'>Loading chat history...</p>
               </div>
             </div>
           ) : (
@@ -726,9 +518,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
               <div className='pt-2'>
                 <UserInput
                   ref={userInputRef}
+                  channelId={channelId}
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
-                  disabled={isEntityMode ? !currentChat?.reviewSessionId : !activeWorkflowId}
+                  disabled={false}
                   isLoading={isSendingMessage}
                   isAborting={isAborting}
                   accessLevel={accessLevel}

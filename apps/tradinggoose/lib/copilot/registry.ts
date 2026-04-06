@@ -37,9 +37,6 @@ export const ToolIds = z.enum([
   'get_operations_examples',
   'search_documentation',
   'search_online',
-  'search_patterns',
-  'search_errors',
-  'remember_debug',
   'make_api_request',
   'get_environment_variables',
   'set_environment_variables',
@@ -148,6 +145,8 @@ export const ToolArgSchemas = {
         })
       )
       .min(1),
+    workflowId: z.string().optional(),
+    currentUserWorkflow: z.string().optional(),
   }),
   preview_edit_workflow: z.object({
     operations: z
@@ -159,6 +158,8 @@ export const ToolArgSchemas = {
         })
       )
       .min(1),
+    workflowId: z.string().optional(),
+    currentUserWorkflow: z.string().optional(),
   }),
 
   run_workflow: z.object({
@@ -166,6 +167,7 @@ export const ToolArgSchemas = {
   }),
 
   get_workflow_console: z.object({
+    workflowId: z.string().optional(),
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
@@ -201,24 +203,6 @@ export const ToolArgSchemas = {
     type: z.enum(['search', 'news', 'places', 'images']).optional().default('search'),
     gl: z.string().optional(),
     hl: z.string().optional(),
-  }),
-
-  search_patterns: z.object({
-    queries: z.array(z.string()).min(1).max(3),
-    limit: z.number().optional().default(3),
-  }),
-
-  search_errors: z.object({
-    query: z.string(),
-    limit: z.number().optional().default(5),
-  }),
-
-  remember_debug: z.object({
-    operation: z.enum(['add', 'edit', 'delete']),
-    id: z.string().optional(),
-    problem: z.string().optional(),
-    solution: z.string().optional(),
-    description: z.string().optional(),
   }),
 
   make_api_request: z.object({
@@ -454,9 +438,6 @@ export const ToolSSESchemas = {
   ),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
-  search_patterns: toolCallSSEFor('search_patterns', ToolArgSchemas.search_patterns),
-  search_errors: toolCallSSEFor('search_errors', ToolArgSchemas.search_errors),
-  remember_debug: toolCallSSEFor('remember_debug', ToolArgSchemas.remember_debug),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
   get_environment_variables: toolCallSSEFor(
     'get_environment_variables',
@@ -655,33 +636,6 @@ export const ToolResultSchemas = {
   }),
   search_documentation: z.object({ results: z.array(z.any()) }),
   search_online: z.object({ results: z.array(z.any()) }),
-  search_patterns: z.object({
-    patterns: z.array(
-      z.object({
-        blocks_involved: z.array(z.string()).optional(),
-        description: z.string().optional(),
-        pattern_category: z.string().optional(),
-        pattern_name: z.string().optional(),
-        use_cases: z.array(z.string()).optional(),
-        workflow_json: z.any().optional(),
-      })
-    ),
-  }),
-  search_errors: z.object({
-    results: z.array(
-      z.object({
-        problem: z.string().optional(),
-        solution: z.string().optional(),
-        context: z.string().optional(),
-        similarity: z.number().optional(),
-      })
-    ),
-  }),
-  remember_debug: z.object({
-    success: z.boolean(),
-    message: z.string().optional(),
-    id: z.string().optional(),
-  }),
   make_api_request: z.object({
     status: z.number(),
     statusText: z.string().optional(),

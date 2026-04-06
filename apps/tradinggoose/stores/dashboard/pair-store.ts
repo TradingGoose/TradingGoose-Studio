@@ -8,7 +8,6 @@ export type PairReviewTarget = {
   reviewEntityKind?: string | null
   reviewEntityId?: string | null
   reviewDraftSessionId?: string | null
-  reviewModel?: string | null
 }
 
 export type PairColorContext = {
@@ -16,7 +15,7 @@ export type PairColorContext = {
   listing?: ListingIdentity | null
   updatedAt?: number
   channelId?: string
-  reviewTarget?: PairReviewTarget
+  reviewTarget?: PairReviewTarget | null
   indicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
@@ -39,14 +38,6 @@ interface PairStoreState {
   setContext: (color: PairColor, ctx: PairColorContext) => void
   resetContext: (color: PairColor) => void
 }
-
-const WORKFLOW_SCOPED_CONTEXT_KEYS = [
-  'reviewTarget',
-  'indicatorId',
-  'mcpServerId',
-  'customToolId',
-  'skillId',
-] as const
 
 const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
   (acc, color) => {
@@ -71,11 +62,6 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
       const nextContext = sanitizePairColorContext(ctx)
       const previous = state.contexts[color]
 
-      const workflowChanged =
-        typeof nextContext.workflowId === 'string' &&
-        nextContext.workflowId.trim().length > 0 &&
-        nextContext.workflowId !== previous.workflowId
-
       let next: PairColorContext = {
         ...previous,
         ...nextContext,
@@ -85,17 +71,6 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
       // Deep-merge reviewTarget so callers can update individual fields
       if ('reviewTarget' in nextContext && nextContext.reviewTarget != null) {
         next.reviewTarget = { ...previous.reviewTarget, ...nextContext.reviewTarget }
-      }
-
-      if (workflowChanged) {
-        for (const key of WORKFLOW_SCOPED_CONTEXT_KEYS) {
-          if (typeof nextContext[key] !== 'undefined') {
-            continue
-          }
-
-          const { [key]: _removed, ...rest } = next
-          next = rest
-        }
       }
 
       if (nextContext.reviewTarget === null) {

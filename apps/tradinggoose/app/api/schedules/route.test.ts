@@ -146,6 +146,7 @@ describe('Schedule Configuration API Route', () => {
       state: {
         blocks: {
           'trigger-id': {
+            id: 'trigger-id',
             type: 'schedule',
             subBlocks: {
               scheduleType: { value: 'daily' },

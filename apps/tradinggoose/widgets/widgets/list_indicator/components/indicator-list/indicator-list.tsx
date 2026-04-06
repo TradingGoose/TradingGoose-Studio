@@ -196,7 +196,6 @@ export function IndicatorList({
               reviewEntityKind: 'indicator',
               reviewEntityId: null,
               reviewDraftSessionId: draftSessionId,
-              reviewModel: null,
             },
           })
         } else if (onWidgetParamsChange) {

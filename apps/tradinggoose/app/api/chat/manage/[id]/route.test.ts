@@ -1,48 +1,13 @@
 import { NextRequest } from 'next/server'
-/**
- * Tests for chat edit API route
- *
- * @vitest-environment node
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('Chat Edit API Route', () => {
-  const mockSelect = vi.fn()
-  const mockFrom = vi.fn()
-  const mockWhere = vi.fn()
-  const mockLimit = vi.fn()
-  const mockUpdate = vi.fn()
-  const mockSet = vi.fn()
-  const mockDelete = vi.fn()
-
+describe('Chat Detail API Route', () => {
   const mockCreateSuccessResponse = vi.fn()
   const mockCreateErrorResponse = vi.fn()
-  const mockEncryptSecret = vi.fn()
   const mockCheckChatAccess = vi.fn()
-  const mockResolveDeployApiKeyId = vi.fn().mockResolvedValue(null)
 
   beforeEach(() => {
     vi.resetModules()
-    mockResolveDeployApiKeyId.mockImplementation(async (keyId?: string) => (keyId ? keyId : null))
-
-    mockSelect.mockReturnValue({ from: mockFrom })
-    mockFrom.mockReturnValue({ where: mockWhere })
-    mockWhere.mockReturnValue({ limit: mockLimit })
-    mockUpdate.mockReturnValue({ set: mockSet })
-    mockSet.mockReturnValue({ where: mockWhere })
-    mockDelete.mockReturnValue({ where: mockWhere })
-
-    vi.doMock('@tradinggoose/db', () => ({
-      db: {
-        select: mockSelect,
-        update: mockUpdate,
-        delete: mockDelete,
-      },
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
-      chat: { id: 'id', identifier: 'identifier', userId: 'userId' },
-    }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn().mockReturnValue({
@@ -68,21 +33,12 @@ describe('Chat Edit API Route', () => {
       }),
     }))
 
-    vi.doMock('@/lib/utils', () => ({
-      encryptSecret: mockEncryptSecret.mockResolvedValue({ encrypted: 'encrypted-password' }),
-    }))
-
     vi.doMock('@/lib/urls/utils', () => ({
       getEmailDomain: vi.fn().mockReturnValue('localhost:3000'),
     }))
 
-    vi.doMock('@/lib/environment', () => ({
-      isDev: true,
-    }))
-
     vi.doMock('@/app/api/chat/utils', () => ({
       checkChatAccess: mockCheckChatAccess,
-      resolveDeployApiKeyId: mockResolveDeployApiKeyId,
     }))
   })
 
@@ -91,7 +47,7 @@ describe('Chat Edit API Route', () => {
   })
 
   describe('GET', () => {
-    it('should return 401 when user is not authenticated', async () => {
+    it('returns 401 when user is not authenticated', async () => {
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue(null),
       }))
@@ -104,14 +60,14 @@ describe('Chat Edit API Route', () => {
       expect(mockCreateErrorResponse).toHaveBeenCalledWith('Unauthorized', 401)
     })
 
-    it('should return 404 when chat not found or access denied', async () => {
+    it('returns 404 when the user cannot access the chat', async () => {
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
           user: { id: 'user-id' },
         }),
       }))
 
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: false })
+      mockCheckChatAccess.mockResolvedValue({ hasAccess: false, chat: null })
 
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123')
       const { GET } = await import('@/app/api/chat/manage/[id]/route')
@@ -119,26 +75,26 @@ describe('Chat Edit API Route', () => {
 
       expect(response.status).toBe(404)
       expect(mockCreateErrorResponse).toHaveBeenCalledWith('Chat not found or access denied', 404)
-      expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'user-id')
     })
 
-    it('should return chat details when user has access', async () => {
+    it('returns safe chat details when the user has access', async () => {
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
           user: { id: 'user-id' },
         }),
       }))
 
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-        description: 'A test chat',
-        password: 'encrypted-password',
-        customizations: { primaryColor: '#000000' },
-      }
-
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true, chat: mockChat })
+      mockCheckChatAccess.mockResolvedValue({
+        hasAccess: true,
+        chat: {
+          id: 'chat-123',
+          identifier: 'test-chat',
+          title: 'Test Chat',
+          description: 'A test chat',
+          password: 'encrypted-password',
+          customizations: { primaryColor: '#000000' },
+        },
+      })
 
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123')
       const { GET } = await import('@/app/api/chat/manage/[id]/route')
@@ -151,299 +107,40 @@ describe('Chat Edit API Route', () => {
         title: 'Test Chat',
         description: 'A test chat',
         customizations: { primaryColor: '#000000' },
-        chatUrl: 'http://localhost:3000/chat/test-chat',
+        chatUrl: 'https://localhost:3000/chat/test-chat',
         hasPassword: true,
       })
     })
   })
 
   describe('PATCH', () => {
-    it('should return 401 when user is not authenticated', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue(null),
-      }))
-
+    it('returns the current deprecation response', async () => {
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
         method: 'PATCH',
-        body: JSON.stringify({ title: 'Updated Chat' }),
+        body: JSON.stringify({}),
       })
+
       const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
       const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(401)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith('Unauthorized', 401)
-    })
-
-    it('should return 404 when chat not found or access denied', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: false })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ title: 'Updated Chat' }),
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(404)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith('Chat not found or access denied', 404)
-      expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'user-id')
-    })
-
-    it('should update chat when user has access', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-        authType: 'public',
-      }
-
-      mockCheckChatAccess.mockResolvedValue({
-        hasAccess: true,
-        chat: mockChat,
-        workspaceId: 'workspace-1',
-      })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          title: 'Updated Chat',
-          description: 'Updated description',
-          apiKey: 'selected-key-id',
-        }),
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(200)
-      expect(mockUpdate).toHaveBeenCalled()
-      expect(mockCreateSuccessResponse).toHaveBeenCalledWith({
-        id: 'chat-123',
-        chatUrl: 'http://localhost:3000/chat/test-chat',
-        message: 'Chat deployment updated successfully',
-      })
-    })
-
-    it('should handle identifier conflicts', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-      }
-
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true, chat: mockChat })
-      // Mock identifier conflict
-      mockLimit.mockResolvedValueOnce([{ id: 'other-chat-id', identifier: 'new-identifier' }])
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ identifier: 'new-identifier' }),
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
+      const body = await response.json()
 
       expect(response.status).toBe(400)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith('Identifier already in use', 400)
-    })
-
-    it('should validate password requirement for password auth', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-        authType: 'public',
-        password: null,
-      }
-
-      mockCheckChatAccess.mockResolvedValue({
-        hasAccess: true,
-        chat: mockChat,
-        workspaceId: 'workspace-1',
-      })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ authType: 'password', apiKey: 'selected-key-id' }), // No password provided
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(400)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith(
-        'Password is required when using password protection',
-        400
-      )
-    })
-
-    it('should allow access when user has workspace admin permission', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'admin-user-id' },
-        }),
-      }))
-
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-        authType: 'public',
-      }
-
-      // User doesn't own chat but has workspace admin access
-      mockCheckChatAccess.mockResolvedValue({
-        hasAccess: true,
-        chat: mockChat,
-        workspaceId: 'workspace-1',
-      })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ title: 'Admin Updated Chat', apiKey: 'selected-key-id' }),
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(200)
-      expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'admin-user-id')
-    })
-
-    it('should require API key when workflow has no pinned billing key', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      const mockChat = {
-        id: 'chat-123',
-        identifier: 'test-chat',
-        title: 'Test Chat',
-        authType: 'public',
-      }
-
-      mockCheckChatAccess.mockResolvedValue({
-        hasAccess: true,
-        chat: mockChat,
-        workspaceId: 'workspace-1',
-      })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ title: 'Updated Chat' }),
-      })
-      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(400)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith(
-        'API key is required. Please create or select an API key before deploying.',
-        400
-      )
+      expect(body.error).toContain('Chat publishing is managed from workflow deployment')
     })
   })
 
   describe('DELETE', () => {
-    it('should return 401 when user is not authenticated', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue(null),
-      }))
-
+    it('returns the current undeploy response', async () => {
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
         method: 'DELETE',
       })
+
       const { DELETE } = await import('@/app/api/chat/manage/[id]/route')
       const response = await DELETE(req, { params: Promise.resolve({ id: 'chat-123' }) })
+      const body = await response.json()
 
-      expect(response.status).toBe(401)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith('Unauthorized', 401)
-    })
-
-    it('should return 404 when chat not found or access denied', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: false })
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'DELETE',
-      })
-      const { DELETE } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await DELETE(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(404)
-      expect(mockCreateErrorResponse).toHaveBeenCalledWith('Chat not found or access denied', 404)
-      expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'user-id')
-    })
-
-    it('should delete chat when user has access', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-id' },
-        }),
-      }))
-
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true })
-      mockWhere.mockResolvedValue(undefined)
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'DELETE',
-      })
-      const { DELETE } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await DELETE(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(200)
-      expect(mockDelete).toHaveBeenCalled()
-      expect(mockCreateSuccessResponse).toHaveBeenCalledWith({
-        message: 'Chat deployment deleted successfully',
-      })
-    })
-
-    it('should allow deletion when user has workspace admin permission', async () => {
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'admin-user-id' },
-        }),
-      }))
-
-      // User doesn't own chat but has workspace admin access
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true })
-      mockWhere.mockResolvedValue(undefined)
-
-      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
-        method: 'DELETE',
-      })
-      const { DELETE } = await import('@/app/api/chat/manage/[id]/route')
-      const response = await DELETE(req, { params: Promise.resolve({ id: 'chat-123' }) })
-
-      expect(response.status).toBe(200)
-      expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'admin-user-id')
-      expect(mockDelete).toHaveBeenCalled()
+      expect(response.status).toBe(400)
+      expect(body.error).toContain('Undeploy the workflow instead')
     })
   })
 })

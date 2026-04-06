@@ -20,7 +20,6 @@ export interface ReviewTargetDescriptor {
   entityId: string | null
   draftSessionId: string | null
   reviewSessionId: string | null
-  reviewModel: string | null
   yjsSessionId: string
 }
 
@@ -50,5 +49,4 @@ export interface YjsTransportEnvelope {
   entityKind: ReviewEntityKind
   entityId: string | null
   draftSessionId: string | null
-  reviewModel: string | null
 }

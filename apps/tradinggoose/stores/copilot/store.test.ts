@@ -78,7 +78,10 @@ describe('copilot tool execution provenance', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      workflowId: 'wf-current-e',
+      liveContext: {
+        workflowId: 'wf-current-e',
+        workspaceId: 'workspace-1',
+      },
       toolCallsById: {
         [toolCallId]: {
           id: toolCallId,
@@ -147,6 +150,304 @@ describe('copilot streaming regressions', () => {
     ensureRequestAnimationFrame()
   })
 
+  it('starts a new generic copilot chat without deleting prior panel history', async () => {
+    const channelId = 'copilot-new-chat-scope'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const scopedChat = {
+      reviewSessionId: 'review-scoped-chat',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Existing panel-scoped generic copilot chat',
+      messages: [],
+      messageCount: 0,
+      conversationId: null,
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+    }
+
+    store.setState({
+      liveContext: {
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: scopedChat,
+      chats: [scopedChat],
+      messages: [
+        {
+          id: 'user-message',
+          role: 'user',
+          content: 'Hello',
+          timestamp: '2026-03-30T00:00:00.000Z',
+        },
+      ],
+    })
+
+    await store.getState().createNewChat()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/copilot/chat/update-messages',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          reviewSessionId: 'review-scoped-chat',
+          messages: [
+            {
+              id: 'user-message',
+              role: 'user',
+              content: 'Hello',
+              timestamp: '2026-03-30T00:00:00.000Z',
+            },
+          ],
+        }),
+      })
+    )
+    expect(store.getState().currentChat).toBeNull()
+    expect(store.getState().messages).toEqual([])
+    expect(store.getState().chats).toEqual([scopedChat])
+    expect(store.getState().suppressAutoSelect).toBe(true)
+  })
+
+  it('merges explicit and live implicit contexts before sending a message', async () => {
+    const channelId = 'copilot-implicit-contexts'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: createSseStream([{ type: 'done' }]),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      },
+      implicitContexts: [
+        {
+          kind: 'current_workflow',
+          workflowId: 'workflow-1',
+          label: 'Current Workflow',
+        },
+        {
+          kind: 'current_skill',
+          skillId: 'skill-1',
+          workspaceId: 'workspace-1',
+          label: 'Current Skill',
+        },
+      ],
+    })
+
+    await store.getState().sendMessage('Update the current setup', {
+      contexts: [
+        {
+          kind: 'workflow',
+          workflowId: 'workflow-1',
+          label: 'Quarterly Review',
+        },
+      ],
+    })
+
+    const sendRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat'
+    })
+
+    expect(sendRequest).toBeDefined()
+    const requestBody = JSON.parse((sendRequest?.[1] as RequestInit).body as string)
+    expect(requestBody.provider).toBe('anthropic')
+    expect(requestBody.contexts).toEqual([
+      {
+        kind: 'workflow',
+        workflowId: 'workflow-1',
+        label: 'Quarterly Review',
+      },
+      {
+        kind: 'current_skill',
+        skillId: 'skill-1',
+        workspaceId: 'workspace-1',
+        label: 'Current Skill',
+      },
+    ])
+  })
+
+  it('keeps the same panel chat while sending the currently viewed workflow as live context', async () => {
+    const channelId = 'copilot-panel-switch-context'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: createSseStream([{ type: 'done' }]),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'workflow-b',
+        workspaceId: 'workspace-1',
+      },
+      implicitContexts: [
+        {
+          kind: 'current_workflow',
+          workflowId: 'workflow-b',
+          label: 'Current Workflow',
+        },
+      ],
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-1',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Panel chat started on workflow A',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-panel-chat-1',
+        createdAt: new Date('2026-03-30T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+      },
+    })
+
+    await store.getState().sendMessage('Now help me with workflow B')
+
+    const sendRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat'
+    })
+
+    expect(sendRequest).toBeDefined()
+    const requestBody = JSON.parse((sendRequest![1] as RequestInit).body as string)
+    expect(requestBody.reviewSessionId).toBe('review-panel-chat-1')
+    expect(requestBody.channelId).toBe(channelId)
+    expect(requestBody.workflowId).toBe('workflow-b')
+    expect(requestBody.provider).toBe('anthropic')
+    expect(requestBody.contexts).toEqual([
+      {
+        kind: 'current_workflow',
+        workflowId: 'workflow-b',
+        label: 'Current Workflow',
+      },
+    ])
+  })
+
+  it('does not send workflowId when only non-workflow live context is present', async () => {
+    const channelId = 'copilot-no-workflow-fallback'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: createSseStream([{ type: 'done' }]),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: null,
+        workspaceId: 'workspace-1',
+      },
+      implicitContexts: [
+        {
+          kind: 'current_indicator',
+          indicatorId: 'indicator-1',
+          workspaceId: 'workspace-1',
+          label: 'Current Indicator',
+        },
+      ],
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-2',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Indicator-first chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-panel-chat-2',
+        createdAt: new Date('2026-03-30T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+      },
+    })
+
+    await store.getState().sendMessage('Help me inspect this indicator')
+
+    const sendRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat'
+    })
+
+    expect(sendRequest).toBeDefined()
+    const requestBody = JSON.parse((sendRequest![1] as RequestInit).body as string)
+    expect(requestBody.workflowId).toBeUndefined()
+    expect(requestBody.contexts).toEqual([
+      {
+        kind: 'current_indicator',
+        indicatorId: 'indicator-1',
+        workspaceId: 'workspace-1',
+        label: 'Current Indicator',
+      },
+    ])
+  })
+
   it('updates the active chat title when a title_updated SSE event arrives', async () => {
     const channelId = 'copilot-stream-title-updated'
     const store = getCopilotStore(channelId)
@@ -159,7 +460,10 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', updateMessages)
 
     store.setState({
-      workflowId: 'wf-stream-title',
+      liveContext: {
+        workflowId: 'wf-stream-title',
+        workspaceId: 'workspace-1',
+      },
       currentChat: null,
       chats: [],
       messages: [
@@ -202,7 +506,7 @@ describe('copilot streaming regressions', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString()
-        if (!url.includes('/api/copilot/chat?workflowId=wf-reload')) {
+        if (!url.includes(`/api/copilot/chat?channelId=${channelId}`)) {
           return {
             ok: true,
             status: 200,
@@ -223,7 +527,6 @@ describe('copilot streaming regressions', () => {
                 entityId: 'wf-reload',
                 draftSessionId: null,
                 title: 'Reloaded chat',
-                reviewModel: 'claude-4.5-sonnet',
                 conversationId: null,
                 messages: [
                   {
@@ -266,7 +569,10 @@ describe('copilot streaming regressions', () => {
     )
 
     store.setState({
-      workflowId: 'wf-reload',
+      liveContext: {
+        workflowId: 'wf-reload',
+        workspaceId: 'workspace-1',
+      },
       currentChat: null,
       chats: [],
       messages: [],
@@ -274,7 +580,7 @@ describe('copilot streaming regressions', () => {
       isLoadingChats: false,
       isSendingMessage: false,
       abortController: null,
-      chatsLoadedForWorkflow: null,
+      chatsLoadedForScope: null,
       chatsLastLoadedAt: null,
       suppressAutoSelect: false,
     })
@@ -293,23 +599,159 @@ describe('copilot streaming regressions', () => {
       ClientToolCallState.executing
     )
   })
+
+  it('loads generic chats with an explicit workspace scope even before live context is hydrated', async () => {
+    const channelId = 'copilot-workspace-scoped-history'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (!url.startsWith('/api/copilot/chat?')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          chats: [],
+        }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-scoped-history',
+        workspaceId: null,
+      },
+      currentChat: null,
+      chats: [],
+      messages: [],
+      toolCallsById: {},
+      isLoadingChats: false,
+      isSendingMessage: false,
+      abortController: null,
+      chatsLoadedForScope: null,
+      chatsLastLoadedAt: null,
+      suppressAutoSelect: false,
+    })
+
+    await store.getState().loadChats(true, { workspaceId: 'workspace-1' })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/copilot/chat?channelId=${encodeURIComponent(channelId)}&workspaceId=${encodeURIComponent(
+        'workspace-1'
+      )}`
+    )
+    expect(store.getState().chatsLoadedForScope).toBe(`workspace-1:${channelId}`)
+  })
 })
 
-describe('copilot workflow edit execution order', () => {
+describe('copilot context usage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('stages a pending edit_workflow tool before entering review', async () => {
+  it('fetches context usage for a generic chat without workflow context', async () => {
+    const channelId = 'copilot-context-usage-generic'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/context-usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            tokensUsed: 1234,
+            percentage: 0.96,
+            model: 'claude-sonnet-4.6',
+            contextWindow: 128000,
+            when: 'end',
+          }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      currentChat: {
+        reviewSessionId: 'review-context-usage-generic',
+        workspaceId: null,
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Generic chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-context-usage-generic',
+        createdAt: new Date('2026-04-05T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-05T00:00:00.000Z'),
+      },
+      liveContext: {
+        workflowId: null,
+        workspaceId: null,
+      },
+      selectedModel: 'claude-sonnet-4.6',
+      contextUsage: null,
+    })
+
+    await store.getState().fetchContextUsage()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/copilot/context-usage',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const [, requestInit] = fetchMock.mock.calls[0]
+    const requestBody = JSON.parse((requestInit as RequestInit).body as string)
+    expect(requestBody).toEqual({
+      conversationId: 'conversation-context-usage-generic',
+      model: 'claude-sonnet-4.6',
+      provider: 'anthropic',
+    })
+    expect(store.getState().contextUsage).toEqual({
+      usage: 1234,
+      percentage: 0.96,
+      model: 'claude-sonnet-4.6',
+      contextWindow: 128000,
+      when: 'end',
+      estimatedTokens: 1234,
+    })
+  })
+})
+
+describe('copilot tool user action delegation', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('delegates pending tool execution to the client tool user-action handler', async () => {
     const channelId = 'copilot-edit-workflow-order'
     const toolCallId = 'edit-workflow-order-tool'
     const store = getCopilotStore(channelId)
     const calls: string[] = []
     const fakeTool = {
       setExecutionContext: vi.fn(),
-      getInterruptDisplays: () => ({
-        accept: { text: 'Accept changes', icon: () => null },
-        reject: { text: 'Reject changes', icon: () => null },
+      handleUserAction: vi.fn(async () => {
+        calls.push('userAction')
       }),
       execute: vi.fn(async () => {
         calls.push('execute')
@@ -325,15 +767,18 @@ describe('copilot workflow edit execution order', () => {
     registerClientTool(toolCallId, fakeTool)
 
     store.setState({
-      workflowId: 'wf-edit-workflow-order',
+      liveContext: {
+        workflowId: 'wf-edit-workflow-order',
+        workspaceId: 'workspace-1',
+      },
       currentChat: {
         reviewSessionId: 'review-edit-workflow-order',
         workspaceId: null,
+        channelId: null,
         entityKind: 'workflow',
         entityId: 'wf-edit-workflow-order',
         draftSessionId: null,
         title: null,
-        reviewModel: 'claude-4.5-sonnet',
         messages: [],
         messageCount: 0,
         conversationId: null,
@@ -365,22 +810,20 @@ describe('copilot workflow edit execution order', () => {
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
-    expect(calls[0]).toBe('execute')
-    expect(calls).not.toContain('accept')
+    expect(calls).toEqual(['userAction'])
 
     unregisterClientTool(toolCallId)
   })
 
-  it('accepts a review-state edit_workflow tool without recomputing when a staged result exists', async () => {
+  it('delegates review-state tool execution to the same client tool user-action handler', async () => {
     const channelId = 'copilot-edit-workflow-review'
     const toolCallId = 'edit-workflow-review-tool'
     const store = getCopilotStore(channelId)
     const calls: string[] = []
     const fakeTool = {
       setExecutionContext: vi.fn(),
-      getInterruptDisplays: () => ({
-        accept: { text: 'Accept changes', icon: () => null },
-        reject: { text: 'Reject changes', icon: () => null },
+      handleUserAction: vi.fn(async () => {
+        calls.push('userAction')
       }),
       execute: vi.fn(async () => {
         calls.push('execute')
@@ -396,15 +839,18 @@ describe('copilot workflow edit execution order', () => {
     registerClientTool(toolCallId, fakeTool)
 
     store.setState({
-      workflowId: 'wf-edit-workflow-review',
+      liveContext: {
+        workflowId: 'wf-edit-workflow-review',
+        workspaceId: 'workspace-1',
+      },
       currentChat: {
         reviewSessionId: 'review-edit-workflow-review',
         workspaceId: null,
+        channelId: null,
         entityKind: 'workflow',
         entityId: 'wf-edit-workflow-review',
         draftSessionId: null,
         title: null,
-        reviewModel: 'claude-4.5-sonnet',
         messages: [],
         messageCount: 0,
         conversationId: null,
@@ -444,7 +890,7 @@ describe('copilot workflow edit execution order', () => {
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
-    expect(calls).toEqual(['accept'])
+    expect(calls).toEqual(['userAction'])
 
     unregisterClientTool(toolCallId)
   })

@@ -9,7 +9,6 @@ import {
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
@@ -19,6 +18,14 @@ export type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
+  | 'skill'
+  | 'current_skill'
+  | 'indicator'
+  | 'current_indicator'
+  | 'custom_tool'
+  | 'current_custom_tool'
+  | 'mcp_server'
+  | 'current_mcp_server'
   | 'blocks'
   | 'logs'
   | 'knowledge'
@@ -38,7 +45,8 @@ const logger = createLogger('ProcessContents')
 export async function processContextsServer(
   contexts: ChatContext[] | undefined,
   userId: string,
-  userMessage?: string
+  userMessage?: string,
+  workspaceId?: string
 ): Promise<AgentContext[]> {
   if (!Array.isArray(contexts) || contexts.length === 0) return []
   const tasks = contexts.map(async (ctx) => {
@@ -57,14 +65,50 @@ export async function processContextsServer(
           ctx.kind
         )
       }
+      if ((ctx.kind === 'skill' || ctx.kind === 'current_skill') && ctx.skillId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'skill',
+          entityId: ctx.skillId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'indicator' || ctx.kind === 'current_indicator') && ctx.indicatorId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'indicator',
+          entityId: ctx.indicatorId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'custom_tool' || ctx.kind === 'current_custom_tool') && ctx.customToolId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'custom_tool',
+          entityId: ctx.customToolId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'mcp_server' || ctx.kind === 'current_mcp_server') && ctx.mcpServerId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'mcp_server',
+          entityId: ctx.mcpServerId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
           (ctx as any).knowledgeId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'blocks' && (ctx as any).blockId) {
-        return await processBlockMetadata((ctx as any).blockId, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'blocks' && ctx.blockIds.length > 0) {
+        return await processBlocksMetadata(ctx.blockIds, ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && (ctx as any).templateId) {
         return await processTemplateFromDb(
@@ -78,8 +122,8 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'workflow_block' && ctx.workflowId && (ctx as any).blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, (ctx as any).blockId, ctx.label)
+      if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
+        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, ctx.label)
       }
       if (ctx.kind === 'docs') {
         try {
@@ -112,6 +156,141 @@ export async function processContextsServer(
     kinds: Array.from(filtered.reduce((s, r) => s.add(r.type), new Set<string>())),
   })
   return filtered
+}
+
+function resolveContextWorkspaceId(
+  contextWorkspaceId: string | undefined,
+  fallbackWorkspaceId: string | undefined,
+  context: ChatContext
+): string | null {
+  const resolvedWorkspaceId = contextWorkspaceId ?? fallbackWorkspaceId ?? null
+  if (!resolvedWorkspaceId) {
+    logger.warn('Skipping copilot entity context without workspaceId', {
+      kind: context.kind,
+      label: context.label,
+    })
+  }
+  return resolvedWorkspaceId
+}
+
+async function processEntityContextFromDb(params: {
+  contextKind:
+    | 'skill'
+    | 'current_skill'
+    | 'indicator'
+    | 'current_indicator'
+    | 'custom_tool'
+    | 'current_custom_tool'
+    | 'mcp_server'
+    | 'current_mcp_server'
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
+  entityId: string
+  workspaceId: string | null
+  tag: string
+}): Promise<AgentContext | null> {
+  if (!params.workspaceId) {
+    return null
+  }
+
+  try {
+    const { loadCustomTool, loadIndicator, loadMcpServer, loadSkill } = await import(
+      '@/lib/copilot/review-sessions/entity-loaders'
+    )
+
+    let row: Record<string, unknown> | null = null
+    switch (params.entityKind) {
+      case 'skill':
+        row = await loadSkill(params.entityId, params.workspaceId)
+        break
+      case 'indicator':
+        row = await loadIndicator(params.entityId, params.workspaceId)
+        break
+      case 'custom_tool':
+        row = await loadCustomTool(params.entityId, params.workspaceId)
+        break
+      case 'mcp_server':
+        row = await loadMcpServer(params.entityId, params.workspaceId)
+        break
+    }
+
+    if (!row) {
+      logger.warn('No entity data found for copilot context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+      })
+      return null
+    }
+
+    return {
+      type: params.contextKind,
+      tag: params.tag,
+      content: JSON.stringify(serializeEntityContext(params.entityKind, row), null, 2),
+    }
+  } catch (error) {
+    logger.error('Error processing entity context', {
+      entityKind: params.entityKind,
+      entityId: params.entityId,
+      workspaceId: params.workspaceId,
+      error,
+    })
+    return null
+  }
+}
+
+function serializeEntityContext(
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
+  row: Record<string, unknown>
+) {
+  switch (entityKind) {
+    case 'skill':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        description: row.description ?? null,
+        content: row.content ?? null,
+      }
+    case 'indicator':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        color: row.color ?? null,
+        pineCode: row.pineCode ?? null,
+        inputMeta: row.inputMeta ?? null,
+      }
+    case 'custom_tool':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        title: row.title ?? null,
+        schema: row.schema ?? null,
+        code: row.code ?? null,
+      }
+    case 'mcp_server':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        description: row.description ?? null,
+        transport: row.transport ?? null,
+        url: row.url ?? null,
+        command: row.command ?? null,
+        args: Array.isArray(row.args) ? row.args : [],
+        headerKeys:
+          row.headers && typeof row.headers === 'object'
+            ? Object.keys(row.headers as Record<string, unknown>)
+            : [],
+        envKeys:
+          row.env && typeof row.env === 'object'
+            ? Object.keys(row.env as Record<string, unknown>)
+            : [],
+        timeout: row.timeout ?? null,
+        retries: row.retries ?? null,
+        enabled: row.enabled ?? null,
+      }
+  }
 }
 
 function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | undefined): string {
@@ -306,62 +485,29 @@ async function processKnowledgeFromDb(
   }
 }
 
-async function processBlockMetadata(blockId: string, tag: string): Promise<AgentContext | null> {
+async function processBlocksMetadata(
+  blockIds: string[],
+  tag: string
+): Promise<AgentContext | null> {
   try {
-    // Reuse registry to match get_blocks_metadata tool result
-    const { registry: blockRegistry } = await import('@/blocks/registry')
-    const { tools: toolsRegistry } = await import('@/tools/registry')
-    const SPECIAL_BLOCKS_METADATA: Record<string, any> = {}
+    const { getBlocksMetadataServerTool } = await import(
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+    )
 
-    let metadata: any = {}
-    if ((SPECIAL_BLOCKS_METADATA as any)[blockId]) {
-      metadata = { ...(SPECIAL_BLOCKS_METADATA as any)[blockId] }
-      metadata.tools = metadata.tools?.access || []
-    } else {
-      const blockConfig: any = (blockRegistry as any)[blockId]
-      if (!blockConfig) {
-        return null
-      }
-      metadata = {
-        id: blockId,
-        name: blockConfig.name || blockId,
-        description: blockConfig.description || '',
-        longDescription: blockConfig.longDescription,
-        category: blockConfig.category,
-        bgColor: sanitizeSolidIconColor(blockConfig.bgColor),
-        inputs: blockConfig.inputs || {},
-        outputs: blockConfig.outputs || {},
-        tools: blockConfig.tools?.access || [],
-        hideFromToolbar: blockConfig.hideFromToolbar,
-      }
-      if (blockConfig.subBlocks && Array.isArray(blockConfig.subBlocks)) {
-        metadata.subBlocks = (blockConfig.subBlocks as any[]).map((sb: any) => ({
-          id: sb.id,
-          name: sb.name,
-          type: sb.type,
-          description: sb.description,
-          default: sb.default,
-          options: Array.isArray(sb.options) ? sb.options : [],
-        }))
-      } else {
-        metadata.subBlocks = []
-      }
+    const uniqueBlockIds = Array.from(new Set(blockIds.filter(Boolean)))
+    if (uniqueBlockIds.length === 0) {
+      return null
     }
 
-    if (Array.isArray(metadata.tools) && metadata.tools.length > 0) {
-      metadata.toolDetails = {}
-      for (const toolId of metadata.tools) {
-        const tool = (toolsRegistry as any)[toolId]
-        if (tool) {
-          metadata.toolDetails[toolId] = { name: tool.name, description: tool.description }
-        }
-      }
+    const result = await getBlocksMetadataServerTool.execute({ blockIds: uniqueBlockIds })
+    if (!result?.metadata || Object.keys(result.metadata).length === 0) {
+      return null
     }
 
-    const content = JSON.stringify({ metadata })
+    const content = JSON.stringify(result)
     return { type: 'blocks', tag, content }
   } catch (error) {
-    logger.error('Error processing block metadata', { blockId, error })
+    logger.error('Error processing block metadata', { blockIds, error })
     return null
   }
 }

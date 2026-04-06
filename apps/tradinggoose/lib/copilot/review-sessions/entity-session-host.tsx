@@ -10,6 +10,7 @@ import {
 import { deriveUserColor } from '@/lib/utils'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { getFieldsMap, getEntityMetadataMap } from '@/lib/yjs/entity-session'
+import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   getCurrentTabId,
   readSeed,
@@ -32,7 +33,6 @@ export interface EntitySessionContextValue {
   awareness: any | null
   descriptor: ReviewTargetDescriptor | null
   runtime: ReviewTargetRuntimeState | null
-  undoManager: Y.UndoManager | null
   canUndo: boolean
   canRedo: boolean
   undo: () => void
@@ -42,13 +42,12 @@ export interface EntitySessionContextValue {
   error: string | null
 }
 
-const EntitySessionContext = createContext<EntitySessionContextValue>({
+const EMPTY_ENTITY_SESSION_CONTEXT: EntitySessionContextValue = {
   doc: null,
   provider: null,
   awareness: null,
   descriptor: null,
   runtime: null,
-  undoManager: null,
   canUndo: false,
   canRedo: false,
   undo: () => {},
@@ -56,7 +55,55 @@ const EntitySessionContext = createContext<EntitySessionContextValue>({
   isSynced: false,
   isLoading: true,
   error: null,
-})
+}
+
+const EntitySessionContext = createContext<EntitySessionContextValue>(EMPTY_ENTITY_SESSION_CONTEXT)
+
+function syncEntitySessionUser(awareness: any | null | undefined, user?: EntitySessionUser): void {
+  if (!awareness) {
+    return
+  }
+
+  if (!user) {
+    awareness.setLocalState(null)
+    return
+  }
+
+  const userColor = deriveUserColor(user.id)
+  awareness.setLocalState({
+    user: {
+      id: user.id,
+      name: user.name ?? user.email ?? 'Anonymous',
+      email: user.email,
+      color: userColor,
+    },
+  })
+}
+
+function buildPendingEntitySessionState(
+  descriptor: ReviewTargetDescriptor | null,
+  overrides: Partial<EntitySessionContextValue> = {}
+): EntitySessionContextValue {
+  return {
+    ...EMPTY_ENTITY_SESSION_CONTEXT,
+    descriptor,
+    isLoading: descriptor !== null,
+    ...overrides,
+  }
+}
+
+function isSameEntitySession(
+  left: ReviewTargetDescriptor | null,
+  right: ReviewTargetDescriptor | null
+): boolean {
+  if (!left || !right) {
+    return left === right
+  }
+
+  return (
+    left.reviewSessionId === right.reviewSessionId && left.yjsSessionId === right.yjsSessionId
+  )
+}
 
 export function useEntitySession(): EntitySessionContextValue {
   return useContext(EntitySessionContext)
@@ -101,24 +148,24 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
 
     return seed
   }, [descriptor.draftSessionId, descriptor.entityKind])
-  const [state, setState] = useState<EntitySessionContextValue>({
-    doc: null,
-    provider: null,
-    awareness: null,
-    descriptor: null,
-    runtime: null,
-    undoManager: null,
-    canUndo: false,
-    canRedo: false,
-    undo: () => {},
-    redo: () => {},
-    isSynced: false,
-    isLoading: true,
-    error: null,
-  })
+  const [state, setState] = useState<EntitySessionContextValue>(() =>
+    buildPendingEntitySessionState(descriptor)
+  )
+  const visibleState = useMemo(() => {
+    // When the requested review target changes, mask the previous doc
+    // immediately so editors never render stale entity content under the
+    // next descriptor while the new Yjs bootstrap is still in flight.
+    if (!isSameEntitySession(state.descriptor, descriptor)) {
+      return buildPendingEntitySessionState(descriptor)
+    }
+
+    return state
+  }, [descriptor, state])
 
   useEffect(() => {
     if (!descriptor.yjsSessionId) return
+
+    setState(buildPendingEntitySessionState(descriptor))
 
     let cancelled = false
     let result: YjsProviderBootstrapResult | null = null
@@ -142,7 +189,9 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
           return
         }
 
-        const nextUndoManager = new Y.UndoManager([getFieldsMap(result.doc)])
+        const nextUndoManager = new Y.UndoManager([getFieldsMap(result.doc)], {
+          trackedOrigins: createYjsUndoTrackedOrigins(),
+        })
         nextUndoManager.clear()
         undoManager = nextUndoManager
         const applyUndoState = () => {
@@ -201,18 +250,8 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
           }
         })
 
-        // Set user awareness for collaborative presence
-        if (user && result.provider.awareness) {
-          const userColor = deriveUserColor(user.id)
-          result.provider.awareness.setLocalState({
-            user: {
-              id: user.id,
-              name: user.name ?? user.email ?? 'Anonymous',
-              email: user.email,
-              color: userColor,
-            },
-          })
-        }
+        // Seed presence immediately when the user is already available on first bootstrap.
+        syncEntitySessionUser(result.provider.awareness, user)
 
         const runtime = getReviewTargetRuntimeState(result.doc)
         registerEntitySession({
@@ -221,7 +260,6 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
           provider: result.provider,
           runtime,
           isSynced: false,
-          undoManager: nextUndoManager,
           canUndo: false,
           canRedo: false,
         })
@@ -232,7 +270,6 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
           awareness: result.provider.awareness ?? null,
           descriptor: result.descriptor,
           runtime,
-          undoManager: nextUndoManager,
           canUndo: false,
           canRedo: false,
           undo: () => {
@@ -252,11 +289,13 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
         syncRuntimeState()
       } catch (err) {
         if (!cancelled) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: err instanceof Error ? err.message : 'Failed to initialize entity session',
-          }))
+          setState(
+            buildPendingEntitySessionState(descriptor, {
+              isLoading: false,
+              descriptor,
+              error: err instanceof Error ? err.message : 'Failed to initialize entity session',
+            })
+          )
         }
       }
     }
@@ -282,8 +321,12 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
     }
   }, [descriptor.reviewSessionId, descriptor.yjsSessionId, descriptor.draftSessionId, draftSeed])
 
+  useEffect(() => {
+    syncEntitySessionUser(visibleState.awareness, user)
+  }, [user, visibleState.awareness])
+
   return (
-    <EntitySessionContext.Provider value={state}>
+    <EntitySessionContext.Provider value={visibleState}>
       {children}
     </EntitySessionContext.Provider>
   )

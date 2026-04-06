@@ -6,7 +6,7 @@
  * Tests for normalized table operations including loading, saving, and migrating
  * workflow data between JSON blob format and normalized database tables.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
@@ -260,15 +260,52 @@ const mockWorkflowState: WorkflowState = {
   deploymentStatuses: {},
 }
 
+const createMockTx = (overrides: Partial<Record<'delete' | 'execute' | 'insert' | 'update', any>> = {}) => ({
+  execute: overrides.execute ?? vi.fn().mockResolvedValue([]),
+  update:
+    overrides.update ??
+    vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  delete:
+    overrides.delete ??
+    vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  insert:
+    overrides.insert ??
+    vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue([]),
+    }),
+})
+
+const mockNoConflictingBlockIds = () => {
+  mockDb.select.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  })
+}
+
 describe('Database Helpers', () => {
   let dbHelpers: typeof import('@/lib/workflows/db-helpers')
 
-  beforeEach(async () => {
+  beforeAll(async () => {
+    dbHelpers = await import('@/lib/workflows/db-helpers')
+  }, 30000)
+
+  beforeEach(() => {
     vi.clearAllMocks()
     mockGetExistingDocument.mockResolvedValue(null)
     mockGetState.mockResolvedValue(null)
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
-    dbHelpers = await import('@/lib/workflows/db-helpers')
+    mockDb.select.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    })
   })
 
   afterEach(() => {
@@ -310,16 +347,18 @@ describe('Database Helpers', () => {
       expect(result?.blocks['block-1']).toEqual({
         id: 'block-1',
         type: 'input_trigger',
-        name: 'Start Block',
+        name: 'Trigger Block',
         position: { x: 100, y: 100 },
         enabled: true,
         horizontalHandles: true,
         isWide: false,
+        locked: false,
         height: 150,
         subBlocks: { input: { id: 'input', type: 'short-input' as const, value: 'test' } },
         outputs: { result: { type: 'string' } },
         data: { parentId: null, extent: null, width: 350 },
         advancedMode: false,
+        layout: {},
         triggerMode: false,
       })
 
@@ -477,18 +516,14 @@ describe('Database Helpers', () => {
   })
 
   describe('saveWorkflowToNormalizedTables', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     it('should successfully save workflow data to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -514,17 +549,9 @@ describe('Database Helpers', () => {
         deploymentStatuses: {},
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -571,10 +598,7 @@ describe('Database Helpers', () => {
       let capturedSubflowInserts: any[] = []
 
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
+        const tx = createMockTx({
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockImplementation((data) => {
               // Capture the data based on which insert call it is
@@ -590,7 +614,7 @@ describe('Database Helpers', () => {
               return Promise.resolve([])
             }),
           }),
-        }
+        })
         return await callback(tx)
       })
 
@@ -610,8 +634,12 @@ describe('Database Helpers', () => {
         horizontalHandles: true,
         isWide: false,
         height: '150',
-        parentId: null,
-        extent: null,
+        advancedMode: false,
+        triggerMode: false,
+        data: {
+          width: 350,
+        },
+        layout: {},
       })
 
       expect(capturedEdgeInserts).toHaveLength(1)
@@ -678,6 +706,10 @@ describe('Database Helpers', () => {
   })
 
   describe('migrateWorkflowToNormalizedTables', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     const mockJsonState = {
       blocks: mockWorkflowState.blocks,
       edges: mockWorkflowState.edges,
@@ -689,17 +721,9 @@ describe('Database Helpers', () => {
     }
 
     it('should successfully migrate workflow from JSON to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -732,17 +756,9 @@ describe('Database Helpers', () => {
         // Missing loops, parallels, and other properties
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -763,6 +779,10 @@ describe('Database Helpers', () => {
   })
 
   describe('error handling and edge cases', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     it('should handle very large workflow data', async () => {
       const largeWorkflowState: WorkflowState = {
         blocks: {},
@@ -796,17 +816,9 @@ describe('Database Helpers', () => {
         })
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -1158,10 +1170,7 @@ describe('Database Helpers', () => {
 
       // Mock the transaction for save operation
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const mockTx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
+        const mockTx = createMockTx({
           insert: vi.fn().mockImplementation((_table) => ({
             values: vi.fn().mockImplementation((values) => {
               // Verify that advancedMode is included in the insert values
@@ -1178,11 +1187,12 @@ describe('Database Helpers', () => {
               return Promise.resolve()
             }),
           })),
-        }
+        })
         return await callback(mockTx)
       })
 
       mockDb.transaction = mockTransaction
+      mockNoConflictingBlockIds()
 
       // Step 5: Save workflow state (this should preserve advancedMode)
       const saveResult = await dbHelpers.saveWorkflowToNormalizedTables(
@@ -1294,18 +1304,12 @@ describe('Database Helpers', () => {
 
       // Mock successful save
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const mockTx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue(undefined),
-          }),
-        }
+        const mockTx = createMockTx()
         return await callback(mockTx)
       })
 
       mockDb.transaction = mockTransaction
+      mockNoConflictingBlockIds()
 
       // Save the state
       const saveResult = await dbHelpers.saveWorkflowToNormalizedTables(

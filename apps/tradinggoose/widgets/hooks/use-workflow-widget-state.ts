@@ -45,7 +45,6 @@ export type ReviewTargetMode =
       entityId: string | null
       reviewSessionId: string | null
       reviewDraftSessionId: string | null
-      reviewModel: string | null
     }
 
 type UseWorkflowWidgetStateResult = {
@@ -81,7 +80,6 @@ export const useWorkflowWidgetState = ({
   reviewEntityKind: reviewEntityKindOpt,
   reviewEntityId: reviewEntityIdOpt,
   reviewDraftSessionId: reviewDraftSessionIdOpt,
-  reviewModel: reviewModelOpt,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
   const { resolvedPairColor, channelId } = resolveWidgetChannel({
     pairColor,
@@ -335,7 +333,6 @@ export const useWorkflowWidgetState = ({
         entityId: reviewEntityIdOpt ?? null,
         reviewSessionId: reviewSessionIdOpt ?? null,
         reviewDraftSessionId: reviewDraftSessionIdOpt ?? null,
-        reviewModel: reviewModelOpt ?? null,
       }
     }
 
@@ -345,7 +342,6 @@ export const useWorkflowWidgetState = ({
     reviewEntityIdOpt,
     reviewSessionIdOpt,
     reviewDraftSessionIdOpt,
-    reviewModelOpt,
   ])
 
   return {

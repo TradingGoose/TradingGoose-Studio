@@ -1,0 +1,3 @@
+DROP INDEX "copilot_review_sessions_user_workspace_channel_unique";--> statement-breakpoint
+CREATE INDEX "copilot_review_sessions_user_workspace_channel_idx" ON "copilot_review_sessions" USING btree ("user_id",coalesce("workspace_id", 'global'),"channel_id") WHERE "copilot_review_sessions"."channel_id" IS NOT NULL AND "copilot_review_sessions"."entity_kind" = 'copilot';--> statement-breakpoint
+ALTER TABLE "settings" DROP COLUMN "copilot_enabled_models";

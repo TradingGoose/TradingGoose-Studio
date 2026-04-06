@@ -205,7 +205,6 @@ async function bootstrapSavedEntityTarget(
   seedEntitySession(doc, {
     entityKind: descriptor.entityKind,
     payload: canonical.payload,
-    reviewModel: descriptor.reviewModel,
   })
 
   doc.transact(() => {

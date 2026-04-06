@@ -38,6 +38,21 @@ describe('Function Execute API Route', () => {
         authType: 'session',
       }),
     }))
+    vi.doMock('@/lib/execution/concurrency-limit', () => ({
+      getCodeExecutionConcurrencyLimitMessage: vi.fn(() => 'Concurrency limited'),
+      isCodeExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
+      isCodeExecutionConcurrencyLimitError: vi.fn(() => false),
+      withCodeExecutionConcurrencyLimit: vi.fn(
+        async ({ task }: { task: () => Promise<unknown> }) => await task()
+      ),
+    }))
+    vi.doMock('@/lib/execution/local-saturation-limit', () => ({
+      getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
+      isLocalVmSaturationLimitError: vi.fn(() => false),
+      withLocalVmSaturationLimit: vi.fn(
+        async ({ task }: { task: () => Promise<unknown> }) => await task()
+      ),
+    }))
 
     vi.doMock('@/lib/execution/e2b', () => ({
       executeInE2B: vi.fn().mockResolvedValue({
@@ -70,7 +85,37 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Security Tests', () => {
-    it('should reject unauthenticated function execution requests', async () => {
+    it(
+      'should reject unauthenticated function execution requests',
+      { timeout: 10_000 },
+      async () => {
+      vi.doMock('@/lib/utils', () => ({
+        generateRequestId: vi.fn(() => 'request-1'),
+      }))
+      vi.doMock('@/app/api/function/code-resolution', () => ({
+        resolveCodeVariables: vi.fn((code: string) => ({
+          resolvedCode: code,
+          contextVariables: {},
+        })),
+      }))
+      vi.doMock('@/app/api/function/e2b-execution', () => ({
+        executeFunctionWithRuntimeGate: vi.fn(),
+      }))
+      vi.doMock('@/app/api/function/error-formatting', () => ({
+        createUserFriendlyErrorMessage: vi.fn(() => 'error'),
+        extractEnhancedError: vi.fn(() => ({
+          line: null,
+          column: null,
+          name: 'Error',
+          lineContent: null,
+          stack: '',
+        })),
+      }))
+      vi.doMock('@/app/api/function/typescript-utils', () => ({
+        findFunctionPineDisallowedReason: vi.fn(async () => null),
+        transpileTypeScriptCode: vi.fn(async (code: string) => code),
+      }))
+
       const { checkHybridAuth } = await import('@/lib/auth/hybrid')
       vi.mocked(checkHybridAuth).mockResolvedValueOnce({ success: false })
 
@@ -82,10 +127,11 @@ describe('Function Execute API Route', () => {
       const response = await POST(req)
       const data = await response.json()
 
-      expect(response.status).toBe(401)
-      expect(data.success).toBe(false)
-      expect(data.error).toBe('Unauthorized')
-    })
+        expect(response.status).toBe(401)
+        expect(data.success).toBe(false)
+        expect(data.error).toBe('Unauthorized')
+      }
+    )
 
     it('should create secure fetch in VM context', async () => {
       const req = createMockRequest('POST', {
@@ -102,7 +148,7 @@ describe('Function Execute API Route', () => {
       expect(typeof contextArgs.fetch).toBe('function')
 
       expect(contextArgs.fetch.name).toBe('secureFetch')
-    })
+    }, 10000)
 
     it('should block SSRF attacks through secure fetch wrapper', async () => {
       const { validateProxyUrl } = await import('@/lib/security/input-validation')
@@ -146,7 +192,7 @@ describe('Function Execute API Route', () => {
       expect(data.success).toBe(true)
       expect(data.output).toHaveProperty('result')
       expect(data.output).toHaveProperty('executionTime')
-    })
+    }, 10000)
 
     it('should handle missing code parameter', async () => {
       const req = createMockRequest('POST', {

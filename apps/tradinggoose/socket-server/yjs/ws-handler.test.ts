@@ -156,7 +156,6 @@ describe('handleYjsUpgrade', () => {
         entityKind: 'workflow',
         entityId: sessionId,
         draftSessionId: null,
-        reviewModel: null,
       },
     })
 
@@ -174,7 +173,6 @@ describe('handleYjsUpgrade', () => {
         entityId: sessionId,
         draftSessionId: null,
         reviewSessionId: null,
-        reviewModel: null,
         yjsSessionId: sessionId,
       },
       runtime: {
@@ -213,7 +211,6 @@ describe('handleYjsUpgrade', () => {
         entityKind: 'workflow',
         entityId: sessionId,
         draftSessionId: null,
-        reviewModel: null,
       },
     })
 
@@ -231,7 +228,6 @@ describe('handleYjsUpgrade', () => {
         entityId: sessionId,
         draftSessionId: null,
         reviewSessionId: null,
-        reviewModel: null,
         yjsSessionId: sessionId,
       },
       runtime: {

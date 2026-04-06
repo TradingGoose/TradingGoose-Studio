@@ -14,6 +14,10 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import {
+  dropsAcceptedLiveMutation,
+  EDIT_REPLAY_BLOCKED_MESSAGE,
+} from '@/lib/copilot/chat-replay-safety'
 import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
 import {
   deriveReviewTurnsAndItems,
@@ -25,9 +29,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CopilotChatUpdateAPI')
 type ReviewMessageApi = ReturnType<typeof mapReviewItemToApi>
+type IncomingReviewMessage = z.infer<typeof UpdateMessagesSchema>['messages'][number]
 
 const UpdateMessagesSchema = z.object({
   reviewSessionId: z.string(),
+  preserveConcurrentHistory: z.boolean().optional(),
   messages: z.array(
     z.object({
       id: z.string(),
@@ -65,6 +71,45 @@ function mergeSharedSessionMessages(
   >['messages']
 }
 
+function isSharedSavedEntitySession(session: Awaited<ReturnType<typeof loadReviewSessionForUser>>) {
+  return (
+    !!session &&
+    session.entityKind !== ENTITY_KIND_WORKFLOW &&
+    !!session.entityId &&
+    !!session.workspaceId
+  )
+}
+
+function normalizeReviewMessageForPersistence(message: ReviewMessageApi | IncomingReviewMessage) {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content ?? '',
+    timestamp: message.timestamp ?? '',
+    toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
+    contentBlocks: Array.isArray(message.contentBlocks) ? message.contentBlocks : [],
+    contexts: Array.isArray(message.contexts) ? message.contexts : [],
+    citations: Array.isArray(message.citations) ? message.citations : [],
+    fileAttachments: Array.isArray(message.fileAttachments) ? message.fileAttachments : [],
+  }
+}
+
+function arePersistedMessagesEqual(
+  currentMessages: ReviewMessageApi[],
+  nextMessages: z.infer<typeof UpdateMessagesSchema>['messages']
+) {
+  if (currentMessages.length !== nextMessages.length) {
+    return false
+  }
+
+  return currentMessages.every((message, index) => {
+    return (
+      JSON.stringify(normalizeReviewMessageForPersistence(message)) ===
+      JSON.stringify(normalizeReviewMessageForPersistence(nextMessages[index]))
+    )
+  })
+}
+
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
 
@@ -75,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { reviewSessionId, messages } = UpdateMessagesSchema.parse(body)
+    const { reviewSessionId, preserveConcurrentHistory, messages } = UpdateMessagesSchema.parse(body)
 
     const session = await loadReviewSessionForUser(reviewSessionId, userId, { requireWrite: true })
     if (!session) {
@@ -83,6 +128,7 @@ export async function POST(req: NextRequest) {
     }
 
     let persistedMessageCount = messages.length
+    let replayUnsafe = false
 
     // Full delete-then-reinsert strategy: review turns and items have strict
     // ordering constraints (sequence columns) and parent-child relationships
@@ -106,19 +152,19 @@ export async function POST(req: NextRequest) {
 
       const currentMessages = currentItems.map(mapReviewItemToApi)
       const shouldPreserveConcurrentHistory =
-        session.entityKind !== ENTITY_KIND_WORKFLOW && session.userId !== userId
+        preserveConcurrentHistory ?? isSharedSavedEntitySession(session)
       const nextMessages = shouldPreserveConcurrentHistory
         ? mergeSharedSessionMessages(currentMessages, messages)
         : messages
       persistedMessageCount = nextMessages.length
 
+      if (dropsAcceptedLiveMutation(currentMessages, nextMessages)) {
+        replayUnsafe = true
+        return
+      }
+
       // Short-circuit: skip the expensive delete/reinsert if nothing changed.
-      const unchanged =
-        currentMessages.length === nextMessages.length &&
-        currentMessages.every(
-          (cur, i) => cur.id === nextMessages[i].id && cur.content === nextMessages[i].content
-        )
-      if (unchanged) {
+      if (arePersistedMessagesEqual(currentMessages, nextMessages)) {
         return
       }
 
@@ -142,6 +188,10 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(copilotReviewSessions.id, reviewSessionId))
     })
+
+    if (replayUnsafe) {
+      return NextResponse.json({ error: EDIT_REPLAY_BLOCKED_MESSAGE }, { status: 409 })
+    }
 
     logger.info(`[${tracker.requestId}] Successfully updated review session messages`, {
       reviewSessionId,

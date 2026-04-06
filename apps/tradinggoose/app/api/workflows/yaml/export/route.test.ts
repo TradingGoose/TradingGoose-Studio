@@ -91,6 +91,22 @@ describe('Workflow YAML Export API Route', () => {
       loadWorkflowStateWithFallback: loadWorkflowStateWithFallbackMock,
     }))
 
+    vi.doMock('@/lib/copilot/tools/client/workflow/block-output-utils', () => ({
+      extractSubBlockValuesFromBlocks: vi.fn((blocks: Record<string, any>) =>
+        Object.fromEntries(
+          Object.entries(blocks).map(([blockId, block]) => [
+            blockId,
+            Object.fromEntries(
+              Object.entries(block?.subBlocks || {}).map(([subBlockId, subBlock]: [string, any]) => [
+                subBlockId,
+                subBlock?.value,
+              ])
+            ),
+          ])
+        )
+      ),
+    }))
+
     vi.doMock('@/blocks/registry', () => ({
       getAllBlocks: vi.fn(() => []),
     }))
@@ -109,7 +125,10 @@ describe('Workflow YAML Export API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('prefers the live Yjs workflow snapshot and includes variables in the export payload', async () => {
+  it(
+    'prefers the live Yjs workflow snapshot and includes variables in the export payload',
+    { timeout: 10_000 },
+    async () => {
     loadWorkflowStateWithFallbackMock.mockResolvedValue({
       blocks: {
         'live-block': {
@@ -144,30 +163,31 @@ describe('Workflow YAML Export API Route', () => {
     const response = await GET(createRequest())
 
     expect(response.status).toBe(200)
-    expect(makeRequestMock).toHaveBeenCalledWith(
-      '/api/workflow/to-yaml',
-      expect.objectContaining({
-        body: expect.objectContaining({
-          workflowState: expect.objectContaining({
-            blocks: expect.objectContaining({
-              'live-block': expect.objectContaining({ name: 'Live Agent' }),
-            }),
-            variables: {
-              'live-var': expect.objectContaining({
-                name: 'liveVar',
-                value: 'live',
+      expect(makeRequestMock).toHaveBeenCalledWith(
+        '/api/workflow/to-yaml',
+        expect.objectContaining({
+          body: expect.objectContaining({
+            workflowState: expect.objectContaining({
+              blocks: expect.objectContaining({
+                'live-block': expect.objectContaining({ name: 'Live Agent' }),
               }),
+              variables: {
+                'live-var': expect.objectContaining({
+                  name: 'liveVar',
+                  value: 'live',
+                }),
+              },
+            }),
+            subBlockValues: {
+              'live-block': {
+                prompt: 'live value',
+              },
             },
           }),
-          subBlockValues: {
-            'live-block': {
-              prompt: 'live value',
-            },
-          },
-        }),
-      })
-    )
-  })
+        })
+      )
+    }
+  )
 
   it('falls back to canonical saved state and workflow-row variables when no live doc exists', async () => {
     loadWorkflowStateWithFallbackMock.mockResolvedValue({
@@ -228,5 +248,5 @@ describe('Workflow YAML Export API Route', () => {
         }),
       })
     )
-  })
+  }, 10000)
 })

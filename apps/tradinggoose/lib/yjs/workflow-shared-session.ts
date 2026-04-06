@@ -6,6 +6,7 @@ import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types
 import { deriveUserColor } from '@/lib/utils'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
+import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   registerWorkflowSession,
   unregisterWorkflowSession,
@@ -15,7 +16,6 @@ export interface SharedWorkflowSessionState {
   doc: Y.Doc | null
   provider: WebsocketProvider | null
   awareness: any | null
-  undoManager: Y.UndoManager | null
   canUndo: boolean
   canRedo: boolean
   isSynced: boolean
@@ -38,6 +38,7 @@ interface SharedWorkflowSessionEntry {
   listeners: Set<() => void>
   initPromise: Promise<void> | null
   result: YjsProviderBootstrapResult | null
+  undoManager: Y.UndoManager | null
   syncUndoState: (() => void) | null
   cleanup: (() => void) | null
 }
@@ -51,7 +52,6 @@ export const EMPTY_SHARED_WORKFLOW_SESSION_STATE: SharedWorkflowSessionState = {
   doc: null,
   provider: null,
   awareness: null,
-  undoManager: null,
   canUndo: false,
   canRedo: false,
   isSynced: false,
@@ -122,6 +122,7 @@ function createSessionEntry(args: {
     listeners: new Set(),
     initPromise: null,
     result: null,
+    undoManager: null,
     syncUndoState: null,
     cleanup: null,
   }
@@ -153,7 +154,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     entityId: entry.workflowId,
     draftSessionId: null,
     reviewSessionId: null,
-    reviewModel: null,
     yjsSessionId: entry.workflowId,
   }
 
@@ -165,11 +165,12 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       return
     }
 
-    const undoManager = new Y.UndoManager([
-      getWorkflowMap(result.doc),
-      getWorkflowTextFieldsMap(result.doc),
-      getVariablesMap(result.doc),
-    ])
+    const undoManager = new Y.UndoManager(
+      [getWorkflowMap(result.doc), getWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
+      {
+        trackedOrigins: createYjsUndoTrackedOrigins(),
+      }
+    )
     undoManager.clear()
 
     const syncUndoState = () => {
@@ -189,6 +190,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     result.provider.on('sync', syncStatus)
 
     entry.result = result
+    entry.undoManager = undoManager
     entry.syncUndoState = syncUndoState
     entry.cleanup = () => {
       undoManager.off('stack-item-added', syncUndoState)
@@ -206,7 +208,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       doc: result.doc,
       provider: result.provider,
       awareness: result.provider.awareness ?? null,
-      undoManager,
       canUndo: false,
       canRedo: false,
       isSynced: false,
@@ -259,6 +260,7 @@ function releaseSharedSession(workflowId: string): void {
 
     currentEntry.cleanup?.()
     currentEntry.cleanup = null
+    currentEntry.undoManager = null
     currentEntry.syncUndoState = null
 
     if (currentEntry.result) {
@@ -361,7 +363,7 @@ export function undoSharedWorkflowSession(workflowId: string | null | undefined)
   }
 
   const entry = getSharedSessionEntries().get(workflowId)
-  const undoManager = entry?.state.undoManager
+  const undoManager = entry?.undoManager
   if (!entry || !undoManager) {
     return
   }
@@ -376,7 +378,7 @@ export function redoSharedWorkflowSession(workflowId: string | null | undefined)
   }
 
   const entry = getSharedSessionEntries().get(workflowId)
-  const undoManager = entry?.state.undoManager
+  const undoManager = entry?.undoManager
   if (!entry || !undoManager) {
     return
   }

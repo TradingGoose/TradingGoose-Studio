@@ -1,6 +1,19 @@
-import { beforeEach, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { SnapshotService } from '@/lib/logs/execution/snapshot/service'
 import type { WorkflowState } from '@/lib/logs/types'
+
+vi.mock('@tradinggoose/db', () => ({
+  db: {},
+}))
+
+vi.mock('@tradinggoose/db/schema', () => ({
+  workflowExecutionSnapshots: {
+    id: 'id',
+    workflowId: 'workflowId',
+    stateHash: 'stateHash',
+    createdAt: 'createdAt',
+  },
+}))
 
 describe('SnapshotService', () => {
   let service: SnapshotService

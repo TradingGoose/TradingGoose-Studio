@@ -12,38 +12,77 @@ import type {
 import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColorContext, PairReviewTarget } from '@/stores/dashboard/pair-store'
 import { REVIEW_TARGET_FIELDS } from '@/widgets/events'
+import { resolveEntityId } from '@/widgets/widgets/entity_review/resolve-entity-id'
 
 export interface EntitySelectionState {
   legacyEntityId: string | null
   reviewSessionId: string | null
   reviewEntityId: string | null
   reviewDraftSessionId: string | null
-  reviewModel: string | null
   descriptor: ReviewTargetDescriptor | null
 }
 
-export function readReviewTargetDescriptor(
-  source?: Record<string, unknown> | PairColorContext | null
-): ReviewTargetDescriptor | null {
-  if (!source || typeof source !== 'object') {
+function getNestedReviewTarget(
+  pairContext?: PairColorContext | null
+): Record<string, unknown> | null {
+  if (!pairContext || typeof pairContext !== 'object') {
     return null
   }
 
-  const record = source as Record<string, unknown>
+  const reviewTarget = pairContext.reviewTarget
+  if (!reviewTarget || typeof reviewTarget !== 'object') {
+    return null
+  }
 
-  // Read from nested reviewTarget (PairColorContext) with flat-field fallback
-  // (widget params still use flat fields).
-  const nested = (record.reviewTarget ?? {}) as Record<string, unknown>
+  return reviewTarget as Record<string, unknown>
+}
 
+function readOwnNormalizedString(
+  source: Record<string, unknown> | null | undefined,
+  key: string
+): { found: boolean; value: string | null } {
+  if (!source || !Object.hasOwn(source, key)) {
+    return { found: false, value: null }
+  }
+
+  return {
+    found: true,
+    value: normalizeOptionalString(source[key]) ?? null,
+  }
+}
+
+function resolveReviewField(
+  key: string,
+  options: {
+    params?: Record<string, unknown> | null
+    pairContext?: PairColorContext | null
+  }
+): string | null {
+  const nestedPairTarget = readOwnNormalizedString(getNestedReviewTarget(options.pairContext), key)
+  if (nestedPairTarget.found) {
+    return nestedPairTarget.value
+  }
+
+  const pairField = readOwnNormalizedString(options.pairContext as Record<string, unknown> | null, key)
+  if (pairField.found) {
+    return pairField.value
+  }
+
+  return readOwnNormalizedString(options.params ?? null, key).value
+}
+
+export function readReviewTargetDescriptor(options: {
+  params?: Record<string, unknown> | null
+  pairContext?: PairColorContext | null
+}): ReviewTargetDescriptor | null {
   const payload: Record<string, string | undefined> = {
-    workspaceId: normalizeOptionalString(record.workspaceId) ?? undefined,
-    yjsSessionId: normalizeOptionalString(record.yjsSessionId) ?? undefined,
+    workspaceId:
+      resolveReviewField('workspaceId', options) ?? undefined,
+    yjsSessionId:
+      resolveReviewField('yjsSessionId', options) ?? undefined,
   }
   for (const key of REVIEW_TARGET_FIELDS) {
-    payload[key] =
-      normalizeOptionalString(nested[key]) ??
-      normalizeOptionalString(record[key]) ??
-      undefined
+    payload[key] = resolveReviewField(key, options) ?? undefined
   }
 
   if (!payload.reviewEntityKind) {
@@ -62,45 +101,25 @@ export function readEntitySelectionState(options: {
   pairContext?: PairColorContext | null
   legacyIdKey: keyof PairColorContext | string
 }): EntitySelectionState {
-  const source =
-    options.pairContext && Object.keys(options.pairContext).length > 0
-      ? options.pairContext
-      : options.params
-
-  const descriptor = readReviewTargetDescriptor(source)
-  const rawLegacyValue =
-    source && typeof source === 'object'
-      ? normalizeOptionalString((source as Record<string, unknown>)[options.legacyIdKey])
-      : null
-
-  // Read review fields from nested reviewTarget (PairColorContext) or flat
-  // fields (widget params / backward compat).
-  const nested = source && typeof source === 'object'
-    ? ((source as Record<string, unknown>).reviewTarget as PairReviewTarget | undefined)
-    : undefined
-  const flat = source as Record<string, unknown> | undefined
+  const descriptor = readReviewTargetDescriptor(options)
+  const rawLegacyValue = resolveEntityId(options.legacyIdKey, {
+    params: options.params,
+    pairContext: options.pairContext as Record<string, unknown> | null | undefined,
+  })
 
   return {
     legacyEntityId: rawLegacyValue ?? null,
     reviewSessionId:
       descriptor?.reviewSessionId ??
-      normalizeOptionalString(nested?.reviewSessionId) ??
-      normalizeOptionalString(flat?.reviewSessionId) ??
+      resolveReviewField('reviewSessionId', options) ??
       null,
     reviewEntityId:
       descriptor?.entityId ??
-      normalizeOptionalString(nested?.reviewEntityId) ??
-      normalizeOptionalString(flat?.reviewEntityId) ??
+      resolveReviewField('reviewEntityId', options) ??
       null,
     reviewDraftSessionId:
       descriptor?.draftSessionId ??
-      normalizeOptionalString(nested?.reviewDraftSessionId) ??
-      normalizeOptionalString(flat?.reviewDraftSessionId) ??
-      null,
-    reviewModel:
-      descriptor?.reviewModel ??
-      normalizeOptionalString(nested?.reviewModel) ??
-      normalizeOptionalString(flat?.reviewModel) ??
+      resolveReviewField('reviewDraftSessionId', options) ??
       null,
     descriptor,
   }
@@ -125,7 +144,6 @@ export function buildPersistedReviewParams(options: {
   delete current.reviewEntityKind
   delete current.reviewEntityId
   delete current.reviewDraftSessionId
-  delete current.reviewModel
   delete current.yjsSessionId
 
   Object.assign(current, serialized)
@@ -158,7 +176,6 @@ export function buildPersistedPairContext(options: {
       reviewEntityKind: serialized.reviewEntityKind ?? null,
       reviewEntityId: serialized.reviewEntityId ?? null,
       reviewDraftSessionId: serialized.reviewDraftSessionId ?? null,
-      reviewModel: serialized.reviewModel ?? null,
     }
   }
 
@@ -171,7 +188,6 @@ export async function resolveEntityReviewTarget(options: {
   entityId?: string | null
   draftSessionId?: string | null
   reviewSessionId?: string | null
-  reviewModel?: string | null
 }): Promise<ResolvedReviewTarget> {
   const response = await fetch('/api/copilot/review-sessions/resolve', {
     method: 'POST',
@@ -182,7 +198,6 @@ export async function resolveEntityReviewTarget(options: {
       entityId: options.entityId ?? undefined,
       draftSessionId: options.draftSessionId ?? undefined,
       reviewSessionId: options.reviewSessionId ?? undefined,
-      reviewModel: options.reviewModel ?? 'gpt-5-fast',
     }),
   })
 

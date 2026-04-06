@@ -6,11 +6,19 @@ import { createMockRequest, setupCommonApiMocks } from '@/app/api/__test-utils__
 
 describe('Review Session Resolve Route', () => {
   const mockSelect = vi.fn()
+  const mockFrom = vi.fn()
+  const mockWhere = vi.fn()
+  const mockLimit = vi.fn()
+  const mockInsert = vi.fn()
+  const mockInsertValues = vi.fn()
+  const mockInsertReturning = vi.fn()
+  const mockUpdate = vi.fn()
+  const mockUpdateSet = vi.fn()
+  const mockUpdateWhere = vi.fn()
   const mockGetSession = vi.fn()
   const mockVerifyReviewTargetAccess = vi.fn()
   const mockLoadReviewSessionForUser = vi.fn()
   const mockBuildReviewTargetDescriptor = vi.fn()
-  const mockBuildSessionScopeKey = vi.fn()
   const mockBootstrapReviewTarget = vi.fn()
 
   beforeEach(() => {
@@ -30,10 +38,8 @@ describe('Review Session Resolve Route', () => {
       entityId: row.entityId,
       draftSessionId: row.draftSessionId,
       reviewSessionId: row.id,
-      reviewModel: row.model,
       yjsSessionId: row.id,
     }))
-    mockBuildSessionScopeKey.mockReturnValue(null)
     mockBootstrapReviewTarget.mockImplementation(async (descriptor: any) => ({
       descriptor,
       runtime: {
@@ -43,11 +49,22 @@ describe('Review Session Resolve Route', () => {
       },
     }))
 
+    mockSelect.mockReturnValue({ from: mockFrom })
+    mockFrom.mockReturnValue({ where: mockWhere })
+    mockWhere.mockReturnValue({ limit: mockLimit })
+    mockLimit.mockResolvedValue([])
+    mockInsertReturning.mockResolvedValue([])
+    mockInsertValues.mockReturnValue({ returning: mockInsertReturning })
+    mockInsert.mockReturnValue({ values: mockInsertValues })
+    mockUpdateWhere.mockResolvedValue(undefined)
+    mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
+    mockUpdate.mockReturnValue({ set: mockUpdateSet })
+
     vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: mockSelect,
-        insert: vi.fn(),
-        update: vi.fn(),
+        insert: mockInsert,
+        update: mockUpdate,
       },
     }))
 
@@ -55,7 +72,11 @@ describe('Review Session Resolve Route', () => {
       copilotReviewSessions: {
         id: 'copilot_review_sessions.id',
         userId: 'copilot_review_sessions.user_id',
-        sessionScopeKey: 'copilot_review_sessions.session_scope_key',
+        workspaceId: 'copilot_review_sessions.workspace_id',
+        entityKind: 'copilot_review_sessions.entity_kind',
+        entityId: 'copilot_review_sessions.entity_id',
+        draftSessionId: 'copilot_review_sessions.draft_session_id',
+        channelId: 'copilot_review_sessions.channel_id',
         model: 'copilot_review_sessions.model',
         updatedAt: 'copilot_review_sessions.updated_at',
       },
@@ -64,6 +85,7 @@ describe('Review Session Resolve Route', () => {
     vi.doMock('drizzle-orm', () => ({
       and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
       eq: vi.fn((field: unknown, value: unknown) => ({ field, value, type: 'eq' })),
+      isNull: vi.fn((field: unknown) => ({ field, type: 'isNull' })),
     }))
 
     vi.doMock('@/lib/auth', () => ({
@@ -72,7 +94,6 @@ describe('Review Session Resolve Route', () => {
 
     vi.doMock('@/lib/copilot/review-sessions/identity', () => ({
       buildReviewTargetDescriptor: mockBuildReviewTargetDescriptor,
-      buildSessionScopeKey: mockBuildSessionScopeKey,
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/permissions', () => ({
@@ -124,7 +145,6 @@ describe('Review Session Resolve Route', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       entityId: 'skill-1',
-      reviewModel: 'claude-4.5-sonnet',
       reviewSessionId: 'review-session-1',
     })
 
@@ -139,7 +159,6 @@ describe('Review Session Resolve Route', () => {
         entityId: 'skill-1',
         draftSessionId: null,
         reviewSessionId: 'review-session-1',
-        reviewModel: 'claude-4.5-sonnet',
         yjsSessionId: 'review-session-1',
       },
       runtime: {
@@ -161,13 +180,98 @@ describe('Review Session Resolve Route', () => {
     expect(mockSelect).not.toHaveBeenCalled()
   })
 
+  it('reuses an existing shared saved-entity session by explicit entity fields', async () => {
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: 'review-session-entity-1',
+        userId: 'creator-user',
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        draftSessionId: null,
+        channelId: null,
+        model: 'claude-4.5-sonnet',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+    })
+
+    const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        draftSessionId: null,
+        reviewSessionId: 'review-session-entity-1',
+        yjsSessionId: 'review-session-entity-1',
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: false,
+      },
+    })
+    expect(mockLoadReviewSessionForUser).not.toHaveBeenCalled()
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('reuses an existing draft session only for the current user', async () => {
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: 'review-session-draft-1',
+        userId: 'collaborator-user',
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
+        channelId: null,
+        model: 'claude-4.5-sonnet',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+    })
+
+    const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
+        reviewSessionId: 'review-session-draft-1',
+        yjsSessionId: 'review-session-draft-1',
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: false,
+      },
+    })
+    expect(mockLoadReviewSessionForUser).not.toHaveBeenCalled()
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
   it('does not reuse a reviewSessionId when the helper denies access to that session', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue(null)
 
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
-      reviewModel: 'claude-4.5-sonnet',
       reviewSessionId: 'review-session-1',
       draftSessionId: 'draft-1',
     })
@@ -201,7 +305,34 @@ describe('Review Session Resolve Route', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       entityId: 'skill-1',
-      reviewModel: 'claude-4.5-sonnet',
+      reviewSessionId: 'review-session-1',
+    })
+
+    const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Review session does not match requested target',
+    })
+    expect(mockBootstrapReviewTarget).not.toHaveBeenCalled()
+  })
+
+  it('rejects a cached reviewSessionId when it belongs to a different entity in the same workspace', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      entityId: 'skill-2',
+      draftSessionId: null,
+      model: 'claude-4.5-sonnet',
+    })
+
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
       reviewSessionId: 'review-session-1',
     })
 

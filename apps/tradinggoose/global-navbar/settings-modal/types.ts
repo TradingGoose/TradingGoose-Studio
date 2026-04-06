@@ -1,1 +1,1 @@
-export type SettingsSection = 'account' | 'copilot' | 'subscription' | 'team' | 'sso'
+export type SettingsSection = 'account' | 'service' | 'subscription' | 'team' | 'sso'

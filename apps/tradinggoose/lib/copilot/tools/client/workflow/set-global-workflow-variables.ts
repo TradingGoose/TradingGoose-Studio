@@ -10,6 +10,7 @@ import {
   getVariablesForWorkflow,
 } from '@/lib/yjs/workflow-session-registry'
 import { setVariables } from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
@@ -51,11 +52,6 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
       accept: { text: 'Apply', icon: Settings2 },
       reject: { text: 'Skip', icon: XCircle },
     },
-  }
-
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
   }
 
   async handleAccept(args?: SetGlobalVarsArgs): Promise<void> {
@@ -158,7 +154,7 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         updatedRecord[variable.id] = variable
       }
       const session = getRegisteredWorkflowSession(payload.workflowId)!
-      setVariables(session.doc, updatedRecord, 'copilot')
+      setVariables(session.doc, updatedRecord, YJS_ORIGINS.COPILOT_TOOL)
 
       logger.info('Applied variable operations to Yjs doc', {
         workflowId: payload.workflowId,

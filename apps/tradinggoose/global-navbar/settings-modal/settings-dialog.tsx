@@ -1,12 +1,12 @@
 'use client'
 
-import { ReactNode, useMemo } from 'react'
-import { SettingsModal } from './settings-modal'
+import { type ReactNode, useMemo } from 'react'
 import { AccountSettings } from './components/account/account-settings'
-import { CopilotSettings } from './components/copilot/copilot-settings'
+import { ServiceSettings } from './components/service/service-settings'
 import { SSOSettings } from './components/sso/sso-settings'
 import { SubscriptionSettings } from './components/subscription/subscription-settings'
 import { TeamManagementSettings } from './components/team-management/team-management-settings'
+import { SettingsModal } from './settings-modal'
 import type { SettingsSection } from './types'
 
 interface SettingsDialogProps {
@@ -30,9 +30,9 @@ const SECTION_CONFIG: Record<SettingsSection, SectionConfig> = {
     title: 'Account Settings',
     render: () => <AccountSettings />,
   },
-  copilot: {
-    title: 'Copilot Settings',
-    render: () => <CopilotSettings />,
+  service: {
+    title: 'Service API Keys',
+    render: () => <ServiceSettings />,
   },
   subscription: {
     title: 'Subscription',

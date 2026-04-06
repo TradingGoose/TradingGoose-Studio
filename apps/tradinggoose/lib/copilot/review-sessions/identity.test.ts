@@ -39,7 +39,6 @@ describe('review target identity helpers', () => {
         entityKind: 'skill',
         entityId: 'skill-1',
         draftSessionId: null,
-        model: 'gpt-5-fast',
       })
     ).toEqual({
       workspaceId: 'ws-1',
@@ -47,7 +46,6 @@ describe('review target identity helpers', () => {
       entityId: 'skill-1',
       draftSessionId: null,
       reviewSessionId: 'review-1',
-      reviewModel: 'gpt-5-fast',
       yjsSessionId: 'review-1',
     })
   })
@@ -59,7 +57,6 @@ describe('review target identity helpers', () => {
       entityId: 'skill-1',
       draftSessionId: null,
       reviewSessionId: 'review-1',
-      reviewModel: 'gpt-5-fast',
       yjsSessionId: 'review-1',
     }
 
@@ -75,7 +72,6 @@ describe('review target identity helpers', () => {
         reviewEntityKind: 'skill',
         reviewEntityId: 'skill-1',
         reviewSessionId: 'review-1',
-        reviewModel: 'gpt-5-fast',
         yjsSessionId: 'skill-1',
       })
     ).toEqual({
@@ -84,7 +80,6 @@ describe('review target identity helpers', () => {
       entityId: 'skill-1',
       draftSessionId: null,
       reviewSessionId: 'review-1',
-      reviewModel: 'gpt-5-fast',
       yjsSessionId: 'review-1',
     })
   })

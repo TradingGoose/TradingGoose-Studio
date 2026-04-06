@@ -11,7 +11,6 @@ export interface RegisteredEntitySession {
   provider: WebsocketProvider | null
   runtime: ReviewTargetRuntimeState | null
   isSynced: boolean
-  undoManager: Y.UndoManager | null
   canUndo: boolean
   canRedo: boolean
 }

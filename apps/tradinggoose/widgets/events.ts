@@ -9,7 +9,6 @@ export const REVIEW_TARGET_FIELDS = [
   'reviewEntityKind',
   'reviewEntityId',
   'reviewDraftSessionId',
-  'reviewModel',
 ] as const
 
 /**
@@ -22,7 +21,6 @@ export interface ReviewTargetEventFields {
   reviewEntityKind?: ReviewEntityKind
   reviewEntityId?: string
   reviewDraftSessionId?: string
-  reviewModel?: string
 }
 
 /**

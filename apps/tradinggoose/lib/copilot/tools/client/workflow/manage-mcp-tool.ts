@@ -94,11 +94,6 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     )
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: ManageMcpToolArgs): Promise<void> {
     await this.orchestration.handleAccept(this, args, this.requireExecutionContext())
   }

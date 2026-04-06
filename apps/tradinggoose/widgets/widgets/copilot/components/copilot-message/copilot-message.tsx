@@ -17,13 +17,15 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
+import {
+  EDIT_REPLAY_BLOCKED_MESSAGE,
+  hasAcceptedLiveMutationAfterMessage,
+} from '@/lib/copilot/chat-replay-safety'
+import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { ChatContext, CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
-/** Contexts that should not be rendered in the message UI */
-const isHiddenCopilotContext = (context: Pick<ChatContext, 'kind'> | null | undefined) =>
-  context?.kind === 'current_workflow'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
   FileAttachmentDisplay,
@@ -62,6 +64,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const [isEditMode, setIsEditMode] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const [editedContent, setEditedContent] = useState(message.content)
+    const [editBlockedReason, setEditBlockedReason] = useState<string | null>(null)
     const [isHoveringMessage, setIsHoveringMessage] = useState(false)
     const editContainerRef = useRef<HTMLDivElement>(null)
     const messageContentRef = useRef<HTMLDivElement>(null)
@@ -93,6 +96,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       if (messages.length === 0) return false
       return messages[messages.length - 1]?.id === message.id
     }, [messages, message.id])
+
+    const isReplayBlockedForEdit = useMemo(
+      () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
+      [message.id, messages]
+    )
 
     const handleCopyContent = () => {
       // Copy clean text content
@@ -237,9 +245,17 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     }
 
     const handleEditMessage = () => {
+      if (isReplayBlockedForEdit) {
+        setIsEditMode(false)
+        setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
+        onEditModeChange?.(false)
+        return
+      }
+
       setIsEditMode(true)
       setIsExpanded(false)
       setEditedContent(message.content)
+      setEditBlockedReason(null)
       onEditModeChange?.(true)
       // Focus the input and position cursor at the end after render
       setTimeout(() => {
@@ -272,6 +288,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     ) => {
       if (!editedMessage.trim()) return
 
+      if (isReplayBlockedForEdit) {
+        handleCancelEdit()
+        setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
+        return
+      }
+
       // If a stream is in progress, abort it first
       if (isSendingMessage) {
         abortMessage()
@@ -293,11 +315,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       const editIndex = currentMessages.findIndex((m) => m.id === message.id)
 
       if (editIndex !== -1) {
-        // Exit edit mode visually
-        setIsEditMode(false)
-        // Clear editing state in parent immediately to prevent dimming of new messages
-        onEditModeChange?.(false)
-
         // Truncate messages after the edited message (but keep the edited message with updated content)
         const truncatedMessages = currentMessages.slice(0, editIndex)
 
@@ -309,17 +326,15 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           contexts: (contexts || (message as any).contexts) as ChatContext[] | undefined,
         }
 
-        // Show the updated message immediately to prevent disappearing
-        copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
-
         // If we have a current chat, update the DB to remove messages after this point
         if (currentChat?.reviewSessionId) {
           try {
-            await fetch('/api/copilot/chat/update-messages', {
+            const response = await fetch('/api/copilot/chat/update-messages', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 reviewSessionId: currentChat.reviewSessionId,
+                preserveConcurrentHistory: false,
                 messages: truncatedMessages.map((m) => ({
                   id: m.id,
                   role: m.role,
@@ -331,10 +346,39 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 })),
               }),
             })
+
+            if (!response.ok) {
+              let errorMessage = 'Failed to update messages in DB after edit'
+
+              try {
+                const payload = await response.json()
+                if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
+                  errorMessage = payload.error
+                }
+              } catch {}
+
+              if (response.status === 409) {
+                handleCancelEdit()
+                setEditBlockedReason(errorMessage)
+                return
+              }
+
+              throw new Error(errorMessage)
+            }
           } catch (error) {
             logger.error('Failed to update messages in DB after edit:', error)
+            return
           }
         }
+
+        // Exit edit mode visually
+        setIsEditMode(false)
+        setEditBlockedReason(null)
+        // Clear editing state in parent immediately to prevent dimming of new messages
+        onEditModeChange?.(false)
+
+        // Show the updated message immediately to prevent disappearing
+        copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
 
         // Send the edited message with the SAME message ID
         await sendMessage(editedMessage, {
@@ -344,6 +388,18 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         })
       }
     }
+
+    useEffect(() => {
+      if (!editBlockedReason) {
+        return
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        setEditBlockedReason(null)
+      }, 4000)
+
+      return () => window.clearTimeout(timeoutId)
+    }, [editBlockedReason])
 
     useEffect(() => {
       if (showCopySuccess) {
@@ -582,6 +638,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             </div>
           ) : (
             <div className='w-full'>
+              {editBlockedReason && (
+                <div className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'>
+                  {editBlockedReason}
+                </div>
+              )}
+
               {/* File attachments displayed above the message box */}
               {message.fileAttachments && message.fileAttachments.length > 0 && (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>

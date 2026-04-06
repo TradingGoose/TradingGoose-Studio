@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSession } from '@/lib/auth-client'
 import type {
@@ -10,12 +10,12 @@ import type {
 import {
   EntitySessionHost,
 } from '@/lib/copilot/review-sessions/entity-session-host'
-import { useCopilotStoreApi } from '@/stores/copilot/store'
 import {
   usePairColorContext,
   useSetPairColorContext,
   type PairColorContext,
 } from '@/stores/dashboard/pair-store'
+import { normalizeOptionalString } from '@/lib/utils'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -32,7 +32,6 @@ export interface EntitySelectionState {
   reviewSessionId: string | null
   reviewEntityId: string | null
   reviewDraftSessionId: string | null
-  reviewModel: string | null
   descriptor: ReviewTargetDescriptor | null
 }
 
@@ -162,7 +161,6 @@ export function EntityEditorShell({
   })
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const copilotStoreApi = useCopilotStoreApi(channelId)
 
   // Let the consumer wire up selection persistence before we read state.
   useSelectionPersistence?.({
@@ -181,6 +179,30 @@ export function EntityEditorShell({
     pairContext: isLinkedToColorPair ? pairContext : null,
     legacyIdKey: config.legacyIdKey,
   })
+  const selectedEntityId =
+    normalizeOptionalString(selectionState.reviewEntityId) ??
+    normalizeOptionalString(selectionState.legacyEntityId)
+  const currentPairEntityId = normalizeOptionalString(
+    pairContext?.[config.legacyIdKey] as string | null | undefined
+  )
+
+  useEffect(() => {
+    if (!isLinkedToColorPair || !selectedEntityId || currentPairEntityId === selectedEntityId) {
+      return
+    }
+
+    setPairContext(resolvedPairColor, {
+      [config.legacyIdKey]: selectedEntityId,
+    } as PairColorContext)
+  }, [
+    config.legacyIdKey,
+    currentPairEntityId,
+    isLinkedToColorPair,
+    resolvedPairColor,
+    selectedEntityId,
+    setPairContext,
+  ])
+
   const hasSelection =
     !!selectionState.legacyEntityId ||
     !!selectionState.reviewSessionId ||
@@ -197,7 +219,6 @@ export function EntityEditorShell({
     selectionState,
     buildWidgetParams: config.buildWidgetParams,
     buildPairContext: config.buildPairContext,
-    selectedModel: copilotStoreApi.getState().selectedModel,
   })
 
   if (!workspaceId) {
@@ -208,16 +229,16 @@ export function EntityEditorShell({
     return <WidgetStateMessage message={config.noSelectionMessage} />
   }
 
+  if (error) {
+    return <WidgetStateMessage message={error} />
+  }
+
   if (isResolving || !descriptor) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
       </div>
     )
-  }
-
-  if (error) {
-    return <WidgetStateMessage message={error} />
   }
 
   return (

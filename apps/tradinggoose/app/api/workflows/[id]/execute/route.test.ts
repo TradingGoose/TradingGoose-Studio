@@ -78,6 +78,17 @@ describe('Workflow Execution API Route', () => {
       }),
     }))
 
+    vi.doMock('@/lib/environment/utils', () => ({
+      getPersonalAndWorkspaceEnv: vi.fn().mockResolvedValue({
+        personalEncrypted: {},
+        workspaceEncrypted: {},
+      }),
+    }))
+
+    vi.doMock('@/lib/execution/files', () => ({
+      processExecutionFiles: vi.fn().mockResolvedValue([]),
+    }))
+
     vi.doMock('@tradinggoose/db/schema', () => ({
       subscription: {
         plan: 'plan',
@@ -103,8 +114,8 @@ describe('Workflow Execution API Route', () => {
         blocks: {
           'trigger-id': {
             id: 'trigger-id',
-            type: 'input_trigger',
-            name: 'Start',
+            type: 'api_trigger',
+            name: 'API Trigger',
             position: { x: 100, y: 100 },
             enabled: true,
             subBlocks: {},
@@ -199,7 +210,12 @@ describe('Workflow Execution API Route', () => {
       mergeSubblockState: vi.fn().mockReturnValue({
         'trigger-id': {
           id: 'trigger-id',
-          type: 'input_trigger',
+          type: 'api_trigger',
+          subBlocks: {},
+        },
+        'agent-id': {
+          id: 'agent-id',
+          type: 'agent',
           subBlocks: {},
         },
       }),
@@ -244,9 +260,29 @@ describe('Workflow Execution API Route', () => {
       Serializer: vi.fn().mockImplementation(() => ({
         serializeWorkflow: vi.fn().mockReturnValue({
           version: '1.0',
-          blocks: [],
-          connections: [],
+          blocks: [
+            {
+              id: 'trigger-id',
+              position: { x: 100, y: 100 },
+              config: { tool: 'api_trigger', params: {} },
+              inputs: {},
+              outputs: {},
+              enabled: true,
+              metadata: { id: 'api_trigger', name: 'API Trigger', category: 'triggers' },
+            },
+            {
+              id: 'agent-id',
+              position: { x: 300, y: 100 },
+              config: { tool: 'agent', params: {} },
+              inputs: {},
+              outputs: {},
+              enabled: true,
+              metadata: { id: 'agent', name: 'Agent' },
+            },
+          ],
+          connections: [{ source: 'trigger-id', target: 'agent-id' }],
           loops: {},
+          parallels: {},
         }),
       })),
     }))

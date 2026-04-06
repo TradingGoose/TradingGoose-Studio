@@ -6,7 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('drizzle-orm')
+vi.mock('drizzle-orm', async () => await vi.importActual('drizzle-orm'))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
@@ -15,7 +15,34 @@ vi.mock('@/lib/logs/console/logger', () => ({
     error: vi.fn(),
   })),
 }))
-vi.mock('@tradinggoose/db')
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: vi.fn(),
+  },
+}))
+vi.mock('@tradinggoose/db/schema', () => ({
+  document: {
+    id: 'document.id',
+    filename: 'document.filename',
+    deletedAt: 'document.deleted_at',
+  },
+  embedding: {
+    id: 'embedding.id',
+    content: 'embedding.content',
+    documentId: 'embedding.document_id',
+    chunkIndex: 'embedding.chunk_index',
+    tag1: 'embedding.tag1',
+    tag2: 'embedding.tag2',
+    tag3: 'embedding.tag3',
+    tag4: 'embedding.tag4',
+    tag5: 'embedding.tag5',
+    tag6: 'embedding.tag6',
+    tag7: 'embedding.tag7',
+    knowledgeBaseId: 'embedding.knowledge_base_id',
+    enabled: 'embedding.enabled',
+    embedding: 'embedding.embedding',
+  },
+}))
 vi.mock('@/lib/knowledge/documents/utils', () => ({
   retryWithExponentialBackoff: (fn: any) => fn(),
 }))

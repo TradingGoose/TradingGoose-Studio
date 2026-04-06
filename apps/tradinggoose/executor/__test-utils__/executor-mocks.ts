@@ -161,12 +161,12 @@ export const createMinimalWorkflow = (): SerializedWorkflow => ({
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
     },
     {
       id: 'block1',
       position: { x: 100, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -188,16 +188,16 @@ export const createWorkflowWithCondition = (): SerializedWorkflow => ({
     {
       id: 'trigger',
       position: { x: 0, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
     },
     {
       id: 'condition1',
       position: { x: 100, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -206,7 +206,7 @@ export const createWorkflowWithCondition = (): SerializedWorkflow => ({
     {
       id: 'block1',
       position: { x: 200, y: -50 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -215,7 +215,7 @@ export const createWorkflowWithCondition = (): SerializedWorkflow => ({
     {
       id: 'block2',
       position: { x: 200, y: 50 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -251,12 +251,12 @@ export const createWorkflowWithLoop = (): SerializedWorkflow => ({
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
     },
     {
       id: 'block1',
       position: { x: 100, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -307,7 +307,7 @@ export const createWorkflowWithErrorPath = (): SerializedWorkflow => ({
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
     },
     {
       id: 'block1',
@@ -362,7 +362,7 @@ export const createWorkflowWithParallel = (distribution?: any): SerializedWorkfl
     {
       id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
       config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
@@ -422,7 +422,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
     {
       id: 'trigger',
       position: { x: 0, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {
         input: 'json',
       },
@@ -432,7 +432,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
         },
       },
       enabled: true,
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
     },
     {
       id: 'response',
@@ -783,7 +783,7 @@ export const createWorkflowWithParallelArray = (
     {
       id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
       config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
@@ -848,7 +848,7 @@ export const createWorkflowWithParallelObject = (
     {
       id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
       config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},

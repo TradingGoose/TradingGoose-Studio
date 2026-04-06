@@ -5,10 +5,14 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
 import { getSession } from '@/lib/auth'
-import { getCopilotModel } from '@/lib/copilot/config'
-import type { CopilotProviderConfig } from '@/lib/copilot/types'
+import {
+  COPILOT_RUNTIME_MODELS,
+} from '@/lib/copilot/runtime-models'
+import {
+  buildCopilotRuntimeProviderConfig,
+} from '@/lib/copilot/runtime-provider.server'
+import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
 import { isBillingEnabled } from '@/lib/environment'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
 import { proxyCopilotRequest, getCopilotApiUrl } from '@/app/api/copilot/proxy'
@@ -16,12 +20,10 @@ import { calculateCost } from '@/providers/ai/utils'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 
 const MODEL_SYNONYMS: Record<string, string> = {
-  'claude-sonnet-4.5': 'claude-sonnet-4-5',
-  'claude-4.5-sonnet': 'claude-sonnet-4-5',
-  'claude-haiku-4.5': 'claude-haiku-4-5',
-  'claude-4.5-haiku': 'claude-haiku-4-5',
-  'claude-opus-4.5': 'claude-opus-4-5',
-  'claude-4.5-opus': 'claude-opus-4-5',
+  'claude-sonnet-4.6': 'claude-sonnet-4-6',
+  'claude-4.6-sonnet': 'claude-sonnet-4-6',
+  'claude-opus-4.6': 'claude-opus-4-6',
+  'claude-4.6-opus': 'claude-opus-4-6',
 }
 
 const logger = createLogger('ContextUsageAPI')
@@ -29,9 +31,11 @@ const logger = createLogger('ContextUsageAPI')
 
 const ContextUsageRequestSchema = z.object({
   conversationId: z.string(),
-  model: z.string(),
-  workflowId: z.string(),
-  provider: z.any().optional(),
+  model: z.enum(COPILOT_RUNTIME_MODELS),
+  // Generic copilot context usage is keyed by conversationId; workflowId is
+  // optional supplemental view context only.
+  workflowId: z.string().optional(),
+  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   bill: z.boolean().optional(),
   assistantMessageId: z.string().optional(),
   billingModel: z.string().optional(),
@@ -92,39 +96,18 @@ export async function POST(req: NextRequest) {
       assistantMessageId,
     })
 
-    // Build provider config similar to chat route
-    let providerConfig: CopilotProviderConfig | undefined = provider
-    if (!providerConfig) {
-      const defaults = getCopilotModel('chat')
-      const modelToUse = env.COPILOT_MODEL || defaults.model
-      const providerEnv = env.COPILOT_PROVIDER as any
-
-      if (providerEnv) {
-        if (providerEnv === 'azure-openai') {
-          providerConfig = {
-            provider: 'azure-openai',
-            model: modelToUse,
-            apiKey: env.AZURE_OPENAI_API_KEY,
-            apiVersion: env.AZURE_OPENAI_API_VERSION,
-            endpoint: env.AZURE_OPENAI_ENDPOINT,
-          }
-        } else {
-          providerConfig = {
-            provider: providerEnv,
-            model: modelToUse,
-            apiKey: env.COPILOT_API_KEY,
-          }
-        }
-      }
-    }
+    const { providerConfig } = buildCopilotRuntimeProviderConfig({
+      model,
+      provider,
+    })
 
     // Call copilot API
     const requestPayload = {
       conversationId,
       model,
       userId,
-      workflowId,
-      ...(providerConfig ? { provider: providerConfig } : {}),
+      ...(workflowId ? { workflowId } : {}),
+      provider: providerConfig,
     }
 
     logger.info('[Context Usage API] Calling copilot', {

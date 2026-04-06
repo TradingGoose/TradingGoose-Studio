@@ -36,6 +36,33 @@ describe('Workflow By ID API Route', () => {
       loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue(null),
     }))
 
+    vi.doMock('@tradinggoose/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      },
+    }))
+
+    vi.doMock('@tradinggoose/db/schema', () => ({
+      templates: {
+        workflowId: 'workflowId',
+        id: 'id',
+        name: 'name',
+        views: 'views',
+        stars: 'stars',
+      },
+      workflow: {
+        id: 'id',
+      },
+    }))
+
+    vi.doMock('@/lib/listing/hydrate-ui', () => ({
+      hydrateListingUI: vi.fn().mockImplementation(async (blocks) => blocks),
+    }))
+
     mockGetWorkflowById.mockReset()
     mockGetWorkflowAccessContext.mockReset()
     mockDeleteSession.mockReset()
@@ -50,16 +77,10 @@ describe('Workflow By ID API Route', () => {
       removeDocument: mockRemoveDocument,
     }))
 
-    vi.doMock('@/lib/workflows/utils', async () => {
-      const actual =
-        await vi.importActual<typeof import('@/lib/workflows/utils')>('@/lib/workflows/utils')
-
-      return {
-        ...actual,
-        getWorkflowById: mockGetWorkflowById,
-        getWorkflowAccessContext: mockGetWorkflowAccessContext,
-      }
-    })
+    vi.doMock('@/lib/workflows/utils', () => ({
+      getWorkflowById: mockGetWorkflowById,
+      getWorkflowAccessContext: mockGetWorkflowAccessContext,
+    }))
   })
 
   afterEach(() => {
@@ -110,7 +131,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Workflow not found')
     })
 
-    it.concurrent('should allow access when user owns the workflow', async () => {
+    it('should allow access when user owns the workflow', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -165,7 +186,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.data.id).toBe('workflow-123')
     })
 
-    it.concurrent('should allow access when user has workspace permissions', async () => {
+    it('should allow access when user has workspace permissions', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'other-user',
@@ -259,7 +280,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Access denied')
     })
 
-    it.concurrent('should use normalized tables when available', async () => {
+    it('should use normalized tables when available', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -445,7 +466,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.success).toBe(true)
     })
 
-    it.concurrent('should deny deletion for non-admin users', async () => {
+    it('should deny deletion for non-admin users', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'other-user',
@@ -628,7 +649,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Access denied')
     })
 
-    it.concurrent('should validate request data', async () => {
+    it('should validate request data', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -670,7 +691,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('Error handling', () => {
-    it.concurrent('should handle database errors gracefully', async () => {
+    it('should handle database errors gracefully', async () => {
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
           user: { id: 'user-123' },

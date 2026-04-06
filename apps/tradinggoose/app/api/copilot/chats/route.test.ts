@@ -14,7 +14,6 @@ describe('Copilot Chats List API Route', () => {
   const mockWhereItems = vi.fn()
   const mockGroupByItems = vi.fn()
   const mockLoadReviewSessionForUser = vi.fn()
-  const mockVerifyReviewTargetAccess = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -35,6 +34,7 @@ describe('Copilot Chats List API Route', () => {
       id: 'review-session-1',
       userId: 'creator-user',
       workspaceId: 'workspace-1',
+      channelId: null,
       entityKind: 'skill',
       entityId: 'skill-1',
       draftSessionId: null,
@@ -43,12 +43,6 @@ describe('Copilot Chats List API Route', () => {
       conversationId: 'conversation-1',
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-02T00:00:00.000Z'),
-    })
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'write',
-      workspaceId: 'workspace-1',
-      isOwner: false,
     })
     mockOrderBySessions.mockResolvedValue([])
     mockGroupByItems.mockResolvedValue([{ sessionId: 'review-session-1', count: 2 }])
@@ -68,6 +62,7 @@ describe('Copilot Chats List API Route', () => {
         id: 'id',
         userId: 'userId',
         workspaceId: 'workspaceId',
+        channelId: 'channelId',
         entityKind: 'entityKind',
         entityId: 'entityId',
         draftSessionId: 'draftSessionId',
@@ -105,7 +100,6 @@ describe('Copilot Chats List API Route', () => {
 
     vi.doMock('@/lib/copilot/review-sessions/permissions', () => ({
       loadReviewSessionForUser: mockLoadReviewSessionForUser,
-      verifyReviewTargetAccess: mockVerifyReviewTargetAccess,
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({
@@ -145,11 +139,11 @@ describe('Copilot Chats List API Route', () => {
         {
           reviewSessionId: 'review-session-1',
           workspaceId: 'workspace-1',
+          channelId: null,
           entityKind: 'skill',
           entityId: 'skill-1',
           draftSessionId: null,
           title: 'Shared skill review',
-          reviewModel: 'claude-4.5-sonnet',
           messages: [],
           conversationId: 'conversation-1',
           createdAt: '2026-01-01T00:00:00.000Z',
@@ -180,17 +174,17 @@ describe('Copilot Chats List API Route', () => {
     expect(payload).toEqual({ error: 'Review session not found or unauthorized' })
   })
 
-  it('lists entity review sessions when reviewSessionId is provided alongside entity filters', async () => {
+  it('lists scoped review sessions when channel scope is provided alongside a reviewSessionId', async () => {
     mockOrderBySessions.mockResolvedValueOnce([
       {
         id: 'review-session-1',
         userId: 'creator-user',
         workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
+        channelId: 'sidebar',
+        entityKind: 'copilot',
+        entityId: null,
         draftSessionId: null,
         title: 'Shared skill review',
-        reviewModel: 'claude-4.5-sonnet',
         conversationId: 'conversation-1',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -199,11 +193,11 @@ describe('Copilot Chats List API Route', () => {
         id: 'review-session-2',
         userId: 'another-user',
         workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
+        channelId: 'sidebar',
+        entityKind: 'copilot',
+        entityId: null,
         draftSessionId: null,
         title: 'Older shared skill review',
-        reviewModel: 'gpt-5-fast',
         conversationId: 'conversation-2',
         createdAt: new Date('2025-12-31T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -215,7 +209,7 @@ describe('Copilot Chats List API Route', () => {
     ])
 
     const request = new NextRequest(
-      'http://localhost:3000/api/copilot/chats?reviewSessionId=review-session-1&entityKind=skill&entityId=skill-1&workspaceId=workspace-1'
+      'http://localhost:3000/api/copilot/chats?reviewSessionId=review-session-1&channelId=sidebar&workspaceId=workspace-1'
     )
 
     const { GET } = await import('@/app/api/copilot/chats/route')
@@ -228,11 +222,11 @@ describe('Copilot Chats List API Route', () => {
         {
           reviewSessionId: 'review-session-1',
           workspaceId: 'workspace-1',
-          entityKind: 'skill',
-          entityId: 'skill-1',
+          channelId: 'sidebar',
+          entityKind: 'copilot',
+          entityId: null,
           draftSessionId: null,
           title: 'Shared skill review',
-          reviewModel: 'claude-4.5-sonnet',
           messages: [],
           messageCount: 2,
           conversationId: 'conversation-1',
@@ -242,11 +236,11 @@ describe('Copilot Chats List API Route', () => {
         {
           reviewSessionId: 'review-session-2',
           workspaceId: 'workspace-1',
-          entityKind: 'skill',
-          entityId: 'skill-1',
+          channelId: 'sidebar',
+          entityKind: 'copilot',
+          entityId: null,
           draftSessionId: null,
           title: 'Older shared skill review',
-          reviewModel: 'gpt-5-fast',
           messages: [],
           messageCount: 1,
           conversationId: 'conversation-2',
@@ -257,12 +251,6 @@ describe('Copilot Chats List API Route', () => {
     })
 
     expect(mockLoadReviewSessionForUser).not.toHaveBeenCalled()
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith('collaborator-user', {
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      draftSessionId: null,
-      reviewSessionId: 'review-session-1',
-      workspaceId: 'workspace-1',
-    })
   })
+
 })

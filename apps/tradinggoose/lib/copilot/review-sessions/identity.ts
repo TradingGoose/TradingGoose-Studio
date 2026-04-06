@@ -68,7 +68,6 @@ export function buildReviewTargetDescriptor(reviewSessionRow: {
   entityKind: string
   entityId: string | null
   draftSessionId: string | null
-  model: string
 }): ReviewTargetDescriptor {
   const entityKind = requireReviewEntityKind(reviewSessionRow.entityKind)
   const reviewSessionId = reviewSessionRow.id
@@ -79,51 +78,12 @@ export function buildReviewTargetDescriptor(reviewSessionRow: {
     entityId: reviewSessionRow.entityId,
     draftSessionId: reviewSessionRow.draftSessionId,
     reviewSessionId,
-    reviewModel: reviewSessionRow.model,
     yjsSessionId: deriveYjsSessionId({
       entityKind,
       entityId: reviewSessionRow.entityId,
       reviewSessionId,
     }),
   }
-}
-
-/**
- * Builds the session scope key for entity review session cardinality.
- * Workflow rows always return null (multi-threaded, no scope key).
- * Entity rows return a deterministic scope key encoding.
- */
-export function buildSessionScopeKey(reviewTarget: {
-  userId: string
-  workspaceId: string
-  entityKind: ReviewEntityKind
-  entityId: string | null
-  draftSessionId: string | null
-}): string | null {
-  if (reviewTarget.entityKind === 'workflow') {
-    return null
-  }
-
-  const encodedWorkspaceId = encodeURIComponent(reviewTarget.workspaceId)
-
-  // Saved entities: scope key is workspace+kind+entity (shared across all users)
-  // This resolves all collaborators onto the same reviewSession row, which in
-  // turn is the saved entity's Yjs session identity.
-  if (reviewTarget.entityId) {
-    const encodedEntityId = encodeURIComponent(reviewTarget.entityId)
-    return `workspace=${encodedWorkspaceId}|kind=${reviewTarget.entityKind}|target=entity:${encodedEntityId}`
-  }
-
-  // Unsaved drafts: scope key includes userId (draft is user-owned until first save)
-  if (reviewTarget.draftSessionId) {
-    const encodedUserId = encodeURIComponent(reviewTarget.userId)
-    const encodedDraftId = encodeURIComponent(reviewTarget.draftSessionId)
-    return `user=${encodedUserId}|workspace=${encodedWorkspaceId}|kind=${reviewTarget.entityKind}|target=draft:${encodedDraftId}`
-  }
-
-  throw new Error(
-    'Entity review target requires either entityId or draftSessionId for session scope key'
-  )
 }
 
 /**
@@ -144,7 +104,6 @@ export function buildYjsTransportEnvelope(
     entityKind: descriptor.entityKind,
     entityId: descriptor.entityId,
     draftSessionId: descriptor.draftSessionId,
-    reviewModel: descriptor.reviewModel,
   }
 }
 
@@ -182,7 +141,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
       entityId: workflowId,
       draftSessionId: null,
       reviewSessionId: envelope.reviewSessionId ?? null,
-      reviewModel: envelope.reviewModel ?? null,
       yjsSessionId: envelope.sessionId,
     }
   }
@@ -218,7 +176,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
     entityId: envelope.entityId,
     draftSessionId: envelope.draftSessionId,
     reviewSessionId,
-    reviewModel: envelope.reviewModel,
     yjsSessionId: envelope.sessionId,
   }
 }
@@ -226,7 +183,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
 /**
  * Serializes a ReviewTargetDescriptor into a flat key/value record
  * suitable for persisting in widget params, pair state, and query strings.
- * Always emits `reviewModel`, never `model`.
  */
 export function serializeReviewTargetDescriptor(
   descriptor: ReviewTargetDescriptor
@@ -240,7 +196,6 @@ export function serializeReviewTargetDescriptor(
   if (descriptor.entityId != null) result.reviewEntityId = descriptor.entityId
   if (descriptor.draftSessionId != null) result.reviewDraftSessionId = descriptor.draftSessionId
   if (descriptor.reviewSessionId != null) result.reviewSessionId = descriptor.reviewSessionId
-  if (descriptor.reviewModel != null) result.reviewModel = descriptor.reviewModel
 
   return result
 }
@@ -248,7 +203,6 @@ export function serializeReviewTargetDescriptor(
 /**
  * Serializes a YjsTransportEnvelope into a flat key/value record
  * suitable for websocket query params and snapshot query strings.
- * Always emits `reviewModel`, never `model`.
  */
 export function serializeYjsTransportEnvelope(
   envelope: YjsTransportEnvelope
@@ -264,7 +218,6 @@ export function serializeYjsTransportEnvelope(
   if (envelope.workspaceId != null) result.workspaceId = envelope.workspaceId
   if (envelope.entityId != null) result.entityId = envelope.entityId
   if (envelope.draftSessionId != null) result.draftSessionId = envelope.draftSessionId
-  if (envelope.reviewModel != null) result.reviewModel = envelope.reviewModel
 
   return result
 }
@@ -292,7 +245,6 @@ export function parseReviewTargetDescriptor(
     entityId,
     draftSessionId,
     reviewSessionId,
-    reviewModel: normalizeNullableString(payload.reviewModel),
     yjsSessionId,
   }
 }
@@ -316,7 +268,6 @@ export function parseYjsTransportEnvelope(
     entityKind: requireReviewEntityKind(payload.entityKind),
     entityId: normalizeNullableString(payload.entityId),
     draftSessionId: normalizeNullableString(payload.draftSessionId),
-    reviewModel: normalizeNullableString(payload.reviewModel),
   }
 
   buildReviewTargetDescriptorFromEnvelope(envelope)

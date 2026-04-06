@@ -4,7 +4,7 @@ import {
   copilotReviewSessions,
   copilotReviewTurns,
 } from '@tradinggoose/db/schema'
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -13,10 +13,18 @@ import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
   createInternalServerErrorResponse,
+  createNotFoundResponse,
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { getCopilotModel } from '@/lib/copilot/config'
+import {
+  COPILOT_RUNTIME_MODELS,
+  DEFAULT_COPILOT_RUNTIME_MODEL,
+} from '@/lib/copilot/runtime-models'
+import {
+  buildCopilotRuntimeProviderConfig,
+} from '@/lib/copilot/runtime-provider.server'
+import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
 import {
   buildAppendReviewTurn,
   mapReviewItemToApi,
@@ -30,10 +38,11 @@ import {
   SESSION_SELECT_COLUMNS,
 } from '@/lib/copilot/review-sessions/api-mapping'
 import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
-import { ENTITY_KIND_WORKFLOW, REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
-import type { CopilotProviderConfig } from '@/lib/copilot/types'
+import {
+  COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
+  COPILOT_SESSION_KIND,
+} from '@/lib/copilot/session-scope'
 import type { ProviderId } from '@/providers/ai/types'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
@@ -51,24 +60,53 @@ interface PersistMessageAttachments {
   toolCalls?: ReviewMessageInput['toolCalls']
 }
 
+interface PersistChatMessagesResult {
+  savedUserMessage: boolean
+  savedAssistantMessage: boolean
+}
+
+// Generic copilot chats are grouped by widget panel channel + workspace for
+// history lists. Creating a new generic chat inserts a fresh session unless a
+// specific reviewSessionId is explicitly supplied by the client.
+
 /**
  * Persists user + assistant messages and updates the review session in a single transaction.
  * Shared between the streaming and non-streaming response paths.
  */
 async function persistChatMessages(params: {
   reviewSessionId: string
-  existingMessages: ReviewMessageApi[]
   userMessageId: string
   userContent: string
   assistantContent: string | null
   timestamp: string
   conversationId?: string
-} & PersistMessageAttachments): Promise<boolean> {
+} & PersistMessageAttachments): Promise<PersistChatMessagesResult> {
   const hasAssistantMessage =
     (typeof params.assistantContent === 'string' && params.assistantContent.trim().length > 0) ||
     (Array.isArray(params.toolCalls) && params.toolCalls.length > 0)
 
   await db.transaction(async (tx) => {
+    // Serialize append operations per session so sequence numbers are derived
+    // from the latest committed ledger, not from the pre-request snapshot.
+    await tx
+      .update(copilotReviewSessions)
+      .set({
+        updatedAt: new Date(),
+      })
+      .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+
+    const currentItems = await tx
+      .select()
+      .from(copilotReviewItems)
+      .where(
+        and(
+          eq(copilotReviewItems.sessionId, params.reviewSessionId),
+          eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+        )
+      )
+      .orderBy(asc(copilotReviewItems.sequence))
+    const currentMessages = currentItems.map(mapReviewItemToApi)
+
     const assistantMessage = hasAssistantMessage
       ? {
           id: crypto.randomUUID(),
@@ -81,7 +119,7 @@ async function persistChatMessages(params: {
 
     const nextTurn = buildAppendReviewTurn({
       reviewSessionId: params.reviewSessionId,
-      existingMessages: params.existingMessages,
+      existingMessages: currentMessages,
       userMessage: {
         id: params.userMessageId,
         role: MESSAGE_ROLES.USER,
@@ -105,7 +143,10 @@ async function persistChatMessages(params: {
       .where(eq(copilotReviewSessions.id, params.reviewSessionId))
   })
 
-  return hasAssistantMessage
+  return {
+    savedUserMessage: true,
+    savedAssistantMessage: hasAssistantMessage,
+  }
 }
 
 /**
@@ -190,31 +231,14 @@ const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
   reviewSessionId: z.string().optional(),
+  channelId: z.string().min(1).optional(),
   workflowId: z.string().min(1).optional(),
-  model: z
-    .enum([
-      'gpt-5-fast',
-      'gpt-5',
-      'gpt-5-medium',
-      'gpt-5-high',
-      'gpt-4o',
-      'gpt-4.1',
-      'o3',
-      'claude-4-sonnet',
-      'claude-4.5-haiku',
-      'claude-4.5-sonnet',
-      'claude-4.1-opus',
-    ])
-    .optional()
-    .default('claude-4.5-sonnet'),
+  model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   prefetch: z.boolean().optional(),
   stream: z.boolean().optional().default(true),
   fileAttachments: z.array(FileAttachmentSchema).optional(),
-  provider: z.string().optional().default('openai'),
+  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
-  entityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
-  entityId: z.string().optional(),
-  draftSessionId: z.string().optional(),
   workspaceId: z.string().optional(),
   contexts: z
     .array(
@@ -223,6 +247,14 @@ const ChatMessageSchema = z.object({
           'past_chat',
           'workflow',
           'current_workflow',
+          'skill',
+          'current_skill',
+          'indicator',
+          'current_indicator',
+          'custom_tool',
+          'current_custom_tool',
+          'mcp_server',
+          'current_mcp_server',
           'blocks',
           'logs',
           'workflow_block',
@@ -233,6 +265,11 @@ const ChatMessageSchema = z.object({
         label: z.string(),
         reviewSessionId: z.string().optional(),
         workflowId: z.string().optional(),
+        skillId: z.string().optional(),
+        indicatorId: z.string().optional(),
+        customToolId: z.string().optional(),
+        mcpServerId: z.string().optional(),
+        workspaceId: z.string().optional(),
         blockIds: z.array(z.string()).optional(),
         knowledgeId: z.string().optional(),
         blockId: z.string().optional(),
@@ -262,6 +299,7 @@ export async function POST(req: NextRequest) {
       message,
       userMessageId,
       reviewSessionId: incomingReviewSessionId,
+      channelId,
       workflowId,
       model,
       prefetch,
@@ -269,14 +307,11 @@ export async function POST(req: NextRequest) {
       fileAttachments,
       provider,
       conversationId,
-      entityKind: incomingEntityKind,
-      entityId: incomingEntityId,
-      draftSessionId: incomingDraftSessionId,
       workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
-    if (!incomingReviewSessionId && !workflowId) {
-      return createBadRequestResponse('workflowId or reviewSessionId is required')
+    if (!incomingReviewSessionId && !channelId) {
+      return createBadRequestResponse('channelId or reviewSessionId is required')
     }
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
@@ -298,7 +333,12 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(contexts) && contexts.length > 0) {
       try {
         const { processContextsServer } = await import('@/lib/copilot/process-contents')
-        const processed = await processContextsServer(contexts as any, authenticatedUserId, message)
+        const processed = await processContextsServer(
+          contexts as any,
+          authenticatedUserId,
+          message,
+          incomingWorkspaceId
+        )
         agentContexts = processed
         logger.info(`[${tracker.requestId}] Contexts processed for request`, {
           processedCount: agentContexts.length,
@@ -324,51 +364,55 @@ export async function POST(req: NextRequest) {
     let currentSession: ReviewSessionRow | null = null
     let conversationHistory: ReviewMessageApi[] = []
     let actualReviewSessionId = incomingReviewSessionId
+    let sessionCreatedThisRequest = false
 
     if (incomingReviewSessionId) {
-      const [session, existingMessages] = await Promise.all([
-        loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId),
-        db
-          .select()
-          .from(copilotReviewItems)
-          .where(
-            and(
-              eq(copilotReviewItems.sessionId, incomingReviewSessionId),
-              eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
-            )
-          )
-          .orderBy(asc(copilotReviewItems.sequence)),
-      ])
-
-      if (session) {
-        currentSession = session
-        conversationHistory = existingMessages.map(mapReviewItemToApi)
+      const session = await loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId)
+      if (!session) {
+        return createNotFoundResponse('Review session not found or unauthorized')
       }
-    } else if (workflowId) {
+
+      currentSession = session
+
+      const existingMessages = await db
+        .select()
+        .from(copilotReviewItems)
+        .where(
+          and(
+            eq(copilotReviewItems.sessionId, incomingReviewSessionId),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sequence))
+
+      conversationHistory = existingMessages.map(mapReviewItemToApi)
+    } else if (channelId) {
       if (!model || typeof model !== 'string') {
         return createBadRequestResponse('model is required when creating a new review session')
       }
+      // Generic copilot supports multiple chats per panel. When the client omits
+      // reviewSessionId, this route always creates a fresh session in that panel's
+      // history bucket instead of reusing the latest channel-matched row.
       const [newSession] = await db
         .insert(copilotReviewSessions)
         .values({
           userId: authenticatedUserId,
-          entityKind: incomingEntityKind || ENTITY_KIND_WORKFLOW,
-          entityId: incomingEntityId || workflowId,
+          entityKind: COPILOT_SESSION_KIND,
+          entityId: null,
           workspaceId: incomingWorkspaceId || null,
-          draftSessionId: incomingDraftSessionId || null,
-          sessionScopeKey: null,
+          draftSessionId: null,
+          channelId,
           title: null,
-          model,
+          model: COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
         })
-        .returning()
+        .returning(SESSION_SELECT_COLUMNS)
 
       if (newSession) {
         currentSession = newSession
         actualReviewSessionId = newSession.id
+        sessionCreatedThisRequest = true
       }
     }
-
-    const wasNewlyCreated = !incomingReviewSessionId && !!currentSession
 
     const processedFileContents: any[] = []
     if (fileProcessingPromise) {
@@ -382,29 +426,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const defaults = getCopilotModel('chat')
-    const modelToUse = env.COPILOT_MODEL || defaults.model
-
-    let providerConfig: CopilotProviderConfig | undefined
-    const providerEnv = env.COPILOT_PROVIDER as any
-
-    if (providerEnv) {
-      if (providerEnv === 'azure-openai') {
-        providerConfig = {
-          provider: 'azure-openai',
-          model: modelToUse,
-          apiKey: env.AZURE_OPENAI_API_KEY,
-          apiVersion: 'preview',
-          endpoint: env.AZURE_OPENAI_ENDPOINT,
-        }
-      } else {
-        providerConfig = {
-          provider: providerEnv,
-          model: modelToUse,
-          apiKey: env.COPILOT_API_KEY,
-        }
-      }
-    }
+    const { provider: runtimeProvider, providerConfig } = buildCopilotRuntimeProviderConfig({
+      model,
+      provider,
+    })
 
     const effectiveConversationId =
       (currentSession?.conversationId as string | undefined) || conversationId
@@ -482,7 +507,10 @@ export async function POST(req: NextRequest) {
           const shouldGenerateTitle =
             actualReviewSessionId && !currentSession?.title && conversationHistory.length === 0
           let titleRequested = false
-          let messagesInserted = false
+          let persistedMessages: PersistChatMessagesResult = {
+            savedUserMessage: false,
+            savedAssistantMessage: false,
+          }
 
           if (actualReviewSessionId) {
             controller.enqueue(encodeSSE({
@@ -577,8 +605,8 @@ export async function POST(req: NextRequest) {
                           generateAndPersistTitle({
                             reviewSessionId: actualReviewSessionId!,
                             message,
-                            model: providerConfig?.model ?? model,
-                            provider: providerConfig?.provider,
+                            model,
+                            provider: runtimeProvider,
                             requestId: tracker.requestId,
                             onTitle: (title) => {
                               controller.enqueue(encodeSSE({
@@ -675,9 +703,8 @@ export async function POST(req: NextRequest) {
                 conversationIdFromStart ||
                 (currentSession?.conversationId ?? undefined)
 
-              messagesInserted = await persistChatMessages({
+              persistedMessages = await persistChatMessages({
                 reviewSessionId: actualReviewSessionId!,
-                existingMessages: conversationHistory,
                 userMessageId: userMessage.id as string,
                 userContent: message,
                 assistantContent,
@@ -693,14 +720,14 @@ export async function POST(req: NextRequest) {
               logger.info(
                 `[${tracker.requestId}] Updated review session ${actualReviewSessionId} with new messages`,
                 {
-                  savedUserMessage: true,
-                  savedAssistantMessage: messagesInserted,
+                  savedUserMessage: persistedMessages.savedUserMessage,
+                  savedAssistantMessage: persistedMessages.savedAssistantMessage,
                   updatedConversationId: conversationIdToPersist || null,
                 }
               )
             }
 
-            if (wasNewlyCreated && !messagesInserted) {
+            if (sessionCreatedThisRequest && !persistedMessages.savedUserMessage) {
               try {
                 await db
                   .delete(copilotReviewSessions)
@@ -765,7 +792,6 @@ export async function POST(req: NextRequest) {
     if (currentSession && responseData.content) {
       await persistChatMessages({
         reviewSessionId: actualReviewSessionId!,
-        existingMessages: conversationHistory,
         userMessageId: userMessageIdToUse,
         userContent: message,
         assistantContent: responseData.content,
@@ -834,11 +860,12 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const workflowId = searchParams.get('workflowId')
     const reviewSessionId = searchParams.get('reviewSessionId')
+    const channelId = searchParams.get('channelId')
+    const workspaceId = searchParams.get('workspaceId')
 
-    if (!workflowId && !reviewSessionId) {
-      return createBadRequestResponse('workflowId or reviewSessionId is required')
+    if (!reviewSessionId && !channelId) {
+      return createBadRequestResponse('channelId or reviewSessionId is required')
     }
 
     const { userId: authenticatedUserId, isAuthenticated } =
@@ -858,16 +885,19 @@ export async function GET(req: NextRequest) {
 
       sessions = [session]
     } else {
-      const conditions = [
-        eq(copilotReviewSessions.userId, authenticatedUserId),
-        eq(copilotReviewSessions.entityKind, ENTITY_KIND_WORKFLOW),
-        eq(copilotReviewSessions.entityId, workflowId!),
-      ]
-
       sessions = await db
         .select(SESSION_SELECT_COLUMNS)
         .from(copilotReviewSessions)
-        .where(and(...conditions))
+        .where(
+          and(
+            eq(copilotReviewSessions.userId, authenticatedUserId),
+            eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND),
+            eq(copilotReviewSessions.channelId, channelId!),
+            workspaceId
+              ? eq(copilotReviewSessions.workspaceId, workspaceId)
+              : isNull(copilotReviewSessions.workspaceId)
+          )
+        )
         .orderBy(desc(copilotReviewSessions.updatedAt))
     }
 
@@ -901,7 +931,7 @@ export async function GET(req: NextRequest) {
     )
 
     logger.info(
-      `Retrieved ${transformedChats.length} review sessions for ${workflowId ? `workflow ${workflowId}` : `session ${reviewSessionId}`}`
+      `Retrieved ${transformedChats.length} review sessions for ${channelId ? `channel ${channelId}` : `session ${reviewSessionId}`}`
     )
 
     return NextResponse.json({

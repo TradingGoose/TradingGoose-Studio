@@ -4,7 +4,7 @@ import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockRequireActiveWorkflowSession = vi.fn()
-const mockSerializeLiveWorkflowSnapshot = vi.fn()
+const mockSerializeReadableWorkflowSnapshot = vi.fn()
 const mockSetWorkflowState = vi.fn()
 
 let accessLevel: 'limited' | 'full' = 'limited'
@@ -14,7 +14,8 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   requireActiveWorkflowSession: (...args: any[]) => mockRequireActiveWorkflowSession(...args),
   resolveWorkflowIdFromExecutionContext: (executionContext: any, workflowId?: string) =>
     workflowId ?? executionContext.workflowId,
-  serializeLiveWorkflowSnapshot: (...args: any[]) => mockSerializeLiveWorkflowSnapshot(...args),
+  serializeReadableWorkflowSnapshot: (...args: any[]) =>
+    mockSerializeReadableWorkflowSnapshot(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -37,11 +38,12 @@ describe('EditWorkflowClientTool approval gating', () => {
     accessLevel = 'limited'
     persistedToolCalls = {}
     mockRequireActiveWorkflowSession.mockReset()
-    mockSerializeLiveWorkflowSnapshot.mockReset()
+    mockSerializeReadableWorkflowSnapshot.mockReset()
     mockSetWorkflowState.mockReset()
 
-    mockSerializeLiveWorkflowSnapshot.mockReturnValue({
+    mockSerializeReadableWorkflowSnapshot.mockResolvedValue({
       workflowId: 'wf-1',
+      source: 'live',
       currentUserWorkflow: JSON.stringify({
         blocks: {
           'block-1': {
@@ -70,7 +72,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
   })
 
-  it('stages workflow edits for review and does not mutate Yjs before approval', async () => {
+  it('stages workflow edits for review through the unified user-action handler', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
 
@@ -123,7 +125,7 @@ describe('EditWorkflowClientTool approval gating', () => {
       log: vi.fn(),
     })
 
-    await tool.execute({
+    await tool.handleUserAction({
       workflowId: 'wf-1',
       operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Renamed Trigger' } }],
     })
@@ -137,6 +139,85 @@ describe('EditWorkflowClientTool approval gating', () => {
     expect(tool.getState()).toBe(ClientToolCallState.rejected)
     expect(mockSetWorkflowState).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('stages workflow edits from a persisted workflow fallback when no live session is registered yet', async () => {
+    mockSerializeReadableWorkflowSnapshot.mockResolvedValueOnce({
+      workflowId: 'wf-1',
+      source: 'db',
+      currentUserWorkflow: JSON.stringify({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'trigger',
+            name: 'Persisted Trigger',
+            position: { x: 0, y: 0 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+      }),
+    })
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        expect(init?.body).toContain('"currentUserWorkflow"')
+        expect(init?.body).toContain('Persisted Trigger')
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            result: {
+              workflowState: {
+                blocks: {
+                  'block-1': {
+                    id: 'block-1',
+                    type: 'trigger',
+                    name: 'Renamed Trigger',
+                    position: { x: 0, y: 0 },
+                    subBlocks: {},
+                    outputs: {},
+                    enabled: true,
+                  },
+                },
+                edges: [],
+                loops: {},
+                parallels: {},
+              },
+            },
+          }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const tool = new EditWorkflowClientTool('tool-db-fallback')
+    tool.setExecutionContext({
+      toolCallId: 'tool-db-fallback',
+      toolName: 'edit_workflow',
+      channelId: 'pair-1',
+      workflowId: 'wf-1',
+      log: vi.fn(),
+    })
+
+    await tool.handleUserAction({
+      workflowId: 'wf-1',
+      operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Renamed Trigger' } }],
+    })
+
+    expect(tool.getState()).toBe(ClientToolCallState.review)
+    expect(mockRequireActiveWorkflowSession).not.toHaveBeenCalled()
+    expect(mockSetWorkflowState).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('applies staged workflow edits through Yjs on accept', async () => {
@@ -264,7 +345,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('accepts persisted staged workflow edits after reload without recomputing them', async () => {
+  it('accepts persisted staged workflow edits after reload through the unified user-action handler', async () => {
     const stagedWorkflowState = {
       blocks: {
         'block-1': {
@@ -316,8 +397,9 @@ describe('EditWorkflowClientTool approval gating', () => {
       workflowId: 'wf-1',
       log: vi.fn(),
     })
+    tool.hydratePersistedToolCall(persistedToolCalls['tool-persisted-review'])
 
-    await tool.handleAccept()
+    await tool.handleUserAction()
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
     expect(mockSetWorkflowState).toHaveBeenCalledWith(

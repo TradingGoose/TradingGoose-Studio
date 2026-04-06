@@ -24,11 +24,8 @@ import { MakeApiRequestClientTool } from '@/lib/copilot/tools/client/other/make-
 import { MarkTodoInProgressClientTool } from '@/lib/copilot/tools/client/other/mark-todo-in-progress'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { PlanClientTool } from '@/lib/copilot/tools/client/other/plan'
-import { RememberDebugClientTool } from '@/lib/copilot/tools/client/other/remember-debug'
 import { SearchDocumentationClientTool } from '@/lib/copilot/tools/client/other/search-documentation'
-import { SearchErrorsClientTool } from '@/lib/copilot/tools/client/other/search-errors'
 import { SearchOnlineClientTool } from '@/lib/copilot/tools/client/other/search-online'
-import { SearchPatternsClientTool } from '@/lib/copilot/tools/client/other/search-patterns'
 import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { GetCredentialsClientTool } from '@/lib/copilot/tools/client/user/get-credentials'
 import { GetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/user/get-environment-variables'
@@ -148,9 +145,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   get_trigger_blocks: serverTool(GetTriggerBlocksClientTool),
   search_online: serverTool(SearchOnlineClientTool),
   search_documentation: serverTool(SearchDocumentationClientTool),
-  search_patterns: clientTool(SearchPatternsClientTool),
-  search_errors: clientTool(SearchErrorsClientTool),
-  remember_debug: clientTool(RememberDebugClientTool),
   get_environment_variables: serverTool(
     GetEnvironmentVariablesClientTool,
     withActiveWorkflowIdUnlessIdentityProvided
@@ -328,9 +322,8 @@ export function getToolInterruptDisplays(
 ): BaseClientToolMetadata['interrupt'] | undefined {
   try {
     const instance = toolCallId ? (getClientTool(toolCallId) as any) : undefined
-    const instanceInterrupt = instance?.getInterruptDisplays?.()
-    if (instanceInterrupt) {
-      return instanceInterrupt
+    if (instance?.getInterruptDisplays) {
+      return instance.getInterruptDisplays()
     }
   } catch {}
 

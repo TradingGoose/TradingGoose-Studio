@@ -200,8 +200,6 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   }
 
   const handleRefresh = async () => {
-    const wf = store.getState().workflowId
-    if (!wf) return
     await store.getState().loadChats(true)
   }
 
@@ -309,26 +307,17 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
 
 export function CopilotHeaderActions({
   channelId,
-  isEntityMode = false,
 }: {
   channelId: string
-  /** When true the active target is an entity review session (not a workflow). Hide New Chat. */
-  isEntityMode?: boolean
 }) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
 
   const subscribe = useCallback(store.subscribe, [store])
   const getSnapshot = useCallback(() => store.getState(), [store])
-  const { isSendingMessage, workflowId } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const { isSendingMessage } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const handleNewChat = async () => {
-    if (!workflowId) return
     await store.getState().createNewChat()
-  }
-
-  // Hide the New Chat button when the copilot is targeting an entity review session
-  if (isEntityMode) {
-    return null
   }
 
   return (
@@ -336,7 +325,7 @@ export function CopilotHeaderActions({
       type='button'
       className={widgetHeaderIconButtonClassName()}
       onClick={handleNewChat}
-      disabled={isSendingMessage || !workflowId}
+      disabled={isSendingMessage}
       aria-label='Start new chat'
       title={isSendingMessage ? 'Sending…' : 'New chat'}
     >

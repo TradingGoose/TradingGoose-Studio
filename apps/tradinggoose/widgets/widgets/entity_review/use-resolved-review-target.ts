@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type {
@@ -24,7 +24,6 @@ interface UseResolvedReviewTargetOptions {
     reviewSessionId: string | null
     reviewEntityId: string | null
     reviewDraftSessionId: string | null
-    reviewModel: string | null
     descriptor: ReviewTargetDescriptor | null
   }
   buildWidgetParams: (options: {
@@ -39,7 +38,54 @@ interface UseResolvedReviewTargetOptions {
     descriptor: ReviewTargetDescriptor | null
     legacyEntityId?: string | null
   }) => PairColorContext
-  selectedModel: string
+}
+
+function doesResolvedTargetMatchRequest(options: {
+  resolvedTarget: ResolvedReviewTarget | null
+  workspaceId: string
+  entityKind: Exclude<ReviewEntityKind, 'workflow'>
+  entityId?: string | null
+  draftSessionId?: string | null
+  reviewSessionId?: string | null
+}): boolean {
+  const descriptor = options.resolvedTarget?.descriptor
+  if (!descriptor) {
+    return false
+  }
+
+  if (descriptor.workspaceId !== options.workspaceId || descriptor.entityKind !== options.entityKind) {
+    return false
+  }
+
+  if (options.reviewSessionId != null && descriptor.reviewSessionId !== options.reviewSessionId) {
+    return false
+  }
+
+  if (options.entityId != null && descriptor.entityId !== options.entityId) {
+    return false
+  }
+
+  if (options.draftSessionId != null && descriptor.draftSessionId !== options.draftSessionId) {
+    return false
+  }
+
+  return true
+}
+
+function buildResolveRequestKey(options: {
+  workspaceId: string
+  entityKind: Exclude<ReviewEntityKind, 'workflow'>
+  entityId?: string | null
+  draftSessionId?: string | null
+  reviewSessionId?: string | null
+}): string {
+  return JSON.stringify({
+    workspaceId: options.workspaceId,
+    entityKind: options.entityKind,
+    entityId: options.entityId ?? null,
+    draftSessionId: options.draftSessionId ?? null,
+    reviewSessionId: options.reviewSessionId ?? null,
+  })
 }
 
 export function useResolvedReviewTarget({
@@ -54,17 +100,16 @@ export function useResolvedReviewTarget({
   selectionState,
   buildWidgetParams,
   buildPairContext,
-  selectedModel,
 }: UseResolvedReviewTargetOptions) {
   const [resolvedTarget, setResolvedTarget] = useState<ResolvedReviewTarget | null>(null)
   const [isResolving, setIsResolving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const lastSatisfiedRequestKeyRef = useRef<string | null>(null)
 
   const isLinkedToColorPair = pairColor !== 'gray'
   const requestedEntityId = selectionState.reviewEntityId ?? selectionState.legacyEntityId
   const requestedDraftSessionId = selectionState.reviewDraftSessionId
   const requestedReviewSessionId = selectionState.reviewSessionId
-  const requestedReviewModel = selectionState.reviewModel ?? selectedModel
 
   const persistDescriptor = useCallback(
     (descriptor: ReviewTargetDescriptor | null, legacyEntityId?: string | null) => {
@@ -106,6 +151,11 @@ export function useResolvedReviewTarget({
       setPairContext,
     ]
   )
+  const persistDescriptorRef = useRef(persistDescriptor)
+
+  useEffect(() => {
+    persistDescriptorRef.current = persistDescriptor
+  }, [persistDescriptor])
 
   const clearSelection = useCallback(() => {
     setResolvedTarget(null)
@@ -120,11 +170,42 @@ export function useResolvedReviewTarget({
       setResolvedTarget(null)
       setError(null)
       setIsResolving(false)
+      lastSatisfiedRequestKeyRef.current = null
       return
     }
 
     if (!requestedEntityId && !requestedDraftSessionId && !requestedReviewSessionId) {
       setResolvedTarget(null)
+      setError(null)
+      setIsResolving(false)
+      lastSatisfiedRequestKeyRef.current = null
+      return
+    }
+
+    const requestKey = buildResolveRequestKey({
+      workspaceId,
+      entityKind,
+      entityId: requestedEntityId,
+      draftSessionId: requestedDraftSessionId,
+      reviewSessionId: requestedReviewSessionId,
+    })
+
+    if (lastSatisfiedRequestKeyRef.current === requestKey) {
+      setError(null)
+      setIsResolving(false)
+      return
+    }
+
+    if (
+      doesResolvedTargetMatchRequest({
+        resolvedTarget,
+        workspaceId,
+        entityKind,
+        entityId: requestedEntityId,
+        draftSessionId: requestedDraftSessionId,
+        reviewSessionId: requestedReviewSessionId,
+      })
+    ) {
       setError(null)
       setIsResolving(false)
       return
@@ -139,15 +220,18 @@ export function useResolvedReviewTarget({
       entityId: requestedEntityId,
       draftSessionId: requestedDraftSessionId,
       reviewSessionId: requestedReviewSessionId,
-      reviewModel: requestedReviewModel,
     })
       .then((resolved) => {
         if (cancelled) {
           return
         }
 
+        lastSatisfiedRequestKeyRef.current = requestKey
         setResolvedTarget(resolved)
-        persistDescriptor(resolved.descriptor, resolved.descriptor.entityId ?? requestedEntityId)
+        persistDescriptorRef.current(
+          resolved.descriptor,
+          resolved.descriptor.entityId ?? requestedEntityId
+        )
       })
       .catch((resolveError) => {
         if (cancelled) {
@@ -168,10 +252,9 @@ export function useResolvedReviewTarget({
     }
   }, [
     entityKind,
-    persistDescriptor,
+    resolvedTarget,
     requestedDraftSessionId,
     requestedEntityId,
-    requestedReviewModel,
     requestedReviewSessionId,
     workspaceId,
   ])

@@ -10,7 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   requireActiveWorkflowSession,
   resolveWorkflowIdFromExecutionContext,
-  serializeLiveWorkflowSnapshot,
+  serializeReadableWorkflowSnapshot,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -36,13 +36,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
   private lastWorkflowId: string | null = null
 
   private resolvePersistedStagedResult(): any | undefined {
-    try {
-      const store = getCopilotStoreForToolCall(this.toolCallId)
-      const toolCall = store.getState().toolCallsById[this.toolCallId] as any
-      return toolCall?.result
-    } catch {
-      return undefined
-    }
+    return this.resolvePersistedResult()
   }
 
   constructor(toolCallId: string) {
@@ -64,6 +58,10 @@ export class EditWorkflowClientTool extends BaseClientTool {
       accept: { text: 'Accept changes', icon: Grid2x2Check },
       reject: { text: 'Reject changes', icon: Grid2x2X },
     },
+  }
+
+  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
+    return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
   }
 
   async handleAccept(): Promise<void> {
@@ -109,16 +107,23 @@ export class EditWorkflowClientTool extends BaseClientTool {
     }
   }
 
-  async handleReject(): Promise<void> {
-    const logger = createLogger('EditWorkflowClientTool')
-    logger.info('handleReject called', { toolCallId: this.toolCallId, state: this.getState() })
-    this.setState(ClientToolCallState.rejected)
-    const completed = await this.markToolComplete(200, 'Workflow changes rejected')
-    if (!completed) {
-      logger.warn('markToolComplete failed during handleReject', {
-        toolCallId: this.toolCallId,
-      })
+  protected getRejectCompletionMessage(): string {
+    return 'Workflow changes rejected'
+  }
+
+  protected async getPendingUserAction(): Promise<'execute'> {
+    return 'execute'
+  }
+
+  protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
+    const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+
+    if (!stagedResult?.workflowState) {
+      await this.execute(args)
+      return this.resolveUserActionState() === ClientToolCallState.review
     }
+
+    return true
   }
 
   async execute(args?: EditWorkflowArgs): Promise<void> {
@@ -145,18 +150,21 @@ export class EditWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Build the edit baseline from the live Yjs workflow doc.
+      // Build the edit baseline from the live Yjs workflow doc when available,
+      // but allow review-mode staging to fall back to the persisted workflow.
       let currentUserWorkflow = args?.currentUserWorkflow
 
       if (!currentUserWorkflow) {
         try {
-          currentUserWorkflow = serializeLiveWorkflowSnapshot(
-            executionContext,
-            workflowId
+          currentUserWorkflow = (
+            await serializeReadableWorkflowSnapshot(
+              executionContext,
+              workflowId
+            )
           ).currentUserWorkflow
         } catch (e) {
-          logger.warn('Failed to build currentUserWorkflow from Yjs session', e as any)
-          throw new Error('No active workflow session found')
+          logger.warn('Failed to build currentUserWorkflow from readable workflow snapshot', e as any)
+          throw new Error('Failed to read the current workflow')
         }
       }
 

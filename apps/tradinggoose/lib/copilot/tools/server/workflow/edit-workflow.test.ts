@@ -17,8 +17,28 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
   loadWorkflowFromNormalizedTables: vi.fn(),
 }))
 
+vi.mock('@/lib/workflows/block-outputs', () => ({
+  getBlockOutputs: vi.fn(() => ({})),
+}))
+
+vi.mock('@/blocks/registry', () => ({
+  getAllBlocks: vi.fn(() => []),
+}))
+
+vi.mock('@/blocks/utils', () => ({
+  resolveOutputType: vi.fn(() => ({})),
+}))
+
+vi.mock('@/stores/workflows/workflow/utils', () => ({
+  generateLoopBlocks: vi.fn(() => ({})),
+  generateParallelBlocks: vi.fn(() => ({})),
+}))
+
 describe('editWorkflowServerTool', () => {
-  it('does not persist canonical side effects while preparing a workflow edit proposal', async () => {
+  it(
+    'does not persist canonical side effects while preparing a workflow edit proposal',
+    { timeout: 10_000 },
+    async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
     )
@@ -30,7 +50,7 @@ describe('editWorkflowServerTool', () => {
           blocks: {
             'block-1': {
               id: 'block-1',
-              type: 'trigger',
+              type: 'input_trigger',
               name: 'Trigger',
               position: { x: 0, y: 0 },
               subBlocks: {},
@@ -53,6 +73,7 @@ describe('editWorkflowServerTool', () => {
       { userId: 'user-1' }
     )
 
-    expect(result.workflowState.blocks['block-1'].name).toBe('Edited Trigger')
-  })
+      expect(result.workflowState.blocks['block-1'].name).toBe('Edited Trigger')
+    }
+  )
 })

@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockBootstrapYjsProvider = vi.fn()
 const mockRegisterWorkflowSession = vi.fn()
@@ -85,7 +86,6 @@ describe('workflow shared session lifecycle', () => {
         entityId: 'workflow-1',
         draftSessionId: null,
         reviewSessionId: null,
-        reviewModel: null,
         yjsSessionId: 'workflow-1',
       },
       runtime: {
@@ -149,7 +149,6 @@ describe('workflow shared session lifecycle', () => {
         entityId: 'workflow-1',
         draftSessionId: null,
         reviewSessionId: null,
-        reviewModel: null,
         yjsSessionId: 'workflow-1',
       },
       runtime: {
@@ -196,5 +195,76 @@ describe('workflow shared session lifecycle', () => {
     expect(provider.disconnect).toHaveBeenCalledTimes(1)
     expect(provider.destroy).toHaveBeenCalledTimes(1)
     expect(destroyDoc).toHaveBeenCalledTimes(1)
+  })
+
+  it('tracks undo/redo for explicit workflow edit origins', async () => {
+    const doc = new Y.Doc()
+    const provider = createMockProvider()
+
+    mockBootstrapYjsProvider.mockResolvedValue({
+      doc,
+      provider,
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'workflow',
+        entityId: 'workflow-1',
+        draftSessionId: null,
+        reviewSessionId: null,
+        yjsSessionId: 'workflow-1',
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: false,
+      },
+    })
+
+    const {
+      acquireSharedWorkflowSession,
+      getSharedWorkflowSessionState,
+      undoSharedWorkflowSession,
+    } = await import('./workflow-shared-session')
+
+    const release = acquireSharedWorkflowSession({
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+    })
+
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(doc)
+    })
+
+    const workflowMap = doc.getMap('workflow')
+
+    doc.transact(() => {
+      workflowMap.set('blocks', { blockA: { id: 'blockA' } })
+    }, YJS_ORIGINS.USER)
+
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').canUndo).toBe(true)
+    })
+
+    undoSharedWorkflowSession('workflow-1')
+
+    await waitForCondition(() => {
+      expect(workflowMap.get('blocks')).toBeUndefined()
+      expect(getSharedWorkflowSessionState('workflow-1').canRedo).toBe(true)
+    })
+
+    doc.transact(() => {
+      workflowMap.set('blocks', { blockB: { id: 'blockB' } })
+    }, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
+
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').canUndo).toBe(true)
+    })
+
+    undoSharedWorkflowSession('workflow-1')
+
+    await waitForCondition(() => {
+      expect(workflowMap.get('blocks')).toBeUndefined()
+    })
+
+    release()
   })
 })

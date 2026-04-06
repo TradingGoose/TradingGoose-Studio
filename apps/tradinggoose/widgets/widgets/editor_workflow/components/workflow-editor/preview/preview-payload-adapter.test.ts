@@ -133,4 +133,21 @@ describe('adaptPreviewPayloadToCanvas', () => {
       }),
     ])
   })
+
+  it('maps diff operations into preview node and subflow statuses', () => {
+    const workflowState = createWorkflowState()
+    const result = adaptPreviewPayloadToCanvas(workflowState, {
+      operations: [
+        { operation_type: 'add', block_id: 'agent_inside_loop' },
+        { operation_type: 'edit', block_id: 'loop_parent' },
+        { operation_type: 'delete', block_id: 'unknown_block' },
+      ],
+    })
+
+    const loopNode = result.nodes.find((node) => node.id === 'loop_parent')
+    expect((loopNode as any)?.data?.diffStatus).toBe('edited')
+
+    const agentNode = result.nodes.find((node) => node.id === 'agent_inside_loop')
+    expect((agentNode as any)?.data?.diffStatus).toBe('new')
+  })
 })

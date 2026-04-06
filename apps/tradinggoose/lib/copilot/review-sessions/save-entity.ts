@@ -19,7 +19,6 @@ import {
 } from '@/lib/copilot/review-sessions/entity-loaders'
 import {
   buildReviewTargetDescriptor,
-  buildSessionScopeKey,
 } from '@/lib/copilot/review-sessions/identity'
 import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
 import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
@@ -130,7 +129,6 @@ interface LoadedReviewSession {
   entityKind: string
   entityId: string | null
   draftSessionId: string | null
-  sessionScopeKey: string | null
   userId: string
   model: string
 }
@@ -234,27 +232,6 @@ async function loadSavedMcp(serverId: string, workspaceId: string) {
   return row
 }
 
-function buildEntityScopeKey(
-  userId: string,
-  workspaceId: string,
-  entityKind: ReviewEntityKind,
-  entityId: string
-): string {
-  const next = buildSessionScopeKey({
-    userId,
-    workspaceId,
-    entityKind,
-    entityId,
-    draftSessionId: null,
-  })
-
-  if (!next) {
-    throw new SaveReviewEntityError(409, 'replay_unsafe')
-  }
-
-  return next
-}
-
 // ---------------------------------------------------------------------------
 // Shared save helpers
 // ---------------------------------------------------------------------------
@@ -284,7 +261,7 @@ async function executeUpdate(
 
 /**
  * Common first-save (insert) path: idempotency guard → transaction →
- * session reload → entity insert → session scope-key update.
+ * session reload → entity insert → session promotion to saved-entity ownership.
  *
  * Callers provide:
  * - `loadExisting(entityId, workspaceId)` for the idempotent-replay branch
@@ -331,20 +308,12 @@ async function executeFirstSave(opts: {
 
         const { entityId, saved } = await insert(tx)
 
-        const sessionScopeKey = buildEntityScopeKey(
-          userId,
-          request.workspaceId,
-          request.entityKind,
-          entityId
-        )
-
         const now = new Date()
         const [updatedSession] = await tx
           .update(copilotReviewSessions)
           .set({
             entityId,
             draftSessionId: null,
-            sessionScopeKey,
             updatedAt: now,
           })
           .where(eq(copilotReviewSessions.id, request.reviewSessionId))
@@ -360,7 +329,8 @@ async function executeFirstSave(opts: {
     {
       workspaceId: request.workspaceId,
       entityKind: request.entityKind,
-      sessionScopeKey: session.sessionScopeKey ?? request.reviewSessionId,
+      entityId: session.entityId ?? null,
+      draftSessionId: session.draftSessionId ?? request.draftSessionId ?? null,
     }
   )
 }

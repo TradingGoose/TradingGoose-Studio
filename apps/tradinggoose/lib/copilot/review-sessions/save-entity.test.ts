@@ -44,7 +44,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     entityKind: 'copilot_review_sessions.entity_kind',
     entityId: 'copilot_review_sessions.entity_id',
     draftSessionId: 'copilot_review_sessions.draft_session_id',
-    sessionScopeKey: 'copilot_review_sessions.session_scope_key',
     userId: 'copilot_review_sessions.user_id',
     model: 'copilot_review_sessions.model',
     updatedAt: 'copilot_review_sessions.updated_at',
@@ -83,7 +82,6 @@ vi.mock('@/lib/colors', () => ({
 
 vi.mock('@/lib/copilot/review-sessions/identity', () => ({
   buildReviewTargetDescriptor: mockBuildReviewTargetDescriptor,
-  buildSessionScopeKey: vi.fn(() => 'scope-key'),
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
@@ -188,7 +186,6 @@ describe('saveReviewEntity shared session access', () => {
       entityId: row.entityId,
       draftSessionId: row.draftSessionId,
       reviewSessionId: row.id,
-      reviewModel: row.model,
       yjsSessionId: row.id,
     }))
   })
@@ -200,7 +197,6 @@ describe('saveReviewEntity shared session access', () => {
       entityKind: 'custom_tool',
       entityId: 'tool-1',
       draftSessionId: null,
-      sessionScopeKey: 'workspace=workspace-1|kind=custom_tool|target=entity:tool-1',
       userId: 'creator-user',
       model: 'claude-4.5-sonnet',
     })
@@ -272,7 +268,6 @@ describe('saveReviewEntity shared session access', () => {
         entityId: 'tool-1',
         draftSessionId: null,
         reviewSessionId,
-        reviewModel: 'claude-4.5-sonnet',
         yjsSessionId: reviewSessionId,
       },
     })
@@ -321,7 +316,6 @@ describe('saveReviewEntity shared session access', () => {
       entityKind: 'custom_tool',
       entityId: 'tool-1',
       draftSessionId: null,
-      sessionScopeKey: 'workspace=workspace-1|kind=custom_tool|target=entity:tool-1',
       userId: 'creator-user',
       model: 'claude-4.5-sonnet',
     })

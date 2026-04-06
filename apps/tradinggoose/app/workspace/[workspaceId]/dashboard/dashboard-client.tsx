@@ -1113,7 +1113,6 @@ function applyPairDataToWidget(
     'reviewEntityKind',
     'reviewEntityId',
     'reviewDraftSessionId',
-    'reviewModel',
   ] as const
 
   const hasPairData =
@@ -1198,7 +1197,6 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
         reviewEntityKind: normalizeOptionalString(context?.reviewTarget?.reviewEntityKind),
         reviewEntityId: normalizeOptionalString(context?.reviewTarget?.reviewEntityId),
         reviewDraftSessionId: normalizeOptionalString(context?.reviewTarget?.reviewDraftSessionId),
-        reviewModel: normalizeOptionalString(context?.reviewTarget?.reviewModel),
       },
       indicatorId,
       mcpServerId,

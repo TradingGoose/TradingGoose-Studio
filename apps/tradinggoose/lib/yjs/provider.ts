@@ -101,7 +101,6 @@ export async function bootstrapYjsProvider(
     seedEntitySession(doc, {
       entityKind: options.draftSeed.entityKind,
       payload: options.draftSeed.payload,
-      reviewModel: descriptor.reviewModel,
     })
   }
 
