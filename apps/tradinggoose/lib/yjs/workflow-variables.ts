@@ -15,6 +15,7 @@ import * as Y from 'yjs'
 import type { Variable } from '@/stores/variables/types'
 import { escapeRegExp } from '@/lib/utils'
 import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from './workflow-session'
+import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -200,14 +201,15 @@ export function addWorkflowVariable(
 
   const uniqueName = ensureUniqueVariableName(baseName, existingNames)
   const type = coerceVariableType(variable.type)
-  const validationError = validateVariableValue(type, variable.value || '')
+  const value = variable.value ?? ''
+  const validationError = validateVariableValue(type, value)
 
   const nextVariable: Variable = {
     id,
     workflowId: variable.workflowId,
     name: uniqueName,
     type: type as Variable['type'],
-    value: variable.value || '',
+    value,
     ...(validationError ? { validationError } : {}),
   }
 
@@ -349,120 +351,5 @@ function rewriteVariableReferencesInWorkflowContent(
   const regex = new RegExp(`<variable\\.${escapeRegExp(normalizedOld)}>`, 'gi')
   const replacement = `<variable.${normalizedNew}>`
 
-  rewriteVariableReferencesInBlocks(workflowMap, regex, replacement)
-  rewriteVariableReferencesInTextFields(textFields, regex, replacement)
-}
-
-function rewriteVariableReferencesInBlocks(
-  workflowMap: Y.Map<any>,
-  regex: RegExp,
-  replacement: string
-): void {
-  const blocks: Record<string, any> = workflowMap.get('blocks')
-  if (!blocks || typeof blocks !== 'object') return
-
-  let changed = false
-  const updatedBlocks: Record<string, any> = {}
-
-  for (const [blockId, block] of Object.entries(blocks)) {
-    if (!block || !block.subBlocks) {
-      updatedBlocks[blockId] = block
-      continue
-    }
-
-    let blockChanged = false
-    const updatedSubBlocks: Record<string, any> = {}
-
-    for (const [subBlockId, subBlock] of Object.entries(block.subBlocks as Record<string, any>)) {
-      if (!subBlock || subBlock.value === undefined || subBlock.value === null) {
-        updatedSubBlocks[subBlockId] = subBlock
-        continue
-      }
-
-      const updatedValue = updateReferences(subBlock.value, regex, replacement)
-      if (updatedValue !== subBlock.value) {
-        updatedSubBlocks[subBlockId] = { ...subBlock, value: updatedValue }
-        blockChanged = true
-      } else {
-        updatedSubBlocks[subBlockId] = subBlock
-      }
-    }
-
-    if (blockChanged) {
-      updatedBlocks[blockId] = { ...block, subBlocks: updatedSubBlocks }
-      changed = true
-    } else {
-      updatedBlocks[blockId] = block
-    }
-  }
-
-  if (changed) {
-    workflowMap.set('blocks', updatedBlocks)
-  }
-}
-
-function rewriteVariableReferencesInTextFields(
-  textFields: Y.Map<any>,
-  regex: RegExp,
-  replacement: string
-): void {
-  for (const value of textFields.values()) {
-    if (!(value instanceof Y.Text)) {
-      continue
-    }
-
-    // Workflow text fields are plain-text subblock values, so replacing the
-    // full string is intentional here; there are no rich-text attributes to preserve.
-    const currentValue = value.toString()
-    const updatedValue = updateReferences(currentValue, regex, replacement)
-    if (updatedValue === currentValue) {
-      continue
-    }
-
-    if (value.length > 0) {
-      value.delete(0, value.length)
-    }
-    if (updatedValue) {
-      value.insert(0, updatedValue)
-    }
-  }
-}
-
-/**
- * Recursively updates `<variable.X>` references within a value.
- * Handles strings, arrays, and nested plain objects.
- */
-function updateReferences(value: any, regex: RegExp, replacement: string): any {
-  if (typeof value === 'string') {
-    // Reset regex lastIndex for global regexes
-    regex.lastIndex = 0
-    if (regex.test(value)) {
-      regex.lastIndex = 0
-      return value.replace(regex, replacement)
-    }
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    let changed = false
-    const result = value.map((item) => {
-      const updated = updateReferences(item, regex, replacement)
-      if (updated !== item) changed = true
-      return updated
-    })
-    return changed ? result : value
-  }
-
-  if (value !== null && typeof value === 'object') {
-    let changed = false
-    const result: Record<string, any> = {}
-    for (const key in value) {
-      const updated = updateReferences(value[key], regex, replacement)
-      if (updated !== value[key]) changed = true
-      result[key] = updated
-    }
-    return changed ? result : value
-  }
-
-  return value
+  rewriteWorkflowContentReferences(workflowMap, textFields, regex, replacement)
 }

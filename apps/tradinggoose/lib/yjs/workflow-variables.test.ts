@@ -91,6 +91,42 @@ describe('workflow variable Yjs mutations', () => {
     })
   })
 
+  it('preserves falsy numeric and boolean values when adding variables', () => {
+    const doc = createDoc()
+
+    addWorkflowVariable(
+      doc,
+      { workflowId: 'wf-1', name: 'Count', type: 'number', value: 0 },
+      'var-1',
+      'test'
+    )
+    addWorkflowVariable(
+      doc,
+      { workflowId: 'wf-1', name: 'Enabled', type: 'boolean', value: false },
+      'var-2',
+      'test'
+    )
+
+    expect(getVariablesSnapshot(doc)).toMatchObject({
+      'var-1': {
+        id: 'var-1',
+        workflowId: 'wf-1',
+        name: 'Count',
+        type: 'number',
+        value: 0,
+      },
+      'var-2': {
+        id: 'var-2',
+        workflowId: 'wf-1',
+        name: 'Enabled',
+        type: 'boolean',
+        value: false,
+      },
+    })
+    expect(getVariablesSnapshot(doc)['var-1']).not.toHaveProperty('validationError')
+    expect(getVariablesSnapshot(doc)['var-2']).not.toHaveProperty('validationError')
+  })
+
   it('updates variable names, rewrites references, and recomputes validation', () => {
     const doc = createDoc()
 

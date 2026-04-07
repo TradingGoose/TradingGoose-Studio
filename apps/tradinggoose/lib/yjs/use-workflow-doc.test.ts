@@ -288,6 +288,227 @@ describe('useWorkflowMutations', () => {
       y: 60,
     })
   })
+
+  it('preserves the typed block name unless another block already uses the normalized prefix', async () => {
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+    workflowMap.set('blocks', {
+      'block-1': {
+        id: 'block-1',
+        type: 'script',
+        name: 'Script 1',
+        enabled: true,
+        position: { x: 10, y: 20 },
+        subBlocks: {},
+        outputs: {},
+      },
+      'block-2': {
+        id: 'block-2',
+        type: 'script',
+        name: 'myblock 1',
+        enabled: true,
+        position: { x: 30, y: 40 },
+        subBlocks: {},
+        outputs: {},
+      },
+    })
+    workflowMap.set('edges', [])
+    workflowMap.set('loops', {})
+    workflowMap.set('parallels', {})
+
+    const session = {
+      doc,
+      transactWorkflow: (fn: (d: Y.Doc) => void, origin?: string) => {
+        doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER)
+      },
+    }
+
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+
+    const { useWorkflowMutations } = await import('./use-workflow-doc')
+
+    let mutations: ReturnType<typeof useWorkflowMutations> | null = null
+    function Harness() {
+      mutations = useWorkflowMutations()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      mutations?.updateBlockName('block-1', 'My Block')
+    })
+
+    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe('My Block 2')
+
+    await act(async () => {
+      mutations?.updateBlockName('block-1', 'Human Friendly Name')
+    })
+
+    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe(
+      'Human Friendly Name'
+    )
+  })
+
+  it('rewrites block-name references in subBlocks and text fields when renaming a block', async () => {
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+    workflowMap.set('blocks', {
+      'block-1': {
+        id: 'block-1',
+        type: 'script',
+        name: 'My Block',
+        enabled: true,
+        position: { x: 10, y: 20 },
+        subBlocks: {},
+        outputs: {},
+      },
+      'block-2': {
+        id: 'block-2',
+        type: 'script',
+        name: 'Consumer',
+        enabled: true,
+        position: { x: 30, y: 40 },
+        subBlocks: {
+          prompt: {
+            id: 'prompt',
+            type: 'long-input',
+            value: 'Use <myblock.result> and <myblock>',
+          },
+          code: {
+            id: 'code',
+            type: 'code',
+            value: 'return <myblock.output>',
+          },
+        },
+        outputs: {},
+      },
+    })
+    workflowMap.set('edges', [])
+    workflowMap.set('loops', {})
+    workflowMap.set('parallels', {})
+
+    const textFieldKey = createWorkflowTextFieldKey('block-2', 'code')
+    const sharedText = new Y.Text()
+    sharedText.insert(0, 'return <myblock.output>')
+    getWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+
+    const session = {
+      doc,
+      transactWorkflow: (fn: (d: Y.Doc) => void, origin?: string) => {
+        doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER)
+      },
+    }
+
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+
+    const { useWorkflowMutations } = await import('./use-workflow-doc')
+
+    let mutations: ReturnType<typeof useWorkflowMutations> | null = null
+    function Harness() {
+      mutations = useWorkflowMutations()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      mutations?.updateBlockName('block-1', 'Human Friendly Name')
+    })
+
+    const blocks = workflowMap.get('blocks') as Record<string, any>
+    expect(blocks['block-1']?.name).toBe('Human Friendly Name')
+    expect(blocks['block-2']?.subBlocks?.prompt?.value).toBe(
+      'Use <humanfriendlyname.result> and <humanfriendlyname>'
+    )
+    expect(blocks['block-2']?.subBlocks?.code?.value).toBe(
+      'return <humanfriendlyname.output>'
+    )
+    expect(sharedText.toString()).toBe('return <humanfriendlyname.output>')
+  })
+
+  it('clears parent-specific data when detaching a block from a container', async () => {
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+    workflowMap.set('blocks', {
+      'block-1': {
+        id: 'block-1',
+        type: 'script',
+        name: 'Script 1',
+        enabled: true,
+        position: { x: 10, y: 20 },
+        subBlocks: {},
+        outputs: {},
+        data: {
+          parentId: 'loop-1',
+          extent: 'parent',
+          width: 350,
+          height: 180,
+          locked: true,
+        },
+      },
+    })
+    workflowMap.set('edges', [])
+    workflowMap.set('loops', {})
+    workflowMap.set('parallels', {})
+
+    const session = {
+      doc,
+      transactWorkflow: (fn: (d: Y.Doc) => void, origin?: string) => {
+        doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER)
+      },
+    }
+
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+
+    const { useWorkflowMutations } = await import('./use-workflow-doc')
+
+    let mutations: ReturnType<typeof useWorkflowMutations> | null = null
+    function Harness() {
+      mutations = useWorkflowMutations()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      mutations?.updateParentId('block-1', '', 'parent')
+    })
+
+    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.data).toEqual({
+      locked: true,
+    })
+  })
 })
 
 describe('useWorkflowTextField', () => {

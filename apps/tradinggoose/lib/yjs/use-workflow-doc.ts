@@ -16,6 +16,7 @@ import * as Y from 'yjs'
 import { getBlock } from '@/blocks'
 import { resolveOutputType } from '@/blocks/utils'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { getUniqueBlockName, normalizeBlockName } from '@/stores/workflows/utils'
 import type {
@@ -51,6 +52,7 @@ import {
   setWorkflowState,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
+import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
 import {
   addWorkflowVariable,
   deleteWorkflowVariable,
@@ -969,6 +971,8 @@ export function useWorkflowMutations() {
   const updateBlockName = useCallback(
     (id: string, name: string): boolean => {
       if (!doc) return false
+      const trimmedName = name.trim()
+      if (!trimmedName) return false
       let success = false
 
       // Perform the uniqueness check AND write inside a single transaction
@@ -980,13 +984,29 @@ export function useWorkflowMutations() {
         const block = blocks[id]
         if (!block) return
 
-        const normalized = normalizeBlockName(name)
-        const unique = getUniqueBlockName(
-          normalized,
-          Object.fromEntries(Object.entries(blocks).filter(([blockId]) => blockId !== id))
+        const otherBlocks = Object.fromEntries(
+          Object.entries(blocks).filter(([blockId]) => blockId !== id)
         )
+        const requestedNameMatch = trimmedName.match(/^(.*?)(\s+\d+)?$/)
+        const requestedPrefix = requestedNameMatch ? requestedNameMatch[1].trim() : trimmedName
+        const normalizedRequestedPrefix = normalizeBlockName(requestedPrefix)
+        const hasCollision = Object.values(otherBlocks).some((otherBlock: any) => {
+          const otherNameMatch = otherBlock.name?.match(/^(.*?)(\s+\d+)?$/)
+          const otherPrefix = otherNameMatch ? otherNameMatch[1].trim() : otherBlock.name
+          return otherPrefix && normalizeBlockName(otherPrefix) === normalizedRequestedPrefix
+        })
+        const nextName = hasCollision ? getUniqueBlockName(trimmedName, otherBlocks) : trimmedName
 
-        wm.set(YJS_KEYS.BLOCKS, { ...blocks, [id]: { ...block, name: unique } })
+        wm.set(YJS_KEYS.BLOCKS, { ...blocks, [id]: { ...block, name: nextName } })
+
+        if (block.name !== nextName && block.name.trim() !== '' && nextName.trim() !== '') {
+          const normalizedOld = normalizeBlockName(block.name)
+          const normalizedNew = normalizeBlockName(nextName)
+          const regex = new RegExp(`<${escapeRegExp(normalizedOld)}(?=(?:>|\\.))`, 'gi')
+          const replacement = `<${normalizedNew}`
+
+          rewriteWorkflowContentReferences(wm, getWorkflowTextFieldsMap(d), regex, replacement)
+        }
         success = true
       }, YJS_ORIGINS.USER)
 
@@ -1049,7 +1069,15 @@ export function useWorkflowMutations() {
 
   const updateParentId = useCallback(
     (id: string, parentId: string, extent: 'parent') =>
-      patchBlock(id, (b) => ({ ...b, data: { ...b.data, parentId, extent } })),
+      patchBlock(id, (b) => {
+        if (parentId) {
+          return { ...b, data: { ...b.data, parentId, extent } }
+        }
+
+        const { parentId: _parentId, extent: _extent, width: _width, height: _height, ...data } =
+          b.data ?? {}
+        return { ...b, data }
+      }),
     [patchBlock]
   )
 
@@ -1062,7 +1090,18 @@ export function useWorkflowMutations() {
           if (blocks[id]) {
             blocks[id] = {
               ...blocks[id],
-              data: { ...blocks[id].data, parentId, extent },
+              data: parentId
+                ? { ...blocks[id].data, parentId, extent }
+                : (() => {
+                    const {
+                      parentId: _parentId,
+                      extent: _extent,
+                      width: _width,
+                      height: _height,
+                      ...data
+                    } = blocks[id].data ?? {}
+                    return data
+                  })(),
             }
           }
         }
