@@ -10,12 +10,17 @@ import {
   getRegisteredWorkflowSession,
   type RegisteredWorkflowSession,
 } from '@/lib/yjs/workflow-session-registry'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 export function resolveWorkflowIdFromExecutionContext(
   executionContext: ClientToolExecutionContext,
   workflowId?: string
 ): string {
-  const resolvedWorkflowId = workflowId ?? executionContext.workflowId
+  const resolvedWorkflowId =
+    workflowId ??
+    executionContext.workflowId ??
+    useWorkflowRegistry.getState().getActiveWorkflowId(executionContext.channelId)
+
   if (!resolvedWorkflowId) {
     throw new Error('No active workflow found')
   }
@@ -38,14 +43,14 @@ export function requireActiveWorkflowSession(
 
 /**
  * Read-only workflow tools should prefer the live Yjs document when it exists,
- * but they can safely fall back to the persisted workflow API when no client
- * session is mounted yet. Mutating tools must continue using the live-session
- * helpers above so they never write against stale state.
+ * but they can safely fall back to the authoritative workflow API when no
+ * client session is mounted yet. Mutating tools must continue using the
+ * live-session helpers above so they never write against stale state.
  */
 export async function getReadableWorkflowSnapshot(
   executionContext: ClientToolExecutionContext,
   workflowId?: string
-): Promise<{ workflowId: string; workflowState: WorkflowSnapshot; source: 'live' | 'db' }> {
+): Promise<{ workflowId: string; workflowState: WorkflowSnapshot; source: 'live' | 'api' }> {
   const resolvedWorkflowId = resolveWorkflowIdFromExecutionContext(executionContext, workflowId)
   const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
 
@@ -77,7 +82,7 @@ export async function getReadableWorkflowSnapshot(
   return {
     workflowId: resolvedWorkflowId,
     workflowState: createWorkflowSnapshot(payload?.data?.state ?? {}),
-    source: 'db',
+    source: 'api',
   }
 }
 
@@ -88,7 +93,7 @@ export async function serializeReadableWorkflowSnapshot(
   workflowId: string
   currentUserWorkflow: string
   workflowState: WorkflowSnapshot
-  source: 'live' | 'db'
+  source: 'live' | 'api'
 }> {
   const { workflowId: resolvedWorkflowId, workflowState, source } = await getReadableWorkflowSnapshot(
     executionContext,

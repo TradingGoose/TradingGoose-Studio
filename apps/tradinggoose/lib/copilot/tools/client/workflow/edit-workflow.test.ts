@@ -144,7 +144,7 @@ describe('EditWorkflowClientTool approval gating', () => {
   it('stages workflow edits from a persisted workflow fallback when no live session is registered yet', async () => {
     mockSerializeReadableWorkflowSnapshot.mockResolvedValueOnce({
       workflowId: 'wf-1',
-      source: 'db',
+      source: 'api',
       currentUserWorkflow: JSON.stringify({
         blocks: {
           'block-1': {

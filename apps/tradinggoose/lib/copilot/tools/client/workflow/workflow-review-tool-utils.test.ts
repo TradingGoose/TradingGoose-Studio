@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetRegisteredWorkflowSession = vi.fn()
+const mockGetActiveWorkflowId = vi.fn()
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: unknown[]) => mockGetRegisteredWorkflowSession(...args),
+}))
+
+vi.mock('@/stores/workflows/registry/store', () => ({
+  useWorkflowRegistry: {
+    getState: () => ({
+      getActiveWorkflowId: (...args: unknown[]) => mockGetActiveWorkflowId(...args),
+    }),
+  },
 }))
 
 describe('workflow-review-tool-utils', () => {
@@ -50,7 +59,7 @@ describe('workflow-review-tool-utils', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  it('falls back to the workflow API when no live Yjs session is registered', async () => {
+  it('falls back to the authoritative workflow API when no live Yjs session is registered', async () => {
     mockGetRegisteredWorkflowSession.mockReturnValue(null)
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
@@ -75,7 +84,7 @@ describe('workflow-review-tool-utils', () => {
       workflowId: 'workflow-db',
     })
 
-    expect(result.source).toBe('db')
+    expect(result.source).toBe('api')
     expect(result.workflowId).toBe('workflow-db')
     expect(global.fetch).toHaveBeenCalledWith('/api/workflows/workflow-db', {
       method: 'GET',
@@ -83,6 +92,36 @@ describe('workflow-review-tool-utils', () => {
     expect(result.workflowState.blocks['block-1']).toMatchObject({
       type: 'agent',
       name: 'Agent',
+    })
+  })
+
+  it('resolves the active workflow from the registry when execution context only has a channel', async () => {
+    mockGetRegisteredWorkflowSession.mockReturnValue(null)
+    mockGetActiveWorkflowId.mockReturnValue('workflow-channel')
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          state: {
+            blocks: {},
+            edges: [],
+            loops: {},
+            parallels: {},
+          },
+        },
+      }),
+    } as Response)
+
+    const { getReadableWorkflowSnapshot } = await import('./workflow-review-tool-utils')
+    const result = await getReadableWorkflowSnapshot({
+      toolCallId: 'tool-1',
+      toolName: 'get_user_workflow',
+      channelId: 'channel-1',
+    })
+
+    expect(result.workflowId).toBe('workflow-channel')
+    expect(global.fetch).toHaveBeenCalledWith('/api/workflows/workflow-channel', {
+      method: 'GET',
     })
   })
 })

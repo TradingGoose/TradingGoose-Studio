@@ -44,7 +44,7 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
 
       const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
 
-      logger.info('Fetching user workflow from live Yjs session', {
+      logger.info('Fetching user workflow from readable workflow snapshot', {
         workflowId,
         includeMetadata: args?.includeMetadata,
       })
