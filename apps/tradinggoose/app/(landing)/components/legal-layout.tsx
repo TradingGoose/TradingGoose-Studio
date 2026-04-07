@@ -19,23 +19,23 @@ interface LegalLayoutProps {
 export default function LegalLayout({ title, children, path }: LegalLayoutProps) {
   const breadcrumbStructuredData = path
     ? {
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          {
-            '@type': 'ListItem',
-            position: 1,
-            name: 'Home',
-            item: 'https://tradinggoose.ai',
-          },
-          {
-            '@type': 'ListItem',
-            position: 2,
-            name: title,
-            item: `https://tradinggoose.ai${path}`,
-          },
-        ],
-      }
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: 'https://tradinggoose.ai',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: title,
+          item: `https://tradinggoose.ai${path}`,
+        },
+      ],
+    }
     : null
 
   return (
@@ -57,12 +57,10 @@ export default function LegalLayout({ title, children, path }: LegalLayoutProps)
         </div>
       </div>
 
-      {/* Footer - Only for hosted instances */}
-      {isHosted && (
-        <div className='relative z-20'>
-          <Footer fullWidth={true} />
-        </div>
-      )}
+
+      <div className='relative z-20'>
+        <Footer fullWidth={true} />
+      </div>
     </main>
   )
 }
