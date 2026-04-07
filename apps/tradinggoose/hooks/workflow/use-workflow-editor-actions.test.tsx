@@ -92,6 +92,10 @@ describe('useWorkflowEditorActions', () => {
         enabled: true,
         position: { x: 10, y: 20 },
         data: {},
+        layout: {
+          measuredHeight: 180,
+        },
+        height: 0,
         subBlocks: {
           code: {
             id: 'code',
@@ -134,6 +138,7 @@ describe('useWorkflowEditorActions', () => {
 
     expect(mockAddBlock).toHaveBeenCalledTimes(1)
     const [, , , , , , , blockProperties] = mockAddBlock.mock.calls[0]
+    expect(blockProperties?.height).toBe(180)
     expect(blockProperties?.initialSubBlockValues).toMatchObject({
       code: 'live-ytext-value',
     })

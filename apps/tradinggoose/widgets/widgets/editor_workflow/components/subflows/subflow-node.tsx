@@ -202,14 +202,6 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               )}
             </div>
           </div>
-
-          {!isPreview && (
-            <div
-              className='absolute right-2 bottom-2 z-20 flex h-8 w-8 cursor-se-resize items-center justify-center text-muted-foreground'
-              style={{ pointerEvents: 'auto' }}
-            />
-          )}
-
           <div
             className='h-[calc(100%-56px)] p-4'
             data-dragarea='true'

@@ -294,7 +294,7 @@ export function useWorkflowEditorActions() {
           isWide: sourceBlock.isWide,
           advancedMode: sourceBlock.advancedMode,
           triggerMode: false, // Always duplicate as normal mode
-          height: sourceBlock.height,
+          height: sourceBlock.layout?.measuredHeight ?? sourceBlock.height,
           initialSubBlockValues,
         }
       )

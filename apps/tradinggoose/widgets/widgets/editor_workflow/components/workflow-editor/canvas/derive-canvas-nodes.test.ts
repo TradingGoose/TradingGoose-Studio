@@ -119,4 +119,33 @@ describe('derive-canvas-nodes', () => {
     expect(prevBlocksRef.current).toBe(nextBlocks)
     expect(prevHashRef.current).toBe(nextHash)
   })
+
+  it('changes the stable hash when measured layout height changes', () => {
+    const blocks: Record<string, BlockState> = {
+      agent1: createBlock({
+        id: 'agent1',
+        type: 'agent',
+        name: 'Agent',
+        height: 0,
+        layout: { measuredHeight: 120, measuredWidth: 350 },
+      }),
+    }
+
+    const prevBlocksRef = { current: {} as Record<string, BlockState> }
+    const prevHashRef = { current: '' }
+
+    const initialHash = getStableBlocksHash(blocks, prevBlocksRef, prevHashRef)
+
+    const resizedBlocks = {
+      ...blocks,
+      agent1: {
+        ...blocks.agent1,
+        layout: { measuredHeight: 180, measuredWidth: 350 },
+      },
+    }
+
+    const resizedHash = getStableBlocksHash(resizedBlocks, prevBlocksRef, prevHashRef)
+
+    expect(resizedHash).not.toBe(initialHash)
+  })
 })

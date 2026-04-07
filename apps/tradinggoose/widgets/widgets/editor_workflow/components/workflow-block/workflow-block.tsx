@@ -400,7 +400,6 @@ export const WorkflowBlock = memo(
     // Derive block properties from Yjs blocks
     const {
       storeHorizontalHandles,
-      storeBlockHeight,
       storeBlockLayout,
       storeBlockAdvancedMode,
       storeBlockTriggerMode,
@@ -408,7 +407,6 @@ export const WorkflowBlock = memo(
       const block = currentYjsBlock
       return {
         storeHorizontalHandles: block?.horizontalHandles ?? true,
-        storeBlockHeight: block?.height ?? 0,
         storeBlockLayout: block?.layout,
         storeBlockAdvancedMode: block?.advancedMode ?? false,
         storeBlockTriggerMode: block?.triggerMode ?? false,
@@ -419,7 +417,7 @@ export const WorkflowBlock = memo(
       ? (data.blockState?.horizontalHandles ?? true)
       : storeHorizontalHandles
 
-    const blockHeight = storeBlockHeight
+    const blockHeight = storeBlockLayout?.measuredHeight ?? currentYjsBlock?.height ?? 0
 
     const blockWidth = storeBlockLayout?.measuredWidth ?? 0
 

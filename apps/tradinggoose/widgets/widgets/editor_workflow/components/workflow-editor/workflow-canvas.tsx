@@ -201,10 +201,9 @@ const WorkflowCanvas = React.memo(
       if (now - lastCursorBroadcast.current < 50) return // 20fps throttle
       lastCursorBroadcast.current = now
       try {
-        const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
         const flowPosition = reactFlowInstance.screenToFlowPosition({
-          x: event.clientX - bounds.left,
-          y: event.clientY - bounds.top,
+          x: event.clientX,
+          y: event.clientY,
         })
         const current = awareness.getLocalState() ?? {}
         awareness.setLocalState({ ...current, cursor: flowPosition })

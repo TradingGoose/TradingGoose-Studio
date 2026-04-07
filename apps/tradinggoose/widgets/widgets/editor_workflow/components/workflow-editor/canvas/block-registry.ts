@@ -87,6 +87,11 @@ const resolveWorkflowNodeDescriptor = ({
     return null
   }
 
+  const height = Math.max(
+    block.layout?.measuredHeight || block.height || block.data?.height || 100,
+    100
+  )
+
   return {
     nodeType: 'workflowBlock',
     data: {
@@ -97,7 +102,7 @@ const resolveWorkflowNodeDescriptor = ({
       isPending,
     },
     width: 350,
-    height: Math.max(block.height || 100, 100),
+    height,
   }
 }
 

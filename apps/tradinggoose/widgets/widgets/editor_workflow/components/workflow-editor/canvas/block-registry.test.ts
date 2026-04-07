@@ -73,7 +73,10 @@ describe('block-registry node descriptor resolver', () => {
       type: 'agent',
       name: 'Agent',
       isWide: true,
-      height: 180,
+      height: 0,
+      layout: {
+        measuredHeight: 180,
+      },
     })
 
     const descriptor = resolveCanvasNodeDescriptor(
