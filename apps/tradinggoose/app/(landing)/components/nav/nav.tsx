@@ -76,6 +76,13 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Docs
       </Link>
+      <Link
+        href='/blog'
+        className='transition-colors hover:text-foreground'
+        prefetch={false}
+      >
+        Blog
+      </Link>
       {/*
       <Link href='#pricing' className='transition-colors hover:text-foreground' scroll>
         Pricing
@@ -193,6 +200,11 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       prefetch={false}
                     >
                       Docs
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link href='/blog' className='w-full' prefetch={false}>
+                      Blog
                     </Link>
                   </DropdownMenuItem>
                   {/*
