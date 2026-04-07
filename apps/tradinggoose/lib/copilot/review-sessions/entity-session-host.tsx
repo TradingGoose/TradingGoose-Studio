@@ -218,7 +218,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
             return
           }
 
-          const runtime = getReviewTargetRuntimeState(result.doc)
+          const runtime = getReviewTargetRuntimeState(result.doc, result.runtime)
           setState((prev) => ({
             ...prev,
             runtime,
@@ -253,7 +253,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
         // Seed presence immediately when the user is already available on first bootstrap.
         syncEntitySessionUser(result.provider.awareness, user)
 
-        const runtime = getReviewTargetRuntimeState(result.doc)
+        const runtime = result.runtime
         registerEntitySession({
           descriptor: result.descriptor,
           doc: result.doc,

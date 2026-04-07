@@ -31,4 +31,20 @@ describe('review target runtime helpers', () => {
     })
     expect(isReplaySafeReviewTarget(getReviewTargetRuntimeState(doc))).toBe(false)
   })
+
+  it('preserves an expired bootstrap runtime when the doc has no docState metadata yet', () => {
+    const doc = new Y.Doc()
+
+    expect(
+      getReviewTargetRuntimeState(doc, {
+        docState: 'expired',
+        replaySafe: false,
+        reseededFromCanonical: false,
+      })
+    ).toEqual({
+      docState: 'expired',
+      replaySafe: false,
+      reseededFromCanonical: false,
+    })
+  })
 })

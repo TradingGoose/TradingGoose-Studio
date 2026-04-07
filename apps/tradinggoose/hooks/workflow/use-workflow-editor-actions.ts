@@ -2,16 +2,12 @@ import { useCallback } from 'react'
 import type { Edge } from 'reactflow'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlock } from '@/blocks'
-import {
-  useWorkflowMutations,
-} from '@/lib/yjs/use-workflow-doc'
-import { YJS_KEYS, getWorkflowMap } from '@/lib/yjs/workflow-session'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import type { YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-} from '@/stores/workflows/workflow/types'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import type { Position } from '@/stores/workflows/workflow/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -28,18 +24,16 @@ export function useWorkflowEditorActions() {
     useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
   )
 
-  const { doc } = useWorkflowSession()
+  const { getWorkflowSnapshot } = useWorkflowSession()
   const mutations = useWorkflowMutations()
 
   const getBlocksSnapshot = useCallback(() => {
-    if (!doc) return {}
-    return (getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) ?? {}) as Record<string, any>
-  }, [doc])
+    return getWorkflowSnapshot()?.blocks ?? {}
+  }, [getWorkflowSnapshot])
 
   const getEdgesSnapshot = useCallback(() => {
-    if (!doc) return []
-    return (getWorkflowMap(doc).get(YJS_KEYS.EDGES) ?? []) as Edge[]
-  }, [doc])
+    return getWorkflowSnapshot()?.edges ?? []
+  }, [getWorkflowSnapshot])
 
   // Derive connection status from whether we have an active workflow
   const isConnectedToWorkflow = !!activeWorkflowId
@@ -94,16 +88,27 @@ export function useWorkflowEditorActions() {
     [mutations]
   )
 
-  const collaborativeUpdateBlockPosition = useCallback(
-    (id: string, position: Position) => {
-      mutations.updateBlockPosition(id, position)
+  const collaborativeUpdateBlockPositions = useCallback(
+    (
+      updates: Array<{ id: string; position: Position }>,
+      options?: {
+        origin?: YjsOrigin
+      }
+    ) => {
+      mutations.updateBlockPositions(updates, options)
     },
     [mutations]
   )
 
-  const collaborativeUpdateBlockPositions = useCallback(
-    (updates: Array<{ id: string; position: Position }>) => {
-      mutations.updateBlockPositions(updates)
+  const collaborativeUpdateBlockPosition = useCallback(
+    (
+      id: string,
+      position: Position,
+      options?: {
+        origin?: YjsOrigin
+      }
+    ) => {
+      mutations.updateBlockPosition(id, position, options)
     },
     [mutations]
   )

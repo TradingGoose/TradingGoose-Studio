@@ -91,6 +91,8 @@ function SessionProbe() {
       data-session-id={session.descriptor?.reviewSessionId ?? ''}
       data-name={name}
       data-error={session.error ?? ''}
+      data-doc-state={session.runtime?.docState ?? ''}
+      data-replay-safe={String(session.runtime?.replaySafe ?? false)}
     />
   )
 }
@@ -208,5 +210,39 @@ describe('EntitySessionHost', () => {
         color: expect.any(String),
       },
     })
+  })
+
+  it('preserves expired bootstrap runtime instead of recomputing the doc as active', async () => {
+    const descriptor = createDescriptor('review-expired', 'skill-expired')
+    const result = createBootstrapResult(descriptor, 'Recovered Skill')
+    result.runtime = {
+      docState: 'expired',
+      replaySafe: false,
+      reseededFromCanonical: false,
+    }
+
+    mockBootstrapYjsProvider.mockResolvedValueOnce(result)
+
+    await act(async () => {
+      root.render(
+        <EntitySessionHost descriptor={descriptor}>
+          <SessionProbe />
+        </EntitySessionHost>
+      )
+      await Promise.resolve()
+    })
+
+    const probe = container.querySelector('[data-testid="probe"]')
+    expect(probe?.getAttribute('data-doc-state')).toBe('expired')
+    expect(probe?.getAttribute('data-replay-safe')).toBe('false')
+    expect(mockRegisterEntitySession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime: {
+          docState: 'expired',
+          replaySafe: false,
+          reseededFromCanonical: false,
+        },
+      })
+    )
   })
 })

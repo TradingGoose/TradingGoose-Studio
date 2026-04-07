@@ -3,7 +3,13 @@
  */
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
-import { getVariablesSnapshot, setWorkflowState } from '@/lib/yjs/workflow-session'
+import {
+  createWorkflowTextFieldKey,
+  getVariablesSnapshot,
+  getWorkflowSnapshot,
+  getWorkflowTextFieldsMap,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
 import {
   addWorkflowVariable,
   deleteWorkflowVariable,
@@ -120,6 +126,39 @@ describe('workflow variable Yjs mutations', () => {
         },
       },
     })
+  })
+
+  it('rewrites references inside text-backed workflow subblocks when renaming', () => {
+    const doc = createDoc()
+
+    addWorkflowVariable(
+      doc,
+      { workflowId: 'wf-1', name: 'Foo Value', type: 'plain', value: 'hello' },
+      'var-1',
+      'test'
+    )
+
+    const textFieldKey = createWorkflowTextFieldKey('blockA', 'prompt')
+    const sharedText = new Y.Text()
+    sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
+    getWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+
+    expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
+
+    expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
+    expect(getWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
+    expect(doc.getMap('workflow').get('blocks')).toMatchObject({
+      blockA: {
+        subBlocks: {
+          prompt: {
+            value: 'Use <variable.barvalue> in this prompt',
+          },
+        },
+      },
+    })
+    expect(getWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
+      'Use <variable.barvalue> in this prompt'
+    )
   })
 
   it('does not rewrite references during transient blank-name edits', () => {

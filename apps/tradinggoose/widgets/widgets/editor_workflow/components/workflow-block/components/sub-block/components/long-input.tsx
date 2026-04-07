@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronsUpDown, Wand2 } from 'lucide-react'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
@@ -54,14 +53,6 @@ export function LongInput({
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
 
-  // State management - useSubBlockValue with explicit streaming control
-  const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: streamingLock,
-    onStreamingEnd: () => {
-      logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
-    },
-  })
-
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
   const [showEnvVars, setShowEnvVars] = useState(false)
@@ -74,8 +65,7 @@ export function LongInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const baseValue = propValue !== undefined ? propValue : storeValue
-  const baseValueString = baseValue?.toString() ?? ''
+  const baseValueString = propValue?.toString() ?? ''
   const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
     blockId,
     subBlockId,
@@ -87,7 +77,17 @@ export function LongInput({
     }
   )
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
-  const commitValue = isWorkflowManaged ? setTextFieldValue : (onChange ?? setStoreValue)
+  const commitValue = useCallback(
+    (nextValue: string) => {
+      if (isWorkflowManaged) {
+        setTextFieldValue(nextValue)
+        return
+      }
+
+      onChange?.(nextValue)
+    },
+    [isWorkflowManaged, onChange, setTextFieldValue]
+  )
   const {
     value,
     setValueLocal: setLocalContent,

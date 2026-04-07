@@ -1,13 +1,24 @@
 import * as Y from 'yjs'
-import type { ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import type { ReviewTargetDocState, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
 
-export function getReviewTargetRuntimeState(doc: Y.Doc): ReviewTargetRuntimeState {
+function isReviewTargetDocState(value: unknown): value is ReviewTargetDocState {
+  return value === 'active' || value === 'expired'
+}
+
+export function getReviewTargetRuntimeState(
+  doc: Y.Doc,
+  baseRuntime?: ReviewTargetRuntimeState | null
+): ReviewTargetRuntimeState {
   const metadata = doc.getMap<unknown>('metadata')
+  const rawDocState = metadata.get('docState')
+  const docState = isReviewTargetDocState(rawDocState)
+    ? rawDocState
+    : (baseRuntime?.docState ?? 'active')
   const reseededFromCanonical = metadata.get('reseededFromCanonical') === true
 
   return {
-    docState: 'active',
-    replaySafe: !reseededFromCanonical,
+    docState,
+    replaySafe: docState === 'active' && !reseededFromCanonical,
     reseededFromCanonical,
   }
 }

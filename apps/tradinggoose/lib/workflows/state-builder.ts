@@ -6,17 +6,10 @@ import { extractPersistedStateFromDoc, type PersistedDocState } from '@/lib/yjs/
  * Includes variables so templates and exports preserve the full workflow.
  * Reads from the live Yjs session.
  */
-export function buildWorkflowStateForTemplate(workflowId: string): PersistedDocState {
+export function buildWorkflowStateForTemplate(workflowId: string): PersistedDocState | null {
   const session = getRegisteredWorkflowSession(workflowId)
   if (!session?.doc) {
-    return {
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: {},
-      lastSaved: Date.now(),
-    }
+    return null
   }
 
   return extractPersistedStateFromDoc(session.doc)

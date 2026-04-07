@@ -8,10 +8,6 @@ export interface YjsSnapshotResponse {
   runtime: ReviewTargetRuntimeState
 }
 
-interface YjsStateUpdateResponse {
-  snapshotBase64: string
-}
-
 export class SocketServerBridgeError extends Error {
   status: number
   body: string
@@ -73,25 +69,6 @@ export async function getYjsSnapshot(
   return response.json() as Promise<YjsSnapshotResponse>
 }
 
-export async function getWorkflowStateUpdateFromSocketServer(
-  workflowId: string
-): Promise<Uint8Array | null> {
-  try {
-    const url = new URL(
-      `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/state-update`,
-      getSocketServerUrl()
-    )
-    const response = await fetchFromSocketServer(url, { method: 'GET' })
-    const snapshot = await response.json() as YjsStateUpdateResponse
-    return Buffer.from(snapshot.snapshotBase64, 'base64')
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status === 404) {
-      return null
-    }
-    throw error
-  }
-}
-
 export async function applyWorkflowStateInSocketServer(
   workflowId: string,
   workflowState: WorkflowSnapshot,
@@ -119,5 +96,18 @@ export async function deleteYjsSessionInSocketServer(sessionId: string): Promise
 
   await fetchFromSocketServer(url, {
     method: 'DELETE',
+  }, 10000)
+}
+
+export async function clearYjsSessionReseededFromCanonicalInSocketServer(
+  sessionId: string
+): Promise<void> {
+  const url = new URL(
+    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/clear-reseeded`,
+    getSocketServerUrl()
+  )
+
+  await fetchFromSocketServer(url, {
+    method: 'POST',
   }, 10000)
 }

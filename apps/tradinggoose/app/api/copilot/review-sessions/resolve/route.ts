@@ -12,14 +12,19 @@ import {
   loadReviewSessionForUser,
   verifyReviewTargetAccess,
 } from '@/lib/copilot/review-sessions/permissions'
-import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  bootstrapReviewTarget,
-  ReviewTargetBootstrapError,
-} from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('ReviewSessionResolveAPI')
+
+function buildResolvedTargetResponse(descriptor: ReturnType<typeof buildReviewTargetDescriptor>) {
+  return {
+    descriptor,
+    // Review-target materialization happens in the snapshot bootstrap path.
+    // Resolve only returns the canonical session identity for the editor/widget.
+    runtime: null,
+  }
+}
 
 function buildEntityReviewSessionConditions(params: {
   userId: string
@@ -73,14 +78,6 @@ async function loadExistingEntityReviewSession(params: {
   return rows[0] ?? null
 }
 
-function getDefaultRuntime(): ResolvedReviewTarget['runtime'] {
-  return {
-    docState: 'active',
-    replaySafe: true,
-    reseededFromCanonical: false,
-  }
-}
-
 function doesLoadedSessionMatchRequestedTarget(params: {
   row: {
     workspaceId: string | null
@@ -108,19 +105,6 @@ function doesLoadedSessionMatchRequestedTarget(params: {
   }
 
   return true
-}
-
-async function resolveRuntimeForDescriptor(
-  descriptor: ReturnType<typeof buildReviewTargetDescriptor>
-): Promise<ResolvedReviewTarget> {
-  if (!descriptor.entityId) {
-    return {
-      descriptor,
-      runtime: getDefaultRuntime(),
-    }
-  }
-
-  return bootstrapReviewTarget(descriptor)
 }
 
 const ResolveRequestSchema = z.object({
@@ -228,7 +212,7 @@ export async function POST(req: NextRequest) {
         workspaceId: accessResult.workspaceId ?? row.workspaceId,
       }
 
-      return NextResponse.json(await resolveRuntimeForDescriptor(descriptor))
+      return NextResponse.json(buildResolvedTargetResponse(descriptor))
     }
 
     const existingSession = await loadExistingEntityReviewSession({
@@ -245,7 +229,7 @@ export async function POST(req: NextRequest) {
         workspaceId: accessResult.workspaceId ?? existingSession.workspaceId,
       }
 
-      return NextResponse.json(await resolveRuntimeForDescriptor(descriptor))
+      return NextResponse.json(buildResolvedTargetResponse(descriptor))
     }
 
     // Cache miss: create a new row guarded by explicit saved-entity/draft uniqueness.
@@ -276,7 +260,7 @@ export async function POST(req: NextRequest) {
         workspaceId: accessResult.workspaceId ?? row.workspaceId,
       }
 
-      return NextResponse.json(await resolveRuntimeForDescriptor(descriptor), { status: 201 })
+      return NextResponse.json(buildResolvedTargetResponse(descriptor), { status: 201 })
     } catch (insertError: unknown) {
       // Unique constraint violation: another request created the row concurrently
       const isUniqueViolation =
@@ -306,17 +290,13 @@ export async function POST(req: NextRequest) {
             workspaceId: accessResult.workspaceId ?? row.workspaceId,
           }
 
-          return NextResponse.json(await resolveRuntimeForDescriptor(descriptor))
+          return NextResponse.json(buildResolvedTargetResponse(descriptor))
         }
       }
 
       throw insertError
     }
   } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
-
     logger.error('Error resolving review session', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

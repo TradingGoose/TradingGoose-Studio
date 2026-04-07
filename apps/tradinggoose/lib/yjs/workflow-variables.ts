@@ -14,7 +14,7 @@
 import * as Y from 'yjs'
 import type { Variable } from '@/stores/variables/types'
 import { escapeRegExp } from '@/lib/utils'
-import { getVariablesMap, getWorkflowMap } from './workflow-session'
+import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from './workflow-session'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -152,7 +152,8 @@ export function validateVariableValue(type: string, value: any): string | null {
 
 /**
  * Rewrites `<variable.oldName>` references to `<variable.newName>` inside
- * every block's subBlock values stored in the Yjs workflow map.
+ * every block's subBlock values and any text-backed workflow subblocks stored
+ * in the Yjs document.
  *
  * Name comparison is case-insensitive and ignores internal whitespace,
  * matching the existing Zustand store behaviour.
@@ -169,7 +170,12 @@ export function rewriteVariableReferences(
   if (oldName === newName || oldName.trim() === '' || newName.trim() === '') return
 
   doc.transact(() => {
-    rewriteVariableReferencesInBlocks(getWorkflowMap(doc), oldName, newName)
+    rewriteVariableReferencesInWorkflowContent(
+      getWorkflowMap(doc),
+      getWorkflowTextFieldsMap(doc),
+      oldName,
+      newName
+    )
   }, origin ?? 'variable-rename')
 }
 
@@ -261,7 +267,12 @@ export function updateWorkflowVariable(
     vMap.set(id, nextVariable)
 
     if (current.name !== nextName && current.name.trim() !== '' && nextName.trim() !== '') {
-      rewriteVariableReferencesInBlocks(getWorkflowMap(doc), current.name, nextName)
+      rewriteVariableReferencesInWorkflowContent(
+        getWorkflowMap(doc),
+        getWorkflowTextFieldsMap(doc),
+        current.name,
+        nextName
+      )
     }
   }, origin ?? 'variable-update')
 
@@ -325,8 +336,9 @@ export function getWorkflowVariables(doc: Y.Doc, workflowId: string): Variable[]
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function rewriteVariableReferencesInBlocks(
+function rewriteVariableReferencesInWorkflowContent(
   workflowMap: Y.Map<any>,
+  textFields: Y.Map<any>,
   oldName: string,
   newName: string
 ): void {
@@ -336,6 +348,16 @@ function rewriteVariableReferencesInBlocks(
   const normalizedNew = newName.replace(/\s+/g, '').toLowerCase()
   const regex = new RegExp(`<variable\\.${escapeRegExp(normalizedOld)}>`, 'gi')
   const replacement = `<variable.${normalizedNew}>`
+
+  rewriteVariableReferencesInBlocks(workflowMap, regex, replacement)
+  rewriteVariableReferencesInTextFields(textFields, regex, replacement)
+}
+
+function rewriteVariableReferencesInBlocks(
+  workflowMap: Y.Map<any>,
+  regex: RegExp,
+  replacement: string
+): void {
   const blocks: Record<string, any> = workflowMap.get('blocks')
   if (!blocks || typeof blocks !== 'object') return
 
@@ -379,6 +401,33 @@ function rewriteVariableReferencesInBlocks(
   }
 }
 
+function rewriteVariableReferencesInTextFields(
+  textFields: Y.Map<any>,
+  regex: RegExp,
+  replacement: string
+): void {
+  for (const value of textFields.values()) {
+    if (!(value instanceof Y.Text)) {
+      continue
+    }
+
+    // Workflow text fields are plain-text subblock values, so replacing the
+    // full string is intentional here; there are no rich-text attributes to preserve.
+    const currentValue = value.toString()
+    const updatedValue = updateReferences(currentValue, regex, replacement)
+    if (updatedValue === currentValue) {
+      continue
+    }
+
+    if (value.length > 0) {
+      value.delete(0, value.length)
+    }
+    if (updatedValue) {
+      value.insert(0, updatedValue)
+    }
+  }
+}
+
 /**
  * Recursively updates `<variable.X>` references within a value.
  * Handles strings, arrays, and nested plain objects.
@@ -417,4 +466,3 @@ function updateReferences(value: any, regex: RegExp, replacement: string): any {
 
   return value
 }
-

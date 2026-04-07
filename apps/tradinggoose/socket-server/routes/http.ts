@@ -46,8 +46,8 @@ type HttpHandlerOptions = {
 
 const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
-const INTERNAL_YJS_WORKFLOW_STATE_UPDATE_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/state-update$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
+const INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/clear-reseeded$/
 const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 
 type ApplyWorkflowStateRequest = {
@@ -177,6 +177,12 @@ function replaceWorkflowDocState(
   }, YJS_ORIGINS.SYSTEM)
 }
 
+function clearSessionReseededFromCanonical(doc: Y.Doc): void {
+  doc.transact(() => {
+    doc.getMap('metadata').delete('reseededFromCanonical')
+  }, YJS_ORIGINS.SAVE)
+}
+
 async function handleInternalYjsWorkflowApplyRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -227,6 +233,48 @@ async function handleInternalYjsSessionDeleteRequest(
   }
 }
 
+async function handleInternalYjsSessionClearReseededRequest(
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    const liveDoc = await getExistingDocument(sessionId)
+    if (liveDoc) {
+      clearSessionReseededFromCanonical(liveDoc)
+      await storeState(sessionId, Y.encodeStateAsUpdate(liveDoc))
+
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ success: true, updated: true }))
+      return
+    }
+
+    const state = await getState(sessionId)
+    if (!state) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ success: true, updated: false }))
+      return
+    }
+
+    const doc = new Y.Doc()
+
+    try {
+      Y.applyUpdate(doc, state)
+      clearSessionReseededFromCanonical(doc)
+      await storeState(sessionId, Y.encodeStateAsUpdate(doc))
+    } finally {
+      doc.destroy()
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ success: true, updated: true }))
+  } catch (error) {
+    logger.error('Error clearing reseeded flag from Yjs session', { error, sessionId })
+    res.writeHead(500, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Failed to clear reseeded flag' }))
+  }
+}
+
 async function getLiveOrPersistedYjsState(
   sessionId: string
 ): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null }> {
@@ -241,33 +289,6 @@ async function getLiveOrPersistedYjsState(
   return {
     liveDoc: null,
     state: await getState(sessionId),
-  }
-}
-
-async function handleInternalYjsWorkflowStateUpdateRequest(
-  res: ServerResponse,
-  logger: Logger,
-  workflowId: string
-): Promise<void> {
-  try {
-    const { state } = await getLiveOrPersistedYjsState(workflowId)
-
-    if (!state) {
-      res.writeHead(404)
-      res.end()
-      return
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(
-      JSON.stringify({
-        snapshotBase64: Buffer.from(state).toString('base64'),
-      })
-    )
-  } catch (error) {
-    logger.error('Error getting Yjs workflow state update', { error, workflowId })
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Failed to get workflow state update' }))
   }
 }
 
@@ -329,20 +350,20 @@ async function handleInternalYjsRequest(
     return true
   }
 
-  const stateUpdateId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_WORKFLOW_STATE_UPDATE_PATH,
-    'GET',
-    req.method
-  )
-  if (stateUpdateId) {
-    await handleInternalYjsWorkflowStateUpdateRequest(res, logger, stateUpdateId)
-    return true
-  }
-
   const snapshotId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_SNAPSHOT_PATH, 'GET', req.method)
   if (snapshotId) {
     await handleInternalYjsSnapshotRequest(parsedUrl, res, logger, snapshotId)
+    return true
+  }
+
+  const clearReseededId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH,
+    'POST',
+    req.method
+  )
+  if (clearReseededId) {
+    await handleInternalYjsSessionClearReseededRequest(res, logger, clearReseededId)
     return true
   }
 

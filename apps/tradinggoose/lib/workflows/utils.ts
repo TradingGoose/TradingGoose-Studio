@@ -489,9 +489,14 @@ export function hasWorkflowChanged(
   }
 
   // 6. Compare global workflow variables
+  const deployedStateIncludesVariables = Object.prototype.hasOwnProperty.call(
+    deployedState,
+    'variables'
+  )
   if (
+    deployedStateIncludesVariables &&
     normalizedStringify(currentState.variables || {}) !==
-    normalizedStringify(deployedState.variables || {})
+      normalizedStringify(deployedState.variables || {})
   ) {
     return true
   }

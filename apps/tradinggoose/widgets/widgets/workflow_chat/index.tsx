@@ -21,7 +21,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { OutputSelect } from './components'
-import WorkflowChatApp from './components/workflow-chat-app'
+import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
 const ChatWidgetBody = ({
   params,
@@ -119,10 +119,12 @@ function useChannelWorkflowId(channelId: string, fallbackWorkflowId?: string | n
 }
 
 function ChatOutputsHeader({
+  workspaceId,
   channelId,
   fallbackWorkflowId,
   triggerClassName,
 }: {
+  workspaceId?: string
   channelId: string
   fallbackWorkflowId?: string | null
   triggerClassName?: string
@@ -146,19 +148,33 @@ function ChatOutputsHeader({
     [setSelectedWorkflowOutput, workflowId]
   )
 
+  const outputSelect = (
+    <OutputSelect
+      workflowId={workflowId}
+      selectedOutputs={selectedOutputs}
+      onOutputSelect={handleSelect}
+      disabled={!workflowId}
+      placeholder='Select outputs'
+      triggerClassName={triggerClassName}
+    />
+  )
+
   return (
     <div className='flex min-w-0 items-center gap-2'>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className='min-w-[220px]'>
-            <OutputSelect
-              workflowId={workflowId}
-              selectedOutputs={selectedOutputs}
-              onOutputSelect={handleSelect}
-              disabled={!workflowId}
-              placeholder='Select outputs'
-              triggerClassName={triggerClassName}
-            />
+            {workspaceId && workflowId ? (
+              <WorkflowChatSessionProviders
+                workspaceId={workspaceId}
+                workflowId={workflowId}
+                channelId={channelId}
+              >
+                {outputSelect}
+              </WorkflowChatSessionProviders>
+            ) : (
+              outputSelect
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent side='top'>Select workflow outputs</TooltipContent>
@@ -282,6 +298,7 @@ export const chatWidget: DashboardWidgetDefinition = {
       left: (
         <div className={widgetHeaderButtonGroupClassName()}>
           <ChatOutputsHeader
+            workspaceId={context?.workspaceId}
             channelId={channelId}
             fallbackWorkflowId={workflowIdParam}
             triggerClassName={widgetHeaderControlClassName(

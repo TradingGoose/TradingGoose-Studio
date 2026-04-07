@@ -8,7 +8,6 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import * as Y from 'yjs'
 import { z } from 'zod'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
@@ -18,16 +17,22 @@ import {
   loadSkill,
 } from '@/lib/copilot/review-sessions/entity-loaders'
 import {
+  buildYjsTransportEnvelope,
   buildReviewTargetDescriptor,
+  serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
+import { isReplaySafeReviewTarget } from '@/lib/copilot/review-sessions/runtime'
 import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { IdempotencyService } from '@/lib/idempotency/service'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { normalizeStringArray, sanitizeRecord } from '@/lib/utils'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  clearYjsSessionReseededFromCanonicalInSocketServer,
+  getYjsSnapshot,
+  SocketServerBridgeError,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SaveReviewEntity')
 
@@ -171,17 +176,28 @@ function assertReplaySafeSession(
 }
 
 async function clearReseededFromCanonical(reviewSessionId: string): Promise<void> {
-  const [{ getDocument, setPersistence }, { getState, storeState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
+  await clearYjsSessionReseededFromCanonicalInSocketServer(reviewSessionId)
+}
 
-  setPersistence(reviewSessionId, { getState, storeState })
-  const doc = getDocument(reviewSessionId)
-  doc.transact(() => {
-    doc.getMap('metadata').delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SAVE)
-  await storeState(reviewSessionId, Y.encodeStateAsUpdate(doc))
+async function assertReplaySafeRuntime(session: LoadedReviewSession): Promise<void> {
+  const descriptor = buildReviewTargetDescriptor(session)
+
+  try {
+    const snapshot = await getYjsSnapshot(
+      descriptor.yjsSessionId,
+      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+    )
+
+    if (isReplaySafeReviewTarget(snapshot.runtime)) {
+      return
+    }
+  } catch (error) {
+    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
+      throw error
+    }
+  }
+
+  throw new SaveReviewEntityError(409, 'replay_unsafe')
 }
 
 async function buildReviewTargetFromSession(
@@ -561,9 +577,7 @@ async function saveMcpServer(
 ) {
   const payload = request.mcpServer
   const normalizedUrl =
-    payload.url && payload.transport
-      ? normalizeMcpUrl(payload.transport, payload.url)
-      : (payload.url ?? null)
+    payload.url ? normalizeMcpUrl(payload.url) : (payload.url ?? null)
   const headers = sanitizeRecord(payload.headers ?? {})
   const env = sanitizeRecord(payload.env ?? {})
   const args = normalizeStringArray(payload.args ?? [])
@@ -629,19 +643,17 @@ async function saveMcpServer(
   })
 }
 
-function normalizeMcpUrl(transport: McpTransport, url: string | null | undefined): string | null {
-  if (!url || transport === 'http' || transport === 'sse' || transport === 'streamable-http') {
-    if (!url?.trim()) {
-      return null
-    }
-    const validation = validateMcpServerUrl(url)
-    if (!validation.isValid) {
-      throw new SaveReviewEntityError(400, validation.error || 'Invalid server URL')
-    }
-    return validation.normalizedUrl ?? url.trim()
+function normalizeMcpUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) {
+    return null
   }
 
-  return url ?? null
+  const validation = validateMcpServerUrl(url)
+  if (!validation.isValid) {
+    throw new SaveReviewEntityError(400, validation.error || 'Invalid server URL')
+  }
+
+  return validation.normalizedUrl ?? url.trim()
 }
 
 export async function saveReviewEntity(userId: string, request: SaveReviewEntityRequest) {
@@ -653,6 +665,7 @@ export async function saveReviewEntity(userId: string, request: SaveReviewEntity
   }
 
   assertReplaySafeSession(reviewSession, request)
+  await assertReplaySafeRuntime(reviewSession)
 
   switch (request.entityKind) {
     case 'skill':

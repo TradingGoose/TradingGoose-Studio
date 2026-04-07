@@ -33,7 +33,7 @@ export interface ReviewTargetRuntimeState {
 
 export interface ResolvedReviewTarget {
   descriptor: ReviewTargetDescriptor
-  runtime: ReviewTargetRuntimeState
+  runtime: ReviewTargetRuntimeState | null
 }
 
 export const YJS_TARGET_KINDS = ['workflow', 'review_session'] as const

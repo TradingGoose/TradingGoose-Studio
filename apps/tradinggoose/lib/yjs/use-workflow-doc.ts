@@ -57,7 +57,7 @@ import {
   duplicateWorkflowVariable,
   updateWorkflowVariable,
 } from '@/lib/yjs/workflow-variables'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 
 // ---------------------------------------------------------------------------
@@ -644,7 +644,7 @@ export function useWorkflowTextField(
 
       doc.transact(() => {
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-      }, YJS_ORIGINS.USER)
+      }, YJS_ORIGINS.SYSTEM)
     }, mirrorDelayMs)
 
     return () => clearTimeout(timeoutId)
@@ -752,7 +752,10 @@ export function useWorkflowMutations() {
     (
       id: string,
       updater: (block: any) => any,
-      afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void
+      afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void,
+      options?: {
+        origin?: YjsOrigin
+      }
     ) => {
       transactWorkflow((d) => {
         const wMap = getWorkflowMap(d)
@@ -764,7 +767,7 @@ export function useWorkflowMutations() {
         blocks[id] = updated
         wMap.set(YJS_KEYS.BLOCKS, blocks)
         afterPatch?.(wMap, blocks)
-      }, YJS_ORIGINS.USER)
+      }, options?.origin ?? YJS_ORIGINS.USER)
     },
     [transactWorkflow]
   )
@@ -845,6 +848,8 @@ export function useWorkflowMutations() {
 
         blocks[id] = block
         wMap.set(YJS_KEYS.BLOCKS, blocks)
+        regenLoops(wMap, blocks)
+        regenParallels(wMap, blocks)
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -930,12 +935,23 @@ export function useWorkflowMutations() {
   )
 
   const updateBlockPosition = useCallback(
-    (id: string, position: Position) => patchBlock(id, (b) => ({ ...b, position })),
+    (
+      id: string,
+      position: Position,
+      options?: {
+        origin?: YjsOrigin
+      }
+    ) => patchBlock(id, (b) => ({ ...b, position }), undefined, options),
     [patchBlock]
   )
 
   const updateBlockPositions = useCallback(
-    (updates: Array<{ id: string; position: Position }>) => {
+    (
+      updates: Array<{ id: string; position: Position }>,
+      options?: {
+        origin?: YjsOrigin
+      }
+    ) => {
       transactWorkflow((d) => {
         const wMap = getWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
@@ -945,7 +961,7 @@ export function useWorkflowMutations() {
           }
         }
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-      }, YJS_ORIGINS.USER)
+      }, options?.origin ?? YJS_ORIGINS.USER)
     },
     [transactWorkflow]
   )

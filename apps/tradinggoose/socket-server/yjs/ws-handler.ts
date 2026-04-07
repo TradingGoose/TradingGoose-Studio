@@ -7,12 +7,12 @@ import {
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  bootstrapReviewTarget,
-  ReviewTargetBootstrapError,
+  getRuntimeStateFromDoc,
+  getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { getState, storeState } from './persistence'
-import { setPersistence, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setPersistence, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 
@@ -57,12 +57,6 @@ export function handleYjsUpgrade(
         return
       }
 
-      if (error instanceof ReviewTargetBootstrapError) {
-        const status = error.status >= 400 && error.status < 500 ? error.status : 500
-        rejectUpgrade(socket, status, error.message)
-        return
-      }
-
       logger.error('Yjs upgrade error', { error })
       rejectUpgrade(socket, 500, 'Internal error')
     })
@@ -80,9 +74,6 @@ async function authenticateAndPrepareUpgrade(
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
 
-  // These two steps must be sequential: bootstrapReviewTarget depends on
-  // `access.workspaceId` to resolve the canonical workspace, so it cannot
-  // run in parallel with the access check.
   const access = await verifyReviewTargetAccess(userId, {
     entityKind: descriptor.entityKind,
     entityId: descriptor.entityId,
@@ -96,22 +87,27 @@ async function authenticateAndPrepareUpgrade(
     throw new YjsAuthError(403, 'Forbidden')
   }
 
-  const resolved = await bootstrapReviewTarget({
-    ...descriptor,
-    workspaceId: access.workspaceId ?? descriptor.workspaceId,
-  })
+  const liveDoc = await getExistingDocument(pathSessionId)
+  const persistedState = liveDoc ? null : await getState(pathSessionId)
+  const runtime = liveDoc
+    ? getRuntimeStateFromDoc(liveDoc)
+    : persistedState
+      ? getRuntimeStateFromUpdate(persistedState)
+      : null
 
-  if (resolved.runtime.docState === 'expired') {
-    throw new YjsAuthError(409, 'Review target expired')
+  // Snapshot bootstrap is the only path that materializes a missing review target.
+  // WebSocket upgrades only attach to an already-bootstrapped Yjs session.
+  if (!runtime) {
+    throw new YjsAuthError(409, 'Review target is not bootstrapped')
   }
 
-  if (resolved.descriptor.yjsSessionId !== pathSessionId) {
-    throw new YjsAuthError(409, 'Resolved Yjs session mismatch')
+  if (runtime.docState === 'expired') {
+    throw new YjsAuthError(409, 'Review target expired')
   }
 
   return {
     userId,
-    resolvedSessionId: resolved.descriptor.yjsSessionId,
+    resolvedSessionId: pathSessionId,
   }
 }
 

@@ -80,6 +80,9 @@ export async function GET(
 
   try {
     const resolved = await bootstrapReviewTarget(authorizedDescriptor)
+    if (!resolved.runtime) {
+      return NextResponse.json({ error: 'Bootstrap runtime missing' }, { status: 500 })
+    }
 
     if (resolved.runtime.docState === 'expired') {
       return NextResponse.json(
@@ -91,8 +94,9 @@ export async function GET(
       )
     }
 
-    // The bootstrap already persisted the doc, so read the state directly
-    // instead of making a second HTTP round-trip via getYjsSnapshot.
+    // Snapshot is the single review-target bootstrap boundary. Once it seeds the
+    // missing session into shared persistence, websocket attach and later reads
+    // consume that persisted state instead of bootstrapping again.
     const state = await getPersistedYjsState(resolved.descriptor.yjsSessionId)
     if (!state) {
       return NextResponse.json({ error: 'Snapshot not available after bootstrap' }, { status: 500 })

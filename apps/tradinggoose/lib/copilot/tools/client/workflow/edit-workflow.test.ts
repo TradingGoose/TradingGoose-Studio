@@ -6,6 +6,7 @@ import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 const mockRequireActiveWorkflowSession = vi.fn()
 const mockSerializeReadableWorkflowSnapshot = vi.fn()
 const mockSetWorkflowState = vi.fn()
+const mockExtractPersistedStateFromDoc = vi.fn()
 
 let accessLevel: 'limited' | 'full' = 'limited'
 let persistedToolCalls: Record<string, any> = {}
@@ -20,6 +21,7 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
   setWorkflowState: (...args: any[]) => mockSetWorkflowState(...args),
+  extractPersistedStateFromDoc: (...args: any[]) => mockExtractPersistedStateFromDoc(...args),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
@@ -40,6 +42,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     mockRequireActiveWorkflowSession.mockReset()
     mockSerializeReadableWorkflowSnapshot.mockReset()
     mockSetWorkflowState.mockReset()
+    mockExtractPersistedStateFromDoc.mockReset()
 
     mockSerializeReadableWorkflowSnapshot.mockResolvedValue({
       workflowId: 'wf-1',
@@ -69,6 +72,20 @@ describe('EditWorkflowClientTool approval gating', () => {
       doc: { id: 'doc-1' },
       provider: null,
       undoManager: null,
+    })
+    mockExtractPersistedStateFromDoc.mockReturnValue({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {
+        'var-1': {
+          id: 'var-1',
+          name: 'region',
+          value: 'us-west-2',
+        },
+      },
+      lastSaved: 123,
     })
   })
 
@@ -105,6 +122,14 @@ describe('EditWorkflowClientTool approval gating', () => {
       }
 
       if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/workflows/wf-1/state') {
         return {
           ok: true,
           status: 200,
@@ -262,6 +287,14 @@ describe('EditWorkflowClientTool approval gating', () => {
         }
       }
 
+      if (url === '/api/workflows/wf-1/state') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -287,7 +320,17 @@ describe('EditWorkflowClientTool approval gating', () => {
       nextWorkflowState,
       YJS_ORIGINS.COPILOT_REVIEW_ACCEPT
     )
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(mockExtractPersistedStateFromDoc).toHaveBeenCalledWith({ id: 'doc-1' })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/workflows/wf-1/state',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mockExtractPersistedStateFromDoc.mock.results[0].value),
+      })
+    )
   })
 
   it('auto-applies full-access workflow edits through the same Yjs approval path', async () => {
@@ -322,6 +365,14 @@ describe('EditWorkflowClientTool approval gating', () => {
         }
       }
 
+      if (url === '/api/workflows/wf-1/state') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -342,7 +393,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
     expect(mockSetWorkflowState).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it('accepts persisted staged workflow edits after reload through the unified user-action handler', async () => {
@@ -385,6 +436,14 @@ describe('EditWorkflowClientTool approval gating', () => {
         }
       }
 
+      if (url === '/api/workflows/wf-1/state') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -407,6 +466,7 @@ describe('EditWorkflowClientTool approval gating', () => {
       stagedWorkflowState,
       YJS_ORIGINS.COPILOT_REVIEW_ACCEPT
     )
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockExtractPersistedStateFromDoc).toHaveBeenCalledWith({ id: 'doc-1' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

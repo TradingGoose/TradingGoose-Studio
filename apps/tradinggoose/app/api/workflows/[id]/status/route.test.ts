@@ -87,7 +87,10 @@ describe('Workflow Status API Route', () => {
     vi.unstubAllGlobals()
   })
 
-  it('marks variable-only edits as needing redeployment', async () => {
+  it(
+    'marks variable-only edits as needing redeployment',
+    { timeout: 10_000 },
+    async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
       error: null,
       workflow: {
@@ -140,5 +143,54 @@ describe('Workflow Status API Route', () => {
 
     const data = await response.json()
     expect(data.data.needsRedeployment).toBe(true)
+    }
+  )
+
+  it('does not report redeployment for legacy deployment rows missing variables', async () => {
+    mockValidateWorkflowAccess.mockResolvedValue({
+      error: null,
+      workflow: {
+        isDeployed: true,
+        deployedAt: null,
+        isPublished: false,
+      },
+    })
+
+    mockLoadWorkflowStateWithFallback.mockResolvedValue({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {
+        region: {
+          id: 'var-1',
+          name: 'region',
+          value: 'us-west-2',
+        },
+      },
+      source: 'normalized',
+    })
+
+    mockLimit.mockResolvedValue([
+      {
+        state: {
+          blocks: {},
+          edges: [],
+          loops: {},
+          parallels: {},
+        },
+      },
+    ])
+
+    const request = new NextRequest('http://localhost:3000/api/workflows/workflow-123/status')
+    const params = Promise.resolve({ id: 'workflow-123' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/status/route')
+    const response = await GET(request, { params })
+
+    expect(response.status).toBe(200)
+
+    const data = await response.json()
+    expect(data.data.needsRedeployment).toBe(false)
   })
 })

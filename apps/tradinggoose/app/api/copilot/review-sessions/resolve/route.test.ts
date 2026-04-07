@@ -19,7 +19,6 @@ describe('Review Session Resolve Route', () => {
   const mockVerifyReviewTargetAccess = vi.fn()
   const mockLoadReviewSessionForUser = vi.fn()
   const mockBuildReviewTargetDescriptor = vi.fn()
-  const mockBootstrapReviewTarget = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -39,14 +38,6 @@ describe('Review Session Resolve Route', () => {
       draftSessionId: row.draftSessionId,
       reviewSessionId: row.id,
       yjsSessionId: row.id,
-    }))
-    mockBootstrapReviewTarget.mockImplementation(async (descriptor: any) => ({
-      descriptor,
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
     }))
 
     mockSelect.mockReturnValue({ from: mockFrom })
@@ -110,19 +101,6 @@ describe('Review Session Resolve Route', () => {
       })),
     }))
 
-    class MockReviewTargetBootstrapError extends Error {
-      status: number
-
-      constructor(status: number, message: string) {
-        super(message)
-        this.status = status
-      }
-    }
-
-    vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
-      bootstrapReviewTarget: mockBootstrapReviewTarget,
-      ReviewTargetBootstrapError: MockReviewTargetBootstrapError,
-    }))
   })
 
   afterEach(() => {
@@ -161,11 +139,7 @@ describe('Review Session Resolve Route', () => {
         reviewSessionId: 'review-session-1',
         yjsSessionId: 'review-session-1',
       },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
+      runtime: null,
     })
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith('collaborator-user', {
@@ -213,11 +187,7 @@ describe('Review Session Resolve Route', () => {
         reviewSessionId: 'review-session-entity-1',
         yjsSessionId: 'review-session-entity-1',
       },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
+      runtime: null,
     })
     expect(mockLoadReviewSessionForUser).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
@@ -256,14 +226,46 @@ describe('Review Session Resolve Route', () => {
         reviewSessionId: 'review-session-draft-1',
         yjsSessionId: 'review-session-draft-1',
       },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
+      runtime: null,
     })
     expect(mockLoadReviewSessionForUser).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('returns the draft descriptor without bootstrapping runtime state', async () => {
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: 'review-session-draft-1',
+        userId: 'collaborator-user',
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
+        channelId: null,
+        model: 'claude-4.5-sonnet',
+      },
+    ])
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+    })
+
+    const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
+        reviewSessionId: 'review-session-draft-1',
+        yjsSessionId: 'review-session-draft-1',
+      },
+      runtime: null,
+    })
   })
 
   it('does not reuse a reviewSessionId when the helper denies access to that session', async () => {
@@ -287,7 +289,6 @@ describe('Review Session Resolve Route', () => {
       'review-session-1',
       'collaborator-user'
     )
-    expect(mockBootstrapReviewTarget).not.toHaveBeenCalled()
   })
 
   it('keeps the existing target mismatch check when the loaded session is for another target', async () => {
@@ -315,7 +316,6 @@ describe('Review Session Resolve Route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Review session does not match requested target',
     })
-    expect(mockBootstrapReviewTarget).not.toHaveBeenCalled()
   })
 
   it('rejects a cached reviewSessionId when it belongs to a different entity in the same workspace', async () => {
@@ -343,6 +343,5 @@ describe('Review Session Resolve Route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Review session does not match requested target',
     })
-    expect(mockBootstrapReviewTarget).not.toHaveBeenCalled()
   })
 })

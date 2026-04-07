@@ -15,7 +15,7 @@ import {
   remapVariableIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
-import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -158,12 +158,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         isDeployed: false,
       })
 
-      const [, saveResult] = await Promise.all([
-        applyWorkflowState(newWorkflowId, duplicatedSnapshot, duplicatedVariables),
-        saveWorkflowToNormalizedTables(newWorkflowId, duplicatedWorkflowState),
-      ])
+      // Persist canonical workflow state before best-effort Yjs sync so the duplicate
+      // survives bridge outages and never depends on socket-server availability.
+      const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, duplicatedWorkflowState)
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save duplicated workflow state')
+      }
+
+      const yjsApplyResult = await tryApplyWorkflowState(
+        newWorkflowId,
+        duplicatedSnapshot,
+        duplicatedVariables
+      )
+      if (!yjsApplyResult.success) {
+        logger.warn(
+          `[${requestId}] Duplicated workflow ${newWorkflowId} without Yjs sync; canonical state was persisted`,
+          { sourceWorkflowId, newWorkflowId, error: yjsApplyResult.error }
+        )
       }
     } catch (duplicationError) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))

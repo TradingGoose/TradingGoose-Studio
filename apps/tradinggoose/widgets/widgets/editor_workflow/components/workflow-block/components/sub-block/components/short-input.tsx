@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Wand2 } from 'lucide-react'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,6 @@ import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-
 import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 
@@ -87,14 +86,6 @@ export function ShortInput({
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
 
-  // State management - useSubBlockValue with explicit streaming control
-  const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: streamingLock,
-    onStreamingEnd: () => {
-      logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
-    },
-  })
-
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -109,8 +100,7 @@ export function ShortInput({
   // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
   const reactFlowInstance = useOptionalReactFlow()
 
-  const baseValue = propValue !== undefined ? propValue : storeValue
-  const baseValueString = baseValue?.toString() ?? ''
+  const baseValueString = propValue?.toString() ?? ''
   const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
     blockId,
     subBlockId,
@@ -122,7 +112,17 @@ export function ShortInput({
     }
   )
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
-  const commitValue = isWorkflowManaged ? setTextFieldValue : (onChange ?? setStoreValue)
+  const commitValue = useCallback(
+    (nextValue: string) => {
+      if (isWorkflowManaged) {
+        setTextFieldValue(nextValue)
+        return
+      }
+
+      onChange?.(nextValue)
+    },
+    [isWorkflowManaged, onChange, setTextFieldValue]
+  )
   const {
     value: localContent,
     setValueLocal: setLocalContent,

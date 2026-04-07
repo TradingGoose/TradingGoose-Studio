@@ -2,13 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import type { Edge } from 'reactflow'
 import { resolveStoredDateValue } from '@/lib/time-format'
-import {
-  useWorkflowBlocks,
-  useWorkflowEdges,
-  useWorkflowLoops,
-  useWorkflowParallels,
-  useWorkflowDoc,
-} from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 /**
@@ -37,11 +31,15 @@ export interface CurrentWorkflow {
  * Now reads directly from the Yjs document via use-workflow-doc hooks.
  */
 export function useCurrentWorkflow(): CurrentWorkflow {
-  const blocks = useWorkflowBlocks()
-  const edges = useWorkflowEdges()
-  const loops = useWorkflowLoops()
-  const parallels = useWorkflowParallels()
-  const { isDeployed, deployedAt: rawDeployedAt, lastSaved: rawLastSaved } = useWorkflowDoc()
+  const {
+    blocks,
+    edges,
+    loops,
+    parallels,
+    isDeployed,
+    deployedAt: rawDeployedAt,
+    lastSaved: rawLastSaved,
+  } = useWorkflowDoc()
 
   // Keep refs in sync so stable callbacks always read current data
   const blocksRef = useLatestRef(blocks)

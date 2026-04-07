@@ -88,6 +88,7 @@ export async function bootstrapYjsProvider(
     replaySafe: true,
     reseededFromCanonical: false,
   }
+  let localOnlyRecovery = false
 
   try {
     snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
@@ -98,14 +99,46 @@ export async function bootstrapYjsProvider(
       throw error
     }
 
+    const expiredBody = error.body as
+      | {
+          descriptor?: ReviewTargetDescriptor
+          runtime?: ReviewTargetRuntimeState
+        }
+      | undefined
+
+    resolvedDescriptor = expiredBody?.descriptor ?? descriptor
+    runtime =
+      expiredBody?.runtime ?? {
+        docState: 'expired',
+        replaySafe: false,
+        reseededFromCanonical: false,
+      }
+
     seedEntitySession(doc, {
       entityKind: options.draftSeed.entityKind,
       payload: options.draftSeed.payload,
     })
+    localOnlyRecovery = true
   }
 
   if (snapshot?.snapshotBase64) {
     applySnapshotToDoc(doc, snapshot.snapshotBase64)
+  }
+
+  const wsOrigin = options?.wsOrigin ?? getDefaultWsOrigin()
+  const serverUrl = `${wsOrigin}/yjs`
+
+  if (localOnlyRecovery) {
+    const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
+      connect: false,
+    })
+
+    return {
+      doc,
+      provider,
+      descriptor: resolvedDescriptor,
+      runtime,
+    }
   }
 
   const envelopeParams = serializeYjsTransportEnvelope(
@@ -113,8 +146,6 @@ export async function bootstrapYjsProvider(
   )
   const token = await fetchSocketToken()
 
-  const wsOrigin = options?.wsOrigin ?? getDefaultWsOrigin()
-  const serverUrl = `${wsOrigin}/yjs`
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
     params: { token, ...envelopeParams },
     connect: true,

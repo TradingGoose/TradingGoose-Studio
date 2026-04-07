@@ -8,26 +8,15 @@ const {
   mockUpdate,
   mockLoadReviewSessionForUser,
   mockBuildReviewTargetDescriptor,
-  mockGetDocument,
-  mockSetPersistence,
-  mockGetState,
-  mockStoreState,
-  mockEncodeStateAsUpdate,
+  mockGetYjsSnapshot,
+  mockClearYjsSessionReseededFromCanonicalInSocketServer,
 } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
   mockLoadReviewSessionForUser: vi.fn(),
   mockBuildReviewTargetDescriptor: vi.fn(),
-  mockGetDocument: vi.fn(),
-  mockSetPersistence: vi.fn(),
-  mockGetState: vi.fn(),
-  mockStoreState: vi.fn(),
-  mockEncodeStateAsUpdate: vi.fn(),
-}))
-
-vi.mock('yjs', () => ({
-  default: {},
-  encodeStateAsUpdate: mockEncodeStateAsUpdate,
+  mockGetYjsSnapshot: vi.fn(),
+  mockClearYjsSessionReseededFromCanonicalInSocketServer: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -82,6 +71,17 @@ vi.mock('@/lib/colors', () => ({
 
 vi.mock('@/lib/copilot/review-sessions/identity', () => ({
   buildReviewTargetDescriptor: mockBuildReviewTargetDescriptor,
+  buildYjsTransportEnvelope: vi.fn((descriptor: any) => ({
+    targetKind: descriptor.entityKind === 'workflow' ? 'workflow' : 'review_session',
+    sessionId: descriptor.yjsSessionId,
+    workflowId: descriptor.entityKind === 'workflow' ? descriptor.yjsSessionId : null,
+    reviewSessionId: descriptor.reviewSessionId,
+    workspaceId: descriptor.workspaceId,
+    entityKind: descriptor.entityKind,
+    entityId: descriptor.entityId,
+    draftSessionId: descriptor.draftSessionId,
+  })),
+  serializeYjsTransportEnvelope: vi.fn(() => ({})),
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
@@ -124,20 +124,19 @@ vi.mock('@/lib/utils', () => ({
   sanitizeRecord: vi.fn((value: Record<string, string>) => value),
 }))
 
-vi.mock('@/lib/yjs/transaction-origins', () => ({
-  YJS_ORIGINS: {
-    SAVE: 'save',
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  getYjsSnapshot: mockGetYjsSnapshot,
+  SocketServerBridgeError: class SocketServerBridgeError extends Error {
+    constructor(
+      public status: number,
+      public body: string
+    ) {
+      super(body)
+      this.name = 'SocketServerBridgeError'
+    }
   },
-}))
-
-vi.mock('@/socket-server/yjs/upstream-utils', () => ({
-  getDocument: mockGetDocument,
-  setPersistence: mockSetPersistence,
-}))
-
-vi.mock('@/socket-server/yjs/persistence', () => ({
-  getState: mockGetState,
-  storeState: mockStoreState,
+  clearYjsSessionReseededFromCanonicalInSocketServer:
+    mockClearYjsSessionReseededFromCanonicalInSocketServer,
 }))
 
 import {
@@ -168,18 +167,7 @@ describe('saveReviewEntity shared session access', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-
-    const metadataMap = {
-      delete: vi.fn(),
-    }
-    const doc = {
-      transact: vi.fn((callback: () => void) => callback()),
-      getMap: vi.fn(() => metadataMap),
-    }
-
-    mockGetDocument.mockReturnValue(doc)
-    mockEncodeStateAsUpdate.mockReturnValue(new Uint8Array())
-    mockStoreState.mockResolvedValue(undefined)
+    mockClearYjsSessionReseededFromCanonicalInSocketServer.mockResolvedValue(undefined)
     mockBuildReviewTargetDescriptor.mockImplementation((row: any) => ({
       workspaceId: row.workspaceId,
       entityKind: row.entityKind,
@@ -188,6 +176,22 @@ describe('saveReviewEntity shared session access', () => {
       reviewSessionId: row.id,
       yjsSessionId: row.id,
     }))
+    mockGetYjsSnapshot.mockResolvedValue({
+      snapshotBase64: '',
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'custom_tool',
+        entityId: 'tool-1',
+        draftSessionId: null,
+        reviewSessionId,
+        yjsSessionId: reviewSessionId,
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: false,
+      },
+    })
   })
 
   it('allows collaborators with write access to save a shared custom tool review session', async () => {
@@ -271,6 +275,9 @@ describe('saveReviewEntity shared session access', () => {
         yjsSessionId: reviewSessionId,
       },
     })
+    expect(mockClearYjsSessionReseededFromCanonicalInSocketServer).toHaveBeenCalledWith(
+      reviewSessionId
+    )
   })
 
   it('keeps draft review sessions creator-owned', async () => {
@@ -344,5 +351,58 @@ describe('saveReviewEntity shared session access', () => {
 
     await expect(request).rejects.toMatchObject(expectedError)
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('rejects saves when the resolved session runtime is replay unsafe', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: reviewSessionId,
+      workspaceId: 'workspace-1',
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      draftSessionId: null,
+      userId: 'creator-user',
+      model: 'claude-4.5-sonnet',
+    })
+    mockGetYjsSnapshot.mockResolvedValueOnce({
+      snapshotBase64: '',
+      descriptor: {
+        workspaceId: 'workspace-1',
+        entityKind: 'custom_tool',
+        entityId: 'tool-1',
+        draftSessionId: null,
+        reviewSessionId,
+        yjsSessionId: reviewSessionId,
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: false,
+        reseededFromCanonical: true,
+      },
+    })
+
+    const request = saveReviewEntity('collaborator-user', {
+      entityKind: 'custom_tool',
+      workspaceId: 'workspace-1',
+      reviewSessionId,
+      customTool: {
+        id: 'tool-1',
+        schema: {
+          type: 'function',
+          function: {
+            name: 'shared-tool',
+            description: 'Updated description',
+            parameters: { type: 'object', properties: {} },
+          },
+        },
+        code: 'export const sharedTool = true',
+      },
+    })
+
+    await expect(request).rejects.toMatchObject({
+      status: 409,
+      message: 'replay_unsafe',
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockClearYjsSessionReseededFromCanonicalInSocketServer).not.toHaveBeenCalled()
   })
 })

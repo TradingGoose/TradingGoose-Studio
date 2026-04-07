@@ -27,6 +27,7 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
@@ -390,7 +391,9 @@ const WorkflowCanvas = React.memo(
           getNodes,
           edgesForDisplay,
           affectedEdges,
-          updateBlockPosition: collaborativeUpdateBlockPosition,
+          updateBlockPosition: (id, position) => {
+            collaborativeUpdateBlockPosition(id, position)
+          },
           updateParentId,
           updateNodeDimensions,
         })
@@ -1406,7 +1409,9 @@ const WorkflowCanvas = React.memo(
     // Handle node drag to detect intersections with container nodes
     const onNodeDrag = useCallback(
       (_event: React.MouseEvent, node: any) => {
-        collaborativeUpdateBlockPosition(node.id, node.position)
+        collaborativeUpdateBlockPosition(node.id, node.position, {
+          origin: YJS_ORIGINS.SYSTEM,
+        })
 
         const draggedBlockConfig = node.data?.type ? getBlock(node.data.type) : null
         const isTriggerBlock = draggedBlockConfig?.category === 'triggers'
@@ -1462,7 +1467,9 @@ const WorkflowCanvas = React.memo(
     const onNodeDragStop = useCallback(
       (_event: React.MouseEvent, node: any) => {
         clearContainerHighlights()
-        collaborativeUpdateBlockPosition(node.id, node.position)
+        collaborativeUpdateBlockPosition(node.id, node.position, {
+          origin: YJS_ORIGINS.USER,
+        })
 
         try {
           const start = dragStartPositionRef.current

@@ -112,9 +112,19 @@ vi.doMock('@/lib/logs/console/logger', () => ({
 }))
 
 const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
-const mockGetWorkflowStateUpdateFromSocketServer = vi.fn()
+const mockGetYjsSnapshot = vi.fn()
+class MockSocketServerBridgeError extends Error {
+  constructor(
+    public status: number,
+    public body: string
+  ) {
+    super(body)
+    this.name = 'SocketServerBridgeError'
+  }
+}
 vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-  getWorkflowStateUpdateFromSocketServer: mockGetWorkflowStateUpdateFromSocketServer,
+  getYjsSnapshot: mockGetYjsSnapshot,
+  SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
 vi.doMock('@/lib/chat/published-deployment', () => ({
@@ -122,6 +132,25 @@ vi.doMock('@/lib/chat/published-deployment', () => ({
 }))
 
 const mockWorkflowId = 'test-workflow-123'
+
+function buildWorkflowSnapshotResponse(update: Uint8Array) {
+  return {
+    snapshotBase64: Buffer.from(update).toString('base64'),
+    descriptor: {
+      workspaceId: null,
+      entityKind: 'workflow' as const,
+      entityId: mockWorkflowId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: mockWorkflowId,
+    },
+    runtime: {
+      docState: 'active' as const,
+      replaySafe: true,
+      reseededFromCanonical: false,
+    },
+  }
+}
 
 const mockBlocksFromDb = [
   {
@@ -293,7 +322,7 @@ describe('Database Helpers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(null)
+    mockGetYjsSnapshot.mockRejectedValue(new MockSocketServerBridgeError(404, 'Not found'))
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
     mockDb.select.mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -857,7 +886,9 @@ describe('Database Helpers', () => {
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
 
-      mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
 
       const updateCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
       const insertCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
@@ -905,7 +936,16 @@ describe('Database Helpers', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockGetWorkflowStateUpdateFromSocketServer).toHaveBeenCalledWith(mockWorkflowId)
+      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+        mockWorkflowId,
+        expect.objectContaining({
+          targetKind: 'workflow',
+          sessionId: mockWorkflowId,
+          workflowId: mockWorkflowId,
+          entityKind: 'workflow',
+          entityId: mockWorkflowId,
+        })
+      )
       expect(mockDb.select).toHaveBeenCalledTimes(1)
       expect(result.currentState).toMatchObject({
         blocks: yjsState.blocks,
@@ -970,11 +1010,22 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
 
       const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
 
-      expect(mockGetWorkflowStateUpdateFromSocketServer).toHaveBeenCalledWith(mockWorkflowId)
+      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+        mockWorkflowId,
+        expect.objectContaining({
+          targetKind: 'workflow',
+          sessionId: mockWorkflowId,
+          workflowId: mockWorkflowId,
+          entityKind: 'workflow',
+          entityId: mockWorkflowId,
+        })
+      )
       expect(result).toMatchObject({
         blocks: yjsState.blocks,
         edges: yjsState.edges,
@@ -1016,7 +1067,9 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
 
       const result = await dbHelpers.loadWorkflowStateWithFallback(
         mockWorkflowId,
@@ -1064,7 +1117,9 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -1100,7 +1155,7 @@ describe('Database Helpers', () => {
     })
 
     it('falls back to normalized tables when the Yjs bridge errors', async () => {
-      mockGetWorkflowStateUpdateFromSocketServer.mockRejectedValueOnce(
+      mockGetYjsSnapshot.mockRejectedValueOnce(
         new Error('socket server unavailable')
       )
 
@@ -1190,7 +1245,9 @@ describe('Database Helpers', () => {
         },
         'test'
       )
-      mockGetWorkflowStateUpdateFromSocketServer.mockResolvedValue(Y.encodeStateAsUpdate(doc))
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
 
       let callCount = 0
       mockDb.select.mockImplementation(() => ({

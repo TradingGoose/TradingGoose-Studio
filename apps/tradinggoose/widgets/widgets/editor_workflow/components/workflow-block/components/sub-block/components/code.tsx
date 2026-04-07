@@ -155,24 +155,16 @@ IMPORTANT FORMATTING RULES:
     return wandConfig
   }, [wandConfig, isPythonLanguage])
 
-  const [storeValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: streamingLock,
-    onStreamingEnd: () => {
-      logger.debug('AI streaming ended, value persisted', { blockId, subBlockId })
-    },
-  })
-
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
   const shouldUseStoreValue = propValue === undefined
-  const rawValue = shouldUseStoreValue ? storeValue : propValue
-  const resolvedValue = useMemo(() => {
+  const fallbackValue = useMemo(() => {
     const resolvedValue = resolveDisplayedSubBlockValue(
       {
         readOnly,
         defaultValue,
       },
-      rawValue
+      propValue
     )
 
     if (typeof resolvedValue === 'string') {
@@ -188,7 +180,7 @@ IMPORTANT FORMATTING RULES:
     } catch {
       return String(resolvedValue)
     }
-  }, [defaultValue, rawValue, readOnly])
+  }, [defaultValue, propValue, readOnly])
 
   const isReadOnly = readOnly || disabled
   const useSharedTextField = shouldUseStoreValue && !isReadOnly
@@ -200,7 +192,7 @@ IMPORTANT FORMATTING RULES:
   } = useWorkflowTextField(
     blockId,
     subBlockId,
-    resolvedValue,
+    fallbackValue,
     {
       enabled: useSharedTextField,
       autoCreate: useSharedTextField,
@@ -209,7 +201,7 @@ IMPORTANT FORMATTING RULES:
   )
 
   const yText = useSharedTextField ? sharedYText : null
-  const code = useSharedTextField ? textFieldValue : resolvedValue
+  const code = useSharedTextField ? textFieldValue : fallbackValue
   const persistValue = useCallback(
     (nextValue: string, emitTag = false) => {
       if (!shouldUseStoreValue || isReadOnly) {

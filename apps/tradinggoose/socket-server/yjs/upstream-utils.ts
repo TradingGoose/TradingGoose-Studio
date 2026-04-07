@@ -3,8 +3,8 @@
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
  * needs: `getDocument`, `getExistingDocument`, `peekDocument`,
- * `setupWSConnection`, `setPersistence`, `setContentInitializer`,
- * `removeDocument`, and `cleanupAllDocuments`.
+ * `setupWSConnection`, `setPersistence`, `removeDocument`,
+ * and `cleanupAllDocuments`.
  */
 
 import * as Y from 'yjs'
@@ -30,11 +30,8 @@ export interface YjsPersistence {
   storeState: (docId: string, state: Uint8Array) => Promise<void>
 }
 
-type ContentInitializer = (doc: Y.Doc) => Promise<void>
-
 const docs = new Map<string, WSSharedDoc>()
 const persistenceMap = new Map<string, YjsPersistence>()
-const contentInitializerMap = new Map<string, ContentInitializer>()
 
 class WSSharedDoc extends Y.Doc {
   name: string
@@ -105,11 +102,6 @@ class WSSharedDoc extends Y.Doc {
         Y.applyUpdate(this, stored)
       }
     }
-
-    const initializer = contentInitializerMap.get(this.name)
-    if (initializer) {
-      await initializer(this)
-    }
   }
 
   private schedulePersist(): void {
@@ -168,6 +160,25 @@ class WSSharedDoc extends Y.Doc {
   }
 }
 
+function cleanupDocument(doc: WSSharedDoc): void {
+  if (docs.get(doc.name) !== doc) {
+    return
+  }
+
+  docs.delete(doc.name)
+  persistenceMap.delete(doc.name)
+  doc.destroy()
+}
+
+function finalizeDocumentCleanup(doc: WSSharedDoc): void {
+  void doc
+    .flushPersistence()
+    .catch(() => {})
+    .finally(() => {
+      cleanupDocument(doc)
+    })
+}
+
 function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
   if (conn.readyState !== wsReadyStateConnecting && conn.readyState !== wsReadyStateOpen) {
     closeConn(doc, conn)
@@ -192,15 +203,7 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
 
     if (doc.conns.size === 0) {
-      docs.delete(doc.name)
-      persistenceMap.delete(doc.name)
-      contentInitializerMap.delete(doc.name)
-      void doc
-        .flushPersistence()
-        .catch(() => {})
-        .finally(() => {
-          doc.destroy()
-        })
+      finalizeDocumentCleanup(doc)
     }
   }
 
@@ -348,13 +351,14 @@ export function setPersistence(
   persistenceMap.set(docId, hooks)
 }
 
-export function setContentInitializer(docId: string, fn: (doc: Y.Doc) => Promise<void>): void {
-  contentInitializerMap.set(docId, fn)
-}
-
 export function removeDocument(docId: string): void {
   const doc = docs.get(docId)
   if (!doc) {
+    return
+  }
+
+  if (doc.conns.size === 0) {
+    cleanupDocument(doc)
     return
   }
 
@@ -365,12 +369,6 @@ export function removeDocument(docId: string): void {
       // ignore
     }
   })
-  doc.conns.clear()
-
-  doc.destroy()
-  docs.delete(docId)
-  persistenceMap.delete(docId)
-  contentInitializerMap.delete(docId)
 }
 
 export function cleanupAllDocuments(): void {

@@ -9,7 +9,7 @@ describe('Workflow Duplicate API Route', () => {
   let remapVariableIdsMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
-  let applyWorkflowStateMock: ReturnType<typeof vi.fn>
+  let tryApplyWorkflowStateMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
   let deleteWhereMock: ReturnType<typeof vi.fn>
 
@@ -58,7 +58,7 @@ describe('Workflow Duplicate API Route', () => {
     )
     regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
     saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
-    applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
+    tryApplyWorkflowStateMock = vi.fn().mockResolvedValue({ success: true })
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
     deleteWhereMock = vi.fn().mockResolvedValue(undefined)
 
@@ -125,7 +125,7 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowState: applyWorkflowStateMock,
+      tryApplyWorkflowState: tryApplyWorkflowStateMock,
     }))
 
     vi.doMock('@/lib/yjs/workflow-session', () => ({
@@ -137,10 +137,7 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
   })
 
-  it(
-    'prefers the live Yjs source graph and variables when duplicating a workflow',
-    { timeout: 10_000 },
-    async () => {
+  it('prefers the live Yjs source graph and variables when duplicating a workflow', async () => {
     loadWorkflowStateWithFallbackMock.mockResolvedValue({
       blocks: {
         'live-block': {
@@ -177,12 +174,12 @@ describe('Workflow Duplicate API Route', () => {
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
     expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
-    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const appliedWorkflowId = applyWorkflowStateMock.mock.calls[0][0]
-    const appliedSnapshot = applyWorkflowStateMock.mock.calls[0][1]
-    const appliedVariables = applyWorkflowStateMock.mock.calls[0][2]
+    const appliedWorkflowId = tryApplyWorkflowStateMock.mock.calls[0][0]
+    const appliedSnapshot = tryApplyWorkflowStateMock.mock.calls[0][1]
+    const appliedVariables = tryApplyWorkflowStateMock.mock.calls[0][2]
     const savedState = saveWorkflowToNormalizedTablesMock.mock.calls[0][1]
 
     expect(insertedWorkflow.id).toBe(appliedWorkflowId)
@@ -208,7 +205,32 @@ describe('Workflow Duplicate API Route', () => {
         workflowId: appliedWorkflowId,
       }),
     ])
-      expect((Object.values(appliedVariables)[0] as { id: string }).id).not.toBe('live-var')
-    }
-  )
+    expect((Object.values(appliedVariables)[0] as { id: string }).id).not.toBe('live-var')
+  })
+
+  it('keeps the duplicate when canonical persistence succeeds but Yjs sync fails', async () => {
+    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {},
+      lastSaved: Date.now(),
+      source: 'normalized',
+    })
+    tryApplyWorkflowStateMock.mockResolvedValueOnce({
+      success: false,
+      error: new Error('socket bridge unavailable'),
+    })
+
+    const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
+    const response = await POST(createRequest({ name: 'Workflow Copy' }), {
+      params: Promise.resolve({ id: 'workflow-id' }),
+    })
+
+    expect(response.status).toBe(201)
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
+    expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(deleteWhereMock).not.toHaveBeenCalled()
+  })
 })

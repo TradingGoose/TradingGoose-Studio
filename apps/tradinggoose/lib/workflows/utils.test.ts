@@ -68,4 +68,24 @@ describe('hasWorkflowChanged', () => {
 
     expect(hasWorkflowChanged(currentState as any, deployedState as any)).toBe(false)
   })
+
+  it('ignores current variables when a legacy deployed state never stored them', () => {
+    const deployedState = {
+      ...baseState,
+    }
+
+    const currentState = {
+      ...baseState,
+      variables: {
+        first: {
+          id: 'var-1',
+          name: 'region',
+          type: 'plain',
+          value: 'us-west-2',
+        },
+      },
+    }
+
+    expect(hasWorkflowChanged(currentState as any, deployedState as any)).toBe(false)
+  })
 })

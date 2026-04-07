@@ -13,8 +13,12 @@ import type { Edge } from 'reactflow'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
+import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowStateUpdateFromSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -81,8 +85,9 @@ export type PersistedWorkflowState = {
 
 /**
  * Attempt to load the current workflow state from the authoritative socket
- * server Yjs session. The socket server resolves a live workflow doc first
- * and otherwise falls back to its persisted Yjs blob.
+ * server Yjs session through the generic Yjs snapshot transport. The socket
+ * server resolves a live workflow doc first and otherwise falls back to its
+ * persisted Yjs blob.
  *
  * Returns `null` when neither source has data for the given workflow,
  * signalling the caller to fall back to the normalized DB tables.
@@ -90,17 +95,37 @@ export type PersistedWorkflowState = {
 export async function loadWorkflowStateFromYjs(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
-  const workflowStateUpdate = await getWorkflowStateUpdateFromSocketServer(workflowId)
-  if (!workflowStateUpdate) {
-    return null
-  }
-
-  const doc = new Y.Doc()
   try {
-    Y.applyUpdate(doc, workflowStateUpdate)
-    return extractPersistedStateFromDoc(doc)
-  } finally {
-    doc.destroy()
+    const snapshot = await getYjsSnapshot(
+      workflowId,
+      serializeYjsTransportEnvelope(
+        buildYjsTransportEnvelope({
+          workspaceId: null,
+          entityKind: 'workflow',
+          entityId: workflowId,
+          draftSessionId: null,
+          reviewSessionId: null,
+          yjsSessionId: workflowId,
+        })
+      )
+    )
+
+    if (!snapshot.snapshotBase64) {
+      return null
+    }
+
+    const doc = new Y.Doc()
+    try {
+      Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+      return extractPersistedStateFromDoc(doc)
+    } finally {
+      doc.destroy()
+    }
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError && error.status === 404) {
+      return null
+    }
+    throw error
   }
 }
 

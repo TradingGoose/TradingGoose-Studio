@@ -12,7 +12,7 @@ import {
   resolveWorkflowIdFromExecutionContext,
   serializeReadableWorkflowSnapshot,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
-import { setWorkflowState } from '@/lib/yjs/workflow-session'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
 
@@ -33,6 +33,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
   private lastResult: any | undefined
   private hasExecuted = false
   private hasAppliedState = false
+  private hasPersistedAcceptedState = false
   private lastWorkflowId: string | null = null
 
   private resolvePersistedStagedResult(): any | undefined {
@@ -82,14 +83,22 @@ export class EditWorkflowClientTool extends BaseClientTool {
       }
 
       const executionContext = this.requireExecutionContext()
+      const workflowId = this.lastWorkflowId ?? executionContext.workflowId
+      if (!workflowId) {
+        throw new Error('No active workflow found')
+      }
       const session = requireActiveWorkflowSession(
         executionContext,
-        this.lastWorkflowId ?? executionContext.workflowId
+        workflowId
       )
 
       if (!this.hasAppliedState) {
         setWorkflowState(session.doc, stagedResult.workflowState, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
         this.hasAppliedState = true
+      }
+      if (!this.hasPersistedAcceptedState) {
+        await this.persistAcceptedWorkflowState(workflowId, session.doc)
+        this.hasPersistedAcceptedState = true
       }
 
       this.setState(ClientToolCallState.success)
@@ -105,6 +114,33 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.error)
       await this.markToolComplete(500, message || 'Failed to apply workflow edits')
     }
+  }
+
+  private async persistAcceptedWorkflowState(workflowId: string, doc: Parameters<typeof setWorkflowState>[0]) {
+    // Accept applies the reviewed state to the live Yjs doc immediately, but
+    // the canonical workflow save route still owns DB persistence and follow-up
+    // side effects such as custom-tool extraction.
+    const persistedState = extractPersistedStateFromDoc(doc)
+    const response = await fetch(`/api/workflows/${workflowId}/state`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(persistedState),
+    })
+
+    if (response.ok) {
+      return
+    }
+
+    let errorMessage = `Failed to persist accepted workflow edits (${response.status})`
+
+    try {
+      const errorData = await response.json()
+      if (errorData?.error) {
+        errorMessage = String(errorData.error)
+      }
+    } catch {}
+
+    throw new Error(errorMessage)
   }
 
   protected getRejectCompletionMessage(): string {
@@ -199,6 +235,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
 
       this.lastResult = result
       this.hasAppliedState = false
+      this.hasPersistedAcceptedState = false
       logger.info('server result parsed', {
         hasWorkflowState: !!result?.workflowState,
         blocksCount: result?.workflowState
