@@ -18,6 +18,11 @@ import {
   resolveStoredDateValue,
 } from '@/lib/time-format'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import {
+  getProviderIdsForBlocks,
+  isBlockAvailable,
+  type ProviderAvailability,
+} from '@/lib/workflows/block-availability'
 import { cn } from '@/lib/utils'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { getAllBlocks } from '@/blocks'
@@ -503,8 +508,41 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const provider = model ? getProviderFromModel(model) : ''
   const supportsToolControl = provider ? supportsToolUsageControl(provider) : false
 
-  const toolBlocks = getAllBlocks().filter(
-    (block) => block.category === 'tools' && block.type !== 'evaluator'
+  const allToolBlocks = useMemo(
+    () => getAllBlocks().filter((block) => block.category === 'tools' && block.type !== 'evaluator'),
+    []
+  )
+
+  const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>({})
+
+  useEffect(() => {
+    let isMounted = true
+    const providerIds = getProviderIdsForBlocks(allToolBlocks)
+    if (providerIds.length === 0) return
+
+    const loadAvailability = async () => {
+      try {
+        const query = `?providers=${encodeURIComponent(providerIds.join(','))}`
+        const response = await fetch(`/api/auth/oauth/providers${query}`, {
+          cache: 'no-store',
+        })
+        if (!response.ok || !isMounted) return
+        const data = (await response.json()) as ProviderAvailability
+        if (isMounted) setProviderAvailability(data)
+      } catch {
+        // Keep default availability on failure
+      }
+    }
+
+    void loadAvailability()
+    return () => {
+      isMounted = false
+    }
+  }, [allToolBlocks])
+
+  const toolBlocks = useMemo(
+    () => allToolBlocks.filter((block) => isBlockAvailable(block, providerAvailability)),
+    [allToolBlocks, providerAvailability]
   )
 
   const selectedTools: StoredTool[] =
