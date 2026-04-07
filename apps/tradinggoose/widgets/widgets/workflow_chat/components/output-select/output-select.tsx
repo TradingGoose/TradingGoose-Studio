@@ -1,27 +1,13 @@
 'use client'
 
-import {
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui/input'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import { getBlock } from '@/blocks'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-
-const sanitizeHexColor = (value?: string) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
-}
 
 interface OutputSelectProps {
   workflowId: string | null
@@ -52,8 +38,8 @@ export function OutputSelect({
     width: number
     height: number
   } | null>(null)
-  const blocks = useWorkflowStore((state) => state.blocks)
-  const { isShowingDiff, isDiffReady, diffWorkflow } = useWorkflowDiffStore()
+  const blocks = useWorkflowBlocks()
+  const yjsEdges = useWorkflowEdges()
   // Find all scrollable ancestors so the dropdown can stay pinned on scroll
   const getScrollableAncestors = (el: HTMLElement | null): (HTMLElement | Window)[] => {
     const ancestors: (HTMLElement | Window)[] = []
@@ -82,9 +68,7 @@ export function OutputSelect({
     return ancestors
   }
 
-  // Track subblock store state to ensure proper reactivity
-  // Use diff blocks when in diff mode AND diff is ready, otherwise use main blocks
-  const workflowBlocks = isShowingDiff && isDiffReady && diffWorkflow ? diffWorkflow.blocks : blocks
+  const workflowBlocks = blocks
 
   // Get workflow outputs for the dropdown
   const workflowOutputs = useMemo(() => {
@@ -190,7 +174,7 @@ export function OutputSelect({
     })
 
     return outputs
-  }, [workflowBlocks, workflowId, isShowingDiff, isDiffReady, diffWorkflow, blocks])
+  }, [workflowBlocks, workflowId, blocks])
 
   // Utility to check selected by id or label
   const isSelectedValue = (o: { id: string; label: string }) =>
@@ -221,7 +205,10 @@ export function OutputSelect({
       return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
     }
 
-    return { selectedOutputsDisplayText: `${validOutputs.length} selected`, hasSelectedOutputs: true }
+    return {
+      selectedOutputsDisplayText: `${validOutputs.length} selected`,
+      hasSelectedOutputs: true,
+    }
   }, [selectedOutputs, workflowOutputs, placeholder])
 
   // Get first selected output info for display icon
@@ -252,16 +239,16 @@ export function OutputSelect({
     const filteredOutputs = !normalizedQuery
       ? workflowOutputs
       : workflowOutputs.filter((output) => {
-        return (
-          output.label.toLowerCase().includes(normalizedQuery) ||
-          output.blockName.toLowerCase().includes(normalizedQuery) ||
-          output.path.toLowerCase().includes(normalizedQuery)
-        )
-      })
+          return (
+            output.label.toLowerCase().includes(normalizedQuery) ||
+            output.blockName.toLowerCase().includes(normalizedQuery) ||
+            output.path.toLowerCase().includes(normalizedQuery)
+          )
+        })
 
     const groups: Record<string, typeof workflowOutputs> = {}
     const blockDistances: Record<string, number> = {}
-    const edges = useWorkflowStore.getState().edges
+    const edgesSnapshot = yjsEdges
 
     const triggerBlocks = Object.values(blocks).filter((block) => {
       const config = getBlock(block.type)
@@ -270,7 +257,7 @@ export function OutputSelect({
 
     if (triggerBlocks.length > 0) {
       const adjList: Record<string, string[]> = {}
-      for (const edge of edges) {
+      for (const edge of edgesSnapshot) {
         if (!adjList[edge.source]) {
           adjList[edge.source] = []
         }
@@ -322,7 +309,7 @@ export function OutputSelect({
       },
       {} as Record<string, typeof workflowOutputs>
     )
-  }, [workflowOutputs, blocks, outputSearch])
+  }, [workflowOutputs, blocks, yjsEdges, outputSearch])
 
   const hasFilteredOutputs = useMemo(() => {
     return Object.values(groupedOutputs).some((outputs) => outputs.length > 0)
@@ -332,7 +319,7 @@ export function OutputSelect({
   const getOutputColor = (blockType: string) => {
     // Try to get the block's color from its configuration
     const blockConfig = getBlock(blockType)
-    return sanitizeHexColor(blockConfig?.bgColor)
+    return sanitizeSolidIconColor(blockConfig?.bgColor)
   }
 
   const renderBlockIcon = (
@@ -368,11 +355,11 @@ export function OutputSelect({
   const triggerButtonClassName = triggerClassName
     ? cn(triggerClassName, 'justify-between')
     : cn(
-      'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
-      isOutputDropdownOpen
-        ? 'bg-background text-muted-foreground'
-        : 'bg-background text-muted-foreground hover:text-muted-foreground'
-    )
+        'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
+        isOutputDropdownOpen
+          ? 'bg-background text-muted-foreground'
+          : 'bg-background text-muted-foreground hover:text-muted-foreground'
+      )
 
   const colorBadge = selectedOutputInfo ? (
     <div
@@ -595,6 +582,6 @@ export function OutputSelect({
           </div>,
           document.body
         )}
-    </div >
+    </div>
   )
 }

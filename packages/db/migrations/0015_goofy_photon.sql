@@ -1,0 +1,2 @@
+ALTER TABLE "copilot_review_sessions" ADD COLUMN "channel_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "copilot_review_sessions_user_workspace_channel_unique" ON "copilot_review_sessions" USING btree ("user_id",coalesce("workspace_id", 'global'),"channel_id") WHERE "copilot_review_sessions"."channel_id" IS NOT NULL AND "copilot_review_sessions"."entity_kind" = 'copilot';

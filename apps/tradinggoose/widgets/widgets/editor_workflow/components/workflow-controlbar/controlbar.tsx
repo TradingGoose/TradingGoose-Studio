@@ -4,9 +4,9 @@ import { useMemo } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
@@ -55,18 +55,21 @@ export function WorkflowWidgetControlBar({
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <WorkflowRouteProvider
+        <WorkflowSessionProvider
           workspaceId={workspaceId}
           workflowId={activeWorkflowId}
-          channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId} workflowId={activeWorkflowId}>
+          <WorkflowRouteProvider
+            workspaceId={workspaceId}
+            workflowId={activeWorkflowId}
+            channelId={channelId}
+          >
             <ControlBar
               variant='widget'
               className='inline-flex items-center gap-1 whitespace-nowrap'
             />
-          </WorkflowStoreProvider>
-        </WorkflowRouteProvider>
+          </WorkflowRouteProvider>
+        </WorkflowSessionProvider>
       </WorkspacePermissionsProvider>
     </TooltipProvider>
   )

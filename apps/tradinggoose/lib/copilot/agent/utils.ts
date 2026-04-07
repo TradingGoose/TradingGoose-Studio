@@ -1,6 +1,7 @@
 import { formatCompletionModel, readCompletionMessageText } from '@/lib/copilot/completion'
 import { getCopilotModel } from '@/lib/copilot/config'
 import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
+import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ProviderId } from '@/providers/ai/types'
 import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
@@ -22,8 +23,11 @@ export async function requestCopilotTitle({
 }): Promise<string | null> {
   try {
     const defaults = getCopilotModel('title')
-    const resolvedProvider = provider || defaults.provider
     const resolvedModel = model || defaults.model
+    const shouldUseRuntimeProvider = !!provider || !!model
+    const resolvedProvider = shouldUseRuntimeProvider
+      ? resolveCopilotRuntimeProvider(resolvedModel, provider)
+      : defaults.provider
     const response = await proxyCopilotCompletionRequest({
       body: {
         stream: false,

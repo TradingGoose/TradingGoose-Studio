@@ -6,14 +6,40 @@
  * Tests for normalized table operations including loading, saving, and migrating
  * workflow data between JSON blob format and normalized database tables.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
   delete: vi.fn(),
+  update: vi.fn(),
   transaction: vi.fn(),
+}
+
+const mockWebhook = {
+  workflowId: 'workflowId',
+  provider: 'provider',
+}
+
+const mockWorkflowTable = {
+  id: 'id',
+  variables: 'variables',
+  lastSynced: 'lastSynced',
+  userId: 'userId',
+}
+
+const mockWorkflowDeploymentVersion = {
+  id: 'id',
+  workflowId: 'workflowId',
+  version: 'version',
+  state: 'state',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy',
+  deployedBy: 'deployedBy',
 }
 
 const mockWorkflowBlocks = {
@@ -52,25 +78,28 @@ const mockWorkflowSubflows = {
 
 vi.doMock('@tradinggoose/db', () => ({
   db: mockDb,
+  webhook: mockWebhook,
+  workflow: mockWorkflowTable,
   workflowBlocks: mockWorkflowBlocks,
   workflowEdges: mockWorkflowEdges,
   workflowSubflows: mockWorkflowSubflows,
-  workflowDeploymentVersion: {
-    id: 'id',
-    workflowId: 'workflowId',
-    version: 'version',
-    state: 'state',
-    isActive: 'isActive',
-    createdAt: 'createdAt',
-    createdBy: 'createdBy',
-    deployedBy: 'deployedBy',
-  },
+  workflowDeploymentVersion: mockWorkflowDeploymentVersion,
 }))
 
 vi.doMock('drizzle-orm', () => ({
   eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
   and: vi.fn((...conditions) => ({ type: 'and', conditions })),
   desc: vi.fn((field) => ({ field, type: 'desc' })),
+  inArray: vi.fn((field, values) => ({ field, values, type: 'inArray' })),
+  ne: vi.fn((field, value) => ({ field, value, type: 'ne' })),
+  sql: Object.assign(
+    vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+      text: String.raw({ raw: strings }, ...values.map(String)),
+      values,
+      type: 'sql',
+    })),
+    { raw: vi.fn((value: string) => ({ text: value, values: [], type: 'sql.raw' })) }
+  ),
 }))
 
 vi.doMock('@/lib/logs/console/logger', () => ({
@@ -82,7 +111,46 @@ vi.doMock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
+const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
+const mockGetYjsSnapshot = vi.fn()
+class MockSocketServerBridgeError extends Error {
+  constructor(
+    public status: number,
+    public body: string
+  ) {
+    super(body)
+    this.name = 'SocketServerBridgeError'
+  }
+}
+vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+  getYjsSnapshot: mockGetYjsSnapshot,
+  SocketServerBridgeError: MockSocketServerBridgeError,
+}))
+
+vi.doMock('@/lib/chat/published-deployment', () => ({
+  reconcilePublishedChatsForDeploymentTx: mockReconcilePublishedChatsForDeploymentTx,
+}))
+
 const mockWorkflowId = 'test-workflow-123'
+
+function buildWorkflowSnapshotResponse(update: Uint8Array) {
+  return {
+    snapshotBase64: Buffer.from(update).toString('base64'),
+    descriptor: {
+      workspaceId: null,
+      entityKind: 'workflow' as const,
+      entityId: mockWorkflowId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: mockWorkflowId,
+    },
+    runtime: {
+      docState: 'active' as const,
+      replaySafe: true,
+      reseededFromCanonical: false,
+    },
+  }
+}
 
 const mockBlocksFromDb = [
   {
@@ -216,12 +284,51 @@ const mockWorkflowState: WorkflowState = {
   deploymentStatuses: {},
 }
 
+const createMockTx = (overrides: Partial<Record<'delete' | 'execute' | 'insert' | 'update', any>> = {}) => ({
+  execute: overrides.execute ?? vi.fn().mockResolvedValue([]),
+  update:
+    overrides.update ??
+    vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  delete:
+    overrides.delete ??
+    vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  insert:
+    overrides.insert ??
+    vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue([]),
+    }),
+})
+
+const mockNoConflictingBlockIds = () => {
+  mockDb.select.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  })
+}
+
 describe('Database Helpers', () => {
   let dbHelpers: typeof import('@/lib/workflows/db-helpers')
 
-  beforeEach(async () => {
-    vi.clearAllMocks()
+  beforeAll(async () => {
     dbHelpers = await import('@/lib/workflows/db-helpers')
+  }, 30000)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetYjsSnapshot.mockRejectedValue(new MockSocketServerBridgeError(404, 'Not found'))
+    mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
+    mockDb.select.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    })
   })
 
   afterEach(() => {
@@ -263,16 +370,18 @@ describe('Database Helpers', () => {
       expect(result?.blocks['block-1']).toEqual({
         id: 'block-1',
         type: 'input_trigger',
-        name: 'Start Block',
+        name: 'Trigger Block',
         position: { x: 100, y: 100 },
         enabled: true,
         horizontalHandles: true,
         isWide: false,
+        locked: false,
         height: 150,
         subBlocks: { input: { id: 'input', type: 'short-input' as const, value: 'test' } },
         outputs: { result: { type: 'string' } },
         data: { parentId: null, extent: null, width: 350 },
         advancedMode: false,
+        layout: {},
         triggerMode: false,
       })
 
@@ -430,18 +539,14 @@ describe('Database Helpers', () => {
   })
 
   describe('saveWorkflowToNormalizedTables', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     it('should successfully save workflow data to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -467,17 +572,9 @@ describe('Database Helpers', () => {
         deploymentStatuses: {},
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -524,10 +621,7 @@ describe('Database Helpers', () => {
       let capturedSubflowInserts: any[] = []
 
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
+        const tx = createMockTx({
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockImplementation((data) => {
               // Capture the data based on which insert call it is
@@ -543,7 +637,7 @@ describe('Database Helpers', () => {
               return Promise.resolve([])
             }),
           }),
-        }
+        })
         return await callback(tx)
       })
 
@@ -563,8 +657,12 @@ describe('Database Helpers', () => {
         horizontalHandles: true,
         isWide: false,
         height: '150',
-        parentId: null,
-        extent: null,
+        advancedMode: false,
+        triggerMode: false,
+        data: {
+          width: 350,
+        },
+        layout: {},
       })
 
       expect(capturedEdgeInserts).toHaveLength(1)
@@ -631,6 +729,10 @@ describe('Database Helpers', () => {
   })
 
   describe('migrateWorkflowToNormalizedTables', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     const mockJsonState = {
       blocks: mockWorkflowState.blocks,
       edges: mockWorkflowState.edges,
@@ -642,17 +744,9 @@ describe('Database Helpers', () => {
     }
 
     it('should successfully migrate workflow from JSON to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -685,17 +779,9 @@ describe('Database Helpers', () => {
         // Missing loops, parallels, and other properties
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -716,6 +802,10 @@ describe('Database Helpers', () => {
   })
 
   describe('error handling and edge cases', () => {
+    beforeEach(() => {
+      mockNoConflictingBlockIds()
+    })
+
     it('should handle very large workflow data', async () => {
       const largeWorkflowState: WorkflowState = {
         blocks: {},
@@ -749,17 +839,9 @@ describe('Database Helpers', () => {
         })
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const tx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue([]),
-          }),
-        }
-        return await callback(tx)
-      })
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(createMockTx())
+      )
 
       mockDb.transaction = mockTransaction
 
@@ -769,6 +851,453 @@ describe('Database Helpers', () => {
       )
 
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('deployWorkflow', () => {
+    it('should deploy the persisted Yjs workflow state when no live document is connected', async () => {
+      const doc = new Y.Doc()
+      const yjsState = {
+        blocks: {
+          'block-yjs': {
+            id: 'block-yjs',
+            type: 'api',
+            name: 'Persisted block',
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: new Date().toISOString(),
+      }
+      const yjsVariables = {
+        'var-yjs': {
+          id: 'var-yjs',
+          name: 'Persisted variable',
+          type: 'plain',
+          value: 'latest',
+        },
+      }
+
+      setWorkflowState(doc, yjsState, 'test')
+      setVariables(doc, yjsVariables, 'test')
+
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
+
+      const updateCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
+      const insertCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
+      const workflowLastSaved = new Date('2026-04-06T00:00:00.000Z')
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([{ maxVersion: 2 }]),
+          }),
+        }),
+        update: vi.fn((table) => ({
+          set: vi.fn((data: Record<string, unknown>) => ({
+            where: vi.fn().mockImplementation(async () => {
+              updateCalls.push({ table, data })
+              return []
+            }),
+          })),
+        })),
+        insert: vi.fn((table) => ({
+          values: vi.fn().mockImplementation(async (data: Record<string, unknown>) => {
+            insertCalls.push({ table, data })
+            return []
+          }),
+        })),
+      }
+
+      mockDb.transaction.mockImplementation(async (callback) => callback(tx))
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([
+              {
+                variables: yjsVariables,
+                lastSynced: workflowLastSaved,
+              },
+            ]),
+          }),
+        }),
+      })
+
+      const result = await dbHelpers.deployWorkflow({
+        workflowId: mockWorkflowId,
+        deployedBy: 'deployer-1',
+        workflowOwnerId: 'owner-1',
+      })
+
+      expect(result.success).toBe(true)
+      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+        mockWorkflowId,
+        expect.objectContaining({
+          targetKind: 'workflow',
+          sessionId: mockWorkflowId,
+          workflowId: mockWorkflowId,
+          entityKind: 'workflow',
+          entityId: mockWorkflowId,
+        })
+      )
+      expect(mockDb.select).toHaveBeenCalledTimes(1)
+      expect(result.currentState).toMatchObject({
+        blocks: yjsState.blocks,
+        edges: yjsState.edges,
+        loops: yjsState.loops,
+        parallels: yjsState.parallels,
+        variables: yjsVariables,
+      })
+
+      const deploymentInsert = insertCalls.find(
+        (call) => call.table === mockWorkflowDeploymentVersion
+      )
+      expect(deploymentInsert?.data.state).toMatchObject({
+        blocks: yjsState.blocks,
+        variables: yjsVariables,
+      })
+
+      const workflowUpdate = updateCalls.find((call) => call.table === mockWorkflowTable)
+      expect(workflowUpdate?.data.variables).toEqual(yjsVariables)
+
+      expect(mockReconcilePublishedChatsForDeploymentTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowId: mockWorkflowId,
+          workflowOwnerId: 'owner-1',
+          state: expect.objectContaining({
+            blocks: yjsState.blocks,
+            variables: yjsVariables,
+          }),
+        })
+      )
+    })
+  })
+
+  describe('loadWorkflowStateFromYjs', () => {
+    it('should decode the workflow state from the socket-server bridge snapshot', async () => {
+      const doc = new Y.Doc()
+      const yjsState = {
+        blocks: {
+          'block-yjs': {
+            id: 'block-yjs',
+            type: 'api',
+            name: 'Live block',
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: new Date().toISOString(),
+      }
+      const yjsVariables = {
+        'var-yjs': {
+          id: 'var-yjs',
+          name: 'Live variable',
+          type: 'plain',
+          value: 'latest',
+        },
+      }
+
+      setWorkflowState(doc, yjsState, 'test')
+      setVariables(doc, yjsVariables, 'test')
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
+
+      const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
+
+      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+        mockWorkflowId,
+        expect.objectContaining({
+          targetKind: 'workflow',
+          sessionId: mockWorkflowId,
+          workflowId: mockWorkflowId,
+          entityKind: 'workflow',
+          entityId: mockWorkflowId,
+        })
+      )
+      expect(result).toMatchObject({
+        blocks: yjsState.blocks,
+        edges: yjsState.edges,
+        loops: yjsState.loops,
+        parallels: yjsState.parallels,
+        variables: yjsVariables,
+      })
+    })
+  })
+
+  describe('loadWorkflowStateWithFallback', () => {
+    it('returns the Yjs state without a workflow-row query when lastSynced is provided', async () => {
+      const doc = new Y.Doc()
+      const yjsState = {
+        blocks: {
+          'block-yjs': {
+            id: 'block-yjs',
+            type: 'api',
+            name: 'Fresh Yjs block',
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: '2026-04-06T00:05:00.000Z',
+      }
+      const yjsVariables = {
+        'var-yjs': {
+          id: 'var-yjs',
+          name: 'Live variable',
+          type: 'plain',
+          value: 'latest',
+        },
+      }
+
+      setWorkflowState(doc, yjsState, 'test')
+      setVariables(doc, yjsVariables, 'test')
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
+
+      const result = await dbHelpers.loadWorkflowStateWithFallback(
+        mockWorkflowId,
+        new Date('2026-04-06T00:00:00.000Z')
+      )
+
+      expect(result).toMatchObject({
+        blocks: yjsState.blocks,
+        edges: yjsState.edges,
+        loops: yjsState.loops,
+        parallels: yjsState.parallels,
+        variables: yjsVariables,
+        source: 'yjs',
+      })
+      expect(mockDb.select).not.toHaveBeenCalled()
+    })
+
+    it('queries the workflow row for staleness when lastSynced is omitted and the Yjs snapshot is fresh', async () => {
+      const doc = new Y.Doc()
+      const yjsState = {
+        blocks: {
+          'block-yjs': {
+            id: 'block-yjs',
+            type: 'api',
+            name: 'Fresh Yjs block',
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: '2026-04-06T00:05:00.000Z',
+      }
+      const yjsVariables = {
+        'var-yjs': {
+          id: 'var-yjs',
+          name: 'Live variable',
+          type: 'plain',
+          value: 'latest',
+        },
+      }
+
+      setWorkflowState(doc, yjsState, 'test')
+      setVariables(doc, yjsVariables, 'test')
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([
+              {
+                variables: {
+                  'var-db': {
+                    id: 'var-db',
+                    workflowId: mockWorkflowId,
+                    name: 'dbVar',
+                    type: 'plain',
+                    value: 'db value',
+                  },
+                },
+                lastSynced: new Date('2026-04-06T00:00:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      })
+
+      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+
+      expect(result).toMatchObject({
+        blocks: yjsState.blocks,
+        edges: yjsState.edges,
+        loops: yjsState.loops,
+        parallels: yjsState.parallels,
+        variables: yjsVariables,
+        source: 'yjs',
+      })
+      expect(mockDb.select).toHaveBeenCalledTimes(1)
+    })
+
+    it('falls back to normalized tables when the Yjs bridge errors', async () => {
+      mockGetYjsSnapshot.mockRejectedValueOnce(
+        new Error('socket server unavailable')
+      )
+
+      let callCount = 0
+      mockDb.select.mockImplementation(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation(() => {
+            callCount++
+            if (callCount === 1) {
+              return Promise.resolve(mockBlocksFromDb)
+            }
+            if (callCount === 2) {
+              return Promise.resolve(mockEdgesFromDb)
+            }
+            if (callCount === 3) {
+              return Promise.resolve(mockSubflowsFromDb)
+            }
+            if (callCount === 4) {
+              return {
+                limit: vi.fn().mockResolvedValue([
+                  {
+                    variables: {
+                      'var-db': {
+                        id: 'var-db',
+                        workflowId: mockWorkflowId,
+                        name: 'dbVar',
+                        type: 'plain',
+                        value: 'db value',
+                      },
+                    },
+                  },
+                ]),
+              }
+            }
+            return Promise.resolve([])
+          }),
+        }),
+      }))
+
+      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+
+      expect(result).toMatchObject({
+        blocks: expect.objectContaining({
+          'block-1': expect.objectContaining({
+            id: 'block-1',
+            type: 'input_trigger',
+          }),
+        }),
+        edges: mockEdgesFromDb.map((edge) =>
+          expect.objectContaining({
+            id: edge.id,
+            source: edge.sourceBlockId,
+            target: edge.targetBlockId,
+          })
+        ),
+        variables: {
+          'var-db': expect.objectContaining({
+            id: 'var-db',
+            name: 'dbVar',
+            value: 'db value',
+          }),
+        },
+        source: 'normalized',
+      })
+    })
+
+    it('falls back to normalized tables when the stored Yjs snapshot is older than workflow lastSynced', async () => {
+      const doc = new Y.Doc()
+      setWorkflowState(
+        doc,
+        {
+          blocks: {
+            'block-yjs': {
+              id: 'block-yjs',
+              type: 'api',
+              name: 'Stale Yjs block',
+              position: { x: 10, y: 20 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-06T00:00:00.000Z',
+        },
+        'test'
+      )
+      mockGetYjsSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+      )
+
+      let callCount = 0
+      mockDb.select.mockImplementation(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation(() => {
+            callCount++
+            if (callCount === 1) {
+              return {
+                limit: vi.fn().mockResolvedValue([
+                  {
+                    variables: {
+                      'var-db': {
+                        id: 'var-db',
+                        workflowId: mockWorkflowId,
+                        name: 'dbVar',
+                        type: 'plain',
+                        value: 'db value',
+                      },
+                    },
+                    lastSynced: new Date('2026-04-06T00:05:00.000Z'),
+                  },
+                ]),
+              }
+            }
+            if (callCount === 2) {
+              return Promise.resolve(mockBlocksFromDb)
+            }
+            if (callCount === 3) {
+              return Promise.resolve(mockEdgesFromDb)
+            }
+            if (callCount === 4) {
+              return Promise.resolve(mockSubflowsFromDb)
+            }
+            return Promise.resolve([])
+          }),
+        }),
+      }))
+
+      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+
+      expect(result).toMatchObject({
+        blocks: expect.objectContaining({
+          'block-1': expect.objectContaining({
+            id: 'block-1',
+            type: 'input_trigger',
+          }),
+        }),
+        source: 'normalized',
+      })
+      expect(result?.blocks).not.toHaveProperty('block-yjs')
     })
   })
 
@@ -1009,10 +1538,7 @@ describe('Database Helpers', () => {
 
       // Mock the transaction for save operation
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const mockTx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
+        const mockTx = createMockTx({
           insert: vi.fn().mockImplementation((_table) => ({
             values: vi.fn().mockImplementation((values) => {
               // Verify that advancedMode is included in the insert values
@@ -1029,11 +1555,12 @@ describe('Database Helpers', () => {
               return Promise.resolve()
             }),
           })),
-        }
+        })
         return await callback(mockTx)
       })
 
       mockDb.transaction = mockTransaction
+      mockNoConflictingBlockIds()
 
       // Step 5: Save workflow state (this should preserve advancedMode)
       const saveResult = await dbHelpers.saveWorkflowToNormalizedTables(
@@ -1145,18 +1672,12 @@ describe('Database Helpers', () => {
 
       // Mock successful save
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
-        const mockTx = {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue(undefined),
-          }),
-        }
+        const mockTx = createMockTx()
         return await callback(mockTx)
       })
 
       mockDb.transaction = mockTransaction
+      mockNoConflictingBlockIds()
 
       // Save the state
       const saveResult = await dbHelpers.saveWorkflowToNormalizedTables(

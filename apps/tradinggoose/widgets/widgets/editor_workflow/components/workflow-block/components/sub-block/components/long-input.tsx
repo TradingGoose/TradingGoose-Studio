@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronsUpDown, Wand2 } from 'lucide-react'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
@@ -9,12 +9,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('LongInput')
 
@@ -47,42 +48,10 @@ export function LongInput({
   disabled = false,
 }: LongInputProps) {
   const workspaceId = useWorkspaceId()
-  const setStoreValueRef = useRef<((value: string) => void) | null>(null)
-  // Local state for immediate UI updates during streaming
-  const [localContent, setLocalContent] = useState<string>('')
-
-  // Wand functionality (only if wandConfig is enabled) - define early to get streaming state
-  const wandHook = config.wandConfig?.enabled
-    ? useWand({
-      wandConfig: config.wandConfig,
-      currentValue: localContent,
-      onStreamStart: () => {
-        // Clear the content when streaming starts
-        setLocalContent('')
-      },
-      onStreamChunk: (chunk) => {
-        // Update local content with each chunk as it arrives
-        setLocalContent((current) => current + chunk)
-      },
-      onGeneratedContent: (content) => {
-        // Final content update (fallback)
-        setLocalContent(content)
-        if (!disabled) {
-          // Persist the generated content to the store after streaming
-          setStoreValueRef.current?.(content)
-        }
-      },
-    })
-    : null
-
-  // State management - useSubBlockValue with explicit streaming control
-  const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
-    isStreaming: wandHook?.isStreaming || false, // Use wand streaming state
-    onStreamingEnd: () => {
-      logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
-    },
-  })
-  setStoreValueRef.current = setStoreValue
+  const [isFocused, setIsFocused] = useState(false)
+  const [streamingLock, setStreamingLock] = useState(false)
+  const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
+  const isWorkflowManaged = onChange === undefined
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
@@ -96,29 +65,75 @@ export function LongInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const baseValue = propValue !== undefined ? propValue : storeValue
-
-  // During streaming, use local content; otherwise use base value
-  const value = wandHook?.isStreaming ? localContent : baseValue
-
-  // Sync local content with base value when not streaming
-  useEffect(() => {
-    if (!wandHook?.isStreaming) {
-      const baseValueString = baseValue?.toString() ?? ''
-      if (baseValueString !== localContent) {
-        setLocalContent(baseValueString)
-      }
+  const baseValueString = propValue?.toString() ?? ''
+  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+    blockId,
+    subBlockId,
+    baseValueString,
+    {
+      enabled: isWorkflowManaged,
+      autoCreate: isWorkflowManaged && !disabled,
+      mirrorDelayMs: isWorkflowManaged ? 450 : null,
     }
-  }, [baseValue, wandHook?.isStreaming]) // Removed localContent to prevent infinite loop
+  )
+  const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
+  const commitValue = useCallback(
+    (nextValue: string) => {
+      if (isWorkflowManaged) {
+        setTextFieldValue(nextValue)
+        return
+      }
+
+      onChange?.(nextValue)
+    },
+    [isWorkflowManaged, onChange, setTextFieldValue]
+  )
+  const {
+    value,
+    setValueLocal: setLocalContent,
+    setValueDebounced,
+    commitNow,
+    cancelScheduledCommit,
+  } = useBufferedStringValue({
+    externalValue: persistedValue,
+    onCommit: commitValue,
+    delayMs: 450,
+    suspendExternalSync: streamingLock || isFocused,
+    commitOnUnmount: isWorkflowManaged,
+  })
+
+  const wandHook = useWand({
+    wandConfig: resolvedWandConfig,
+    currentValue: value,
+    onStreamStart: () => {
+      setStreamingLock(true)
+      setLocalContent('')
+    },
+    onStreamChunk: (chunk) => {
+      setLocalContent((current) => current + chunk)
+    },
+    onGeneratedContent: (content) => {
+      setLocalContent(content)
+      if (!disabled) {
+        commitValue(content)
+      }
+    },
+  })
 
   // Update store value during streaming (but won't persist until streaming ends)
   useEffect(() => {
-    if (wandHook?.isStreaming && localContent !== '') {
+    if (wandHook.isStreaming && value !== '') {
       if (!disabled) {
-        setStoreValue(localContent)
+        commitValue(value)
       }
     }
-  }, [localContent, wandHook?.isStreaming, disabled, setStoreValue])
+  }, [commitValue, disabled, value, wandHook.isStreaming])
+
+  useEffect(() => {
+    if (!wandHook.isStreaming) {
+      setStreamingLock(false)
+    }
+  }, [wandHook.isStreaming])
 
   // Calculate initial height based on rows prop with reasonable defaults
   const getInitialHeight = () => {
@@ -147,19 +162,13 @@ export function LongInput({
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     // Don't allow changes if disabled or streaming
-    if (disabled || wandHook?.isStreaming) return
+    if (disabled || wandHook.isStreaming) return
 
     const newValue = e.target.value
     const newCursorPosition = e.target.selectionStart ?? 0
 
     // Update local content immediately
-    setLocalContent(newValue)
-
-    if (onChange) {
-      onChange(newValue)
-    } else {
-      setStoreValue(newValue)
-    }
+    setValueDebounced(newValue)
 
     setCursorPosition(newCursorPosition)
 
@@ -257,11 +266,10 @@ export function LongInput({
       Promise.resolve().then(() => {
         // Update local content immediately
         setLocalContent(newValue)
-
         if (onChange) {
           onChange(newValue)
         } else {
-          setStoreValue(newValue)
+          setValueDebounced(newValue)
         }
         setCursorPosition(dropPosition + 1)
         setShowTags(true)
@@ -291,7 +299,7 @@ export function LongInput({
       setShowTags(false)
     }
     // Prevent user input during streaming
-    if (wandHook?.isStreaming) {
+    if (wandHook.isStreaming) {
       e.preventDefault()
     }
   }
@@ -346,7 +354,7 @@ export function LongInput({
   return (
     <>
       {/* Wand Prompt Bar - positioned above the textarea */}
-      {wandHook && (
+      {resolvedWandConfig.enabled && (
         <WandPromptBar
           isVisible={wandHook.isPromptVisible}
           isLoading={wandHook.isLoading}
@@ -355,13 +363,13 @@ export function LongInput({
           onSubmit={(prompt: string) => wandHook.generateStream({ prompt })}
           onCancel={wandHook.isStreaming ? wandHook.cancelGeneration : wandHook.hidePromptInline}
           onChange={wandHook.updatePromptValue}
-          placeholder={config.wandConfig?.placeholder || 'Describe what you want to generate...'}
+          placeholder={resolvedWandConfig.placeholder || 'Describe what you want to generate...'}
         />
       )}
 
       <div
         ref={containerRef}
-        className={cn('group relative w-full', wandHook?.isStreaming && 'streaming-effect')}
+        className={cn('group relative w-full', wandHook.isStreaming && 'streaming-effect')}
         style={{ height: `${height}px` }}
       >
         <Textarea
@@ -371,7 +379,7 @@ export function LongInput({
             isConnecting &&
             config?.connectionDroppable !== false &&
             'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
-            wandHook?.isStreaming && 'pointer-events-none cursor-not-allowed opacity-50'
+            wandHook.isStreaming && 'pointer-events-none cursor-not-allowed opacity-50'
           )}
           rows={rows ?? DEFAULT_ROWS}
           placeholder={placeholder ?? ''}
@@ -383,9 +391,16 @@ export function LongInput({
           onWheel={handleWheel}
           onKeyDown={handleKeyDown}
           onFocus={() => {
+            setIsFocused(true)
             setShowEnvVars(false)
             setShowTags(false)
             setSearchTerm('')
+          }}
+          onBlur={() => {
+            setIsFocused(false)
+            if (!disabled && !wandHook.isStreaming) {
+              commitNow()
+            }
           }}
           disabled={disabled}
           style={{
@@ -431,7 +446,7 @@ export function LongInput({
         )}
 
         {/* Custom resize handle */}
-        {!wandHook?.isStreaming && (
+        {!wandHook.isStreaming && (
           <div
             className='absolute right-1 bottom-1 flex h-4 w-4 cursor-s-resize items-center justify-center rounded-sm bg-background'
             onMouseDown={startResize}
@@ -443,7 +458,7 @@ export function LongInput({
           </div>
         )}
 
-        {!wandHook?.isStreaming && (
+        {!wandHook.isStreaming && (
           <>
             <EnvVarDropdown
               visible={showEnvVars}
@@ -451,6 +466,8 @@ export function LongInput({
                 if (onChange) {
                   onChange(newValue)
                 } else {
+                  setLocalContent(newValue)
+                  cancelScheduledCommit()
                   emitTagSelection(newValue)
                 }
               }}
@@ -469,6 +486,8 @@ export function LongInput({
                 if (onChange) {
                   onChange(newValue)
                 } else {
+                  setLocalContent(newValue)
+                  cancelScheduledCommit()
                   emitTagSelection(newValue)
                 }
               }}

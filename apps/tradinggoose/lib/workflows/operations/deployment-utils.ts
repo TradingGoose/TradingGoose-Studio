@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('DeploymentUtils')
 
@@ -9,17 +9,21 @@ const logger = createLogger('DeploymentUtils')
  */
 export function getInputFormatExample(
   includeStreaming = false,
-  selectedStreamingOutputs: string[] = []
+  selectedStreamingOutputs: string[] = [],
+  workflowId?: string
 ): string {
   let inputFormatExample = ''
   try {
-    const blocks = Object.values(useWorkflowStore.getState().blocks)
+    // Read workflow blocks from the active Yjs session
+    const targetWorkflowId = workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
+    const snapshot = targetWorkflowId ? getSnapshotForWorkflow(targetWorkflowId) : null
+    const blocks = Object.values(snapshot?.blocks ?? {})
 
-    const apiTriggerBlock = blocks.find((block) => block.type === 'api_trigger')
-    const targetBlock = apiTriggerBlock
+    const apiTriggerBlock = blocks.find((block: any) => block.type === 'api_trigger')
+    const targetBlock = apiTriggerBlock as any
 
     if (targetBlock) {
-      const inputFormat = useSubBlockStore.getState().getValue(targetBlock.id, 'inputFormat')
+      const inputFormat = targetBlock?.subBlocks?.inputFormat?.value
 
       const exampleData: Record<string, any> = {}
 

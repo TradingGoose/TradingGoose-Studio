@@ -8,7 +8,6 @@ const DEFAULT_UI_CONFIG: WorkflowCanvasUIConfig = {
   floatingControls: false,
   trainingControls: false,
   forceTrainingControls: false,
-  diffControls: true,
   triggerList: true,
 }
 

@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getVariablesForWorkflow } from '@/lib/yjs/workflow-session-registry'
 
 const logger = createLogger('GetGlobalWorkflowVariablesClientTool')
 
@@ -41,21 +42,18 @@ export class GetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         return
       }
 
-      const res = await fetch(`/api/workflows/${activeWorkflowId}/variables`, { method: 'GET' })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        await this.markToolComplete(res.status, text || 'Failed to fetch workflow variables')
+      const varsRecord = getVariablesForWorkflow(activeWorkflowId)
+      if (!varsRecord) {
+        await this.markToolComplete(400, 'No active Yjs session for this workflow')
         this.setState(ClientToolCallState.error)
         return
       }
-      const json = await res.json()
-      const varsRecord = (json?.data as Record<string, any>) || {}
-      // Convert to name/value pairs for clarity
       const variables = Object.values(varsRecord).map((v: any) => ({
         name: String(v?.name || ''),
         value: (v as any)?.value,
       }))
-      logger.info('Fetched workflow variables', { count: variables.length })
+
+      logger.info('Fetched workflow variables from Yjs', { count: variables.length })
       await this.markToolComplete(200, `Found ${variables.length} variable(s)`, { variables })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {

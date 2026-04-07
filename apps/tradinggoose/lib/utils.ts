@@ -409,3 +409,50 @@ export function generateRequestId(): string {
  * No-operation function for use as default callback
  */
 export const noop = () => {}
+
+/**
+ * Escapes special regex characters in a string so it can be used
+ * as a literal in `new RegExp(...)`.
+ */
+export function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export const normalizeOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+export function hashString(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash |= 0
+  }
+  return hash
+}
+
+/**
+ * Derive a deterministic HSL color string from a user id.
+ * Used for collaborative presence avatars and cursors.
+ */
+export function deriveUserColor(userId: string): string {
+  return `hsl(${Math.abs(hashString(userId)) % 360}, 70%, 50%)`
+}
+
+export function normalizeStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  return values
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+}
+
+export function sanitizeRecord(record: Record<string, string> | null | undefined): Record<string, string> {
+  if (!record) return {}
+  return Object.fromEntries(
+    Object.entries(record).filter(([key, value]) => key.trim().length > 0 && value.trim().length > 0)
+  )
+}

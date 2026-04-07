@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { ConnectionStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/user-avatar-stack/components/connection-status/connection-status'
 import { UserAvatar } from '@/widgets/widgets/editor_workflow/components/control-bar/components/user-avatar-stack/components/user-avatar/user-avatar'
 import { usePresence } from '@/hooks/workflow/use-presence'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 
 interface User {
   connectionId: string | number
@@ -30,9 +29,6 @@ export function UserAvatarStack({
   const { users: presenceUsers, isConnected } = usePresence()
   const users = propUsers || presenceUsers
 
-  // Get operation error state from collaborative workflow
-  const { hasOperationError } = useCollaborativeWorkflow()
-
   // Memoize the processed users to avoid unnecessary re-renders
   const { visibleUsers, overflowCount } = useMemo(() => {
     if (users.length === 0) {
@@ -57,8 +53,7 @@ export function UserAvatarStack({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Connection status - always check, shows when offline or operation errors */}
-      <ConnectionStatus isConnected={isConnected} hasOperationError={hasOperationError} />
+      <ConnectionStatus isConnected={isConnected} />
 
       {/* Only show avatar stack when there are multiple users (>1) */}
       {users.length > 1 && (

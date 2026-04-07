@@ -23,7 +23,7 @@ export function createMinimalWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
     trigger: {
       id: 'trigger',
-      type: 'trigger',
+      type: 'input_trigger',
       name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
@@ -98,7 +98,7 @@ export function createConditionalWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
     trigger: {
       id: 'trigger',
-      type: 'trigger',
+      type: 'input_trigger',
       name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
@@ -240,7 +240,7 @@ export function createLoopWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
     trigger: {
       id: 'trigger',
-      type: 'trigger',
+      type: 'input_trigger',
       name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
@@ -374,7 +374,7 @@ export function createComplexWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
     trigger: {
       id: 'trigger',
-      type: 'trigger',
+      type: 'input_trigger',
       name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
@@ -514,7 +514,7 @@ export function createAgentWithToolsWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
     trigger: {
       id: 'trigger',
-      type: 'trigger',
+      type: 'input_trigger',
       name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {

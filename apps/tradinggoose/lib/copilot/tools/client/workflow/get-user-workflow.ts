@@ -4,12 +4,12 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import {
+  getReadableWorkflowSnapshot,
+  resolveWorkflowIdFromExecutionContext,
+} from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 interface GetUserWorkflowArgs {
   workflowId?: string
@@ -42,91 +42,21 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
 
-      // Determine workflow ID (explicit or active)
-      const registryState = useWorkflowRegistry.getState() as any
-      let workflowId = args?.workflowId
-      if (!workflowId) {
-        const activeWorkflowId =
-          executionContext.workflowId || registryState.getActiveWorkflowId(executionContext.channelId)
-        if (!activeWorkflowId) {
-          await this.markToolComplete(400, 'No active workflow found')
-          this.setState(ClientToolCallState.error)
-          return
-        }
-        workflowId = activeWorkflowId as any
-      }
+      const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
 
-      // Locate the loaded channel for this workflow using canonical registry selectors.
-      const channelIdForWorkflow =
-        registryState.getPrimaryLoadedChannelForWorkflow?.(workflowId) || executionContext.channelId
-
-      logger.info('Fetching user workflow from stores', {
+      logger.info('Fetching user workflow from readable workflow snapshot', {
         workflowId,
         includeMetadata: args?.includeMetadata,
-        channelIdForWorkflow,
       })
 
-      // Prefer diff/preview store if available; otherwise use main workflow store
-      let workflowState: any = null
-
-      const diffStore = useWorkflowDiffStore.getState()
-      if (diffStore.diffWorkflow && Object.keys(diffStore.diffWorkflow.blocks || {}).length > 0) {
-        workflowState = diffStore.diffWorkflow
-        logger.info('Using workflow from diff/preview store', { workflowId })
-      } else {
-        const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
-        const fullWorkflowState = workflowStore.getWorkflowState()
-
-        if (!fullWorkflowState || !fullWorkflowState.blocks) {
-          const wfKey = String(workflowId)
-          const workflow = (registryState as any).workflows?.[wfKey]
-
-          if (!workflow) {
-            await this.markToolComplete(404, `Workflow ${workflowId} not found in any store`)
-            this.setState(ClientToolCallState.error)
-            return
-          }
-
-          logger.warn('No workflow state found, using workflow metadata only', { workflowId })
-          workflowState = workflow
-        } else {
-          workflowState = fullWorkflowState
-          logger.info('Using workflow state from workflow store', {
-            workflowId,
-            blockCount: Object.keys(fullWorkflowState.blocks || {}).length,
-          })
-        }
-      }
-
-      // Normalize required properties
-      if (workflowState) {
-        if (!workflowState.loops) workflowState.loops = {}
-        if (!workflowState.parallels) workflowState.parallels = {}
-        if (!workflowState.edges) workflowState.edges = []
-        if (!workflowState.blocks) workflowState.blocks = {}
-      }
-
-      // Merge latest subblock values so edits are reflected
-      try {
-        if (workflowState?.blocks) {
-          workflowState = {
-            ...workflowState,
-            blocks: mergeSubblockState(workflowState.blocks, workflowId as any),
-          }
-          logger.info('Merged subblock values into workflow state', {
-            workflowId,
-            blockCount: Object.keys(workflowState.blocks || {}).length,
-          })
-        }
-      } catch (mergeError) {
-        logger.warn('Failed to merge subblock values; proceeding with raw workflow state', {
-          workflowId,
-          error: mergeError instanceof Error ? mergeError.message : String(mergeError),
-        })
-      }
+      const { workflowState, source } = await getReadableWorkflowSnapshot(
+        executionContext,
+        workflowId
+      )
 
       logger.info('Validating workflow state', {
         workflowId,
+        source,
         hasWorkflowState: !!workflowState,
         hasBlocks: !!workflowState?.blocks,
         workflowStateType: typeof workflowState,

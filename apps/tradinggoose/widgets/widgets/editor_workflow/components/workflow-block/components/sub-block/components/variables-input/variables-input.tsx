@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useVariablesStore } from '@/stores/variables/store'
+import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import type { Variable } from '@/stores/variables/types'
 
 interface VariableAssignment {
@@ -55,7 +55,7 @@ export function VariablesInput({
 }: VariablesInputProps) {
   const workflowId = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue<VariableAssignment[]>(blockId, subBlockId)
-  const { variables: workflowVariables } = useVariablesStore()
+  const yjsVariables = useWorkflowVariables()
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const [showTags, setShowTags] = useState(false)
@@ -66,9 +66,9 @@ export function VariablesInput({
   const overlayRefs = useRef<Record<string, HTMLDivElement>>({})
   const [dragHighlight, setDragHighlight] = useState<Record<string, boolean>>({})
 
-  const currentWorkflowVariables = Object.values(workflowVariables).filter(
-    (v: Variable) => v.workflowId === workflowId
-  )
+  const currentWorkflowVariables = Object.values(yjsVariables).filter(
+    (v: any) => v && v.workflowId === workflowId
+  ) as Variable[]
 
   const value = isPreview ? previewValue : storeValue
   const assignments: VariableAssignment[] = value || []

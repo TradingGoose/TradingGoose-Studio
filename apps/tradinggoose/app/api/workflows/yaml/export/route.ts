@@ -7,7 +7,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { simAgentClient } from '@/lib/copilot/agent/client'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/tools/client/workflow/block-output-utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const workflowId = url.searchParams.get('workflowId')
 
   try {
-    logger.info(`[${requestId}] Exporting workflow YAML from database: ${workflowId}`)
+    logger.info(`[${requestId}] Exporting workflow YAML from workflow state: ${workflowId}`)
 
     if (!workflowId) {
       return NextResponse.json({ success: false, error: 'workflowId is required' }, { status: 400 })
@@ -73,50 +74,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Try to load from normalized tables first
-    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from normalized tables`)
-    const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+    const stateWithSource = await loadWorkflowStateWithFallback(workflowId)
 
-    let workflowState: any
-    const subBlockValues: Record<string, Record<string, any>> = {}
-
-    if (normalizedData) {
-      logger.debug(`[${requestId}] Found normalized data for workflow ${workflowId}:`, {
-        blocksCount: Object.keys(normalizedData.blocks).length,
-        edgesCount: normalizedData.edges.length,
-      })
-
-      // Use normalized table data - construct state from normalized tables
-      workflowState = {
-        deploymentStatuses: {},
-        blocks: normalizedData.blocks,
-        edges: normalizedData.edges,
-        loops: normalizedData.loops,
-        parallels: normalizedData.parallels,
-        lastSaved: Date.now(),
-        isDeployed: workflowData.isDeployed || false,
-        deployedAt: workflowData.deployedAt,
-      }
-
-      // Extract subblock values from the normalized blocks
-      Object.entries(normalizedData.blocks).forEach(([blockId, block]: [string, any]) => {
-        subBlockValues[blockId] = {}
-        if (block.subBlocks) {
-          Object.entries(block.subBlocks).forEach(([subBlockId, subBlock]: [string, any]) => {
-            if (subBlock && typeof subBlock === 'object' && 'value' in subBlock) {
-              subBlockValues[blockId][subBlockId] = subBlock.value
-            }
-          })
-        }
-      })
-
-      logger.info(`[${requestId}] Loaded workflow ${workflowId} from normalized tables`)
-    } else {
+    if (!stateWithSource) {
       return NextResponse.json(
-        { success: false, error: 'Workflow has no normalized data' },
+        { success: false, error: 'Workflow has no state data' },
         { status: 400 }
       )
     }
+
+    const workflowState: any = {
+      deploymentStatuses: {},
+      blocks: stateWithSource.blocks,
+      edges: stateWithSource.edges,
+      loops: stateWithSource.loops,
+      parallels: stateWithSource.parallels,
+      variables: stateWithSource.variables || {},
+      lastSaved: stateWithSource.lastSaved ?? Date.now(),
+      isDeployed: workflowData.isDeployed ?? false,
+      deployedAt: workflowData.deployedAt,
+    }
+
+    logger.info(`[${requestId}] Loaded workflow ${workflowId} from ${stateWithSource.source}`, {
+      blocksCount: Object.keys(workflowState.blocks).length,
+      edgesCount: workflowState.edges.length,
+      variablesCount: Object.keys(workflowState.variables || {}).length,
+    })
+
+    const subBlockValues = extractSubBlockValuesFromBlocks(workflowState.blocks || {})
 
     // Ensure loop blocks have their data populated with defaults
     if (workflowState.blocks) {
@@ -189,7 +174,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    logger.info(`[${requestId}] Successfully generated YAML from database`, {
+    logger.info(`[${requestId}] Successfully generated YAML from workflow state`, {
       yamlLength: result.data.yaml.length,
     })
 

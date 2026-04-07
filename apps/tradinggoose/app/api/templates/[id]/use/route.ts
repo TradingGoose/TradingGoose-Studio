@@ -7,7 +7,8 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { regenerateWorkflowStateIds } from '@/lib/workflows/db-helpers'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { regenerateWorkflowStateIds, remapVariableIds } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('TemplateUseAPI')
 
@@ -66,24 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const templateState =
       templateData.state && typeof templateData.state === 'object' ? (templateData.state as any) : null
 
-    const templateVariables =
-      templateState?.variables && typeof templateState.variables === 'object'
-        ? (templateState.variables as Record<string, any>)
-        : null
-
-    const remappedVariables: Record<string, any> = (() => {
-      if (!templateVariables) return {}
-      const mapped: Record<string, any> = {}
-      Object.values(templateVariables).forEach((variable: any) => {
-        const newVarId = uuidv4()
-        mapped[newVarId] = {
-          ...variable,
-          id: newVarId,
-          workflowId: newWorkflowId,
-        }
-      })
-      return mapped
-    })()
+    const templateVariables = normalizeVariables(templateState?.variables)
+    const remappedVariables = remapVariableIds(templateVariables, newWorkflowId)
 
     await db.insert(workflow).values({
       id: newWorkflowId,
@@ -100,7 +85,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (templateState) {
       const regeneratedState = regenerateWorkflowStateIds(templateState)
-      const { variables: _variables, ...stateWithoutVariables } = regeneratedState as any
+      // Strip template variables from the regenerated state (we use remapped ones)
+      // but include the remapped variables so the save route persists them to Yjs + DB
+      const { variables: _templateVars, ...stateWithoutTemplateVars } = regeneratedState as any
+      const stateWithVariables = {
+        ...stateWithoutTemplateVars,
+        variables: remappedVariables,
+      }
 
       const stateResponse = await fetch(`${getBaseUrl()}/api/workflows/${newWorkflowId}/state`, {
         method: 'PUT',
@@ -108,7 +99,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           'Content-Type': 'application/json',
           cookie: request.headers.get('cookie') || '',
         },
-        body: JSON.stringify(stateWithoutVariables),
+        body: JSON.stringify(stateWithVariables),
       })
 
       if (!stateResponse.ok) {

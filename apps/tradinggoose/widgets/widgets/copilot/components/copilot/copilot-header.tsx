@@ -114,7 +114,7 @@ function ChatHistoryItem({
         event.preventDefault()
         void onSelect(chat)
       }}
-      onMouseEnter={() => onHoverChat(chat.id)}
+      onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
       onMouseLeave={() => onHoverChat(null)}
     >
       <div className='min-w-0'>
@@ -130,7 +130,7 @@ function ChatHistoryItem({
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          void onDelete(chat.id)
+          void onDelete(chat.reviewSessionId)
         }}
         disabled={isSendingMessage}
         aria-label='Delete chat'
@@ -162,12 +162,12 @@ function ChatHistoryGroup({
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
-            key={chat.id}
+            key={chat.reviewSessionId}
             chat={chat}
             onSelect={onSelect}
             onDelete={onDelete}
             isSendingMessage={isSendingMessage}
-            isHovered={hoveredChatId === chat.id}
+            isHovered={hoveredChatId === chat.reviewSessionId}
             onHoverChat={onHoverChat}
           />
         ))}
@@ -189,7 +189,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   const grouped = groupChats(chats || [])
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (currentChat?.id === chat.id) return
+    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
     try {
       await store.getState().selectChat(chat)
     } catch {}
@@ -200,13 +200,11 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   }
 
   const handleRefresh = async () => {
-    const wf = store.getState().workflowId
-    if (!wf) return
     await store.getState().loadChats(true)
   }
 
   const title = currentChat?.title || 'New Chat'
-  const deleteChat = deleteChatId ? chats.find((chat) => chat.id === deleteChatId) : null
+  const deleteChat = deleteChatId ? chats.find((chat) => chat.reviewSessionId === deleteChatId) : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
       return <div className='p-3 text-sm text-muted-foreground'>Loading…</div>
@@ -307,15 +305,18 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   )
 }
 
-export function CopilotHeaderActions({ channelId }: { channelId: string }) {
+export function CopilotHeaderActions({
+  channelId,
+}: {
+  channelId: string
+}) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
 
   const subscribe = useCallback(store.subscribe, [store])
   const getSnapshot = useCallback(() => store.getState(), [store])
-  const { isSendingMessage, workflowId } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const { isSendingMessage } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const handleNewChat = async () => {
-    if (!workflowId) return
     await store.getState().createNewChat()
   }
 
@@ -324,7 +325,7 @@ export function CopilotHeaderActions({ channelId }: { channelId: string }) {
       type='button'
       className={widgetHeaderIconButtonClassName()}
       onClick={handleNewChat}
-      disabled={isSendingMessage || !workflowId}
+      disabled={isSendingMessage}
       aria-label='Start new chat'
       title={isSendingMessage ? 'Sending…' : 'New chat'}
     >

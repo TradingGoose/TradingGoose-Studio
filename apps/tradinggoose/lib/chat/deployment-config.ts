@@ -1,4 +1,5 @@
 import type { BlockState } from '@/stores/workflows/workflow/types'
+import { normalizeStringArray } from '@/lib/utils'
 
 export const CHAT_PRIMARY_COLOR = 'var(--primary-hover)'
 export const DEFAULT_CHAT_WELCOME_MESSAGE = 'Hi there! How can I help you today?'
@@ -46,17 +47,6 @@ const toTrimmedString = (value: unknown): string => {
 const toOptionalTrimmedString = (value: unknown): string | null => {
   const trimmed = toTrimmedString(value)
   return trimmed.length > 0 ? trimmed : null
-}
-
-const normalizeStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
 }
 
 export const isChatIdentifierFormatValid = (identifier: string): boolean =>

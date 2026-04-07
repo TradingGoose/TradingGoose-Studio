@@ -39,7 +39,6 @@ export function createSocketIOServer(httpServer: HttpServer): Server {
       credentials: true, // Enable credentials to accept cookies
     },
     transports: ['websocket', 'polling'], // WebSocket first, polling as fallback
-    allowEIO3: true, // Keep legacy support for compatibility
     pingTimeout: 60000, // Back to original conservative setting
     pingInterval: 25000, // Back to original interval
     maxHttpBufferSize: 1e6,

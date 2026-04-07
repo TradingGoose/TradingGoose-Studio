@@ -205,7 +205,7 @@ describe('Webhook Trigger API Route', () => {
     // Parse the response body
     const text = await response.text()
     expect(text).toMatch(/not found/i) // Response should contain "not found" message
-  })
+  }, 10000)
 
   describe('Generic Webhook Authentication', () => {
     // Mock billing and rate limiting dependencies

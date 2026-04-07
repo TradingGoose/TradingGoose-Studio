@@ -1,11 +1,24 @@
-import { useEffect } from 'react'
 import {
   CUSTOM_TOOL_WIDGET_SELECT_EVENT,
   type CustomToolWidgetSelectEventDetail,
+  type ReviewTargetEventFields,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
+import {
+  createSelectionPersistenceHook,
+  createEmitSelectionChange,
+  type UseSelectionPersistenceOptions,
+} from '@/widgets/utils/selection-persistence-factory'
 
 const DEFAULT_SCOPE_KEY = 'editor_custom_tool'
+
+// Hook
+
+const useCustomToolSelectionPersistenceGeneric = createSelectionPersistenceHook({
+  eventName: CUSTOM_TOOL_WIDGET_SELECT_EVENT,
+  detailIdKey: 'customToolId',
+  defaultScopeKey: DEFAULT_SCOPE_KEY,
+})
 
 interface UseCustomToolSelectionPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
@@ -17,59 +30,24 @@ interface UseCustomToolSelectionPersistenceOptions {
 }
 
 export function useCustomToolSelectionPersistence({
-  onWidgetParamsChange,
-  panelId,
-  params,
-  pairColor = 'gray',
   onCustomToolSelect,
-  scopeKey,
+  ...rest
 }: UseCustomToolSelectionPersistenceOptions) {
-  useEffect(() => {
-    if (!onWidgetParamsChange && !onCustomToolSelect) {
-      return
-    }
-
-    const resolvedScopeKey = scopeKey ?? DEFAULT_SCOPE_KEY
-
-    const handleCustomToolSelect = (event: Event) => {
-      const detail = (event as CustomEvent<CustomToolWidgetSelectEventDetail>).detail
-      if (!detail?.widgetKey) return
-      if (resolvedScopeKey && detail.widgetKey !== resolvedScopeKey) return
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-
-      if (pairColor !== 'gray' && onCustomToolSelect) {
-        onCustomToolSelect(detail.customToolId ?? null)
-        return
-      }
-
-      if (pairColor !== 'gray') {
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        customToolId: detail.customToolId ?? null,
-      })
-    }
-
-    window.addEventListener(
-      CUSTOM_TOOL_WIDGET_SELECT_EVENT,
-      handleCustomToolSelect as EventListener
-    )
-
-    return () => {
-      window.removeEventListener(
-        CUSTOM_TOOL_WIDGET_SELECT_EVENT,
-        handleCustomToolSelect as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, onCustomToolSelect, pairColor, panelId, params, scopeKey])
+  const opts: UseSelectionPersistenceOptions = {
+    ...rest,
+    onEntitySelect: onCustomToolSelect,
+  }
+  useCustomToolSelectionPersistenceGeneric(opts)
 }
 
-interface EmitCustomToolSelectionOptions {
+// Emit
+
+const emitGeneric = createEmitSelectionChange({
+  eventName: CUSTOM_TOOL_WIDGET_SELECT_EVENT,
+  detailIdKey: 'customToolId',
+})
+
+interface EmitCustomToolSelectionOptions extends ReviewTargetEventFields {
   customToolId?: string | null
   panelId?: string
   widgetKey: string
@@ -77,18 +55,7 @@ interface EmitCustomToolSelectionOptions {
 
 export function emitCustomToolSelectionChange({
   customToolId,
-  panelId,
-  widgetKey,
+  ...rest
 }: EmitCustomToolSelectionOptions) {
-  if (!widgetKey) return
-
-  window.dispatchEvent(
-    new CustomEvent<CustomToolWidgetSelectEventDetail>(CUSTOM_TOOL_WIDGET_SELECT_EVENT, {
-      detail: {
-        customToolId: customToolId ?? null,
-        panelId,
-        widgetKey,
-      },
-    })
-  )
+  emitGeneric({ ...rest, entityId: customToolId })
 }

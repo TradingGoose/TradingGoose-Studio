@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -12,10 +13,9 @@ import { Serializer, WorkflowValidationError } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/console/store'
-import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
+import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import { useCurrentWorkflow } from './use-current-workflow'
 
@@ -105,7 +105,16 @@ export function useWorkflowExecution() {
   const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
   const { toggleConsole, cancelRunningEntries } = useConsoleStore()
   const { getAllVariables, loadWorkspaceEnvironment } = useEnvironmentStore()
-  const { getVariablesByWorkflowId, variables } = useVariablesStore()
+  const yjsVariables = useWorkflowVariables()
+  // Store in a ref so the callback below can always read the latest value
+  // without being recreated on every Yjs variables change.
+  const yjsVariablesRef = useLatestRef(yjsVariables)
+  // Parameter unused: variables are always sourced from the current Yjs doc,
+  // but the signature satisfies the WorkflowExecutionContext contract.
+  const getVariablesByWorkflowId = useCallback(
+    (_workflowId: string) => Object.values(yjsVariablesRef.current),
+    []
+  )
   const {
     isExecuting,
     isDebugging,
@@ -703,7 +712,6 @@ export function useWorkflowExecution() {
     onBlockComplete?: (blockId: string, output: any) => Promise<void>,
     overrideTriggerType?: 'chat' | 'manual' | 'api'
   ): Promise<ExecutionResult | StreamingExecution> => {
-    // Use currentWorkflow but check if we're in diff mode
     const { blocks: workflowBlocks, edges: workflowEdges } = currentWorkflow
 
     // Filter out blocks without type (these are layout-only blocks)
@@ -722,7 +730,6 @@ export function useWorkflowExecution() {
       (workflowInput && typeof workflowInput === 'object' && 'input' in workflowInput)
 
     logger.info('Executing workflow', {
-      isDiffMode: currentWorkflow.isDiffMode,
       isExecutingFromChat,
       totalBlocksCount: Object.keys(workflowBlocks).length,
       validBlocksCount: Object.keys(validBlocks).length,
@@ -736,10 +743,7 @@ export function useWorkflowExecution() {
       }
     })
 
-    // Merge subblock states from the appropriate store (scoped to active workflow)
-    const mergedStates = activeWorkflowId
-      ? mergeSubblockState(validBlocks, activeWorkflowId)
-      : validBlocks
+    const mergedStates = validBlocks
 
     // Debug: Check for blocks with undefined types after merging
     Object.entries(mergedStates).forEach(([blockId, block]) => {

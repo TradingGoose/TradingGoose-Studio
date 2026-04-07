@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import {
   ArrowLeftRight,
   ArrowUpDown,
@@ -17,8 +17,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { emitRemoveFromSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 
 interface ActionBarProps {
@@ -73,29 +73,25 @@ export const ActionBar = memo(
       collaborativeDuplicateBlock,
       collaborativeToggleBlockHandles,
       collaborativeToggleBlockLocked,
-    } = useCollaborativeWorkflow()
+    } = useWorkflowEditorActions()
 
-    // Optimized: Single store subscription for all block data
+    // Optimized: derive all block data from Yjs blocks
+    const blocks = useWorkflowBlocks()
     const { isEnabled, horizontalHandles, parentId, parentType, isLocked, isParentLocked, isParentDisabled } =
-      useWorkflowStore(
-        useCallback(
-          (state) => {
-            const block = state.blocks[blockId]
-            const parentId = block?.data?.parentId
-            const parentBlock = parentId ? state.blocks[parentId] : undefined
-            return {
-              isEnabled: block?.enabled ?? true,
-              horizontalHandles: block?.horizontalHandles ?? true,
-              parentId,
-              parentType: parentBlock?.type,
-              isLocked: block?.locked ?? false,
-              isParentLocked: parentBlock?.locked ?? false,
-              isParentDisabled: parentBlock ? !parentBlock.enabled : false,
-            }
-          },
-          [blockId]
-        )
-      )
+      useMemo(() => {
+        const block = blocks[blockId]
+        const pid = block?.data?.parentId
+        const parentBlock = pid ? blocks[pid] : undefined
+        return {
+          isEnabled: block?.enabled ?? true,
+          horizontalHandles: block?.horizontalHandles ?? true,
+          parentId: pid,
+          parentType: parentBlock?.type,
+          isLocked: block?.locked ?? false,
+          isParentLocked: parentBlock?.locked ?? false,
+          isParentDisabled: parentBlock ? !parentBlock.enabled : false,
+        }
+      }, [blocks, blockId])
 
     const userPermissions = useUserPermissionsContext()
 

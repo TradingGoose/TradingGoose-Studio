@@ -133,11 +133,8 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
 
       const section: SettingsSection = (() => {
         switch (tab) {
-          case 'copilot':
-          case 'apikeys':
-          case 'credentials':
-          case 'files':
-            return 'copilot'
+          case 'service':
+            return 'service'
           case 'team':
             return 'team'
           case 'subscription':

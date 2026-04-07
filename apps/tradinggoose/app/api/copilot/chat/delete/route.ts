@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats } from '@tradinggoose/db/schema'
+import { copilotReviewSessions } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 const logger = createLogger('DeleteChatAPI')
 
 const DeleteChatSchema = z.object({
-  chatId: z.string(),
+  reviewSessionId: z.string(),
 })
 
 export async function DELETE(request: NextRequest) {
@@ -22,21 +22,31 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const parsed = DeleteChatSchema.parse(body)
 
-    // Delete the chat only if it belongs to the current user
     const deleted = await db
-      .delete(copilotChats)
-      .where(and(eq(copilotChats.id, parsed.chatId), eq(copilotChats.userId, session.user.id)))
-      .returning({ id: copilotChats.id })
+      .delete(copilotReviewSessions)
+      .where(
+        and(
+          eq(copilotReviewSessions.id, parsed.reviewSessionId),
+          eq(copilotReviewSessions.userId, session.user.id)
+        )
+      )
+      .returning({ id: copilotReviewSessions.id })
 
     if (deleted.length === 0) {
-      return NextResponse.json({ success: false, error: 'Chat not found' }, { status: 404 })
+      return NextResponse.json(
+        { success: false, error: 'Review session not found' },
+        { status: 404 }
+      )
     }
 
-    logger.info('Chat deleted', { chatId: parsed.chatId })
+    logger.info('Review session deleted', { reviewSessionId: parsed.reviewSessionId })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error('Error deleting chat:', error)
-    return NextResponse.json({ success: false, error: 'Failed to delete chat' }, { status: 500 })
+    logger.error('Error deleting review session:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete review session' },
+      { status: 500 }
+    )
   }
 }

@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { OutlookIcon } from '@/components/icons/icons'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
 const logger = createLogger('OutlookPollingTrigger')
@@ -49,7 +49,7 @@ export const outlookPollingTrigger: TriggerConfig = {
       required: false,
       options: [], // Will be populated dynamically
       fetchOptions: async (blockId: string, subBlockId: string) => {
-        const credentialId = useSubBlockStore.getState().getValue(blockId, 'triggerCredentials') as
+        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as
           | string
           | null
         if (!credentialId) {

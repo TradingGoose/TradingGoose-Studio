@@ -5,13 +5,10 @@ import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { Variables } from '@/widgets/widgets/workflow_variables/components/variables/variables'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { SocketProvider } from '@/contexts/socket-context'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  WorkflowStoreProvider,
-} from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface WorkflowVariablesAppProps {
   workspaceId: string
@@ -38,21 +35,23 @@ const WorkflowVariablesApp = ({
 
   return (
     <Providers workspaceId={workspaceId}>
-      <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <WorkflowVariablesAppContent
-              workflowId={workflowId}
-              channelId={channelId}
-              panelId={panelId}
-            />
-          </WorkflowStoreProvider>
+          <WorkflowVariablesAppContent
+            workflowId={workflowId}
+            channelId={channelId}
+            panelId={panelId}
+          />
         </WorkflowRouteProvider>
-      </SocketProvider>
+      </WorkflowSessionProvider>
     </Providers>
   )
 }
@@ -66,7 +65,7 @@ const WorkflowVariablesAppContent = ({
   channelId: string
   panelId?: string
 }) => {
-  const { collaborativeAddVariable } = useCollaborativeWorkflow()
+  const { collaborativeAddVariable } = useWorkflowEditorActions()
 
   const handleAddVariable = useCallback(() => {
     if (!workflowId) return

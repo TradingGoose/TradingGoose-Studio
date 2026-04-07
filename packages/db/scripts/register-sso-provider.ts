@@ -35,7 +35,6 @@
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { v4 as uuidv4 } from 'uuid'
 import { ssoProvider, user } from '../schema'
 
 // Self-contained SSO types (matching Better Auth's structure)
@@ -415,7 +414,7 @@ async function registerSSOProvider(): Promise<boolean> {
 
     // Build provider data (following Better Auth's exact structure)
     const providerData: SSOProviderData = {
-      id: uuidv4(), // Generate unique ID
+      id: crypto.randomUUID(),
       issuer: ssoConfig.issuer,
       domain: ssoConfig.domain,
       userId: adminUser.id,

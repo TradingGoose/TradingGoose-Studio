@@ -1,10 +1,13 @@
 import { getBlockOutputPaths } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useVariablesStore } from '@/stores/variables/store'
 import type { Variable } from '@/stores/variables/types'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
+import {
+  getRegisteredWorkflowSession,
+  getVariablesForWorkflow,
+} from '@/lib/yjs/workflow-session-registry'
+import { getWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface WorkflowContext {
   workflowId: string
@@ -21,9 +24,54 @@ export interface VariableOutput {
   tag: string
 }
 
-export function getWorkflowSubBlockValues(workflowId: string): Record<string, Record<string, any>> {
-  const subBlockStore = useSubBlockStore.getState()
-  return subBlockStore.workflowValues[workflowId] ?? {}
+/**
+ * Extract sub-block values from a plain blocks record (no Yjs session needed).
+ * Returns a map of blockId -> { subBlockId -> value }.
+ *
+ * This is the pure-data counterpart of `getWorkflowSubBlockValues` which reads
+ * from a live Yjs session. Use this variant when you already have the blocks
+ * snapshot in memory (e.g. during YAML export or server-side processing).
+ */
+export function extractSubBlockValuesFromBlocks(
+  blocks: Record<string, any>
+): Record<string, Record<string, any>> {
+  const result: Record<string, Record<string, any>> = {}
+  for (const [blockId, block] of Object.entries(blocks)) {
+    if (block?.subBlocks) {
+      const blockValues: Record<string, any> = {}
+      for (const [subId, sub] of Object.entries(block.subBlocks as Record<string, any>)) {
+        if (sub && typeof sub === 'object' && 'value' in sub) {
+          blockValues[subId] = sub.value
+        }
+      }
+      result[blockId] = blockValues
+    }
+  }
+  return result
+}
+
+/**
+ * Get subblock values from the Yjs session registry.
+ * In the Yjs world, subblock values are embedded in the blocks themselves,
+ * so we extract them from the workflow snapshot.
+ *
+ * Accepts an optional pre-fetched `snapshot` parameter. When provided, the
+ * function skips the Yjs document snapshot entirely, avoiding redundant
+ * full-document reads when the caller already has the snapshot in hand
+ * (e.g. from a prior `getWorkflowSnapshot` call in the same tool execution).
+ */
+export function getWorkflowSubBlockValues(
+  workflowId: string,
+  snapshot?: { blocks: Record<string, any> }
+): Record<string, Record<string, any>> {
+  if (snapshot) {
+    return extractSubBlockValuesFromBlocks(snapshot.blocks)
+  }
+
+  const session = getRegisteredWorkflowSession(workflowId)
+  if (!session?.doc) return {}
+  const liveSnapshot = getWorkflowSnapshot(session.doc)
+  return extractSubBlockValuesFromBlocks(liveSnapshot.blocks)
 }
 
 export function getMergedSubBlocks(
@@ -52,10 +100,11 @@ export function getSubBlockValue(
 }
 
 export function getWorkflowVariables(workflowId: string): VariableOutput[] {
-  const getVariablesByWorkflowId = useVariablesStore.getState().getVariablesByWorkflowId
-  const workflowVariables = getVariablesByWorkflowId(workflowId)
+  const varsSnapshot = getVariablesForWorkflow(workflowId)
+  if (!varsSnapshot) return []
+  const workflowVariables = Object.values(varsSnapshot) as Variable[]
   const validVariables = workflowVariables.filter(
-    (variable: Variable) => variable.name.trim() !== ''
+    (variable: Variable) => variable.name && variable.name.trim() !== ''
   )
   return validVariables.map((variable: Variable) => ({
     id: variable.id,

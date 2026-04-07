@@ -1,3 +1,4 @@
+import { getBlock } from '@/blocks'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -12,12 +13,14 @@ export class TriggerBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
     // Handle blocks that are triggers - either by category or by having triggerMode enabled
     const isTriggerCategory = block.metadata?.category === 'triggers'
+    const blockType = block.metadata?.id ?? block.config?.tool
+    const isRegisteredTrigger = blockType ? getBlock(blockType)?.category === 'triggers' : false
 
     // For blocks that can be both tools and triggers (like Gmail/Outlook), check if triggerMode is enabled
     // This would come from the serialized block config/params
     const hasTriggerMode = block.config?.params?.triggerMode === true
 
-    return isTriggerCategory || hasTriggerMode
+    return isTriggerCategory || isRegisteredTrigger || hasTriggerMode
   }
 
   async execute(

@@ -1,28 +1,46 @@
-import { createServer } from 'http'
+import { createServer, type IncomingMessage } from 'http'
+import type { Duplex } from 'stream'
+import { WebSocketServer } from 'ws'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { setupAllHandlers } from '@/socket-server/handlers'
 import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monitor-runtime'
 import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
-import { RoomManager } from '@/socket-server/rooms/manager'
 import { createHttpHandler } from '@/socket-server/routes/http'
+import { handleYjsUpgrade } from '@/socket-server/yjs/ws-handler'
+import { isYjsUpgradeRequest, shieldNonYjsUpgradeListeners } from '@/socket-server/yjs/upgrade-routing'
 
 const logger = createLogger('CollaborativeSocketServer')
 
 // Enhanced server configuration - HTTP server will be configured with handler after all dependencies are set up
 const httpServer = createServer()
 
-const io = createSocketIOServer(httpServer)
+// Yjs WebSocket server - noServer mode, upgrade handled manually
+const yjsWss = new WebSocketServer({ noServer: true })
 
-// Initialize room manager after io is created
-const roomManager = new RoomManager(io)
+// Register the Yjs upgrade handler before Socket.IO and then shield the
+// remaining upgrade listeners so Engine.IO never sees /yjs/* requests.
+const yjsUpgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+  if (!isYjsUpgradeRequest(request)) {
+    return
+  }
+
+  handleYjsUpgrade(yjsWss, request, socket, head)
+}
+
+httpServer.on('upgrade', yjsUpgradeListener)
+
+const io = createSocketIOServer(httpServer)
+shieldNonYjsUpgradeListeners(httpServer, yjsUpgradeListener)
+
 const indicatorMonitorRuntime = new IndicatorMonitorRuntime(logger)
 
 io.use(authenticateSocket)
 
-const httpHandler = createHttpHandler(roomManager, logger, {
+const httpHandler = createHttpHandler(logger, {
   getMonitorRuntimeHealth: () => indicatorMonitorRuntime.getHealth(),
+  getConnectionCount: () => yjsWss.clients.size + (io.engine?.clientsCount ?? 0),
   onIndicatorMonitorsReconcile: async () => {
     await indicatorMonitorRuntime.requestReconcile()
   },
@@ -54,7 +72,7 @@ io.engine.on('connection_error', (err) => {
 io.on('connection', (socket: AuthenticatedSocket) => {
   logger.info(`New socket connection: ${socket.id}`)
 
-  setupAllHandlers(socket, roomManager)
+  setupAllHandlers(socket)
 })
 
 httpServer.on('request', (req, res) => {

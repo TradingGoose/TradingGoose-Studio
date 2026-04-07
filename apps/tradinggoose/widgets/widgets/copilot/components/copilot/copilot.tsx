@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,41 +14,24 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
+import { areCopilotContextsEqual } from '@/lib/copilot/chat-contexts'
+import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
-import { usePreviewStore } from '@/stores/copilot/preview-store'
+import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import type { ChatContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
+import type { ChatContext } from '@/stores/copilot/types'
 import type { PairColor } from '@/widgets/pair-colors'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import {
-  appendCurrentTargetsContext,
-  buildCurrentTargetsContext,
-} from '../../utils/current-target-context'
-import { CheckpointPanel, CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
 const logger = createLogger('Copilot')
 
-// Default enabled/disabled state for all models (must match API)
-const DEFAULT_ENABLED_MODELS: Record<string, boolean> = {
-  'gpt-4o': false,
-  'gpt-4.1': false,
-  'gpt-5-fast': false,
-  'gpt-5': true,
-  'gpt-5-medium': true,
-  'gpt-5-high': false,
-  o3: true,
-  'claude-4-sonnet': false,
-  'claude-4.5-haiku': true,
-  'claude-4.5-sonnet': true,
-  'claude-4.1-opus': true,
-}
-
 interface CopilotProps {
   panelWidth: number
-  initialChatId?: string | null
-  onChatIdChange?: (chatId: string | null) => void
+  channelId: string
   pairColor?: PairColor
 }
 
@@ -57,20 +41,21 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ panelWidth, initialChatId = null, onChatIdChange, pairColor = 'gray' }, ref) => {
+  (
+    {
+      panelWidth,
+      channelId,
+      pairColor = 'gray',
+    },
+    ref
+  ) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
-    const [showCheckpoints] = useState(false)
     const [isInitialized, setIsInitialized] = useState(false)
     const [todosCollapsed, setTodosCollapsed] = useState(false)
-    const lastWorkflowIdRef = useRef<string | null>(null)
-    const hasMountedRef = useRef(false)
-    const hasLoadedModelsRef = useRef(false)
+    const lastScopeKeyRef = useRef<string | null>(null)
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
     const [isEditingMessage, setIsEditingMessage] = useState(false)
-    const [revertingMessageId, setRevertingMessageId] = useState<string | null>(null)
-    const pendingChatIdRef = useRef<string | null>(initialChatId ?? null)
-    const lastNotifiedChatIdRef = useRef<string | null>(initialChatId ?? null)
 
     // Scroll state
     const [isNearBottom, setIsNearBottom] = useState(true)
@@ -79,11 +64,23 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
     const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
 
-    const { workflowId: activeWorkflowId } = useWorkflowRoute()
+    const workspaceId = useWorkspaceId()
     const pairContext = usePairColorContext(pairColor)
-
-    // Use preview store to track seen previews
-    const { isToolCallSeen, markToolCallAsSeen } = usePreviewStore()
+    const implicitContexts = useMemo(
+      () =>
+        buildImplicitCopilotContexts({
+          workspaceId,
+          pairContext,
+        }),
+      [pairContext, workspaceId]
+    )
+    const liveContext = useMemo(
+      () => ({
+        workflowId: normalizeOptionalString(pairContext?.workflowId) ?? null,
+        workspaceId: normalizeOptionalString(workspaceId) ?? null,
+      }),
+      [pairContext?.workflowId, workspaceId]
+    )
 
     // Use the new copilot store
     const {
@@ -101,192 +98,81 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       createNewChat,
       setAccessLevel,
       setInputValue,
-      chatsLoadedForWorkflow,
-      setWorkflowId: setCopilotWorkflowId,
       loadChats,
-      selectChat,
-      enabledModels,
-      setEnabledModels,
       selectedModel,
       setSelectedModel,
-      messageCheckpoints,
       currentChat,
       fetchContextUsage,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
-    const defaultCurrentTargetsContext = useMemo(
-      () =>
-        buildCurrentTargetsContext({
-          activeWorkflowId,
-          pairColor,
-          pairContext,
-        }),
-      [activeWorkflowId, pairColor, pairContext]
-    )
+
+    useLayoutEffect(() => {
+      const storeState = copilotStoreApi.getState()
+      const nextState: Record<string, unknown> = {}
+
+      if (!areCopilotContextsEqual(storeState.implicitContexts, implicitContexts)) {
+        nextState.implicitContexts = implicitContexts
+      }
+
+      const currentLiveContext = storeState.liveContext
+      if (
+        currentLiveContext.workflowId !== liveContext.workflowId ||
+        currentLiveContext.workspaceId !== liveContext.workspaceId
+      ) {
+        nextState.liveContext = liveContext
+      }
+
+      if (Object.keys(nextState).length > 0) {
+        copilotStoreApi.setState(nextState as any)
+      }
+    }, [copilotStoreApi, implicitContexts, liveContext])
 
     useEffect(() => {
-      pendingChatIdRef.current = initialChatId ?? null
-    }, [initialChatId])
+      if (!selectedModel) {
+        setSelectedModel(DEFAULT_COPILOT_RUNTIME_MODEL)
+      }
+    }, [selectedModel, setSelectedModel])
 
-    // Load user's enabled models on mount
     useEffect(() => {
-      const loadEnabledModels = async () => {
-        if (hasLoadedModelsRef.current) return
-        hasLoadedModelsRef.current = true
+      let cancelled = false
 
-        try {
-          const res = await fetch('/api/copilot/user-models')
-          if (!res.ok) {
-            logger.warn('Failed to fetch user models, using defaults')
-            // Use defaults if fetch fails
-            const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
-              (key) => DEFAULT_ENABLED_MODELS[key]
-            )
-            setEnabledModels(enabledArray)
-            return
-          }
+      const initialize = async () => {
+        const scopeKey = `workspace:${workspaceId ?? 'pending'}`
 
-          const data = await res.json()
-          const modelsMap = data.enabledModels || DEFAULT_ENABLED_MODELS
+        if (scopeKey === lastScopeKeyRef.current && isInitialized) {
+          return
+        }
 
-          // Convert map to array of enabled model IDs
-          const enabledArray = Object.entries(modelsMap)
-            .filter(([_, enabled]) => enabled)
-            .map(([modelId]) => modelId)
+        lastScopeKeyRef.current = scopeKey
+        setIsInitialized(false)
 
-          setEnabledModels(enabledArray)
-          logger.info('Loaded user enabled models', { count: enabledArray.length })
-        } catch (error) {
-          logger.error('Failed to load enabled models', { error })
-          // Use defaults on error
-          const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
-            (key) => DEFAULT_ENABLED_MODELS[key]
-          )
-          setEnabledModels(enabledArray)
+        await loadChats(true, { workspaceId: workspaceId ?? null })
+        if (!cancelled) {
+          setIsInitialized(true)
         }
       }
 
-      loadEnabledModels()
-    }, [setEnabledModels])
-
-    // Ensure selected model is in the enabled models list
-    useEffect(() => {
-      if (!enabledModels || enabledModels.length === 0) return
-
-      // Check if current selected model is in the enabled list
-      if (selectedModel && !enabledModels.includes(selectedModel)) {
-        // Switch to the first enabled model (prefer claude-4.5-sonnet if available)
-        const preferredModel = 'claude-4.5-sonnet'
-        const fallbackModel = enabledModels[0] as typeof selectedModel
-
-        if (enabledModels.includes(preferredModel)) {
-          setSelectedModel(preferredModel)
-          logger.info('Selected model not enabled, switching to preferred model', {
-            from: selectedModel,
-            to: preferredModel,
-          })
-        } else if (fallbackModel) {
-          setSelectedModel(fallbackModel)
-          logger.info('Selected model not enabled, switching to first available', {
-            from: selectedModel,
-            to: fallbackModel,
-          })
+      initialize().catch((error) => {
+        if (!cancelled) {
+          logger.error('Failed to initialize copilot target', { error })
+          setIsInitialized(true)
         }
-      }
-    }, [enabledModels, selectedModel, setSelectedModel])
+      })
 
-    // Force fresh initialization on mount (handles hot reload)
-    useEffect(() => {
-      if (activeWorkflowId && !hasMountedRef.current) {
-        hasMountedRef.current = true
-        // Reset state to ensure fresh load, especially important for hot reload
-        setIsInitialized(false)
-        lastWorkflowIdRef.current = null
-
-        // Force reload chats for current workflow
-        setCopilotWorkflowId(activeWorkflowId)
-        loadChats(true) // Force refresh
+      return () => {
+        cancelled = true
       }
-    }, [activeWorkflowId, setCopilotWorkflowId, loadChats])
-
-    // Initialize the component - only on mount and genuine workflow changes
-    useEffect(() => {
-      // If workflow actually changed (not initial mount), reset initialization
-      if (
-        activeWorkflowId &&
-        activeWorkflowId !== lastWorkflowIdRef.current &&
-        hasMountedRef.current
-      ) {
-        setIsInitialized(false)
-        lastWorkflowIdRef.current = activeWorkflowId
-      }
-
-      // Set as initialized once we have the workflow and chats are ready
-      if (
-        activeWorkflowId &&
-        !isLoadingChats &&
-        chatsLoadedForWorkflow === activeWorkflowId &&
-        !isInitialized
-      ) {
-        setIsInitialized(true)
-      }
-    }, [activeWorkflowId, isLoadingChats, chatsLoadedForWorkflow, isInitialized])
-
-    // Align selected chat with the widget-provided chatId when available
-    useEffect(() => {
-      const targetChatId = pendingChatIdRef.current
-      if (!targetChatId) return
-      if (!activeWorkflowId) return
-      if (currentChat?.id === targetChatId) {
-        pendingChatIdRef.current = null
-        return
-      }
-      if (isLoadingChats || chatsLoadedForWorkflow !== activeWorkflowId) return
-
-      const match = (chats || []).find((chat) => chat.id === targetChatId)
-      if (match) {
-        pendingChatIdRef.current = null
-        selectChat(match).catch(() => {})
-      } else {
-        pendingChatIdRef.current = null
-      }
-    }, [
-      activeWorkflowId,
-      chats,
-      chatsLoadedForWorkflow,
-      currentChat?.id,
-      isLoadingChats,
-      selectChat,
-    ])
+    }, [isInitialized, loadChats, workspaceId])
 
     // Fetch context usage when component is initialized and has a current chat
     useEffect(() => {
-      if (isInitialized && currentChat?.id && activeWorkflowId) {
+      if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
         fetchContextUsage().catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [isInitialized, currentChat?.id, activeWorkflowId, fetchContextUsage])
-
-    // Keep widget params in sync with the active chat
-    useEffect(() => {
-      if (!onChatIdChange) return
-      if (!isInitialized) return
-
-      const nextId = currentChat?.id ?? null
-      if (nextId === lastNotifiedChatIdRef.current) return
-
-      if (nextId || lastNotifiedChatIdRef.current !== null) {
-        lastNotifiedChatIdRef.current = nextId
-        onChatIdChange(nextId)
-      }
-    }, [currentChat?.id, isInitialized, onChatIdChange])
-
-    // Clear any existing preview when component mounts or workflow changes
-    useEffect(() => {
-      // Preview clearing is now handled automatically by the copilot store
-    }, [activeWorkflowId])
+    }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
 
     // Scroll to bottom function
     const scrollToBottom = useCallback(() => {
@@ -466,7 +352,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
     // Handle new chat creation
     const handleStartNewChat = useCallback(() => {
-      // Preview clearing is now handled automatically by the copilot store
       createNewChat()
       logger.info('Started new chat')
 
@@ -512,7 +397,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         fileAttachments?: MessageFileAttachment[],
         contexts?: ChatContext[]
       ) => {
-        if (!query || isSendingMessage || !activeWorkflowId) return
+        if (!query || isSendingMessage) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -524,7 +409,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           await sendMessage(query, {
             stream: true,
             fileAttachments,
-            contexts: appendCurrentTargetsContext(contexts, defaultCurrentTargetsContext),
+            contexts,
           })
           logger.info(
             'Sent message:',
@@ -535,7 +420,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [activeWorkflowId, defaultCurrentTargetsContext, isSendingMessage, sendMessage, showPlanTodos]
+      [isSendingMessage, sendMessage, showPlanTodos, copilotStoreApi]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -544,9 +429,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
     }, [])
 
-    const handleRevertModeChange = useCallback((messageId: string, isReverting: boolean) => {
-      setRevertingMessageId(isReverting ? messageId : null)
-    }, [])
 
     return (
       <>
@@ -561,87 +443,67 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             </div>
           ) : (
             <>
-              {/* Messages area or Checkpoint Panel */}
-              {showCheckpoints ? (
-                <CheckpointPanel />
-              ) : (
-                <div className='relative flex-1 overflow-hidden'>
-                  <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
-                    <div className='w-full max-w-full space-y-2 overflow-hidden'>
-                      {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
-                        <div className='flex h-full items-center justify-center p-4'>
-                          <CopilotWelcome
-                            onQuestionClick={handleSubmit}
-                            accessLevel={accessLevel}
-                          />
-                        </div>
-                      ) : (
-                        messages.map((message, index) => {
-                          // Determine if this message should be dimmed
-                          let isDimmed = false
+              {/* Messages area */}
+              <div className='relative flex-1 overflow-hidden'>
+                <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
+                  <div className='w-full max-w-full space-y-2 overflow-hidden'>
+                    {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
+                      <div className='flex h-full items-center justify-center p-4'>
+                        <CopilotWelcome
+                          onQuestionClick={handleSubmit}
+                          accessLevel={accessLevel}
+                        />
+                      </div>
+                    ) : (
+                      messages.map((message, index) => {
+                        // Determine if this message should be dimmed
+                        let isDimmed = false
 
-                          // Dim messages after the one being edited
-                          if (editingMessageId) {
-                            const editingIndex = messages.findIndex(
-                              (m) => m.id === editingMessageId
-                            )
-                            isDimmed = editingIndex !== -1 && index > editingIndex
-                          }
-
-                          // Also dim messages after the one showing restore confirmation
-                          if (!isDimmed && revertingMessageId) {
-                            const revertingIndex = messages.findIndex(
-                              (m) => m.id === revertingMessageId
-                            )
-                            isDimmed = revertingIndex !== -1 && index > revertingIndex
-                          }
-
-                          // Get checkpoint count for this message to force re-render when it changes
-                          const checkpointCount = messageCheckpoints[message.id]?.length || 0
-
-                          return (
-                            <CopilotMessage
-                              key={message.id}
-                              message={message}
-                              isStreaming={
-                                isSendingMessage && message.id === messages[messages.length - 1]?.id
-                              }
-                              panelWidth={panelWidth}
-                              isDimmed={isDimmed}
-                              checkpointCount={checkpointCount}
-                              defaultCurrentTargetsContext={defaultCurrentTargetsContext}
-                              onEditModeChange={(isEditing) =>
-                                handleEditModeChange(message.id, isEditing)
-                              }
-                              onRevertModeChange={(isReverting) =>
-                                handleRevertModeChange(message.id, isReverting)
-                              }
-                            />
+                        // Dim messages after the one being edited
+                        if (editingMessageId) {
+                          const editingIndex = messages.findIndex(
+                            (m) => m.id === editingMessageId
                           )
-                        })
-                      )}
-                    </div>
-                  </ScrollArea>
+                          isDimmed = editingIndex !== -1 && index > editingIndex
+                        }
 
-                  {/* Scroll to bottom button */}
-                  {showScrollButton && (
-                    <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
-                      <Button
-                        onClick={scrollToBottom}
-                        size='sm'
-                        variant='outline'
-                        className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
-                      >
-                        <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
-                        <span className='sr-only'>Scroll to bottom</span>
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                        return (
+                          <CopilotMessage
+                            key={message.id}
+                            message={message}
+                            isStreaming={
+                              isSendingMessage && message.id === messages[messages.length - 1]?.id
+                            }
+                            panelWidth={panelWidth}
+                            isDimmed={isDimmed}
+                            onEditModeChange={(isEditing) =>
+                              handleEditModeChange(message.id, isEditing)
+                            }
+                          />
+                        )
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* Scroll to bottom button */}
+                {showScrollButton && (
+                  <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
+                    <Button
+                      onClick={scrollToBottom}
+                      size='sm'
+                      variant='outline'
+                      className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
+                    >
+                      <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
+                      <span className='sr-only'>Scroll to bottom</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
 
               {/* Todo list from plan tool */}
-              {!showCheckpoints && showPlanTodos && (
+              {showPlanTodos && (
                 <TodoList
                   todos={planTodos}
                   collapsed={todosCollapsed}
@@ -653,23 +515,22 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
               )}
 
               {/* Input area with integrated access selector */}
-              {!showCheckpoints && (
-                <div className='pt-2'>
-                  <UserInput
-                    ref={userInputRef}
-                    onSubmit={handleSubmit}
-                    onAbort={handleAbort}
-                    disabled={!activeWorkflowId}
-                    isLoading={isSendingMessage}
-                    isAborting={isAborting}
-                    accessLevel={accessLevel}
-                    onAccessLevelChange={setAccessLevel}
-                    value={inputValue}
-                    onChange={setInputValue}
-                    panelWidth={panelWidth}
-                  />
-                </div>
-              )}
+              <div className='pt-2'>
+                <UserInput
+                  ref={userInputRef}
+                  channelId={channelId}
+                  onSubmit={handleSubmit}
+                  onAbort={handleAbort}
+                  disabled={false}
+                  isLoading={isSendingMessage}
+                  isAborting={isAborting}
+                  accessLevel={accessLevel}
+                  onAccessLevelChange={setAccessLevel}
+                  value={inputValue}
+                  onChange={setInputValue}
+                  panelWidth={panelWidth}
+                />
+              </div>
             </>
           )}
         </div>

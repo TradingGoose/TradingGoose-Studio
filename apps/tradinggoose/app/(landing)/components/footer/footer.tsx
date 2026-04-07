@@ -12,7 +12,9 @@ type FooterLink = {
 
 const productLinks: FooterLink[] = [
   { label: 'Docs', href: 'https://docs.tradinggoose.ai', external: true },
+  { label: 'Blog', href: '/blog', external: false },
   { label: 'Widgets', href: 'https://docs.tradinggoose.ai/widgets', external: true },
+  { label: 'Indicators', href: 'https://docs.tradinggoose.ai/indicators', external: true },
   { label: 'Blocks', href: 'https://docs.tradinggoose.ai/blocks', external: true },
   { label: 'Tools', href: 'https://docs.tradinggoose.ai/tools', external: true },
   //{ label: 'Pricing', href: '/#pricing', external: false },
@@ -86,22 +88,9 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             <p className='max-w-[28rem] text-balance font-light text-xs leading-relaxed'>
               {`© ${new Date().getFullYear()} TradingGoose Studio. Built for visual trading workflows.`}
             </p>
-
-            <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs max-sm:justify-center'>
-              {legalLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className='transition-colors duration-300 hover:text-foreground'
-                  prefetch={false}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
           </div>
 
-          <div className='order-first text-sm max-sm:text-center sm:max-w-[28rem] sm:self-start lg:order-none lg:items-end'>
+          <div className='order-first text-sm space-y-16 max-sm:text-center sm:max-w-[28rem] sm:self-start lg:order-none lg:items-end'>
             <div className='grid grid-cols-3 gap-x-8 gap-y-3 sm:grid-cols-4 sm:gap-x-12'>
               {productLinks.map((link) =>
                 link.external ? (
@@ -125,6 +114,19 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                   </Link>
                 )
               )}
+            </div>
+
+            <div className='flex flex-wrap gap-x-4 gap-y-2 py-3 text-xs max-sm:justify-center'>
+              {legalLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className='transition-colors duration-300 hover:text-foreground'
+                  prefetch={false}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

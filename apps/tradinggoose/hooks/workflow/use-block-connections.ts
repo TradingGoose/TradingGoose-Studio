@@ -1,14 +1,10 @@
-import { shallow } from 'zustand/shallow'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+  useWorkflowBlocks,
+  useWorkflowEdges,
+} from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('useBlockConnections')
 
@@ -90,33 +86,8 @@ function extractFieldsFromSchema(schema: any): Field[] {
 }
 
 export function useBlockConnections(blockId: string) {
-  const { edges, blocks } = useWorkflowStore(
-    (state) => ({
-      edges: state.edges,
-      blocks: state.blocks,
-    }),
-    shallow
-  )
-
-  const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const workflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const workflowSubBlockValues = useSubBlockStore((state) =>
-    workflowId ? (state.workflowValues[workflowId] ?? {}) : {}
-  )
-
-  // Helper function to merge block subBlocks with live values from subblock store
-  const getMergedSubBlocks = (sourceBlockId: string): Record<string, any> => {
-    const base = blocks[sourceBlockId]?.subBlocks || {}
-    const live = workflowSubBlockValues?.[sourceBlockId] || {}
-    const merged: Record<string, any> = { ...base }
-    for (const [subId, liveVal] of Object.entries(live)) {
-      merged[subId] = { ...(base[subId] || {}), value: liveVal }
-    }
-    return merged
-  }
+  const blocks = useWorkflowBlocks()
+  const edges = useWorkflowEdges()
 
   // Find all blocks along paths leading to this block
   const allPathNodeIds = BlockPathCalculator.findAllPathNodes(edges, blockId)
@@ -127,13 +98,9 @@ export function useBlockConnections(blockId: string) {
       const sourceBlock = blocks[sourceId]
       if (!sourceBlock) return null
 
-      // Get merged subblocks for this source block
-      const mergedSubBlocks = getMergedSubBlocks(sourceId)
+      const mergedSubBlocks = blocks[sourceId]?.subBlocks || {}
 
-      // Get the response format from the subblock store
-      const responseFormatValue = useSubBlockStore
-        .getState()
-        .getValue(sourceId, 'responseFormat', workflowId ?? undefined)
+      const responseFormatValue = blocks[sourceId]?.subBlocks?.responseFormat?.value
 
       // Safely parse response format with proper error handling
       const responseFormat = parseResponseFormatSafely(responseFormatValue, sourceId)
@@ -178,13 +145,9 @@ export function useBlockConnections(blockId: string) {
       const sourceBlock = blocks[edge.source]
       if (!sourceBlock) return null
 
-      // Get merged subblocks for this source block
-      const mergedSubBlocks = getMergedSubBlocks(edge.source)
+      const mergedSubBlocks = blocks[edge.source]?.subBlocks || {}
 
-      // Get the response format from the subblock store instead
-      const responseFormatValue = useSubBlockStore
-        .getState()
-        .getValue(edge.source, 'responseFormat', workflowId ?? undefined)
+      const responseFormatValue = blocks[edge.source]?.subBlocks?.responseFormat?.value
 
       // Safely parse response format with proper error handling
       const responseFormat = parseResponseFormatSafely(responseFormatValue, edge.source)

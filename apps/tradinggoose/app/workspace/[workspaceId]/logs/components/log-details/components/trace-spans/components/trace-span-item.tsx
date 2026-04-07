@@ -1,6 +1,7 @@
 import type React from 'react'
 import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import {
   CollapsibleInputOutput,
@@ -85,7 +86,7 @@ export function TraceSpanItem({
       if (!block?.icon) return null
       return {
         Icon: block.icon as React.ComponentType<{ className?: string }>,
-        bgColor: (block as { bgColor?: string }).bgColor,
+        bgColor: sanitizeSolidIconColor((block as { bgColor?: string }).bgColor),
       }
     }
 
@@ -151,7 +152,7 @@ export function TraceSpanItem({
   const getBlockColor = (type: string) => {
     try {
       const block = getBlock(type)
-      const color = (block as { bgColor?: string } | null)?.bgColor
+      const color = sanitizeSolidIconColor((block as { bgColor?: string } | null)?.bgColor)
       if (color) return color as string
     } catch {}
     return getSpanColor(type)
@@ -271,10 +272,7 @@ export function TraceSpanItem({
             <div className='mb-0.5 flex items-center space-x-2'>
               <div
                 className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
-                style={{
-                  backgroundColor: blockIconColor ? `${blockIconColor}20` : undefined,
-                  color: blockIconColor || undefined,
-                }}
+                style={getIconTileStyle(blockIconColor)}
               >
                 {BlockIcon && <BlockIcon className='h-4 w-4' />}
               </div>

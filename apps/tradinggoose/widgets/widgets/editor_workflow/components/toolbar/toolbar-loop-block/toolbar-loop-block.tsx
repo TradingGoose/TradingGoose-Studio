@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
@@ -57,7 +58,7 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={{ backgroundColor: LoopTool.bgColor + '30', color: LoopTool.bgColor }}
+        style={getIconTileStyle(LoopTool.bgColor, '30')}
       >
         <LoopTool.icon
           className={cn(

@@ -10,45 +10,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockWorkflowStore = {
-  getState: vi.fn(),
-  subscribe: vi.fn(),
-}
-
-const mockSubBlockStore = {
-  getState: vi.fn(),
-  subscribe: vi.fn(),
-}
-
-const mockWorkflowRegistry = {
-  getState: vi.fn(),
-  subscribe: vi.fn(),
-}
-
-vi.mock('@/stores/workflows/workflow/store', () => ({
-  useWorkflowStore: vi.fn((selector) => {
-    if (typeof selector === 'function') {
-      return selector(mockWorkflowStore.getState())
-    }
-    return mockWorkflowStore
-  }),
+vi.mock('@/lib/yjs/workflow-session-registry', () => ({
+  getRegisteredWorkflowSession: vi.fn(() => null),
 }))
 
-vi.mock('@/stores/workflows/subblock/store', () => ({
-  useSubBlockStore: vi.fn((selector) => {
-    if (typeof selector === 'function') {
-      return selector(mockSubBlockStore.getState())
-    }
-    return mockSubBlockStore
-  }),
+vi.mock('@/lib/yjs/workflow-session', () => ({
+  getWorkflowSnapshot: vi.fn(() => ({ blocks: {}, edges: [], loops: {}, parallels: {} })),
+  getVariablesSnapshot: vi.fn(() => ({})),
 }))
 
 vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: vi.fn(() => mockWorkflowRegistry.getState()),
-}))
-
-vi.mock('@/stores/workflows/utils', () => ({
-  mergeSubblockState: vi.fn((blocks) => blocks),
+  useWorkflowRegistry: vi.fn(() => ({})),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({

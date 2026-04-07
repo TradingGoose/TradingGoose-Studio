@@ -6,9 +6,16 @@ import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import {
+  buildEntityReviewDiffLines,
+  buildEntityReviewDiffPayload,
+} from '@/lib/copilot/entity-review-diff'
+import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { getEnv } from '@/lib/env'
+import { cn } from '@/lib/utils'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -16,6 +23,20 @@ import {
   isCopilotTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
+import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
+
+type WorkflowReviewOperation = {
+  operation_type?: string
+  block_id?: string
+}
+
+type WorkflowReviewPayload = {
+  workflowState: Record<string, any>
+  operations: WorkflowReviewOperation[]
+  warnings: string[]
+  addedEdgesCount: number
+  removedEdgesCount: number
+}
 
 interface InlineToolCallProps {
   toolCall?: CopilotToolCall
@@ -166,15 +187,17 @@ function ShimmerOverlayText({
   )
 }
 
-function isIntegrationTool(toolName: string): boolean {
-  return !isCopilotTool(toolName)
-}
-
 function shouldShowRunSkipButtons(
   toolCall: CopilotToolCall,
   options: { accessLevel: CopilotAccessLevel; isIntegration: boolean }
 ): boolean {
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
+
+  // Show accept/reject for tools in review state that declare interrupt metadata
+  if (hasInterrupt && toolCall.state === 'review') {
+    return true
+  }
+
   if (hasInterrupt && toolCall.state === 'pending' && options.accessLevel === 'limited') {
     return true
   }
@@ -208,6 +231,71 @@ function formatToolName(name: string): string {
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+function formatWorkflowOperation(operation: WorkflowReviewOperation): string {
+  const action = String(operation.operation_type || 'edit')
+  const blockId = String(operation.block_id || 'unknown block')
+
+  switch (action) {
+    case 'add':
+      return `Add ${blockId}`
+    case 'delete':
+      return `Delete ${blockId}`
+    default:
+      return `Edit ${blockId}`
+  }
+}
+
+function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string {
+  switch (type) {
+    case 'added':
+      return 'bg-green-50/80 text-green-700 dark:bg-green-950/20 dark:text-green-300'
+    case 'removed':
+      return 'bg-red-50/80 text-red-700 dark:bg-red-950/20 dark:text-red-300'
+    default:
+      return 'bg-muted/30 text-muted-foreground'
+  }
+}
+
+function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPayload | null {
+  if (toolCall.name !== 'edit_workflow') {
+    return null
+  }
+
+  const result =
+    toolCall.result && typeof toolCall.result === 'object'
+      ? (toolCall.result as Record<string, any>)
+      : null
+  const workflowState =
+    result?.workflowState && typeof result.workflowState === 'object'
+      ? (result.workflowState as Record<string, any>)
+      : null
+
+  if (!workflowState) {
+    return null
+  }
+
+  const operations = Array.isArray(toolCall.params?.operations)
+    ? (toolCall.params.operations as WorkflowReviewOperation[])
+    : []
+  const warnings = Array.isArray(result?.preview?.warnings)
+    ? (result.preview.warnings as string[])
+    : []
+  const addedEdgesCount = Array.isArray(result?.preview?.edgeDiff?.added)
+    ? result.preview.edgeDiff.added.length
+    : 0
+  const removedEdgesCount = Array.isArray(result?.preview?.edgeDiff?.removed)
+    ? result.preview.edgeDiff.removed.length
+    : 0
+
+  return {
+    workflowState,
+    operations,
+    warnings,
+    addedEdgesCount,
+    removedEdgesCount,
+  }
 }
 
 function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: boolean }): string {
@@ -328,6 +416,57 @@ function RunSkipButtons({
     )
   }
 
+  // Review state: show Accept / Reject using the tool's interrupt display metadata
+  if (toolCall.state === 'review') {
+    const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
+    const acceptText = interruptDisplays?.accept?.text ?? 'Accept'
+    const rejectText = interruptDisplays?.reject?.text ?? 'Reject'
+    const AcceptIcon = interruptDisplays?.accept?.icon
+    const RejectIcon = interruptDisplays?.reject?.icon
+
+    return (
+      <div className='flex items-center gap-1.5'>
+        <Button
+          onClick={async () => {
+            if (actionInProgressRef.current) return
+            actionInProgressRef.current = true
+            setIsProcessing(true)
+            setButtonsHidden(true)
+            try {
+              onStateChange?.('executing')
+              await executeCopilotToolCall(toolCall.id)
+            } finally {
+              setIsProcessing(false)
+              actionInProgressRef.current = false
+            }
+          }}
+          disabled={isProcessing}
+          size='sm'
+        >
+          {isProcessing ? (
+            <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+          ) : AcceptIcon ? (
+            <AcceptIcon className='mr-1 h-3 w-3' />
+          ) : null}
+          {acceptText}
+        </Button>
+        <Button
+          onClick={async () => {
+            setButtonsHidden(true)
+            await skipCopilotToolCall(toolCall.id)
+            onStateChange?.('rejected')
+          }}
+          disabled={isProcessing}
+          size='sm'
+          variant='outline'
+        >
+          {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
+          {rejectText}
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className='flex items-center gap-1.5'>
       <Button onClick={onRun} disabled={isProcessing} size='sm'>
@@ -382,6 +521,7 @@ export function InlineToolCall({
     toolName === 'set_global_workflow_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
+  const entitySession = useEntitySession()
 
   const isCopilotManagedTool = isCopilotTool(toolName)
   const isIntegration = !isCopilotManagedTool
@@ -405,6 +545,16 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall, { isIntegration })
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
+  const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
+  const showWorkflowReview =
+    workflowReviewPayload && toolCall.state === ClientToolCallState.review
+  const entityReviewDiffPayload =
+    entitySession.doc && entitySession.descriptor
+      ? buildEntityReviewDiffPayload(
+          toolCall,
+          getEntityFields(entitySession.doc, entitySession.descriptor.entityKind)
+        )
+      : null
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
@@ -631,6 +781,93 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
+      {entityReviewDiffPayload ? (
+        <div className='pr-1 pl-5'>
+          <div className='flex flex-col gap-3 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
+            <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+              {entityReviewDiffPayload.title}
+            </div>
+
+            {entityReviewDiffPayload.sections.map((section) => (
+              <div key={section.key} className='flex flex-col gap-1.5'>
+                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                  {section.label}
+                </div>
+                <div className='overflow-hidden rounded-md border border-border/60 bg-background/70'>
+                  {buildEntityReviewDiffLines(section.before, section.after).map((line, index) => (
+                    <div
+                      key={`${section.key}-${line.type}-${index}`}
+                      className={cn(
+                        'grid grid-cols-[10px_1fr] gap-2 px-2 py-1 font-mono text-[11px] leading-5',
+                        getEntityDiffLineClasses(line.type)
+                      )}
+                    >
+                      <span className='select-none'>
+                        {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
+                      </span>
+                      <span className='whitespace-pre-wrap break-words'>{line.text || ' '}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {showWorkflowReview && workflowReviewPayload ? (
+        <div className='pr-1 pl-5'>
+          <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
+            {workflowReviewPayload.operations.length > 0 ? (
+              <div className='flex flex-col gap-1'>
+                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                  Proposed Changes
+                </div>
+                <div className='flex flex-wrap gap-1.5'>
+                  {workflowReviewPayload.operations.map((operation, index) => (
+                    <span
+                      key={`${operation.operation_type || 'edit'}-${operation.block_id || index}-${index}`}
+                      className='inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground'
+                    >
+                      {formatWorkflowOperation(operation)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {workflowReviewPayload.addedEdgesCount > 0 ||
+            workflowReviewPayload.removedEdgesCount > 0 ? (
+              <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+                <span>Edges +{workflowReviewPayload.addedEdgesCount}</span>
+                <span>Edges -{workflowReviewPayload.removedEdgesCount}</span>
+              </div>
+            ) : null}
+
+            {workflowReviewPayload.warnings.length > 0 ? (
+              <div className='flex flex-col gap-1'>
+                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                  Warnings
+                </div>
+                <ul className='list-disc space-y-1 pl-4 text-xs text-muted-foreground'>
+                  {workflowReviewPayload.warnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <PreviewWorkflow
+              workflowState={workflowReviewPayload.workflowState as any}
+              diffOperations={workflowReviewPayload.operations}
+              height={240}
+              defaultZoom={0.7}
+              fitPadding={0.18}
+              showInspector={false}
+              framed={false}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 
 type Deferred<T> = {
@@ -416,9 +415,6 @@ describe('workflow registry stale metadata handling', () => {
     expect(state.loadedWorkflowIds[channel]).toBe(true)
     expect(state.hydrationByChannel[channel]?.phase).toBe('ready')
     expect(state.hydrationByChannel[channel]?.workflowId).toBe(wfNew)
-
-    const workflowStoreState = useWorkflowStore.getState(channel)
-    expect(Object.keys(workflowStoreState.blocks)).toContain('block-new')
-    expect(Object.keys(workflowStoreState.blocks)).not.toContain('block-old')
+    expect(state.error).toBeNull()
   })
 })

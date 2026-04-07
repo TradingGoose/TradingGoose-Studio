@@ -3,7 +3,7 @@
 import { ToolCase } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
-  SkillEditorSaveButton,
+  SkillEditorHeaderActions,
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
@@ -17,11 +17,11 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
   description: 'Edit workspace skills.',
   component: (props) => <EditorSkillWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
-    const skillId = getSkillIdFromParams(
+    const params =
       widget?.params && typeof widget.params === 'object'
         ? (widget.params as Record<string, unknown>)
         : null
-    )
+    const skillId = getSkillIdFromParams(params)
 
     return {
       center: (
@@ -31,18 +31,18 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
           skillId={skillId}
           pairColor={widget?.pairColor}
           widgetKey={widget?.key}
+          params={params}
         />
       ),
       right: (
-        <div className='flex items-center gap-1'>
-          <SkillEditorSaveButton
-            workspaceId={context?.workspaceId}
-            skillId={skillId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-        </div>
+        <SkillEditorHeaderActions
+          workspaceId={context?.workspaceId}
+          skillId={skillId}
+          panelId={panelId}
+          widgetKey={widget?.key}
+          pairColor={widget?.pairColor}
+          params={params}
+        />
       ),
     }
   },

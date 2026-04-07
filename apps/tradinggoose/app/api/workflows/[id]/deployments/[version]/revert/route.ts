@@ -1,11 +1,12 @@
 import { db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
@@ -69,6 +70,18 @@ export async function POST(
       return createErrorResponse('Invalid deployed state structure', 500)
     }
 
+    const now = new Date()
+    const revertSnapshot = createWorkflowSnapshot({
+      blocks: deployedState.blocks,
+      edges: deployedState.edges,
+      loops: deployedState.loops,
+      parallels: deployedState.parallels,
+      lastSaved: now.toISOString(),
+      isDeployed: true,
+      deployedAt: now.toISOString(),
+    })
+    const revertVariables = deployedState.variables || undefined
+
     const saveResult = await saveWorkflowToNormalizedTables(id, {
       blocks: deployedState.blocks,
       edges: deployedState.edges,
@@ -77,7 +90,6 @@ export async function POST(
       lastSaved: Date.now(),
       isDeployed: true,
       deployedAt: new Date(),
-      deploymentStatuses: deployedState.deploymentStatuses || {},
     })
 
     if (!saveResult.success) {
@@ -86,22 +98,15 @@ export async function POST(
 
     await db
       .update(workflow)
-      .set({ lastSynced: new Date(), updatedAt: new Date() })
+      .set({
+        lastSynced: now,
+        updatedAt: now,
+        ...(revertVariables ? { variables: revertVariables } : {}),
+      })
       .where(eq(workflow.id, id))
 
-    try {
-      const socketServerUrl = env.SOCKET_SERVER_URL || 'http://localhost:3002'
-      await fetch(`${socketServerUrl}/api/workflow-reverted`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Secret': env.INTERNAL_API_SECRET,
-        },
-        body: JSON.stringify({ workflowId: id, timestamp: Date.now() }),
-      })
-    } catch (e) {
-      logger.error('Error sending workflow reverted event to socket server', e)
-    }
+    // Publish the reverted state to Yjs only after the durable writes succeed.
+    await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
 
     await pauseMonitorsMissingDeployedIndicatorTrigger(id)
     await notifyIndicatorMonitorsReconcile({ requestId, logger })

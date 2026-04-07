@@ -1,5 +1,6 @@
 import type React from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { getBlock } from '@/blocks'
 import type { ConsoleEntry } from '@/stores/console/types'
 import type { EntryNode, ExecutionGroup, SortConfig, TerminalFilters } from './types'
@@ -31,8 +32,9 @@ export function getBlockIcon(
 
 export function getBlockColor(blockType: string): string {
   const blockConfig = getBlock(blockType)
-  if (blockConfig?.bgColor) {
-    return blockConfig.bgColor
+  const iconColor = sanitizeSolidIconColor(blockConfig?.bgColor)
+  if (iconColor) {
+    return iconColor
   }
   if (blockType === 'loop') {
     return SUBFLOW_COLORS.loop

@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { MailServerIcon } from '@/components/icons/icons'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
 const logger = createLogger('ImapPollingTrigger')
@@ -84,13 +84,12 @@ export const imapPollingTrigger: TriggerConfig = {
       required: false,
       options: [],
       fetchOptions: async (blockId: string, _subBlockId: string) => {
-        const store = useSubBlockStore.getState()
-        const host = store.getValue(blockId, 'host') as string | null
-        const port = store.getValue(blockId, 'port') as string | null
-        const secure = store.getValue(blockId, 'secure') as boolean | null
-        const rejectUnauthorized = store.getValue(blockId, 'rejectUnauthorized') as boolean | null
-        const username = store.getValue(blockId, 'username') as string | null
-        const password = store.getValue(blockId, 'password') as string | null
+        const host = readActiveSubBlockValue(blockId, 'host') as string | null
+        const port = readActiveSubBlockValue(blockId, 'port') as string | null
+        const secure = readActiveSubBlockValue(blockId, 'secure') as boolean | null
+        const rejectUnauthorized = readActiveSubBlockValue(blockId, 'rejectUnauthorized') as boolean | null
+        const username = readActiveSubBlockValue(blockId, 'username') as string | null
+        const password = readActiveSubBlockValue(blockId, 'password') as string | null
 
         if (!host || !username || !password) {
           throw new Error('Please enter IMAP server, username, and password first')

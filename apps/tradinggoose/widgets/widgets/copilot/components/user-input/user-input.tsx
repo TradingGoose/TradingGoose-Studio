@@ -3,7 +3,6 @@
 import {
   forwardRef,
   type KeyboardEvent,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -50,15 +49,27 @@ import {
 } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
+import {
+  COPILOT_RUNTIME_MODEL_OPTIONS,
+  type CopilotRuntimeModel,
+  DEFAULT_COPILOT_RUNTIME_MODEL,
+} from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
 const logger = createLogger('CopilotUserInput')
+const BRAIN_MODELS: readonly CopilotRuntimeModel[] = ['gpt-5.4', 'claude-sonnet-4.6']
+const BRAIN_CIRCUIT_MODELS: readonly CopilotRuntimeModel[] = ['claude-opus-4.6']
+const FAST_MODELS: readonly CopilotRuntimeModel[] = ['gpt-5.4-mini']
+const ANTHROPIC_MODELS: readonly CopilotRuntimeModel[] = ['claude-sonnet-4.6', 'claude-opus-4.6']
+const OPENAI_MODELS: readonly CopilotRuntimeModel[] = ['gpt-5.4', 'gpt-5.4-mini']
 
 export interface MessageFileAttachment {
   id: string
@@ -80,6 +91,7 @@ interface AttachedFile {
 }
 
 interface UserInputProps {
+  channelId?: string
   onSubmit: (
     message: string,
     fileAttachments?: MessageFileAttachment[],
@@ -107,6 +119,7 @@ interface UserInputRef {
 const UserInput = forwardRef<UserInputRef, UserInputProps>(
   (
     {
+      channelId,
       onSubmit,
       onAbort,
       disabled = false,
@@ -165,7 +178,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       v: 'Chats' | 'Workflows' | 'Workflow Blocks' | 'Knowledge' | 'Blocks' | 'Templates' | 'Logs'
     ) => openSubmenuFor === v
     const [pastChats, setPastChats] = useState<
-      Array<{ id: string; title: string | null; workflowId: string | null; updatedAt?: string }>
+      Array<{
+        reviewSessionId: string
+        title: string | null
+        workflowId: string | null
+        updatedAt?: string
+      }>
     >([])
     const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
     // Removed explicit submenu query inputs; we derive query from the text typed after '@'
@@ -199,15 +217,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const [isLoadingLogs, setIsLoadingLogs] = useState(false)
 
     const { data: session } = useSession()
-    const {
-      currentChat,
-      workflowId,
-      enabledModels,
-      setEnabledModels,
-      contextUsage,
-      createNewChat,
-    } = useCopilotStore()
+    const { liveContext, contextUsage, createNewChat } = useCopilotStore()
     const workspaceId = useWorkspaceId()
+    const workflowId = liveContext.workflowId
 
     // Determine placeholder based on access level
     const effectivePlaceholder =
@@ -251,34 +263,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       }
     }, [workflowId])
 
-    // Reset past chats when workflow changes to ensure we only load chats from the current workflow
+    // Reset past chats when the active copilot scope changes.
     useEffect(() => {
       setPastChats([])
       setIsLoadingPastChats(false)
-    }, [workflowId])
-
-    // Fetch enabled models when dropdown is opened for the first time
-    const fetchEnabledModelsOnce = useCallback(async () => {
-      if (enabledModels !== null) return // Already loaded
-
-      try {
-        const res = await fetch('/api/copilot/user-models')
-        if (!res.ok) {
-          logger.error('Failed to fetch enabled models')
-          return
-        }
-        const data = await res.json()
-        const modelsMap = data.enabledModels || {}
-
-        // Convert to array for store (API already merged with defaults)
-        const enabledArray = Object.entries(modelsMap)
-          .filter(([_, enabled]) => enabled)
-          .map(([modelId]) => modelId)
-        setEnabledModels(enabledArray)
-      } catch (error) {
-        logger.error('Error fetching enabled models', { error })
-      }
-    }, [enabledModels, setEnabledModels])
+    }, [channelId, workspaceId])
 
     // Auto-resize textarea and toggle vertical scroll when exceeding max height
     useEffect(() => {
@@ -377,19 +366,26 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (isLoadingPastChats || pastChats.length > 0) return
       try {
         setIsLoadingPastChats(true)
-        const resp = await fetch('/api/copilot/chats')
+
+        const params = new URLSearchParams()
+        if (channelId) {
+          params.set('channelId', channelId)
+        }
+        if (workspaceId) {
+          params.set('workspaceId', workspaceId)
+        }
+
+        const query = params.toString()
+        const resp = await fetch(query ? `/api/copilot/chats?${query}` : '/api/copilot/chats')
         if (!resp.ok) throw new Error(`Failed to load chats: ${resp.status}`)
         const data = await resp.json()
         const items = Array.isArray(data?.chats) ? data.chats : []
 
-        // Filter chats to only include those from the current workflow
-        const currentWorkflowChats = items.filter((c: any) => c.workflowId === workflowId)
-
         setPastChats(
-          currentWorkflowChats.map((c: any) => ({
-            id: c.id,
+          items.map((c: any) => ({
+            reviewSessionId: c.reviewSessionId,
             title: c.title ?? null,
-            workflowId: c.workflowId ?? null,
+            workflowId: null,
             updatedAt: c.updatedAt,
           }))
         )
@@ -464,7 +460,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             id: b.type,
             name: b.name || b.type,
             iconComponent: b.icon,
-            bgColor: b.bgColor,
+            bgColor: sanitizeSolidIconColor(b.bgColor),
           }))
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -474,7 +470,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             id: b.type,
             name: b.name || b.type,
             iconComponent: b.icon,
-            bgColor: b.bgColor,
+            bgColor: sanitizeSolidIconColor(b.bgColor),
           }))
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -679,7 +675,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           size: f.size,
         }))
 
-      // Send only the explicitly selected contexts
+      // The store appends live pair-store context separately; the composer only tracks explicit picks.
       onSubmit(trimmedMessage, fileAttachments, selectedContexts as any)
 
       // Only clear after submit if clearOnSubmit is true (default behavior for bottom input)
@@ -1463,13 +1459,21 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       return true
     }
 
-    const insertPastChatMention = (chat: { id: string; title: string | null }) => {
+    const insertPastChatMention = (chat: { reviewSessionId: string; title: string | null }) => {
       const label = chat.title || 'Untitled Chat'
       replaceActiveMentionWith(label)
       setSelectedContexts((prev) => {
-        // Avoid duplicate contexts for same chat
-        if (prev.some((c) => c.kind === 'past_chat' && (c as any).chatId === chat.id)) return prev
-        return [...prev, { kind: 'past_chat', chatId: chat.id, label } as ChatContext]
+        // Avoid duplicate contexts for same review session
+        if (
+          prev.some(
+            (c) => c.kind === 'past_chat' && (c as any).reviewSessionId === chat.reviewSessionId
+          )
+        )
+          return prev
+        return [
+          ...prev,
+          { kind: 'past_chat', reviewSessionId: chat.reviewSessionId, label } as ChatContext,
+        ]
       })
       setShowMentionMenu(false)
       setOpenSubmenuFor(null)
@@ -1503,8 +1507,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       const label = blk.name || blk.id
       replaceActiveMentionWith(label)
       setSelectedContexts((prev) => {
-        if (prev.some((c) => c.kind === 'blocks' && (c as any).blockId === blk.id)) return prev
-        return [...prev, { kind: 'blocks', blockId: blk.id, label } as any]
+        if (prev.some((c) => c.kind === 'blocks' && c.blockIds.includes(blk.id))) return prev
+        return [...prev, { kind: 'blocks', blockIds: [blk.id], label } as ChatContext]
       })
       setShowMentionMenu(false)
       setOpenSubmenuFor(null)
@@ -1734,57 +1738,29 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Model selection state comes from global store; access via useCopilotStore
     const { selectedModel, agentPrefetch, setSelectedModel, setAgentPrefetch } = useCopilotStore()
 
-    // Model configurations with their display names
-    const allModelOptions = [
-      { value: 'gpt-5-fast', label: 'gpt-5-fast' },
-      { value: 'gpt-5', label: 'gpt-5' },
-      { value: 'gpt-5-medium', label: 'gpt-5-medium' },
-      { value: 'gpt-5-high', label: 'gpt-5-high' },
-      { value: 'gpt-4o', label: 'gpt-4o' },
-      { value: 'gpt-4.1', label: 'gpt-4.1' },
-      { value: 'o3', label: 'o3' },
-      { value: 'claude-4-sonnet', label: 'claude-4-sonnet' },
-      { value: 'claude-4.5-haiku', label: 'claude-4.5-haiku' },
-      { value: 'claude-4.5-sonnet', label: 'claude-4.5-sonnet' },
-      { value: 'claude-4.1-opus', label: 'claude-4.1-opus' },
-    ] as const
-
-    // Filter models based on user preferences
-    const modelOptions =
-      enabledModels !== null
-        ? allModelOptions.filter((model) => enabledModels.includes(model.value))
-        : allModelOptions
+    const modelOptions = COPILOT_RUNTIME_MODEL_OPTIONS
 
     const getCollapsedModeLabel = () => {
       const model = modelOptions.find((m) => m.value === selectedModel)
-      return model ? model.label : 'claude-4.5-sonnet'
+      return model ? model.label : DEFAULT_COPILOT_RUNTIME_MODEL
     }
 
     const getModelIcon = () => {
-      // Brain and BrainCircuit models show purple when agentPrefetch is false
-      const isBrainModel = [
-        'gpt-5',
-        'gpt-5-medium',
-        'claude-4-sonnet',
-        'claude-4.5-sonnet',
-      ].includes(selectedModel)
-      const isBrainCircuitModel = ['gpt-5-high', 'o3', 'claude-4.1-opus'].includes(selectedModel)
-      const isHaikuModel = selectedModel === 'claude-4.5-haiku'
-
-      // Haiku shows purple when selected, other zap models don't
+      const isBrainModel = BRAIN_MODELS.includes(selectedModel)
+      const isBrainCircuitModel = BRAIN_CIRCUIT_MODELS.includes(selectedModel)
+      const isFastModel = FAST_MODELS.includes(selectedModel)
       const colorClass =
-        (isBrainModel || isBrainCircuitModel || isHaikuModel) && !agentPrefetch
+        (isBrainModel || isBrainCircuitModel || isFastModel) && !agentPrefetch
           ? 'text-primary-hover'
           : 'text-muted-foreground'
 
-      // Match the dropdown icon logic exactly
       if (isBrainCircuitModel) {
         return <BrainCircuit className={`h-3 w-3 ${colorClass}`} />
       }
       if (isBrainModel) {
         return <Brain className={`h-3 w-3 ${colorClass}`} />
       }
-      if (['gpt-4o', 'gpt-4.1', 'gpt-5-fast', 'claude-4.5-haiku'].includes(selectedModel)) {
+      if (isFastModel) {
         return <Zap className={`h-3 w-3 ${colorClass}`} />
       }
       return <InfinityIcon className={`h-3 w-3 ${colorClass}`} />
@@ -1890,7 +1866,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     // Get workflow blocks from the workflow store
-    const workflowStoreBlocks = useWorkflowStore((state) => state.blocks)
+    const workflowStoreBlocks = useWorkflowBlocks()
 
     // Transform workflow store blocks into the format needed for the mention menu
     const [workflowBlocks, setWorkflowBlocks] = useState<
@@ -1916,7 +1892,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             name: b.name || b.id,
             type: b.type,
             iconComponent: reg?.icon,
-            bgColor: reg?.bgColor || '#6B7280',
+            bgColor: sanitizeSolidIconColor(reg?.bgColor) || '#6B7280',
           }
         })
         setWorkflowBlocks(mapped)
@@ -2205,10 +2181,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           )}
 
           {/* Selected Context Pills */}
-          {selectedContexts.filter((c) => c.kind !== 'current_workflow').length > 0 && (
+          {selectedContexts.filter((context) => !isHiddenCopilotContext(context)).length > 0 && (
             <div className='mb-2 flex flex-wrap gap-1.5'>
               {selectedContexts
-                .filter((c) => c.kind !== 'current_workflow')
+                .filter((context) => !isHiddenCopilotContext(context))
                 .map((ctx, idx) => (
                   <span
                     key={`selctx-${idx}-${ctx.label}`}
@@ -2238,7 +2214,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                     <button
                       type='button'
                       onClick={() => {
-                        // Remove only non-hidden contexts; current_workflow is never shown
+                        // Remove only explicit contexts; hidden live contexts are store-derived.
                         setSelectedContexts((prev) => prev.filter((c) => c.label !== ctx.label))
                       }}
                       className='text-muted-foreground transition-colors hover:text-foreground'
@@ -2395,7 +2371,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                   )
                                   .map((chat, idx) => (
                                     <div
-                                      key={chat.id}
+                                      key={chat.reviewSessionId}
                                       data-idx={idx}
                                       className={cn(
                                         'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
@@ -2543,7 +2519,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                     >
                                       <div
                                         className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        style={{
+                                          backgroundColor:
+                                            sanitizeSolidIconColor(blk.bgColor) || '#6B7280',
+                                        }}
                                       >
                                         {blk.iconComponent && (
                                           <blk.iconComponent className='!h-3 !w-3 text-white' />
@@ -2590,7 +2569,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                     >
                                       <div
                                         className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        style={{
+                                          backgroundColor:
+                                            sanitizeSolidIconColor(blk.bgColor) || '#6B7280',
+                                        }}
                                       >
                                         {blk.iconComponent && (
                                           <blk.iconComponent className='!h-3 !w-3 text-white' />
@@ -2764,7 +2746,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                 )
                                 .map((c) => ({
                                   type: 'Chats' as const,
-                                  id: c.id,
+                                  id: c.reviewSessionId,
                                   value: c,
                                   onClick: () => insertPastChatMention(c),
                                 })),
@@ -2840,7 +2822,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                             className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                                sanitizeSolidIconColor(
+                                                  (item.value as any).bgColor
+                                                ) || '#6B7280',
                                             }}
                                           >
                                             {(() => {
@@ -2860,7 +2844,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                             className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                                sanitizeSolidIconColor(
+                                                  (item.value as any).bgColor
+                                                ) || '#6B7280',
                                             }}
                                           >
                                             {(() => {
@@ -3134,7 +3120,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                               className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                  sanitizeSolidIconColor(
+                                                    (item.value as any).bgColor
+                                                  ) || '#6B7280',
                                               }}
                                             >
                                               {(() => {
@@ -3154,7 +3142,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                               className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                  sanitizeSolidIconColor(
+                                                    (item.value as any).bgColor
+                                                  ) || '#6B7280',
                                               }}
                                             >
                                               {(() => {
@@ -3306,27 +3296,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 </DropdownMenuContent>
               </DropdownMenu>
               {(() => {
-                const isBrainModel = [
-                  'gpt-5',
-                  'gpt-5-medium',
-                  'claude-4-sonnet',
-                  'claude-4.5-sonnet',
-                ].includes(selectedModel)
-                const isBrainCircuitModel = ['gpt-5-high', 'o3', 'claude-4.1-opus'].includes(
-                  selectedModel
-                )
-                const isHaikuModel = selectedModel === 'claude-4.5-haiku'
+                const isBrainModel = BRAIN_MODELS.includes(selectedModel)
+                const isBrainCircuitModel = BRAIN_CIRCUIT_MODELS.includes(selectedModel)
+                const isFastModel = FAST_MODELS.includes(selectedModel)
                 const showPurple =
-                  (isBrainModel || isBrainCircuitModel || isHaikuModel) && !agentPrefetch
+                  (isBrainModel || isBrainCircuitModel || isFastModel) && !agentPrefetch
 
                 return (
-                  <DropdownMenu
-                    onOpenChange={(open) => {
-                      if (open) {
-                        fetchEnabledModelsOnce()
-                      }
-                    }}
-                  >
+                  <DropdownMenu onOpenChange={() => {}}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant='ghost'
@@ -3342,10 +3319,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         {getModelIcon()}
                         <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
                           {getCollapsedModeLabel()}
-                          {agentPrefetch &&
-                            !['gpt-4o', 'gpt-4.1', 'gpt-5-fast'].includes(selectedModel) && (
-                              <span className='ml-1 font-semibold'>Lite</span>
-                            )}
+                          {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
+                            <span className='ml-1 font-semibold'>Lite</span>
+                          )}
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -3365,30 +3341,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                 {(() => {
                                   const getModelIcon = (modelValue: string) => {
                                     if (
-                                      ['gpt-5-high', 'o3', 'claude-4.1-opus'].includes(modelValue)
+                                      BRAIN_CIRCUIT_MODELS.includes(
+                                        modelValue as CopilotRuntimeModel
+                                      )
                                     ) {
                                       return (
                                         <BrainCircuit className='h-3 w-3 text-muted-foreground' />
                                       )
                                     }
-                                    if (
-                                      [
-                                        'gpt-5',
-                                        'gpt-5-medium',
-                                        'claude-4-sonnet',
-                                        'claude-4.5-sonnet',
-                                      ].includes(modelValue)
-                                    ) {
+                                    if (BRAIN_MODELS.includes(modelValue as CopilotRuntimeModel)) {
                                       return <Brain className='h-3 w-3 text-muted-foreground' />
                                     }
-                                    if (
-                                      [
-                                        'gpt-4o',
-                                        'gpt-4.1',
-                                        'gpt-5-fast',
-                                        'claude-4.5-haiku',
-                                      ].includes(modelValue)
-                                    ) {
+                                    if (FAST_MODELS.includes(modelValue as CopilotRuntimeModel)) {
                                       return <Zap className='h-3 w-3 text-muted-foreground' />
                                     }
                                     return <div className='h-3 w-3' />
@@ -3401,13 +3365,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={option.value}
                                       onSelect={() => {
                                         setSelectedModel(option.value)
-                                        // Automatically turn off Lite mode for fast models (Zap icon)
-                                        if (
-                                          ['gpt-4o', 'gpt-4.1', 'gpt-5-fast'].includes(
-                                            option.value
-                                          ) &&
-                                          agentPrefetch
-                                        ) {
+                                        if (FAST_MODELS.includes(option.value) && agentPrefetch) {
                                           setAgentPrefetch(false)
                                         }
                                       }}
@@ -3431,12 +3389,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         <div className='space-y-0.5'>
                                           {modelOptions
                                             .filter((option) =>
-                                              [
-                                                'claude-4-sonnet',
-                                                'claude-4.5-haiku',
-                                                'claude-4.5-sonnet',
-                                                'claude-4.1-opus',
-                                              ].includes(option.value)
+                                              ANTHROPIC_MODELS.includes(option.value)
                                             )
                                             .map(renderModelOption)}
                                         </div>
@@ -3450,36 +3403,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         <div className='space-y-0.5'>
                                           {modelOptions
                                             .filter((option) =>
-                                              [
-                                                'gpt-5-fast',
-                                                'gpt-5',
-                                                'gpt-5-medium',
-                                                'gpt-5-high',
-                                                'gpt-4o',
-                                                'gpt-4.1',
-                                                'o3',
-                                              ].includes(option.value)
+                                              OPENAI_MODELS.includes(option.value)
                                             )
                                             .map(renderModelOption)}
                                         </div>
-                                      </div>
-
-                                      {/* More Models Button */}
-                                      <div className='mt-1 border-t pt-1'>
-                                        <button
-                                          type='button'
-                                          onClick={() => {
-                                            // Dispatch event to open settings modal on copilot tab
-                                            window.dispatchEvent(
-                                              new CustomEvent('open-settings', {
-                                                detail: { tab: 'copilot' },
-                                              })
-                                            )
-                                          }}
-                                          className='w-full rounded-sm px-2 py-1.5 text-left text-muted-foreground text-xs transition-colors hover:bg-card/50'
-                                        >
-                                          More Models...
-                                        </button>
                                       </div>
                                     </>
                                   )

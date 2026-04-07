@@ -1,13 +1,11 @@
+import { escapeRegExp } from '@/lib/utils'
+
 const getNestedValue = (obj: any, path: string): any => {
   if (!obj || !path) return undefined
 
   return path.split('.').reduce((current, key) => {
     return current && typeof current === 'object' ? current[key] : undefined
   }, obj)
-}
-
-const escapeRegExp = (value: string): string => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 const resolveWorkflowVariables = (

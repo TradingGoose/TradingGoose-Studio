@@ -18,7 +18,7 @@ describe('requestCopilotTitle', () => {
     vi.doMock('@/lib/copilot/config', () => ({
       getCopilotModel: vi.fn(() => ({
         provider: 'anthropic',
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-sonnet-4.6',
       })),
     }))
 
@@ -49,7 +49,7 @@ describe('requestCopilotTitle', () => {
 
     const title = await requestCopilotTitle({
       message: 'Build a momentum screener with RSI filters',
-      model: 'gpt-5-mini',
+      model: 'gpt-5.4',
       provider: 'openai',
     })
 
@@ -65,7 +65,7 @@ describe('requestCopilotTitle', () => {
 
     const payload = JSON.parse(init.body)
     expect(payload).toMatchObject({
-      model: 'openai/gpt-5-mini',
+      model: 'openai/gpt-5.4',
       stream: false,
     })
     expect(payload.messages).toEqual([
@@ -78,5 +78,34 @@ describe('requestCopilotTitle', () => {
         content: 'Create a short title for this: Build a momentum screener with RSI filters',
       },
     ])
+  })
+
+  it('derives the provider from the runtime model when provider is omitted', async () => {
+    ;(global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: 'Skill Review',
+              },
+            },
+          ],
+        }),
+    })
+
+    const { requestCopilotTitle } = await import('@/lib/copilot/agent/utils')
+
+    const title = await requestCopilotTitle({
+      message: 'Review the current skill implementation',
+      model: 'claude-opus-4.6',
+    })
+
+    expect(title).toBe('Skill Review')
+
+    const [, init] = (global.fetch as any).mock.calls[0]
+    const payload = JSON.parse(init.body)
+    expect(payload.model).toBe('anthropic/claude-opus-4.6')
   })
 })

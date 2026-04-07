@@ -16,7 +16,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { WebhookModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/webhook/components'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('WebhookConfig')
 
@@ -351,6 +351,7 @@ export function WebhookConfig({
   const [error, setError] = useState<string | null>(null)
   const [webhookId, setWebhookId] = useState<string | null>(null)
   const workflowId = useWorkflowId()
+  const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
   const [isLoading, setIsLoading] = useState(false)
 
   // No need to manage webhook status separately - it's determined by having provider + path
@@ -431,24 +432,9 @@ export function WebhookConfig({
             } else {
               logger.info('Successfully deleted existing webhook', { webhookId: currentWebhookId })
 
-              const store = useSubBlockStore.getState()
-              const workflowValues = store.workflowValues[workflowId] || {}
-              const blockValues = { ...workflowValues[blockId] }
-
-              // Clear webhook-related fields
-              blockValues.webhookPath = undefined
-              blockValues.providerConfig = undefined
-
-              // Update the store with the cleaned block values
-              useSubBlockStore.setState({
-                workflowValues: {
-                  ...workflowValues,
-                  [workflowId]: {
-                    ...workflowValues,
-                    [blockId]: blockValues,
-                  },
-                },
-              })
+              // Clear webhook-related fields via Yjs
+              yjsSetSubBlockValue(blockId, 'webhookPath', '')
+              yjsSetSubBlockValue(blockId, 'providerConfig', undefined)
 
               logger.info('Cleared webhook data from store after successful deletion', { blockId })
             }
@@ -673,30 +659,11 @@ export function WebhookConfig({
         throw new Error(errorData.error || 'Failed to delete webhook')
       }
 
-      // Reset the startWorkflow field to manual
-      useSubBlockStore.getState().setValue(blockId, 'startWorkflow', 'manual', workflowId)
-
-      // Remove webhook-specific fields from the block state
-      const store = useSubBlockStore.getState()
-      const workflowValues = store.workflowValues[workflowId] || {}
-      const blockValues = { ...workflowValues[blockId] }
-
-      // Remove webhook-related fields
-      blockValues.webhookProvider = undefined
-      blockValues.providerConfig = undefined
-      blockValues.webhookPath = undefined
-
-      // Update the store with the cleaned block values
-      store.setValue(blockId, 'startWorkflow', 'manual', workflowId)
-      useSubBlockStore.setState({
-        workflowValues: {
-          ...workflowValues,
-          [workflowId]: {
-            ...workflowValues,
-            [blockId]: blockValues,
-          },
-        },
-      })
+      // Reset the startWorkflow field to manual and clear webhook-related fields
+      yjsSetSubBlockValue(blockId, 'startWorkflow', 'manual')
+      yjsSetSubBlockValue(blockId, 'webhookProvider', undefined)
+      yjsSetSubBlockValue(blockId, 'providerConfig', undefined)
+      yjsSetSubBlockValue(blockId, 'webhookPath', '')
 
       // Clear component state
       setWebhookId(null)

@@ -3,7 +3,12 @@ import { tradingActionTool } from '@/tools/trading/action'
 
 const baseParams = {
   provider: 'alpaca' as const,
-  listing: 'AAPL',
+  listing: {
+    listing_type: 'default' as const,
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,

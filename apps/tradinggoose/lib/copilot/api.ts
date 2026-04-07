@@ -1,4 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
+import type { ChatContext } from '@/stores/copilot/types'
+import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotAPI')
 
@@ -21,19 +24,26 @@ export interface CopilotMessage {
   content: string
   timestamp: string
   citations?: Citation[]
+  toolCalls?: any[]
+  contentBlocks?: any[]
+  fileAttachments?: any[]
+  contexts?: any[]
 }
 
 /**
  * Chat interface for copilot conversations
  */
 export interface CopilotChat {
-  id: string
+  reviewSessionId: string
+  workspaceId: string | null
+  channelId: string | null
+  entityKind: string | null
+  entityId: string | null
+  draftSessionId: string | null
   conversationId?: string | null
   title: string | null
-  model: string
   messages: CopilotMessage[]
   messageCount: number
-  previewYaml: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -55,32 +65,17 @@ export interface MessageFileAttachment {
 export interface SendMessageRequest {
   message: string
   userMessageId?: string // ID from frontend for the user message
-  chatId?: string
+  reviewSessionId?: string
+  channelId?: string
   workflowId?: string
-  model?:
-    | 'gpt-5-fast'
-    | 'gpt-5'
-    | 'gpt-5-medium'
-    | 'gpt-5-high'
-    | 'gpt-4o'
-    | 'gpt-4.1'
-    | 'o3'
-    | 'claude-4-sonnet'
-    | 'claude-4.5-haiku'
-    | 'claude-4.5-sonnet'
-    | 'claude-4.1-opus'
+  workspaceId?: string
+  model?: CopilotRuntimeModel
+  provider?: ProviderId
   prefetch?: boolean
-  createNewChat?: boolean
   stream?: boolean
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
-  contexts?: Array<{
-    kind: string
-    label?: string
-    chatId?: string
-    workflowId?: string
-    executionId?: string
-  }>
+  contexts?: ChatContext[]
 }
 
 /**
@@ -124,12 +119,13 @@ export async function sendStreamingMessage(
       const preview = Array.isArray((requestBody as any).contexts)
         ? (requestBody as any).contexts.map((c: any) => ({
             kind: c?.kind,
-            chatId: c?.chatId,
+            reviewSessionId: c?.reviewSessionId,
             workflowId: c?.workflowId,
             label: c?.label,
           }))
         : undefined
       logger.info('Preparing to send streaming message', {
+        channelId: (requestBody as any).channelId,
         hasContexts: Array.isArray((requestBody as any).contexts),
         contextsCount: Array.isArray((requestBody as any).contexts)
           ? (requestBody as any).contexts.length

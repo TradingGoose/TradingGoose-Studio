@@ -33,7 +33,28 @@ export const TRIGGER_PERSISTED_SUBBLOCK_IDS: string[] = [
  */
 export const TRIGGER_RUNTIME_SUBBLOCK_IDS: string[] = ['webhookId', 'triggerPath', 'triggerConfig']
 
+/**
+ * Trigger subblock IDs that remain editable in the workflow canvas.
+ * Everything else should be configured in the deploy dialog.
+ */
+export const EDITOR_MANAGED_TRIGGER_SUBBLOCK_IDS: string[] = [
+  'inputFormat',
+  'samplePayload',
+  'monitorGuidance',
+]
+
+const editorManagedTriggerSubBlockSet = new Set(EDITOR_MANAGED_TRIGGER_SUBBLOCK_IDS)
+
+export function isEditorManagedTriggerSubBlock(subBlockId: string): boolean {
+  return editorManagedTriggerSubBlockSet.has(subBlockId)
+}
+
+export function isDeployManagedTriggerSubBlock(subBlockId: string): boolean {
+  return !isEditorManagedTriggerSubBlock(subBlockId)
+}
+
 export const NON_CONFIGURABLE_TRIGGER_SUBBLOCK_IDS: string[] = [
+  'selectedTriggerId',
   'webhookUrlDisplay',
   'triggerSave',
   'triggerInstructions',

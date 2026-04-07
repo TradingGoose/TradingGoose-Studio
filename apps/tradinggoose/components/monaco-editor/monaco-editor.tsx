@@ -41,11 +41,14 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       autoHeight = false,
       extraLibs = [],
       path,
+      yText,
+      awareness,
     },
     ref
   ) => {
     const editorRef = useRef<MonacoEditorTypes.IStandaloneCodeEditor | null>(null)
     const monacoRef = useRef<MonacoModule | null>(null)
+    const monacoBindingRef = useRef<{ destroy(): void } | null>(null)
     const decorationIdsRef = useRef<string[]>([])
     const subscriptionsRef = useRef<IDisposable[]>([])
     const extraLibsRef = useRef<IDisposable[]>([])
@@ -98,6 +101,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       if (minHeight !== undefined) return minHeight
       return '100%'
     }, [autoHeight, autoHeightPx, height, minHeight, minHeightPx])
+    const hasValue = Boolean(value)
 
     const updatePlaceholderOffset = () => {
       const editor = editorRef.current
@@ -614,6 +618,46 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       }
     }, [baseOptions, options])
 
+    useEffect(() => {
+      if (!yText || !editorReady) return
+      const editor = editorRef.current
+      if (!editor) return
+      const model = editor.getModel()
+      if (!model) return
+
+      let cancelled = false
+      let binding: any = null
+      import('y-monaco').then(({ MonacoBinding }) => {
+        if (cancelled || !editorRef.current) return
+        const nextBinding = new MonacoBinding(
+          yText,
+          model,
+          new Set([editor]),
+          awareness ?? undefined
+        )
+        const originalDestroy = nextBinding.destroy.bind(nextBinding)
+        let isDestroyed = false
+        nextBinding.destroy = () => {
+          if (isDestroyed) {
+            return
+          }
+          isDestroyed = true
+          originalDestroy()
+        }
+
+        binding = nextBinding
+        monacoBindingRef.current = nextBinding
+      })
+
+      return () => {
+        cancelled = true
+        if (binding) {
+          binding.destroy()
+        }
+        monacoBindingRef.current = null
+      }
+    }, [yText, editorReady, awareness])
+
     if (!monacoInstance) {
       return (
         <div
@@ -621,7 +665,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           className={cn('relative', className)}
           style={{ minHeight, height: resolvedHeight }}
         >
-          {placeholder && !value && (
+          {placeholder && !hasValue && (
             <div
               className='pointer-events-none absolute select-none text-muted-foreground/50'
               style={{ top: safePlaceholderTop, left: safePlaceholderLeft }}
@@ -639,7 +683,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         className={cn('relative', className)}
         style={{ minHeight, height: resolvedHeight }}
       >
-        {placeholder && !value && (
+        {placeholder && !hasValue && (
           <div
             className='pointer-events-none absolute select-none text-muted-foreground/50'
             style={{ top: safePlaceholderTop, left: safePlaceholderLeft }}
@@ -648,12 +692,12 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           </div>
         )}
         <MonacoReactEditor
-          value={value}
+          value={yText ? undefined : value}
           language={language}
           path={resolvedPath}
           defaultLanguage={language}
           theme={theme}
-          onChange={(nextValue) => onChange?.(nextValue ?? '')}
+          onChange={yText ? undefined : (nextValue) => onChange?.(nextValue ?? '')}
           onMount={(editor, monaco) => {
             editorRef.current = editor
             monacoRef.current = monaco
@@ -735,6 +779,14 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                 updateAutoHeight()
               })
             )
+
+            if (yText && onChange) {
+              subscriptionsRef.current.push(
+                editor.onDidChangeModelContent(() => {
+                  onChange(editor.getValue())
+                })
+              )
+            }
 
             subscriptionsRef.current.push(
               editor.onDidLayoutChange(() => {

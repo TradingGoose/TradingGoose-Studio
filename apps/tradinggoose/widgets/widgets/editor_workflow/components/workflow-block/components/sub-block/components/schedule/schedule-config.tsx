@@ -5,8 +5,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
 import { getWorkflowWithValues } from '@/stores/workflows'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
 import {
   emitScheduleUpdated,
   subscribeScheduleUpdated,
@@ -52,8 +52,7 @@ export function ScheduleConfig({
 
   const workflowId = useWorkflowId()
   const channelId = useWorkflowChannelId()
-
-  // Get workflow state from store
+  const workflowDoc = useWorkflowDoc()
 
   // Get schedule fields from the block state
   const [scheduleType, setScheduleType] = useSubBlockValue(blockId, 'scheduleType')
@@ -305,10 +304,8 @@ export function ScheduleConfig({
       // 6. Update the schedule status and trigger a workflow update
       // Note: Global schedule status is managed at a higher level
 
-      // 7. Tell the workflow store that the state has been saved
-      const workflowStore = useWorkflowStore.getState(channelId)
-      workflowStore.updateLastSaved()
-      workflowStore.triggerUpdate()
+      // 7. Tell the workflow doc that the state has been saved
+      workflowDoc.updateLastSaved()
 
       // 8. Refetch the schedule to update local state
       await fetchSchedule()

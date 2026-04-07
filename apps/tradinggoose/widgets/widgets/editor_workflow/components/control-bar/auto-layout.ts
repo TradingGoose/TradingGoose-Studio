@@ -165,8 +165,10 @@ export async function applyAutoLayoutAndUpdateStore({
   let resolvedWorkflowId: string | undefined = workflowId
 
   try {
-    // Import workflow store
-    const { useWorkflowStore } = await import('@/stores/workflows/workflow/store')
+    // Import Yjs session registry for imperative access
+    const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
+    const { getWorkflowSnapshot, getWorkflowMap } = await import('@/lib/yjs/workflow-session')
+    const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
     const registryState = useWorkflowRegistry.getState()
@@ -186,11 +188,15 @@ export async function applyAutoLayoutAndUpdateStore({
       })
     }
 
-    const workflowStore = useWorkflowStore.getState(channelId)
-    const { useUndoRedoStore } = await import('@/stores/undo-redo')
-    const { createOperationEntry } = await import('@/stores/undo-redo/utils')
-    const prevBlocks = workflowStore.blocks
-    const { blocks, edges, loops = {}, parallels = {} } = workflowStore
+    // Read workflow state from Yjs doc
+    const session = getRegisteredWorkflowSession(resolvedWorkflowId)
+    if (!session?.doc) {
+      logger.error('Auto layout aborted: no Yjs session for workflow', { workflowId: resolvedWorkflowId })
+      return { success: false, error: 'No active workflow session' }
+    }
+
+    const snapshot = getWorkflowSnapshot(session.doc)
+    const { blocks, edges, loops = {}, parallels = {} } = snapshot
     const hasLockedBlocks = Object.values(blocks).some((block) => Boolean(block.locked))
 
     logger.info('Auto layout store data:', {
@@ -230,87 +236,27 @@ export async function applyAutoLayoutAndUpdateStore({
       return { success: false, error: result.error }
     }
 
-    // Build undo entry for auto-layout (single action captures all node moves)
-    const moves =
-      undoUserId && resolvedWorkflowId
-        ? Object.entries(result.layoutedBlocks || {}).reduce(
-          (acc, [id, block]) => {
-            const before = prevBlocks[id]?.position
-            if (
-              before &&
-              (Math.abs(before.x - block.position.x) > 0.01 ||
-                Math.abs(before.y - block.position.y) > 0.01)
-            ) {
-              acc.push({
-                blockId: id,
-                before: {
-                  x: before.x,
-                  y: before.y,
-                  parentId: prevBlocks[id]?.data?.parentId,
-                },
-                after: {
-                  x: block.position.x,
-                  y: block.position.y,
-                  parentId: block.data?.parentId,
-                },
-              })
-            }
-            return acc
-          },
-          [] as Array<{
-            blockId: string
-            before: { x: number; y: number; parentId?: string }
-            after: { x: number; y: number; parentId?: string }
-          }>
-        )
-        : []
+    // Update Yjs doc directly with new block positions
+    const doc = session.doc
+    doc.transact(() => {
+      const wMap = getWorkflowMap(doc)
+      wMap.set('blocks', result.layoutedBlocks!)
+      wMap.set('lastSaved', Date.now())
+    }, YJS_ORIGINS.USER)
 
-    if (moves.length > 0) {
-      const operation = {
-        id: crypto.randomUUID(),
-        type: 'auto-layout' as const,
-        timestamp: Date.now(),
-        workflowId: resolvedWorkflowId!,
-        userId: undoUserId!,
-        data: { moves },
-      }
-      const inverse = {
-        ...operation,
-        data: {
-          moves: moves.map((m) => ({
-            blockId: m.blockId,
-            before: m.after,
-            after: m.before,
-          })),
-        },
-      }
-      const entry = createOperationEntry(operation as any, inverse as any)
-      useUndoRedoStore.getState().push(resolvedWorkflowId!, undoUserId!, entry)
-    }
-
-    // Update workflow store immediately with new positions
-    const newWorkflowState = {
-      ...workflowStore.getWorkflowState(),
-      blocks: result.layoutedBlocks,
-      lastSaved: Date.now(),
-    }
-
-    useWorkflowStore.setStateForChannel(newWorkflowState, channelId, false)
-
-    logger.info('Successfully updated workflow store with auto layout', {
+    logger.info('Successfully updated Yjs doc with auto layout', {
       workflowId: resolvedWorkflowId,
       channelId,
     })
 
     // Persist the changes to the database optimistically
     try {
-      // Update the lastSaved timestamp in the store
-      useWorkflowStore.getState(channelId).updateLastSaved()
+      const updatedSnapshot = getWorkflowSnapshot(doc)
 
       // Clean up the workflow state for API validation.
       // Undefined keys are omitted during JSON serialization.
       const stateToSave = {
-        ...newWorkflowState,
+        ...updatedSnapshot,
         deploymentStatuses: undefined,
         needsRedeployment: undefined,
         dragStartPosition: undefined,
@@ -319,7 +265,7 @@ export async function applyAutoLayoutAndUpdateStore({
       const cleanedWorkflowState = {
         ...stateToSave,
         // Convert null dates to undefined (since they're optional)
-        deployedAt: stateToSave.deployedAt ? new Date(stateToSave.deployedAt) : undefined,
+        deployedAt: (stateToSave as any).deployedAt ? new Date((stateToSave as any).deployedAt) : undefined,
         // Ensure other optional fields are properly handled
         loops: stateToSave.loops || {},
         parallels: stateToSave.parallels || {},
@@ -374,21 +320,16 @@ export async function applyAutoLayoutAndUpdateStore({
         saveError instanceof Error && saveError.message
           ? saveError.message
           : JSON.stringify(saveError)
-      logger.error('Failed to save auto layout to database, reverting store changes:', {
+      logger.error('Failed to save auto layout to database, reverting Yjs doc:', {
         workflowId: resolvedWorkflowId,
         error: message,
       })
 
-      // Revert the store changes since database save failed
-      useWorkflowStore.setStateForChannel(
-        {
-          ...workflowStore.getWorkflowState(),
-          blocks, // Revert to original blocks
-          lastSaved: workflowStore.lastSaved, // Revert lastSaved
-        },
-        channelId,
-        false
-      )
+      // Revert the Yjs doc changes since database save failed
+      doc.transact(() => {
+        const wMap = getWorkflowMap(doc)
+        wMap.set('blocks', blocks) // Revert to original blocks
+      }, YJS_ORIGINS.SYSTEM)
 
       return {
         success: false,

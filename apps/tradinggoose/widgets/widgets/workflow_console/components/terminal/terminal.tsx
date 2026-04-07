@@ -4,14 +4,15 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useConsoleStore } from '@/stores/console/store'
 import type { ConsoleEntry } from '@/stores/console/types'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { OutputPanel, StatusDisplay } from './components'
+import { useWorkflowConsoleUiState } from './terminal-ui-store'
 import type { EntryNode, ExecutionGroup } from './types'
 import { ROW_STYLES } from './types'
-import { useWorkflowConsoleUiState } from './terminal-ui-store'
 import {
   filterEntries,
   formatDuration,
@@ -45,10 +46,7 @@ const BlockRow = memo(function BlockRow({
   return (
     <div
       data-entry-id={entry.id}
-      className={cn(
-        ROW_STYLES.base,
-        isSelected ? ROW_STYLES.selected : ROW_STYLES.hover
-      )}
+      className={cn(ROW_STYLES.base, isSelected ? ROW_STYLES.selected : ROW_STYLES.hover)}
       onClick={(event) => {
         event.stopPropagation()
         onSelect(entry)
@@ -57,10 +55,7 @@ const BlockRow = memo(function BlockRow({
       <div className='flex min-w-0 flex-1 items-center gap-2'>
         <div
           className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
-          style={{
-            backgroundColor: bgColor ? `${bgColor}20` : undefined,
-            color: bgColor || undefined,
-          }}
+          style={getIconTileStyle(bgColor)}
         >
           {BlockIcon && <BlockIcon className='h-4 w-4' />}
         </div>
@@ -210,10 +205,7 @@ const SubflowNodeRow = memo(function SubflowNodeRow({
         <div className='flex min-w-0 flex-1 items-center gap-2'>
           <div
             className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
-            style={{
-              backgroundColor: bgColor ? `${bgColor}20` : undefined,
-              color: bgColor || undefined,
-            }}
+            style={getIconTileStyle(bgColor)}
           >
             {BlockIcon && <BlockIcon className='h-4 w-4' />}
           </div>
@@ -372,10 +364,7 @@ export const Terminal = memo(function Terminal({
     [allWorkflowEntries, filters, sortConfig]
   )
 
-  const executionGroups = useMemo(
-    () => groupEntriesByExecution(filteredEntries),
-    [filteredEntries]
-  )
+  const executionGroups = useMemo(() => groupEntriesByExecution(filteredEntries), [filteredEntries])
 
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())

@@ -7,8 +7,10 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill } from '@/hooks/queries/skills'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { SkillDefinition } from '@/stores/skills/types'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
@@ -17,7 +19,11 @@ import {
   SkillList,
   SkillListMessage,
 } from '@/widgets/widgets/list_skill/components/skill-list/skill-list'
-import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
+import {
+  buildPersistedPairContext,
+  SKILL_EDITOR_WIDGET_KEY,
+  SKILL_LIST_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
 
 const DEFAULT_SKILL_NAME = 'new-skill'
 
@@ -44,40 +50,81 @@ const buildNewSkillDraft = (skills: SkillDefinition[]) => {
 const SkillListHeaderRight = ({
   workspaceId,
   panelId,
+  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
+  pairColor?: PairColor
 }) => {
-  const createMutation = useCreateSkill()
   const permissions = useUserPermissionsContext()
+  const createSkillMutation = useCreateSkill()
   const storedSkills = useSkillsStore((state) =>
     workspaceId ? state.getAllSkills(workspaceId) : []
   )
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
 
-  const handleCreateSkill = useCallback(async () => {
-    if (!workspaceId || createMutation.isPending || !permissions.canEdit) return
+  const handleCreateSkill = useCallback(() => {
+    if (!workspaceId || !permissions.canEdit) return
 
-    try {
-      const response = await createMutation.mutateAsync({
+    void createSkillMutation
+      .mutateAsync({
         workspaceId,
         skill: buildNewSkillDraft(storedSkills),
       })
-      const created = Array.isArray(response) ? response[0] : null
-      if (!created?.id) return
+      .then((createdSkills) => {
+        const createdSkill = createdSkills[0]
+        const createdSkillId =
+          createdSkill && typeof createdSkill.id === 'string' ? createdSkill.id : null
 
-      emitSkillSelectionChange({
-        skillId: created.id,
-        panelId,
-        widgetKey: SKILL_EDITOR_WIDGET_KEY,
+        if (!createdSkillId) {
+          throw new Error('Created skill is missing an id')
+        }
+
+        if (isLinkedToColorPair) {
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'skillId',
+              descriptor: null,
+              legacyEntityId: createdSkillId,
+            })
+          )
+          return
+        }
+
+        emitSkillSelectionChange({
+          skillId: createdSkillId,
+          panelId,
+          widgetKey: SKILL_LIST_WIDGET_KEY,
+        })
+        emitSkillSelectionChange({
+          skillId: createdSkillId,
+          panelId,
+          widgetKey: SKILL_EDITOR_WIDGET_KEY,
+        })
       })
-    } catch (error) {
-      console.error('Failed to create skill', error)
-    }
-  }, [createMutation, panelId, permissions.canEdit, storedSkills, workspaceId])
+      .catch((error) => {
+        console.error('Failed to create skill from list widget', error)
+      })
+  }, [
+    createSkillMutation,
+    isLinkedToColorPair,
+    pairContext,
+    panelId,
+    permissions.canEdit,
+    resolvedPairColor,
+    setPairContext,
+    storedSkills,
+    workspaceId,
+  ])
 
   return (
     <SkillCreateMenu
-      disabled={!workspaceId || createMutation.isPending || !permissions.canEdit}
+      disabled={!workspaceId || !permissions.canEdit || createSkillMutation.isPending}
       onCreateSkill={handleCreateSkill}
     />
   )
@@ -86,9 +133,11 @@ const SkillListHeaderRight = ({
 const ListSkillHeaderRight = ({
   workspaceId,
   panelId,
+  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
+  pairColor?: PairColor
 }) => {
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>Explorer</span>
@@ -97,7 +146,11 @@ const ListSkillHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} />
+        <SkillListHeaderRight
+          workspaceId={workspaceId}
+          panelId={panelId}
+          pairColor={pairColor}
+        />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -123,9 +176,15 @@ export const listSkillWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage workspace skills.',
   component: (props) => <ListSkillWidgetBody {...props} />,
-  renderHeader: ({ context, panelId }) => {
+  renderHeader: ({ widget, context, panelId }) => {
     return {
-      right: <ListSkillHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
+      right: (
+        <ListSkillHeaderRight
+          workspaceId={context?.workspaceId}
+          panelId={panelId}
+          pairColor={widget?.pairColor}
+        />
+      ),
     }
   },
 }

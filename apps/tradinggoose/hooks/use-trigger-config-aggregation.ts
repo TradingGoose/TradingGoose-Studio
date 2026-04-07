@@ -1,5 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import {
+  getRegisteredWorkflowSession,
+  readSubBlockValue,
+} from '@/lib/yjs/workflow-session-registry'
+import { patchWorkflowBlock } from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getTrigger, isTriggerValid } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
 
@@ -31,7 +36,6 @@ export function useTriggerConfigAggregation(
   if (!triggerDef) {
     return null
   }
-  const subBlockStore = useSubBlockStore.getState()
 
   const aggregatedConfig: Record<string, any> = {}
   let hasAnyValue = false
@@ -39,7 +43,7 @@ export function useTriggerConfigAggregation(
   triggerDef.subBlocks
     .filter((sb) => sb.mode === 'trigger' && !SYSTEM_SUBBLOCK_IDS.includes(sb.id))
     .forEach((subBlock) => {
-      const fieldValue = subBlockStore.getValue(blockId, subBlock.id, workflowId)
+      const fieldValue = readSubBlockValue(workflowId, blockId, subBlock.id)
 
       let valueToUse = fieldValue
       if (
@@ -75,7 +79,7 @@ export function populateTriggerFieldsFromConfig(
   triggerId: string | undefined,
   workflowId?: string
 ) {
-  if (!triggerConfig || !triggerId || !blockId) {
+  if (!triggerConfig || !triggerId || !blockId || !workflowId) {
     return
   }
 
@@ -91,7 +95,12 @@ export function populateTriggerFieldsFromConfig(
   if (!triggerDef) {
     return
   }
-  const subBlockStore = useSubBlockStore.getState()
+
+  const session = getRegisteredWorkflowSession(workflowId)
+  if (!session?.doc) return
+
+  // Collect all writes first, then apply in a single transaction
+  const writes: Array<{ subBlockId: string; value: any }> = []
 
   triggerDef.subBlocks
     .filter((sb) => sb.mode === 'trigger' && !SYSTEM_SUBBLOCK_IDS.includes(sb.id))
@@ -111,7 +120,7 @@ export function populateTriggerFieldsFromConfig(
       }
 
       if (configValue !== undefined) {
-        const currentValue = subBlockStore.getValue(blockId, subBlock.id, workflowId)
+        const currentValue = readSubBlockValue(workflowId, blockId, subBlock.id)
 
         let normalizedValue = configValue
         if (subBlock.id === 'labelIds' || subBlock.id === 'folderIds') {
@@ -131,8 +140,25 @@ export function populateTriggerFieldsFromConfig(
         }
 
         if (currentValue === null || currentValue === undefined || currentValue === '') {
-          subBlockStore.setValue(blockId, subBlock.id, normalizedValue, workflowId)
+          writes.push({ subBlockId: subBlock.id, value: normalizedValue })
         }
       }
     })
+
+  if (writes.length === 0) return
+
+  patchWorkflowBlock(
+    session.doc,
+    blockId,
+    (block) => {
+      if (!block?.subBlocks) return block
+      let subBlocks = { ...block.subBlocks }
+      for (const { subBlockId, value } of writes) {
+        if (!subBlocks[subBlockId]) continue
+        subBlocks = { ...subBlocks, [subBlockId]: { ...subBlocks[subBlockId], value } }
+      }
+      return { ...block, subBlocks }
+    },
+    YJS_ORIGINS.SYSTEM
+  )
 }

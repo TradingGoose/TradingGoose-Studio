@@ -13,6 +13,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret, generateRequestId } from '@/lib/utils'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import {
@@ -269,7 +270,7 @@ export async function executeWorkflow(
       {} as Record<string, Record<string, any>>
     )
 
-    const workflowVariables = (workflow.variables as Record<string, any>) || {}
+    const workflowVariables = normalizeVariables(workflow.variables)
 
     if (Object.keys(workflowVariables).length > 0) {
       logger.debug(

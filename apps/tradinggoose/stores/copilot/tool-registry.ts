@@ -24,11 +24,8 @@ import { MakeApiRequestClientTool } from '@/lib/copilot/tools/client/other/make-
 import { MarkTodoInProgressClientTool } from '@/lib/copilot/tools/client/other/mark-todo-in-progress'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { PlanClientTool } from '@/lib/copilot/tools/client/other/plan'
-import { RememberDebugClientTool } from '@/lib/copilot/tools/client/other/remember-debug'
 import { SearchDocumentationClientTool } from '@/lib/copilot/tools/client/other/search-documentation'
-import { SearchErrorsClientTool } from '@/lib/copilot/tools/client/other/search-errors'
 import { SearchOnlineClientTool } from '@/lib/copilot/tools/client/other/search-online'
-import { SearchPatternsClientTool } from '@/lib/copilot/tools/client/other/search-patterns'
 import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { GetCredentialsClientTool } from '@/lib/copilot/tools/client/user/get-credentials'
 import { GetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/user/get-environment-variables'
@@ -46,12 +43,14 @@ import { GetWorkflowDataClientTool } from '@/lib/copilot/tools/client/workflow/g
 import { GetWorkflowFromNameClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-from-name'
 import { ListUserWorkflowsClientTool } from '@/lib/copilot/tools/client/workflow/list-user-workflows'
 import { ManageCustomToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-custom-tool'
+import { ManageIndicatorClientTool } from '@/lib/copilot/tools/client/workflow/manage-indicator'
 import { ManageMcpToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-mcp-tool'
 import { ManageSkillClientTool } from '@/lib/copilot/tools/client/workflow/manage-skill'
 import { PreviewEditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/preview-edit-workflow'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -146,9 +145,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   get_trigger_blocks: serverTool(GetTriggerBlocksClientTool),
   search_online: serverTool(SearchOnlineClientTool),
   search_documentation: serverTool(SearchDocumentationClientTool),
-  search_patterns: clientTool(SearchPatternsClientTool),
-  search_errors: clientTool(SearchErrorsClientTool),
-  remember_debug: clientTool(RememberDebugClientTool),
   get_environment_variables: serverTool(
     GetEnvironmentVariablesClientTool,
     withActiveWorkflowIdUnlessIdentityProvided
@@ -185,6 +181,7 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   deploy_workflow: clientTool(DeployWorkflowClientTool),
   check_deployment_status: clientTool(CheckDeploymentStatusClientTool),
   manage_custom_tool: clientTool(ManageCustomToolClientTool),
+  manage_indicator: clientTool(ManageIndicatorClientTool),
   manage_skill: clientTool(ManageSkillClientTool),
   manage_mcp_tool: clientTool(ManageMcpToolClientTool),
   sleep: clientTool(SleepClientTool),
@@ -195,19 +192,43 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
 export function createExecutionContext(params: {
   toolCallId: string
   toolName: string
-  channelId: string
-  workflowId: string
+  provenance: Partial<CopilotToolExecutionProvenance>
 }): ClientToolExecutionContext {
-  const { toolCallId, toolName, channelId, workflowId } = params
+  const { toolCallId, toolName, provenance } = params
+  const {
+    channelId = '',
+    workflowId,
+    reviewSessionId,
+    entityKind,
+    entityId,
+    draftSessionId,
+    workspaceId,
+  } = provenance
 
   return {
     toolCallId,
     toolName,
     channelId,
-    workflowId,
+    ...(workflowId ? { workflowId } : {}),
+    ...(reviewSessionId ? { reviewSessionId } : {}),
+    ...(entityKind ? { entityKind } : {}),
+    ...(entityId ? { entityId } : {}),
+    ...(draftSessionId ? { draftSessionId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
     log: (level, message, extra) => {
       try {
-        logger[level](message, { toolCallId, toolName, channelId, workflowId, ...(extra || {}) })
+        logger[level](message, {
+          toolCallId,
+          toolName,
+          channelId,
+          workflowId,
+          reviewSessionId,
+          entityKind,
+          entityId,
+          draftSessionId,
+          workspaceId,
+          ...(extra || {}),
+        })
       } catch {}
     },
   }
@@ -301,9 +322,8 @@ export function getToolInterruptDisplays(
 ): BaseClientToolMetadata['interrupt'] | undefined {
   try {
     const instance = toolCallId ? (getClientTool(toolCallId) as any) : undefined
-    const instanceInterrupt = instance?.getInterruptDisplays?.()
-    if (instanceInterrupt) {
-      return instanceInterrupt
+    if (instance?.getInterruptDisplays) {
+      return instance.getInterruptDisplays()
     }
   } catch {}
 

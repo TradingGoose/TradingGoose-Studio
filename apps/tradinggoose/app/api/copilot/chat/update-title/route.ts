@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { copilotReviewSessions } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 const logger = createLogger('UpdateChatTitleAPI')
 
 const UpdateTitleSchema = z.object({
-  chatId: z.string(),
+  reviewSessionId: z.string(),
   title: z.string(),
 })
 
@@ -23,22 +23,39 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsed = UpdateTitleSchema.parse(body)
 
-    // Update the chat title
-    await db
-      .update(copilotChats)
+    // Single UPDATE with ownership check in the WHERE clause avoids a TOCTOU
+    // race between a separate SELECT and UPDATE.
+    const updated = await db
+      .update(copilotReviewSessions)
       .set({
         title: parsed.title,
         updatedAt: new Date(),
       })
-      .where(eq(copilotChats.id, parsed.chatId))
+      .where(
+        and(
+          eq(copilotReviewSessions.id, parsed.reviewSessionId),
+          eq(copilotReviewSessions.userId, session.user.id)
+        )
+      )
+      .returning({ id: copilotReviewSessions.id })
 
-    logger.info('Chat title updated', { chatId: parsed.chatId, title: parsed.title })
+    if (updated.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Review session not found' },
+        { status: 404 }
+      )
+    }
+
+    logger.info('Review session title updated', {
+      reviewSessionId: parsed.reviewSessionId,
+      title: parsed.title,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error('Error updating chat title:', error)
+    logger.error('Error updating review session title:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to update chat title' },
+      { success: false, error: 'Failed to update review session title' },
       { status: 500 }
     )
   }

@@ -8,6 +8,11 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { verifyWorkspaceMembership } from './utils'
 
 const logger = createLogger('WorkflowAPI')
@@ -18,7 +23,49 @@ const CreateWorkflowSchema = z.object({
   color: z.string().optional(),
   workspaceId: z.string().optional(),
   folderId: z.string().nullable().optional(),
+  initialWorkflowState: z.any().optional(),
 })
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getInitialWorkflowState(
+  initialWorkflowState: unknown,
+  now: Date
+): {
+  canonicalState: WorkflowState
+  variables: Record<string, unknown>
+} | null {
+  if (!isPlainObject(initialWorkflowState)) {
+    return null
+  }
+
+  const blocks = isPlainObject(initialWorkflowState.blocks) ? initialWorkflowState.blocks : {}
+  const edges = Array.isArray(initialWorkflowState.edges) ? initialWorkflowState.edges : []
+  const loops = isPlainObject(initialWorkflowState.loops) ? initialWorkflowState.loops : {}
+  const parallels = isPlainObject(initialWorkflowState.parallels)
+    ? initialWorkflowState.parallels
+    : {}
+  const variables = isPlainObject(initialWorkflowState.variables)
+    ? initialWorkflowState.variables
+    : {}
+
+  return {
+    canonicalState: {
+      blocks: blocks as WorkflowState['blocks'],
+      edges: edges as WorkflowState['edges'],
+      loops: loops as WorkflowState['loops'],
+      parallels: parallels as WorkflowState['parallels'],
+      lastSaved: now.getTime(),
+      isDeployed: false,
+      deployedAt: undefined,
+      deploymentStatuses: {},
+      needsRedeployment: false,
+    },
+    variables,
+  }
+}
 
 // GET /api/workflows - Get workflows for user (optionally filtered by workspaceId)
 export async function GET(request: Request) {
@@ -94,7 +141,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, description, color, workspaceId, folderId } = CreateWorkflowSchema.parse(body)
+    const { name, description, color, workspaceId, folderId, initialWorkflowState } = CreateWorkflowSchema.parse(body)
 
     if (workspaceId) {
       const workspacePermission = await getUserEntityPermissions(
@@ -116,6 +163,11 @@ export async function POST(req: NextRequest) {
 
     const workflowId = crypto.randomUUID()
     const now = new Date()
+    const initialState = getInitialWorkflowState(initialWorkflowState, now)
+    const remappedVariables = remapVariableIds(
+      normalizeVariables(initialState?.variables),
+      workflowId
+    )
     const resolvedColor =
       typeof color === 'string' && color.trim().length > 0
         ? color.trim()
@@ -150,12 +202,39 @@ export async function POST(req: NextRequest) {
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      variables: {},
+      variables: remappedVariables,
       isPublished: false,
       marketplaceData: null,
     })
 
-    logger.info(`[${requestId}] Successfully created empty workflow ${workflowId}`)
+    if (initialState) {
+      const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
+      if (!saveResult.success) {
+        await db.delete(workflow).where(eq(workflow.id, workflowId))
+        throw new Error(saveResult.error || 'Failed to persist initial workflow state')
+      }
+    }
+
+    // Seed the Yjs doc for the new workflow
+    const defaultWorkflowSnapshot = createWorkflowSnapshot({
+      blocks: initialState?.canonicalState.blocks,
+      edges: initialState?.canonicalState.edges,
+      loops: initialState?.canonicalState.loops,
+      parallels: initialState?.canonicalState.parallels,
+      lastSaved: now.toISOString(),
+      isDeployed: false,
+    })
+
+    const yjsSeedResult = await tryApplyWorkflowState(
+      workflowId,
+      defaultWorkflowSnapshot,
+      remappedVariables
+    )
+    if (yjsSeedResult.success) {
+      logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)
+    }
+
+    logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)
 
     return NextResponse.json({
       id: workflowId,

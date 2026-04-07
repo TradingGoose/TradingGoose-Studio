@@ -2,6 +2,11 @@ import type { Edge, Node } from 'reactflow'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
+import {
+  buildPreviewDiffStatusMap,
+  type PreviewDiffOperation,
+  type PreviewDiffStatus,
+} from './preview-diff'
 
 export type PreviewNodeData = {
   type: string
@@ -15,6 +20,7 @@ export type PreviewNodeData = {
   height?: number
   hasNestedError?: boolean
   kind?: 'loop' | 'parallel'
+  diffStatus?: PreviewDiffStatus
 }
 
 export type PreviewSubflowData = {
@@ -24,6 +30,7 @@ export type PreviewSubflowData = {
   enabled: boolean
   isPreview: true
   kind: 'loop' | 'parallel'
+  diffStatus?: PreviewDiffStatus
 }
 
 export type PreviewPayloadAdapterResult = {
@@ -52,11 +59,20 @@ function calculateAbsolutePosition(
   }
 }
 
-export function adaptPreviewPayloadToCanvas(workflowState: WorkflowState): PreviewPayloadAdapterResult {
+interface PreviewPayloadAdapterOptions {
+  operations?: PreviewDiffOperation[]
+}
+
+export function adaptPreviewPayloadToCanvas(
+  workflowState: WorkflowState,
+  options?: PreviewPayloadAdapterOptions
+): PreviewPayloadAdapterResult {
   const nodes: Node[] = []
+  const diffStatuses = buildPreviewDiffStatusMap(options?.operations)
 
   Object.values(workflowState.blocks).forEach((block) => {
     const absolutePosition = calculateAbsolutePosition(block, workflowState.blocks)
+    const diffStatus = diffStatuses.get(block.id)
 
     if (block.type === 'loop' || block.type === 'parallel') {
       nodes.push({
@@ -71,6 +87,7 @@ export function adaptPreviewPayloadToCanvas(workflowState: WorkflowState): Previ
           enabled: block.enabled ?? true,
           isPreview: true,
           kind: block.type,
+          diffStatus,
         },
       })
       return
@@ -94,6 +111,7 @@ export function adaptPreviewPayloadToCanvas(workflowState: WorkflowState): Previ
         blockState: block,
         subBlockValues: block.subBlocks,
         isPreview: true,
+        diffStatus,
       },
     })
   })

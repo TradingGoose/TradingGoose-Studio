@@ -1,21 +1,20 @@
 import { useMemo } from 'react'
-import { shallow } from 'zustand/shallow'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  useWorkflowBlocks,
+  useWorkflowEdges,
+  useWorkflowLoops,
+  useWorkflowParallels,
+} from '@/lib/yjs/use-workflow-doc'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export function useAccessibleReferencePrefixes(blockId?: string | null): Set<string> | undefined {
-  const { blocks, edges, loops, parallels } = useWorkflowStore(
-    (state) => ({
-      blocks: state.blocks,
-      edges: state.edges,
-      loops: state.loops || {},
-      parallels: state.parallels || {},
-    }),
-    shallow
-  )
+  const blocks = useWorkflowBlocks()
+  const edges = useWorkflowEdges()
+  const loops = useWorkflowLoops()
+  const parallels = useWorkflowParallels()
 
   return useMemo(() => {
     if (!blockId) {

@@ -8,6 +8,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
 
@@ -54,7 +55,18 @@ export const GET = withMcpAuth('read')(
 export const POST = withMcpAuth('write')(
   async (request: NextRequest, { userId, workspaceId, requestId }) => {
     try {
-      const body = getParsedBody(request) || (await request.json())
+      const rawBody = getParsedBody(request) || (await request.json())
+
+      const parseResult = CreateMcpServerSchema.safeParse(rawBody)
+      if (!parseResult.success) {
+        return createMcpErrorResponse(
+          new Error(`Invalid request body: ${parseResult.error.message}`),
+          'Invalid request body',
+          400
+        )
+      }
+
+      const body = parseResult.data
 
       logger.info(`[${requestId}] Registering new MCP server:`, {
         name: body.name,
@@ -62,15 +74,7 @@ export const POST = withMcpAuth('write')(
         workspaceId,
       })
 
-      if (!body.name || !body.transport) {
-        return createMcpErrorResponse(
-          new Error('Missing required fields: name or transport'),
-          'Missing required fields',
-          400
-        )
-      }
-
-      if (isUrlBasedTransport(body.transport) && body.url) {
+      if (isUrlBasedTransport(body.transport as McpTransport) && body.url) {
         const urlValidation = validateMcpServerUrl(body.url)
         if (!urlValidation.isValid) {
           return createMcpErrorResponse(
@@ -91,10 +95,13 @@ export const POST = withMcpAuth('write')(
           workspaceId,
           createdBy: userId,
           name: body.name,
-          description: body.description,
+          description: body.description ?? null,
           transport: body.transport,
-          url: body.url,
+          url: body.url ?? null,
           headers: body.headers || {},
+          command: body.command ?? null,
+          args: body.args ?? [],
+          env: body.env ?? {},
           timeout: body.timeout || 30000,
           retries: body.retries || 3,
           enabled: body.enabled !== false,

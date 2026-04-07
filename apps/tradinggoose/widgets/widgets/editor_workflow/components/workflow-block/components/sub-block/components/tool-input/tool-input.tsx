@@ -17,13 +17,19 @@ import {
   parseStoredTimeValue,
   resolveStoredDateValue,
 } from '@/lib/time-format'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import {
+  getProviderIdsForBlocks,
+  isBlockAvailable,
+  type ProviderAvailability,
+} from '@/lib/workflows/block-availability'
 import { cn } from '@/lib/utils'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { getAllBlocks } from '@/blocks'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import {
   formatParameterLabel,
   getToolParametersConfig,
@@ -53,13 +59,6 @@ import {
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolInput')
-
-const sanitizeHexColor = (value?: string) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
-}
 
 interface ToolInputProps {
   blockId: string
@@ -493,6 +492,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const workspaceId = useWorkspaceId()
   const workflowId = useWorkflowId()
   const router = useRouter()
+  const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
   const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
   const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
@@ -508,8 +508,41 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const provider = model ? getProviderFromModel(model) : ''
   const supportsToolControl = provider ? supportsToolUsageControl(provider) : false
 
-  const toolBlocks = getAllBlocks().filter(
-    (block) => block.category === 'tools' && block.type !== 'evaluator'
+  const allToolBlocks = useMemo(
+    () => getAllBlocks().filter((block) => block.category === 'tools' && block.type !== 'evaluator'),
+    []
+  )
+
+  const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>({})
+
+  useEffect(() => {
+    let isMounted = true
+    const providerIds = getProviderIdsForBlocks(allToolBlocks)
+    if (providerIds.length === 0) return
+
+    const loadAvailability = async () => {
+      try {
+        const query = `?providers=${encodeURIComponent(providerIds.join(','))}`
+        const response = await fetch(`/api/auth/oauth/providers${query}`, {
+          cache: 'no-store',
+        })
+        if (!response.ok || !isMounted) return
+        const data = (await response.json()) as ProviderAvailability
+        if (isMounted) setProviderAvailability(data)
+      } catch {
+        // Keep default availability on failure
+      }
+    }
+
+    void loadAvailability()
+    return () => {
+      isMounted = false
+    }
+  }, [allToolBlocks])
+
+  const toolBlocks = useMemo(
+    () => allToolBlocks.filter((block) => isBlockAvailable(block, providerAvailability)),
+    [allToolBlocks, providerAvailability]
   )
 
   const selectedTools: StoredTool[] =
@@ -867,13 +900,12 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     // Clear fields when operation changes for Jira (special case)
     if (tool.type === 'jira') {
-      const subBlockStore = useSubBlockStore.getState()
       // Clear all fields that might be shared between operations
-      subBlockStore.setValue(blockId, 'summary', '', workflowId)
-      subBlockStore.setValue(blockId, 'description', '', workflowId)
-      subBlockStore.setValue(blockId, 'issueKey', '', workflowId)
-      subBlockStore.setValue(blockId, 'projectId', '', workflowId)
-      subBlockStore.setValue(blockId, 'parentIssue', '', workflowId)
+      yjsSetSubBlockValue(blockId, 'summary', '')
+      yjsSetSubBlockValue(blockId, 'description', '')
+      yjsSetSubBlockValue(blockId, 'issueKey', '')
+      yjsSetSubBlockValue(blockId, 'projectId', '')
+      yjsSetSubBlockValue(blockId, 'parentIssue', '')
     }
 
     setStoreValue(
@@ -1465,10 +1497,11 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
                       {(() => {
                         const toolColor = isCustomTool
-                          ? sanitizeHexColor('#3B82F6')
+                          ? sanitizeSolidIconColor('#3B82F6')
                           : isMcpTool
-                            ? (sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1'))
-                            : sanitizeHexColor(toolBlock?.bgColor)
+                            ? (sanitizeSolidIconColor(mcpTool?.bgColor) ??
+                              sanitizeSolidIconColor('#6366F1'))
+                            : sanitizeSolidIconColor(toolBlock?.bgColor)
                         const iconColor = toolColor || 'undefined'
                         return (
                           <div

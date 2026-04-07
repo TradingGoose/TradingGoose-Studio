@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
@@ -60,10 +61,7 @@ export function ToolbarBlock({
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
-        style={{
-          backgroundColor: config.bgColor ? `${config.bgColor}20` : undefined,
-          color: config.bgColor || undefined,
-        }}
+        style={getIconTileStyle(config.bgColor)}
       >
         <config.icon
           className={cn(

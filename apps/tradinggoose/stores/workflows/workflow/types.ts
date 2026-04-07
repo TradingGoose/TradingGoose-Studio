@@ -2,6 +2,8 @@ import type { Edge } from 'reactflow'
 import type { BlockOutput, SubBlockType } from '@/blocks/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 
+export const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
+
 export const SUBFLOW_TYPES = {
   LOOP: 'loop',
   PARALLEL: 'parallel',
@@ -147,17 +149,14 @@ export interface DragStartPosition {
 export interface WorkflowState {
   blocks: Record<string, BlockState>
   edges: Edge[]
-  lastSaved?: number
+  lastSaved?: number | string
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
-  lastUpdate?: number
-  // Legacy deployment fields (keeping for compatibility)
   isDeployed?: boolean
-  deployedAt?: Date
-  // New field for per-workflow deployment status
+  deployedAt?: Date | string
   deploymentStatuses?: Record<string, DeploymentStatus>
   needsRedeployment?: boolean
-  // Drag state for undo/redo
+  lastUpdate?: number
   dragStartPosition?: DragStartPosition | null
 }
 
@@ -192,6 +191,7 @@ export interface WorkflowActions {
   removeEdge: (edgeId: string) => void
   clear: () => Partial<WorkflowState>
   updateLastSaved: () => void
+  triggerUpdate: () => void
   toggleBlockEnabled: (id: string) => void
   toggleBlockLocked: (id: string) => void
   duplicateBlock: (id: string) => void
@@ -202,7 +202,6 @@ export interface WorkflowActions {
   setBlockAdvancedMode: (id: string, advancedMode: boolean) => void
   setBlockTriggerMode: (id: string, triggerMode: boolean) => void
   updateBlockLayoutMetrics: (id: string, dimensions: { width: number; height: number }) => void
-  triggerUpdate: () => void
   updateLoopCount: (loopId: string, count: number) => void
   updateLoopType: (loopId: string, loopType: 'for' | 'forEach' | 'while' | 'doWhile') => void
   updateLoopCollection: (loopId: string, collection: string) => void
@@ -215,10 +214,10 @@ export interface WorkflowActions {
   ) => void
   generateLoopBlocks: () => Record<string, Loop>
   generateParallelBlocks: () => Record<string, Parallel>
-  setNeedsRedeploymentFlag: (needsRedeployment: boolean) => void
   revertToDeployedState: (deployedState: WorkflowState) => void
   toggleBlockAdvancedMode: (id: string) => void
   toggleBlockTriggerMode: (id: string) => void
+  setNeedsRedeploymentFlag: (needsRedeployment: boolean) => void
   setDragStartPosition: (position: DragStartPosition | null) => void
   getDragStartPosition: () => DragStartPosition | null
   getWorkflowState: () => WorkflowState

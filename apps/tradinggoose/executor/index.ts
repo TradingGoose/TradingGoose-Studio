@@ -67,6 +67,30 @@ function trackWorkflowTelemetry(eventName: string, data: Record<string, any>) {
   }
 }
 
+function isSerializedTriggerBlock(block: SerializedBlock | undefined): boolean {
+  if (!block) return false
+  if (block.metadata?.category === 'triggers') return true
+
+  const blockType = block.metadata?.id ?? block.config?.tool
+  if (
+    blockType === 'input_trigger' ||
+    blockType === 'api_trigger' ||
+    blockType === 'manual_trigger' ||
+    blockType === 'chat_trigger' ||
+    blockType === 'indicator_trigger' ||
+    blockType === 'webhook' ||
+    blockType === 'generic_webhook' ||
+    blockType === 'schedule'
+  ) {
+    return true
+  }
+  if (blockType && getBlock(blockType)?.category === 'triggers') {
+    return true
+  }
+
+  return block.config?.params?.triggerMode === true
+}
+
 /**
  * Core execution engine that runs workflow blocks in topological order.
  *
@@ -691,11 +715,9 @@ export class Executor {
     }
 
     // Check for any type of trigger block (dedicated triggers or trigger-mode blocks)
-    const hasTriggerBlocks = this.actualWorkflow.blocks.some((block) => {
-      if (block.metadata?.category === 'triggers') return true
-      if (block.config?.params?.triggerMode === true) return true
-      return false
-    })
+    const hasTriggerBlocks = this.actualWorkflow.blocks.some((block) =>
+      isSerializedTriggerBlock(block)
+    )
 
     if (!hasTriggerBlocks) {
       throw new Error('Workflow must include at least one trigger block')
@@ -810,9 +832,7 @@ export class Executor {
       }
     } else {
       const triggerBlocks = this.actualWorkflow.blocks.filter(
-        (block) =>
-          block.metadata?.category === 'triggers' ||
-          block.config?.params?.triggerMode === true
+        (block) => isSerializedTriggerBlock(block)
       )
       if (triggerBlocks.length > 0) {
         initBlock = triggerBlocks[0]
@@ -1802,8 +1822,7 @@ export class Executor {
     const consoleBlockId = parallelInfo ? blockId : block.id
     const blockType = block.metadata?.id || 'unknown'
     const blockName = block.metadata?.name || 'Unnamed Block'
-    const blockConfig = getBlock(block.metadata?.id || '')
-    const isTriggerBlock = blockConfig?.category === 'triggers'
+    const isTriggerBlock = isSerializedTriggerBlock(block)
     const shouldLogToConsole =
       block.metadata?.id !== BlockType.LOOP &&
       block.metadata?.id !== BlockType.PARALLEL &&
@@ -2431,9 +2450,8 @@ export class Executor {
   private activateErrorPath(blockId: string, context: ExecutionContext): boolean {
     // Skip for trigger blocks (no error handles) and structural blocks
     const block = this.actualWorkflow.blocks.find((b) => b.id === blockId)
-    const blockConfig = block?.metadata?.id ? getBlock(block.metadata.id) : undefined
     if (
-      blockConfig?.category === 'triggers' ||
+      isSerializedTriggerBlock(block) ||
       block?.metadata?.id === BlockType.CONDITION ||
       block?.metadata?.id === BlockType.LOOP ||
       block?.metadata?.id === BlockType.PARALLEL

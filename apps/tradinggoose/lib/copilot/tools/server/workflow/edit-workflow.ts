@@ -1,11 +1,7 @@
 import crypto from 'crypto'
-import { db } from '@tradinggoose/db'
-import { workflow as workflowTable } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
-import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import { validateWorkflowState } from '@/lib/workflows/validation'
@@ -848,14 +844,8 @@ async function getCurrentWorkflowStateFromDb(
   workflowId: string
 ): Promise<{ workflowState: any; subBlockValues: Record<string, Record<string, any>> }> {
   const logger = createLogger('EditWorkflowServerTool')
-  const [workflowRecord] = await db
-    .select()
-    .from(workflowTable)
-    .where(eq(workflowTable.id, workflowId))
-    .limit(1)
-  if (!workflowRecord) throw new Error(`Workflow ${workflowId} not found in database`)
   const normalized = await loadWorkflowFromNormalizedTables(workflowId)
-  if (!normalized) throw new Error('Workflow has no normalized data')
+  if (!normalized) throw new Error(`Workflow ${workflowId} not found in database`)
 
   // Validate and fix blocks without types
   const blocks = { ...normalized.blocks }
@@ -897,7 +887,7 @@ async function getCurrentWorkflowStateFromDb(
 
 export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
   name: 'edit_workflow',
-  async execute(params: EditWorkflowParams, context?: { userId: string }): Promise<any> {
+  async execute(params: EditWorkflowParams, _context?: { userId: string }): Promise<any> {
     const logger = createLogger('EditWorkflowServerTool')
     const { operations, workflowId, currentUserWorkflow } = params
     if (!operations || operations.length === 0) throw new Error('operations are required')
@@ -941,35 +931,6 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       logger.warn('Edited workflow validation warnings', {
         warnings: validation.warnings,
       })
-    }
-
-    // Extract and persist custom tools to database
-    if (context?.userId) {
-      try {
-        const [workflowRecord] = await db
-          .select({ workspaceId: workflowTable.workspaceId })
-          .from(workflowTable)
-          .where(eq(workflowTable.id, workflowId))
-          .limit(1)
-        const finalWorkflowState = validation.sanitizedState || modifiedWorkflowState
-        const { saved, errors } = await extractAndPersistCustomTools(
-          finalWorkflowState,
-          workflowRecord?.workspaceId ?? null,
-          context.userId
-        )
-
-        if (saved > 0) {
-          logger.info(`Persisted ${saved} custom tool(s) to database`, { workflowId })
-        }
-
-        if (errors.length > 0) {
-          logger.warn('Some custom tools failed to persist', { errors, workflowId })
-        }
-      } catch (error) {
-        logger.error('Failed to persist custom tools', { error, workflowId })
-      }
-    } else {
-      logger.warn('No userId in context - skipping custom tools persistence', { workflowId })
     }
 
     logger.info('edit_workflow successfully applied operations', {

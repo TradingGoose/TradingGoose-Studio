@@ -1,7 +1,15 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats, document, knowledgeBase, templates } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import {
+  copilotReviewItems,
+  copilotReviewSessions,
+  document,
+  knowledgeBase,
+  templates,
+} from '@tradinggoose/db/schema'
+import { and, asc, eq, isNull } from 'drizzle-orm'
+import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
+import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
@@ -10,7 +18,14 @@ export type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
-  | 'current_targets'
+  | 'skill'
+  | 'current_skill'
+  | 'indicator'
+  | 'current_indicator'
+  | 'custom_tool'
+  | 'current_custom_tool'
+  | 'mcp_server'
+  | 'current_mcp_server'
   | 'blocks'
   | 'logs'
   | 'knowledge'
@@ -26,72 +41,22 @@ export interface AgentContext {
 
 const logger = createLogger('ProcessContents')
 
-export async function processContexts(
-  contexts: ChatContext[] | undefined
-): Promise<AgentContext[]> {
-  if (!Array.isArray(contexts) || contexts.length === 0) return []
-  const tasks = contexts.map(async (ctx) => {
-    try {
-      if (ctx.kind === 'past_chat') {
-        return await processPastChatViaApi(ctx.chatId, ctx.label ? `@${ctx.label}` : '@')
-      }
-      if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
-        return await processWorkflowFromDb(
-          ctx.workflowId,
-          ctx.label ? `@${ctx.label}` : '@',
-          ctx.kind
-        )
-      }
-      if (ctx.kind === 'current_targets') {
-        return processCurrentTargetsContext(ctx)
-      }
-      if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
-        return await processKnowledgeFromDb(
-          (ctx as any).knowledgeId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'blocks' && (ctx as any).blockId) {
-        return await processBlockMetadata((ctx as any).blockId, ctx.label ? `@${ctx.label}` : '@')
-      }
-      if (ctx.kind === 'templates' && (ctx as any).templateId) {
-        return await processTemplateFromDb(
-          (ctx as any).templateId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'logs' && (ctx as any).executionId) {
-        return await processExecutionLogFromDb(
-          (ctx as any).executionId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
-      if (ctx.kind === 'workflow_block' && ctx.workflowId && (ctx as any).blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, (ctx as any).blockId, ctx.label)
-      }
-      // Other kinds can be added here: workflow, blocks, logs, knowledge, templates, docs
-      return null
-    } catch (error) {
-      logger.error('Failed processing context', { ctx, error })
-      return null
-    }
-  })
-
-  const results = await Promise.all(tasks)
-  return results.filter((r): r is AgentContext => !!r) as AgentContext[]
-}
-
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
   contexts: ChatContext[] | undefined,
   userId: string,
-  userMessage?: string
+  userMessage?: string,
+  workspaceId?: string
 ): Promise<AgentContext[]> {
   if (!Array.isArray(contexts) || contexts.length === 0) return []
   const tasks = contexts.map(async (ctx) => {
     try {
-      if (ctx.kind === 'past_chat' && ctx.chatId) {
-        return await processPastChatFromDb(ctx.chatId, userId, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
+        return await processPastChatFromDb(
+          ctx.reviewSessionId,
+          userId,
+          ctx.label ? `@${ctx.label}` : '@'
+        )
       }
       if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
         return await processWorkflowFromDb(
@@ -100,8 +65,41 @@ export async function processContextsServer(
           ctx.kind
         )
       }
-      if (ctx.kind === 'current_targets') {
-        return processCurrentTargetsContext(ctx)
+      if ((ctx.kind === 'skill' || ctx.kind === 'current_skill') && ctx.skillId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'skill',
+          entityId: ctx.skillId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'indicator' || ctx.kind === 'current_indicator') && ctx.indicatorId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'indicator',
+          entityId: ctx.indicatorId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'custom_tool' || ctx.kind === 'current_custom_tool') && ctx.customToolId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'custom_tool',
+          entityId: ctx.customToolId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
+      }
+      if ((ctx.kind === 'mcp_server' || ctx.kind === 'current_mcp_server') && ctx.mcpServerId) {
+        return await processEntityContextFromDb({
+          contextKind: ctx.kind,
+          entityKind: 'mcp_server',
+          entityId: ctx.mcpServerId,
+          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
+          tag: ctx.label ? `@${ctx.label}` : '@',
+        })
       }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
@@ -109,8 +107,8 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'blocks' && (ctx as any).blockId) {
-        return await processBlockMetadata((ctx as any).blockId, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'blocks' && ctx.blockIds.length > 0) {
+        return await processBlocksMetadata(ctx.blockIds, ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && (ctx as any).templateId) {
         return await processTemplateFromDb(
@@ -124,8 +122,8 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'workflow_block' && ctx.workflowId && (ctx as any).blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, (ctx as any).blockId, ctx.label)
+      if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
+        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, ctx.label)
       }
       if (ctx.kind === 'docs') {
         try {
@@ -160,35 +158,139 @@ export async function processContextsServer(
   return filtered
 }
 
-function processCurrentTargetsContext(
-  ctx: Extract<ChatContext, { kind: 'current_targets' }>
-): AgentContext | null {
-  const targetEntries = [
-    ['workflowId', ctx.workflowId],
-    ['skillId', ctx.skillId],
-    ['customToolId', ctx.customToolId],
-    ['mcpServerId', ctx.mcpServerId],
-    ['indicatorId', ctx.indicatorId],
-    ['pineIndicatorId', ctx.pineIndicatorId],
-  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+function resolveContextWorkspaceId(
+  contextWorkspaceId: string | undefined,
+  fallbackWorkspaceId: string | undefined,
+  context: ChatContext
+): string | null {
+  const resolvedWorkspaceId = contextWorkspaceId ?? fallbackWorkspaceId ?? null
+  if (!resolvedWorkspaceId) {
+    logger.warn('Skipping copilot entity context without workspaceId', {
+      kind: context.kind,
+      label: context.label,
+    })
+  }
+  return resolvedWorkspaceId
+}
 
-  if (targetEntries.length === 0) {
+async function processEntityContextFromDb(params: {
+  contextKind:
+    | 'skill'
+    | 'current_skill'
+    | 'indicator'
+    | 'current_indicator'
+    | 'custom_tool'
+    | 'current_custom_tool'
+    | 'mcp_server'
+    | 'current_mcp_server'
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
+  entityId: string
+  workspaceId: string | null
+  tag: string
+}): Promise<AgentContext | null> {
+  if (!params.workspaceId) {
     return null
   }
 
-  return {
-    type: 'current_targets',
-    tag: ctx.label ? `@${ctx.label}` : '@',
-    content: [
-      'Default current edit/review targets for this copilot context:',
-      ...targetEntries.map(([key, value]) => `${key}: ${value}`),
-      'Use these only when the user does not explicitly specify a different target.',
-    ].join('\n'),
+  try {
+    const { loadCustomTool, loadIndicator, loadMcpServer, loadSkill } = await import(
+      '@/lib/copilot/review-sessions/entity-loaders'
+    )
+
+    let row: Record<string, unknown> | null = null
+    switch (params.entityKind) {
+      case 'skill':
+        row = await loadSkill(params.entityId, params.workspaceId)
+        break
+      case 'indicator':
+        row = await loadIndicator(params.entityId, params.workspaceId)
+        break
+      case 'custom_tool':
+        row = await loadCustomTool(params.entityId, params.workspaceId)
+        break
+      case 'mcp_server':
+        row = await loadMcpServer(params.entityId, params.workspaceId)
+        break
+    }
+
+    if (!row) {
+      logger.warn('No entity data found for copilot context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+      })
+      return null
+    }
+
+    return {
+      type: params.contextKind,
+      tag: params.tag,
+      content: JSON.stringify(serializeEntityContext(params.entityKind, row), null, 2),
+    }
+  } catch (error) {
+    logger.error('Error processing entity context', {
+      entityKind: params.entityKind,
+      entityId: params.entityId,
+      workspaceId: params.workspaceId,
+      error,
+    })
+    return null
   }
 }
 
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function serializeEntityContext(
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
+  row: Record<string, unknown>
+) {
+  switch (entityKind) {
+    case 'skill':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        description: row.description ?? null,
+        content: row.content ?? null,
+      }
+    case 'indicator':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        color: row.color ?? null,
+        pineCode: row.pineCode ?? null,
+        inputMeta: row.inputMeta ?? null,
+      }
+    case 'custom_tool':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        title: row.title ?? null,
+        schema: row.schema ?? null,
+        code: row.code ?? null,
+      }
+    case 'mcp_server':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        description: row.description ?? null,
+        transport: row.transport ?? null,
+        url: row.url ?? null,
+        command: row.command ?? null,
+        args: Array.isArray(row.args) ? row.args : [],
+        headerKeys:
+          row.headers && typeof row.headers === 'object'
+            ? Object.keys(row.headers as Record<string, unknown>)
+            : [],
+        envKeys:
+          row.env && typeof row.env === 'object'
+            ? Object.keys(row.env as Record<string, unknown>)
+            : [],
+        timeout: row.timeout ?? null,
+        retries: row.retries ?? null,
+        enabled: row.enabled ?? null,
+      }
+  }
 }
 
 function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | undefined): string {
@@ -239,23 +341,53 @@ function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | un
 }
 
 async function processPastChatFromDb(
-  chatId: string,
+  reviewSessionId: string,
   userId: string,
   tag: string
 ): Promise<AgentContext | null> {
   try {
-    const rows = await db
-      .select({ messages: copilotChats.messages })
-      .from(copilotChats)
-      .where(and(eq(copilotChats.id, chatId), eq(copilotChats.userId, userId)))
-      .limit(1)
-    const messages = Array.isArray(rows?.[0]?.messages) ? (rows[0] as any).messages : []
-    const content = messages
-      .map((m: any) => {
+    // Run ownership check and message load in parallel since they are independent
+    const [sessionRows, messageRows] = await Promise.all([
+      db
+        .select({ id: copilotReviewSessions.id })
+        .from(copilotReviewSessions)
+        .where(
+          and(
+            eq(copilotReviewSessions.id, reviewSessionId),
+            eq(copilotReviewSessions.userId, userId)
+          )
+        )
+        .limit(1),
+      db
+        .select({
+          role: copilotReviewItems.messageRole,
+          content: copilotReviewItems.content,
+          contentBlocks: copilotReviewItems.contentBlocks,
+        })
+        .from(copilotReviewItems)
+        .where(
+          and(
+            eq(copilotReviewItems.sessionId, reviewSessionId),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sequence)),
+    ])
+
+    if (!sessionRows.length) {
+      logger.warn('Past chat review session not found or not owned by user', {
+        reviewSessionId,
+        userId,
+      })
+      return null
+    }
+
+    const content = messageRows
+      .map((m) => {
         const role = m.role || 'user'
         let text = ''
-        if (Array.isArray(m.contentBlocks) && m.contentBlocks.length > 0) {
-          text = m.contentBlocks
+        if (Array.isArray(m.contentBlocks) && (m.contentBlocks as any[]).length > 0) {
+          text = (m.contentBlocks as any[])
             .filter((b: any) => b?.type === 'text')
             .map((b: any) => String(b.content || ''))
             .join('')
@@ -266,14 +398,15 @@ async function processPastChatFromDb(
       })
       .filter((s: string) => s.length > 0)
       .join('\n')
+
     logger.info('Processed past_chat context from DB', {
-      chatId,
+      reviewSessionId,
       length: content.length,
       lines: content ? content.split('\n').length : 0,
     })
     return { type: 'past_chat', tag, content }
   } catch (error) {
-    logger.error('Error processing past chat from db', { chatId, error })
+    logger.error('Error processing past chat from db', { reviewSessionId, error })
     return null
   }
 }
@@ -309,46 +442,6 @@ async function processWorkflowFromDb(
     logger.error('Error processing workflow context', { workflowId, error })
     return null
   }
-}
-
-async function processPastChat(chatId: string, tagOverride?: string): Promise<AgentContext | null> {
-  try {
-    const resp = await fetch(`/api/copilot/chat/${encodeURIComponent(chatId)}`)
-    if (!resp.ok) {
-      logger.error('Failed to fetch past chat', { chatId, status: resp.status })
-      return null
-    }
-    const data = await resp.json()
-    const messages = Array.isArray(data?.chat?.messages) ? data.chat.messages : []
-    const content = messages
-      .map((m: any) => {
-        const role = m.role || 'user'
-        // Prefer contentBlocks text if present (joins text blocks), else use content
-        let text = ''
-        if (Array.isArray(m.contentBlocks) && m.contentBlocks.length > 0) {
-          text = m.contentBlocks
-            .filter((b: any) => b?.type === 'text')
-            .map((b: any) => String(b.content || ''))
-            .join('')
-            .trim()
-        }
-        if (!text && typeof m.content === 'string') text = m.content
-        return `${role}: ${text}`.trim()
-      })
-      .filter((s: string) => s.length > 0)
-      .join('\n')
-    logger.info('Processed past_chat context via API', { chatId, length: content.length })
-
-    return { type: 'past_chat', tag: tagOverride || '@', content }
-  } catch (error) {
-    logger.error('Error processing past chat', { chatId, error })
-    return null
-  }
-}
-
-// Back-compat alias; used by processContexts above
-async function processPastChatViaApi(chatId: string, tag?: string) {
-  return processPastChat(chatId, tag)
 }
 
 async function processKnowledgeFromDb(
@@ -392,62 +485,29 @@ async function processKnowledgeFromDb(
   }
 }
 
-async function processBlockMetadata(blockId: string, tag: string): Promise<AgentContext | null> {
+async function processBlocksMetadata(
+  blockIds: string[],
+  tag: string
+): Promise<AgentContext | null> {
   try {
-    // Reuse registry to match get_blocks_metadata tool result
-    const { registry: blockRegistry } = await import('@/blocks/registry')
-    const { tools: toolsRegistry } = await import('@/tools/registry')
-    const SPECIAL_BLOCKS_METADATA: Record<string, any> = {}
+    const { getBlocksMetadataServerTool } = await import(
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+    )
 
-    let metadata: any = {}
-    if ((SPECIAL_BLOCKS_METADATA as any)[blockId]) {
-      metadata = { ...(SPECIAL_BLOCKS_METADATA as any)[blockId] }
-      metadata.tools = metadata.tools?.access || []
-    } else {
-      const blockConfig: any = (blockRegistry as any)[blockId]
-      if (!blockConfig) {
-        return null
-      }
-      metadata = {
-        id: blockId,
-        name: blockConfig.name || blockId,
-        description: blockConfig.description || '',
-        longDescription: blockConfig.longDescription,
-        category: blockConfig.category,
-        bgColor: blockConfig.bgColor,
-        inputs: blockConfig.inputs || {},
-        outputs: blockConfig.outputs || {},
-        tools: blockConfig.tools?.access || [],
-        hideFromToolbar: blockConfig.hideFromToolbar,
-      }
-      if (blockConfig.subBlocks && Array.isArray(blockConfig.subBlocks)) {
-        metadata.subBlocks = (blockConfig.subBlocks as any[]).map((sb: any) => ({
-          id: sb.id,
-          name: sb.name,
-          type: sb.type,
-          description: sb.description,
-          default: sb.default,
-          options: Array.isArray(sb.options) ? sb.options : [],
-        }))
-      } else {
-        metadata.subBlocks = []
-      }
+    const uniqueBlockIds = Array.from(new Set(blockIds.filter(Boolean)))
+    if (uniqueBlockIds.length === 0) {
+      return null
     }
 
-    if (Array.isArray(metadata.tools) && metadata.tools.length > 0) {
-      metadata.toolDetails = {}
-      for (const toolId of metadata.tools) {
-        const tool = (toolsRegistry as any)[toolId]
-        if (tool) {
-          metadata.toolDetails[toolId] = { name: tool.name, description: tool.description }
-        }
-      }
+    const result = await getBlocksMetadataServerTool.execute({ blockIds: uniqueBlockIds })
+    if (!result?.metadata || Object.keys(result.metadata).length === 0) {
+      return null
     }
 
-    const content = JSON.stringify({ metadata })
+    const content = JSON.stringify(result)
     return { type: 'blocks', tag, content }
   } catch (error) {
-    logger.error('Error processing block metadata', { blockId, error })
+    logger.error('Error processing block metadata', { blockIds, error })
     return null
   }
 }
