@@ -33,10 +33,7 @@ import {
   isBlockProtected,
 } from '@/stores/workflows/workflow/utils'
 import { resolveInitialSubBlockValue } from '@/lib/workflows/subblock-values'
-import {
-  useWorkflowSession,
-  useOptionalWorkflowSession,
-} from '@/lib/yjs/workflow-session-host'
+import { useWorkflowSession, useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import {
   YJS_KEYS,
   createWorkflowTextFieldKey,
@@ -126,6 +123,24 @@ const EMPTY_EDGES: Edge[] = []
 const EMPTY_LOOPS: Record<string, Loop> = {}
 const EMPTY_PARALLELS: Record<string, Parallel> = {}
 
+function areWorkflowBlocksStructurallyEqual(
+  a: Record<string, BlockState>,
+  b: Record<string, BlockState>
+): boolean {
+  if (a === b) return true
+
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+
+  if (aKeys.length !== bKeys.length) {
+    return false
+  }
+
+  return aKeys.every(
+    (key, index) => key === bKeys[index] && Object.is(a[key], b[key])
+  )
+}
+
 function useWorkflowRecordEntry<T>(
   doc: Y.Doc | null,
   workflowKey: string,
@@ -195,7 +210,88 @@ export function bindWorkflowTextObserver(
 /** Subscribe to the full blocks record from the Yjs workflow doc */
 export function useWorkflowBlocks(): Record<string, BlockState> {
   const session = useOptionalWorkflowSession()
-  return useYjsMapValue(session?.doc ?? null, YJS_KEYS.WORKFLOW, YJS_KEYS.BLOCKS, EMPTY_BLOCKS)
+  const doc = session?.doc ?? null
+
+  const subscribe = useMemo(() => {
+    if (!doc) return (cb: () => void) => () => {}
+
+    const workflowMap = getWorkflowMap(doc)
+    const textFields = getWorkflowTextFieldsMap(doc)
+
+    return (cb: () => void) => {
+      let textObserversCleanup = () => {}
+
+      const bindTextObservers = () => {
+        textObserversCleanup()
+
+        const blocks =
+          (workflowMap.get(YJS_KEYS.BLOCKS) as Record<string, BlockState> | undefined) ??
+          EMPTY_BLOCKS
+        const observers: Array<() => void> = []
+
+        for (const [blockId, block] of Object.entries(blocks)) {
+          if (!block?.subBlocks) {
+            continue
+          }
+
+          for (const subBlockId of Object.keys(block.subBlocks)) {
+            const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+            if (!sharedText) {
+              continue
+            }
+
+            const handler = () => cb()
+            sharedText.observe(handler)
+            observers.push(() => sharedText.unobserve(handler))
+          }
+        }
+
+        textObserversCleanup = () => {
+          for (const cleanup of observers) {
+            cleanup()
+          }
+        }
+      }
+
+      const workflowHandler = (event: Y.YMapEvent<any>) => {
+        if (!event.keysChanged.has(YJS_KEYS.BLOCKS)) return
+        bindTextObservers()
+        cb()
+      }
+
+      const textFieldsHandler = (event: Y.YMapEvent<any>) => {
+        for (const key of event.keysChanged) {
+          if (!parseWorkflowTextFieldKey(key)) {
+            continue
+          }
+
+          bindTextObservers()
+          cb()
+          return
+        }
+      }
+
+      bindTextObservers()
+      workflowMap.observe(workflowHandler)
+      // Rebind on structure changes; live Y.Text edits are observed directly
+      // from the current shared text instances.
+      textFields.observe(textFieldsHandler)
+
+      return () => {
+        textObserversCleanup()
+        workflowMap.unobserve(workflowHandler)
+        textFields.unobserve(textFieldsHandler)
+      }
+    }
+  }, [doc])
+
+  const extract = useCallback(() => {
+    if (!doc) return EMPTY_BLOCKS
+
+    return getWorkflowSnapshot(doc).blocks
+  }, [doc])
+
+  return useYjsSubscription(subscribe, extract, EMPTY_BLOCKS, areWorkflowBlocksStructurallyEqual)
 }
 
 /** Subscribe to the edges array from the Yjs workflow doc */
@@ -213,7 +309,12 @@ export function useWorkflowLoops(): Record<string, Loop> {
 /** Subscribe to the parallels record from the Yjs workflow doc */
 export function useWorkflowParallels(): Record<string, Parallel> {
   const session = useOptionalWorkflowSession()
-  return useYjsMapValue(session?.doc ?? null, YJS_KEYS.WORKFLOW, YJS_KEYS.PARALLELS, EMPTY_PARALLELS)
+  return useYjsMapValue(
+    session?.doc ?? null,
+    YJS_KEYS.WORKFLOW,
+    YJS_KEYS.PARALLELS,
+    EMPTY_PARALLELS
+  )
 }
 
 /** Subscribe to a single block by id (fine-grained: only re-renders when this block changes) */
@@ -284,7 +385,9 @@ export function useBlock(blockId: string): BlockState | null {
 
   const extract = useCallback(() => {
     if (!doc) return null
-    const blocks = getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, BlockState> | undefined
+    const blocks = getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as
+      | Record<string, BlockState>
+      | undefined
     const block = blocks?.[blockId] ?? null
     return materializeWorkflowBlockTextFields(blockId, block, getWorkflowTextFieldsMap(doc))
   }, [blockId, doc])
@@ -334,8 +437,9 @@ export function useBlockProtection(blockId: string): boolean {
   const extract = useCallback(() => {
     if (!doc || !blockId) return false
     const blocks =
-      (doc.getMap(YJS_KEYS.WORKFLOW).get(YJS_KEYS.BLOCKS) as Record<string, BlockState> | undefined) ??
-      EMPTY_BLOCKS
+      (doc.getMap(YJS_KEYS.WORKFLOW).get(YJS_KEYS.BLOCKS) as
+        | Record<string, BlockState>
+        | undefined) ?? EMPTY_BLOCKS
     return isBlockProtected(blockId, blocks)
   }, [blockId, doc])
 
@@ -370,9 +474,12 @@ export function useSubBlockValue(blockId: string, subBlockId: string): any {
       // mounted subblock instance.
       const handler = (event: Y.YMapEvent<any>) => {
         if (!event.keysChanged.has(YJS_KEYS.BLOCKS)) return
-        const newValue = readWorkflowTextFieldValue(doc, blockId, subBlockId) ?? (
-          (ymap.get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined)?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null
-        )
+        const newValue =
+          readWorkflowTextFieldValue(doc, blockId, subBlockId) ??
+          (ymap.get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined)?.[blockId]?.subBlocks?.[
+            subBlockId
+          ]?.value ??
+          null
 
         // Fast path: if the raw reference is identical, the value hasn't
         // changed — skip JSON.stringify entirely.
@@ -405,9 +512,13 @@ export function useSubBlockValue(blockId: string, subBlockId: string): any {
 
   const extract = useCallback(() => {
     if (!doc) return null
-    const blocks = doc.getMap(YJS_KEYS.WORKFLOW).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
-    const value = readWorkflowTextFieldValue(doc, blockId, subBlockId) ??
-      (blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null)
+    const blocks = doc.getMap(YJS_KEYS.WORKFLOW).get(YJS_KEYS.BLOCKS) as
+      | Record<string, any>
+      | undefined
+    const value =
+      readWorkflowTextFieldValue(doc, blockId, subBlockId) ??
+      blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ??
+      null
     prevRawRef.current = value
     serializedRef.current = JSON.stringify(value)
     return value
@@ -566,7 +677,9 @@ export function useWorkflowVariables(): Record<string, any> {
     if (!doc) return (cb: () => void) => () => {}
     const vMap = getVariablesMap(doc)
     return (cb: () => void) => {
-      const handler = () => { cb() }
+      const handler = () => {
+        cb()
+      }
       vMap.observe(handler)
       return () => vMap.unobserve(handler)
     }
@@ -591,7 +704,9 @@ export function useWorkflowVariables(): Record<string, any> {
     }
 
     const result: Record<string, any> = {}
-    for (const [key, value] of vMap.entries()) { result[key] = value }
+    for (const [key, value] of vMap.entries()) {
+      result[key] = value
+    }
     prevResultRef.current = result
     prevSizeRef.current = size
     return result
@@ -704,9 +819,7 @@ export function useWorkflowMutations() {
 
           Object.assign(
             outputs,
-            resolveOutputType(
-              getBlockOutputs(type, subBlocks, blockProperties?.triggerMode)
-            )
+            resolveOutputType(getBlockOutputs(type, subBlocks, blockProperties?.triggerMode))
           )
         }
 
@@ -949,7 +1062,8 @@ export function useWorkflowMutations() {
         const textFields = getWorkflowTextFieldsMap(d)
         const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
         if (sharedText) {
-          const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+          const nextTextValue =
+            typeof value === 'string' ? value : value == null ? '' : String(value)
           if (sharedText.toString() !== nextTextValue) {
             if (sharedText.length > 0) {
               sharedText.delete(0, sharedText.length)
@@ -996,7 +1110,8 @@ export function useWorkflowMutations() {
           if (!block) continue
           const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
           if (sharedText) {
-            const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+            const nextTextValue =
+              typeof value === 'string' ? value : value == null ? '' : String(value)
             if (sharedText.toString() !== nextTextValue) {
               if (sharedText.length > 0) {
                 sharedText.delete(0, sharedText.length)
@@ -1037,7 +1152,11 @@ export function useWorkflowMutations() {
   )
 
   const patchBlockData = useCallback(
-    (id: string, dataUpdate: Record<string, any>, afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void) =>
+    (
+      id: string,
+      dataUpdate: Record<string, any>,
+      afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void
+    ) =>
       patchBlock(
         id,
         (b) => (b.data ? { ...b, data: { ...b.data, ...dataUpdate } } : b),
@@ -1059,13 +1178,17 @@ export function useWorkflowMutations() {
 
   const updateLoopCollection = useCallback(
     (loopId: string, collection: string) =>
-      patchBlock(loopId, (block) => ({
-        ...block,
-        data: {
-          ...block.data,
-          ...getLoopCollectionDataUpdate(block.data?.loopType, collection),
-        },
-      }), regenLoops),
+      patchBlock(
+        loopId,
+        (block) => ({
+          ...block,
+          data: {
+            ...block.data,
+            ...getLoopCollectionDataUpdate(block.data?.loopType, collection),
+          },
+        }),
+        regenLoops
+      ),
     [patchBlock]
   )
 
@@ -1076,13 +1199,17 @@ export function useWorkflowMutations() {
 
   const updateParallelCollection = useCallback(
     (parallelId: string, collection: string) =>
-      patchBlock(parallelId, (block) => ({
-        ...block,
-        data: {
-          ...block.data,
-          ...getParallelCollectionDataUpdate(collection),
-        },
-      }), regenParallels),
+      patchBlock(
+        parallelId,
+        (block) => ({
+          ...block,
+          data: {
+            ...block.data,
+            ...getParallelCollectionDataUpdate(collection),
+          },
+        }),
+        regenParallels
+      ),
     [patchBlock]
   )
 
@@ -1191,9 +1318,24 @@ export function useWorkflowDoc() {
     edges,
     loops,
     parallels,
-    isDeployed: useYjsMapValue(session?.doc ?? null, YJS_KEYS.WORKFLOW, YJS_KEYS.IS_DEPLOYED, false),
-    deployedAt: useYjsMapValue(session?.doc ?? null, YJS_KEYS.WORKFLOW, YJS_KEYS.DEPLOYED_AT, undefined),
-    lastSaved: useYjsMapValue(session?.doc ?? null, YJS_KEYS.WORKFLOW, YJS_KEYS.LAST_SAVED, undefined),
+    isDeployed: useYjsMapValue(
+      session?.doc ?? null,
+      YJS_KEYS.WORKFLOW,
+      YJS_KEYS.IS_DEPLOYED,
+      false
+    ),
+    deployedAt: useYjsMapValue(
+      session?.doc ?? null,
+      YJS_KEYS.WORKFLOW,
+      YJS_KEYS.DEPLOYED_AT,
+      undefined
+    ),
+    lastSaved: useYjsMapValue(
+      session?.doc ?? null,
+      YJS_KEYS.WORKFLOW,
+      YJS_KEYS.LAST_SAVED,
+      undefined
+    ),
 
     // Mutations
     ...mutations,
