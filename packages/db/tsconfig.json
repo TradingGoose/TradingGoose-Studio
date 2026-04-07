@@ -12,6 +12,7 @@
     "baseUrl": ".",
     "paths": {
       "@tradinggoose/db": ["./index.ts"],
+      "@tradinggoose/db/schema": ["./schema.ts"],
       "@tradinggoose/db/*": ["./*"]
     },
     "resolveJsonModule": true,
