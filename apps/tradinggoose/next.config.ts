@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },
+      // GitHub raw content (blog images)
+      {
+        protocol: 'https',
+        hostname: 'raw.githubusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'github.com',
+      },
       {
         protocol: 'https',
         hostname: 'api.stability.ai',

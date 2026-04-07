@@ -34,6 +34,7 @@ function isHostedEnvironment(): boolean {
 
 function isAllowedInHostedMode(pathname: string): boolean {
   if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
+  if (pathname === '/blog' || pathname.startsWith('/blog/')) return true
   if (HOSTED_ALLOWED_API_PATHS.has(pathname)) return true
   // Allow static assets, Next.js internals, and public files
   if (pathname.startsWith('/_next/')) return true
