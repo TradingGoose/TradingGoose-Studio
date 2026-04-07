@@ -148,12 +148,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     try {
+      const lastSaved = now.toISOString()
       const duplicatedSnapshot = createWorkflowSnapshot({
         blocks: duplicatedWorkflowState.blocks,
         edges: duplicatedWorkflowState.edges,
         loops: duplicatedWorkflowState.loops,
         parallels: duplicatedWorkflowState.parallels,
-        lastSaved: new Date().toISOString(),
+        lastSaved,
         isDeployed: false,
       })
 

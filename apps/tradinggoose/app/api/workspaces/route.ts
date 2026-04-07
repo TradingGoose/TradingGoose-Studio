@@ -146,6 +146,7 @@ async function createWorkspace(userId: string, name: string) {
     })
 
     const { workflowState } = buildDefaultWorkflowArtifacts()
+    const lastSaved = now.toISOString()
 
     // Seed the Yjs doc and persist to normalized tables in parallel
     const [, seedResult] = await Promise.all([
@@ -154,7 +155,7 @@ async function createWorkspace(userId: string, name: string) {
         edges: workflowState.edges,
         loops: workflowState.loops,
         parallels: workflowState.parallels,
-        lastSaved: new Date().toISOString(),
+        lastSaved,
         isDeployed: false,
       })),
       saveWorkflowToNormalizedTables(workflowId, workflowState),

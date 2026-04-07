@@ -8,7 +8,8 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -163,6 +164,10 @@ export async function POST(req: NextRequest) {
     const workflowId = crypto.randomUUID()
     const now = new Date()
     const initialState = getInitialWorkflowState(initialWorkflowState, now)
+    const remappedVariables = remapVariableIds(
+      normalizeVariables(initialState?.variables),
+      workflowId
+    )
     const resolvedColor =
       typeof color === 'string' && color.trim().length > 0
         ? color.trim()
@@ -197,7 +202,7 @@ export async function POST(req: NextRequest) {
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      variables: initialState?.variables ?? {},
+      variables: remappedVariables,
       isPublished: false,
       marketplaceData: null,
     })
@@ -223,7 +228,7 @@ export async function POST(req: NextRequest) {
     const yjsSeedResult = await tryApplyWorkflowState(
       workflowId,
       defaultWorkflowSnapshot,
-      initialState?.variables ?? {}
+      remappedVariables
     )
     if (yjsSeedResult.success) {
       logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)

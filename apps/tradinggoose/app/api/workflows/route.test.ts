@@ -2,13 +2,14 @@
  * @vitest-environment node
  */
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow API Route', () => {
   const insertValuesMock = vi.fn()
   const deleteWhereMock = vi.fn()
   const saveWorkflowToNormalizedTablesMock = vi.fn()
   const tryApplyWorkflowStateMock = vi.fn()
+  const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
     new NextRequest('http://localhost:3000/api/workflows', {
@@ -27,6 +28,11 @@ describe('Workflow API Route', () => {
     deleteWhereMock.mockResolvedValue(undefined)
     saveWorkflowToNormalizedTablesMock.mockResolvedValue({ success: true })
     tryApplyWorkflowStateMock.mockResolvedValue({ success: true })
+    randomUUIDMock.mockReset()
+    randomUUIDMock.mockReturnValueOnce('workflow-123').mockReturnValueOnce('variable-123')
+    vi.stubGlobal('crypto', {
+      randomUUID: randomUUIDMock,
+    })
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -79,9 +85,13 @@ describe('Workflow API Route', () => {
       generateRequestId: vi.fn(() => 'request-id'),
     }))
 
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
-    }))
+    vi.doMock('@/lib/workflows/db-helpers', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@/lib/workflows/db-helpers')>()
+      return {
+        ...actual,
+        saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
+      }
+    })
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       tryApplyWorkflowState: tryApplyWorkflowStateMock,
@@ -90,6 +100,10 @@ describe('Workflow API Route', () => {
     vi.doMock('@/lib/telemetry/tracer', () => ({
       trackPlatformEvent: vi.fn(),
     }))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('persists initial workflow state canonically before seeding Yjs', async () => {
@@ -136,7 +150,15 @@ describe('Workflow API Route', () => {
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const canonicalState = saveWorkflowToNormalizedTablesMock.mock.calls[0][1]
 
-    expect(insertedWorkflow.variables).toEqual(initialWorkflowState.variables)
+    const insertedVariableValues = Object.values(insertedWorkflow.variables as Record<string, any>)
+    expect(insertedVariableValues).toHaveLength(1)
+    expect(insertedVariableValues[0]).toEqual({
+      id: 'variable-123',
+      workflowId: insertedWorkflow.id,
+      name: 'apiKey',
+      type: 'plain',
+      value: 'secret',
+    })
     expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
       expect.objectContaining({
@@ -153,7 +175,7 @@ describe('Workflow API Route', () => {
       expect.objectContaining({
         blocks: initialWorkflowState.blocks,
       }),
-      initialWorkflowState.variables
+      insertedWorkflow.variables
     )
   })
 

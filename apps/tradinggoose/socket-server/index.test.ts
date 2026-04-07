@@ -5,10 +5,54 @@
  */
 import { createServer, request as httpRequest } from 'http'
 import { io as createClient } from 'socket.io-client'
+import * as Y from 'yjs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  extractPersistedStateFromDoc,
+  setVariables,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
+import { cleanupPersistence, getState, storeState } from '@/socket-server/yjs/persistence'
+import {
+  cleanupAllDocuments,
+  getDocument,
+  getExistingDocument,
+  setPersistence,
+} from '@/socket-server/yjs/upstream-utils'
+
+vi.mock(import('@/lib/env'), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      INTERNAL_API_SECRET: '12345678901234567890123456789012',
+    },
+  }
+})
+
+const INTERNAL_SECRET = '12345678901234567890123456789012'
+
+vi.mock('@/lib/redis', () => ({
+  getRedisClient: vi.fn(() => null),
+  getRedisStorageMode: vi.fn(() => 'local'),
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  getRuntimeStateFromDoc: vi.fn(() => ({
+    docState: 'active',
+    replaySafe: false,
+    reseededFromCanonical: false,
+  })),
+  getRuntimeStateFromUpdate: vi.fn(() => ({
+    docState: 'active',
+    replaySafe: false,
+    reseededFromCanonical: false,
+  })),
+}))
 
 vi.mock('@/lib/auth', () => ({
   auth: {
@@ -92,6 +136,44 @@ function sendHttpRequest(port: number, path: string, method = 'GET') {
   })
 }
 
+function sendHttpRequestWithOptions(
+  port: number,
+  path: string,
+  options: {
+    method: string
+    headers?: Record<string, string>
+    body?: string
+  }
+) {
+  return new Promise<{ statusCode: number | undefined; body: string }>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method: options.method,
+        headers: options.headers,
+      },
+      (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode, body })
+        })
+      }
+    )
+
+    req.on('error', reject)
+    if (options.body) {
+      req.write(options.body)
+    }
+    req.end()
+  })
+}
+
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
@@ -103,6 +185,9 @@ describe('Socket Server Index Integration', () => {
   })
 
   beforeEach(async () => {
+    cleanupAllDocuments()
+    cleanupPersistence()
+
     // Use a random port for each test to avoid conflicts
     PORT = 3333 + Math.floor(Math.random() * 1000)
 
@@ -143,6 +228,9 @@ describe('Socket Server Index Integration', () => {
   }, 20000)
 
   afterEach(async () => {
+    cleanupAllDocuments()
+    cleanupPersistence()
+
     // Properly close servers and wait for them to fully close
     if (io) {
       await new Promise<void>((resolve) => {
@@ -187,6 +275,218 @@ describe('Socket Server Index Integration', () => {
       expect(copilotWorkflowEdit.statusCode).toBe(404)
       expect(workflowDeleted.statusCode).toBe(404)
       expect(workflowReverted.statusCode).toBe(404)
+    })
+
+    it('should apply workflow state through the internal Yjs route', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            workflowState: {
+              blocks: {
+                'block-1': {
+                  id: 'block-1',
+                  type: 'agent',
+                  name: 'Applied Agent',
+                  position: { x: 10, y: 20 },
+                  subBlocks: {},
+                  outputs: {},
+                  enabled: true,
+                },
+              },
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+            variables: {
+              var1: {
+                id: 'var1',
+                workflowId: 'workflow-1',
+                name: 'token',
+                type: 'plain',
+                value: 'secret',
+              },
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('workflow-1')).toBeNull()
+
+      const persisted = await getState('workflow-1')
+      expect(persisted).toBeTruthy()
+
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, persisted!)
+        const state = extractPersistedStateFromDoc(doc)
+        expect(state.blocks['block-1']).toEqual(
+          expect.objectContaining({
+            id: 'block-1',
+            name: 'Applied Agent',
+          })
+        )
+        expect(state.variables.var1).toEqual(
+          expect.objectContaining({
+            id: 'var1',
+            name: 'token',
+            value: 'secret',
+          })
+        )
+      } finally {
+        doc.destroy()
+      }
+    })
+
+    it('should return only snapshotBase64 from the internal Yjs state-update route', async () => {
+      const { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } = await import(
+        '@/lib/yjs/server/bootstrap-review-target'
+      )
+
+      setPersistence('workflow-state-update', { getState, storeState })
+      getDocument('workflow-state-update')
+      const liveDoc = await getExistingDocument('workflow-state-update')
+
+      setWorkflowState(
+        liveDoc!,
+        {
+          blocks: {
+            current: {
+              id: 'current',
+              type: 'agent',
+              name: 'Current Agent',
+              position: { x: 5, y: 15 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-06T00:00:00.000Z',
+          isDeployed: false,
+        },
+        'test'
+      )
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-state-update/state-update',
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+
+      const data = JSON.parse(response.body)
+      expect(data).toEqual({
+        snapshotBase64: expect.any(String),
+      })
+
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, Buffer.from(data.snapshotBase64, 'base64'))
+        const state = extractPersistedStateFromDoc(doc)
+        expect(state.blocks.current).toEqual(
+          expect.objectContaining({
+            id: 'current',
+            name: 'Current Agent',
+          })
+        )
+      } finally {
+        doc.destroy()
+      }
+
+      expect(getRuntimeStateFromDoc).not.toHaveBeenCalled()
+      expect(getRuntimeStateFromUpdate).not.toHaveBeenCalled()
+    })
+
+    it('should return 404 from the internal Yjs state-update route when no state exists', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/missing-workflow/state-update',
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(404)
+      expect(response.body).toBe('')
+    })
+
+    it('should delete the live workflow doc and persisted session through the internal Yjs route', async () => {
+      setPersistence('workflow-2', { getState, storeState })
+      getDocument('workflow-2')
+      const liveDoc = await getExistingDocument('workflow-2')
+
+      setWorkflowState(
+        liveDoc!,
+        {
+          blocks: {
+            old: {
+              id: 'old',
+              type: 'agent',
+              name: 'Old Agent',
+              position: { x: 0, y: 0 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-05T00:00:00.000Z',
+          isDeployed: false,
+        },
+        'test'
+      )
+      setVariables(
+        liveDoc!,
+        {
+          oldVar: {
+            id: 'oldVar',
+            workflowId: 'workflow-2',
+            name: 'old',
+            type: 'plain',
+            value: 'old',
+          },
+        },
+        'test'
+      )
+      await storeState('workflow-2', Y.encodeStateAsUpdate(liveDoc!))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/workflow-2',
+        {
+          method: 'DELETE',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('workflow-2')).toBeNull()
+      expect(await getState('workflow-2')).toBeNull()
     })
   })
 

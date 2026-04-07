@@ -13,6 +13,7 @@
 
 import type { Edge } from 'reactflow'
 import * as Y from 'yjs'
+import { resolveStoredDateValue } from '@/lib/time-format'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
@@ -479,6 +480,7 @@ export interface PersistedDocState {
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const snapshot = getWorkflowSnapshot(doc)
   const variables = getVariablesSnapshot(doc)
+  const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 
   return {
     blocks: snapshot.blocks || {},
@@ -486,6 +488,6 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
     loops: snapshot.loops || {},
     parallels: snapshot.parallels || {},
     variables: variables || {},
-    lastSaved: Date.now(),
+    lastSaved,
   }
 }

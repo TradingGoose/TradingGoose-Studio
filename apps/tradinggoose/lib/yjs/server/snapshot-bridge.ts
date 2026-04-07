@@ -1,8 +1,6 @@
-import type {
-  ReviewTargetDescriptor,
-  ReviewTargetRuntimeState,
-} from '@/lib/copilot/review-sessions/types'
+import { type ReviewTargetDescriptor, type ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -10,48 +8,116 @@ export interface YjsSnapshotResponse {
   runtime: ReviewTargetRuntimeState
 }
 
-export class YjsSnapshotBridgeError extends Error {
+interface YjsStateUpdateResponse {
+  snapshotBase64: string
+}
+
+export class SocketServerBridgeError extends Error {
   status: number
   body: string
 
   constructor(status: number, body: string) {
-    super(`Snapshot bridge failed: ${status}${body ? ` ${body}` : ''}`)
-    this.name = 'YjsSnapshotBridgeError'
+    super(`Socket server bridge failed: ${status}${body ? ` ${body}` : ''}`)
+    this.name = 'SocketServerBridgeError'
     this.status = status
     this.body = body
   }
+}
+
+function getSocketServerUrl(): string {
+  return env.SOCKET_SERVER_URL || 'http://localhost:3002'
+}
+
+function getInternalSecret(): string {
+  const secret = env.INTERNAL_API_SECRET
+  if (!secret) {
+    throw new Error('INTERNAL_API_SECRET is not configured')
+  }
+  return secret
+}
+
+async function fetchFromSocketServer(
+  url: URL,
+  init: RequestInit,
+  timeoutMs = 5000
+): Promise<Response> {
+  const headers = new Headers(init.headers)
+  headers.set('x-internal-secret', getInternalSecret())
+
+  const response = await fetch(url.toString(), {
+    ...init,
+    headers,
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    throw new SocketServerBridgeError(response.status, body)
+  }
+
+  return response
 }
 
 export async function getYjsSnapshot(
   sessionId: string,
   params?: Record<string, string>
 ): Promise<YjsSnapshotResponse> {
-  const socketUrl = env.SOCKET_SERVER_URL || 'http://localhost:3002'
-  const internalSecret = env.INTERNAL_API_SECRET
-
-  if (!internalSecret) {
-    throw new Error('INTERNAL_API_SECRET is not configured')
-  }
-
-  const url = new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot`, socketUrl)
+  const url = new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot`, getSocketServerUrl())
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value)
     }
   }
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'x-internal-secret': internalSecret,
-    },
-    signal: AbortSignal.timeout(5000),
-  })
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new YjsSnapshotBridgeError(response.status, body)
-  }
-
+  const response = await fetchFromSocketServer(url, { method: 'GET' })
   return response.json() as Promise<YjsSnapshotResponse>
+}
+
+export async function getWorkflowStateUpdateFromSocketServer(
+  workflowId: string
+): Promise<Uint8Array | null> {
+  try {
+    const url = new URL(
+      `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/state-update`,
+      getSocketServerUrl()
+    )
+    const response = await fetchFromSocketServer(url, { method: 'GET' })
+    const snapshot = await response.json() as YjsStateUpdateResponse
+    return Buffer.from(snapshot.snapshotBase64, 'base64')
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+export async function applyWorkflowStateInSocketServer(
+  workflowId: string,
+  workflowState: WorkflowSnapshot,
+  variables?: Record<string, any>
+): Promise<void> {
+  const url = new URL(
+    `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
+    getSocketServerUrl()
+  )
+
+  await fetchFromSocketServer(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      workflowState,
+      ...(variables === undefined ? {} : { variables }),
+    }),
+  }, 10000)
+}
+
+export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
+  const url = new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getSocketServerUrl())
+
+  await fetchFromSocketServer(url, {
+    method: 'DELETE',
+  }, 10000)
 }

@@ -70,19 +70,17 @@ export async function POST(
       return createErrorResponse('Invalid deployed state structure', 500)
     }
 
-    // Apply the reverted state to the Yjs doc first (including variables)
+    const now = new Date()
     const revertSnapshot = createWorkflowSnapshot({
       blocks: deployedState.blocks,
       edges: deployedState.edges,
       loops: deployedState.loops,
       parallels: deployedState.parallels,
-      lastSaved: new Date().toISOString(),
+      lastSaved: now.toISOString(),
       isDeployed: true,
-      deployedAt: new Date().toISOString(),
+      deployedAt: now.toISOString(),
     })
     const revertVariables = deployedState.variables || undefined
-
-    await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
 
     const saveResult = await saveWorkflowToNormalizedTables(id, {
       blocks: deployedState.blocks,
@@ -101,11 +99,14 @@ export async function POST(
     await db
       .update(workflow)
       .set({
-        lastSynced: new Date(),
-        updatedAt: new Date(),
+        lastSynced: now,
+        updatedAt: now,
         ...(revertVariables ? { variables: revertVariables } : {}),
       })
       .where(eq(workflow.id, id))
+
+    // Publish the reverted state to Yjs only after the durable writes succeed.
+    await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
 
     await pauseMonitorsMissingDeployedIndicatorTrigger(id)
     await notifyIndicatorMonitorsReconcile({ requestId, logger })

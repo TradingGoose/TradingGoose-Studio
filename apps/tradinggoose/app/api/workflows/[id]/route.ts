@@ -9,10 +9,9 @@ import { verifyInternalToken } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
-import { deleteSession } from '@/socket-server/yjs/persistence'
-import { removeDocument } from '@/socket-server/yjs/upstream-utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkflowByIdAPI')
 
@@ -26,7 +25,7 @@ const UpdateWorkflowSchema = z.object({
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses hybrid approach: try normalized tables first, fallback to JSON blob
+ * Uses the authoritative Yjs-first workflow state loader with normalized DB fallback
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -117,34 +116,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from normalized tables`)
-    const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
+    const workflowState = await loadWorkflowStateWithFallback(workflowId, workflowData.lastSynced)
 
-    if (!normalizedData) {
+    if (!workflowState) {
       logger.warn(
-        `[${requestId}] Workflow ${workflowId} has no normalized data, returning empty state`
+        `[${requestId}] Workflow ${workflowId} has no stored state, returning empty state`
       )
     } else {
-      logger.debug(`[${requestId}] Found normalized data for workflow ${workflowId}:`, {
-        blocksCount: Object.keys(normalizedData.blocks).length,
-        edgesCount: normalizedData.edges.length,
-        loopsCount: Object.keys(normalizedData.loops).length,
-        parallelsCount: Object.keys(normalizedData.parallels).length,
-        loops: normalizedData.loops,
+      logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
+        blocksCount: Object.keys(workflowState.blocks).length,
+        edgesCount: workflowState.edges.length,
+        loopsCount: Object.keys(workflowState.loops).length,
+        parallelsCount: Object.keys(workflowState.parallels).length,
+        loops: workflowState.loops,
       })
     }
 
-    const normalizedState = normalizedData ?? {
+    const resolvedState = workflowState ?? {
       blocks: {},
       edges: [],
       loops: {},
       parallels: {},
     }
 
-    let resolvedBlocks = normalizedState.blocks
-    if (!isInternalCall && normalizedState.blocks) {
+    let resolvedBlocks = resolvedState.blocks
+    if (!isInternalCall && resolvedState.blocks) {
       try {
-        resolvedBlocks = await hydrateListingUI(normalizedState.blocks)
+        resolvedBlocks = await hydrateListingUI(resolvedState.blocks)
       } catch (error) {
         logger.warn(`[${requestId}] Failed to resolve listing values for workflow ${workflowId}`, {
           error: error instanceof Error ? error.message : String(error),
@@ -155,13 +154,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const finalWorkflowData = {
       ...workflowData,
       state: {
-        // Default values for expected properties
         deploymentStatuses: {},
-        // Data from normalized tables (or empty fallback for brand new workflows)
         blocks: resolvedBlocks,
-        edges: normalizedState.edges,
-        loops: normalizedState.loops,
-        parallels: normalizedState.parallels,
+        edges: resolvedState.edges,
+        loops: resolvedState.loops,
+        parallels: resolvedState.parallels,
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
@@ -169,7 +166,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${normalizedData ? 'normalized tables' : 'empty fallback'
+      `[${requestId}] Loaded workflow ${workflowId} from ${
+        workflowState?.source ?? 'empty fallback'
       }`
     )
     const elapsed = Date.now() - startTime
@@ -279,12 +277,16 @@ export async function DELETE(
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
 
-    // removeDocument is synchronous (in-memory doc cleanup); deleteSession is
-    // async (persistence layer).  Both are independent of each other but since
-    // removeDocument returns void there is no parallelism to gain from
-    // Promise.all -- the sync call finishes instantly before the await.
-    removeDocument(workflowId)
-    await deleteSession(workflowId)
+    // Best-effort cleanup of the authoritative socket/Yjs session.
+    // Do not block workflow deletion if the bridge is unavailable.
+    try {
+      await deleteYjsSessionInSocketServer(workflowId)
+    } catch (error) {
+      logger.warn(
+        `[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`,
+        { error, workflowId }
+      )
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)

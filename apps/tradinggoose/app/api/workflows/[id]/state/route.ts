@@ -15,8 +15,7 @@ import {
 import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { getVariablesSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { getExistingDocument } from '@/socket-server/yjs/upstream-utils'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowStateAPI')
 
@@ -118,7 +117,7 @@ const WorkflowStateSchema = z.object({
 
 type ResolvedVariables = {
   value: Record<string, any> | undefined
-  source: 'request' | 'live-doc' | 'persisted-yjs' | 'unavailable'
+  source: 'request' | 'yjs' | 'unavailable'
 }
 
 /**
@@ -206,30 +205,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       deployedAt: toISOStringOrUndefined(state.deployedAt),
     }
 
-    // Preserve variables only from authoritative Yjs sources we can actually
-    // read in this process. Falling back to the workflow row is unsafe when
+    // Preserve variables only from the request body or the authoritative Yjs
+    // workflow state loader. Falling back to the workflow row is unsafe when
     // Next.js and the socket server run as separate processes because the row
     // may lag behind newer variable edits that exist only in the socket
-    // process's live Yjs doc.
+    // server's live Yjs doc.
     let resolvedVariables: ResolvedVariables = {
       value: state.variables,
       source: state.variables === undefined ? 'unavailable' : 'request',
     }
     if (resolvedVariables.value === undefined) {
-      const liveDoc = await getExistingDocument(workflowId)
-      if (liveDoc) {
-        resolvedVariables = {
-          value: getVariablesSnapshot(liveDoc),
-          source: 'live-doc',
-        }
-      } else {
-        const persistedYjsState = await loadWorkflowStateFromYjs(workflowId)
-        if (persistedYjsState) {
+      try {
+        const yjsState = await loadWorkflowStateFromYjs(workflowId)
+        if (yjsState) {
           resolvedVariables = {
-            value: persistedYjsState.variables,
-            source: 'persisted-yjs',
+            value: yjsState.variables,
+            source: 'yjs',
           }
         }
+      } catch (error) {
+        logger.warn(
+          `[${requestId}] Skipping authoritative variable lookup for ${workflowId} because the Yjs bridge was unavailable`,
+          { error }
+        )
       }
     }
 
@@ -254,7 +252,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     } else {
       logger.warn(
-        `[${requestId}] Skipping Yjs workflow apply because no live or persisted Yjs variables were available for ${workflowId}`
+        `[${requestId}] Skipping Yjs workflow apply because no authoritative Yjs variables were available for ${workflowId}`
       )
     }
 
@@ -278,11 +276,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Update workflow metadata and persist variables
+    const syncedAt = new Date(workflowState.lastSaved)
     await db
       .update(workflow)
       .set({
-        lastSynced: new Date(),
-        updatedAt: new Date(),
+        lastSynced: syncedAt,
+        updatedAt: syncedAt,
         ...(resolvedVariables.source !== 'unavailable'
           ? { variables: resolvedVariables.value ?? {} }
           : {}),

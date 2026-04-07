@@ -18,8 +18,8 @@ describe('Workflow By ID API Route', () => {
 
   const mockGetWorkflowById = vi.fn()
   const mockGetWorkflowAccessContext = vi.fn()
-  const mockDeleteSession = vi.fn()
-  const mockRemoveDocument = vi.fn()
+  const mockDeleteYjsSessionInSocketServer = vi.fn()
+  const mockLoadWorkflowStateWithFallback = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -33,7 +33,7 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue(null),
+      loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -65,16 +65,13 @@ describe('Workflow By ID API Route', () => {
 
     mockGetWorkflowById.mockReset()
     mockGetWorkflowAccessContext.mockReset()
-    mockDeleteSession.mockReset()
-    mockDeleteSession.mockResolvedValue(undefined)
-    mockRemoveDocument.mockReset()
+    mockDeleteYjsSessionInSocketServer.mockReset()
+    mockLoadWorkflowStateWithFallback.mockReset()
+    mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
+    mockLoadWorkflowStateWithFallback.mockResolvedValue(null)
 
-    vi.doMock('@/socket-server/yjs/persistence', () => ({
-      deleteSession: mockDeleteSession,
-    }))
-
-    vi.doMock('@/socket-server/yjs/upstream-utils', () => ({
-      removeDocument: mockRemoveDocument,
+    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+      deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -139,12 +136,12 @@ describe('Workflow By ID API Route', () => {
         workspaceId: null,
       }
 
-      const mockNormalizedData = {
+      const mockWorkflowState = {
         blocks: {},
         edges: [],
         loops: {},
         parallels: {},
-        isFromNormalizedTables: true,
+        source: 'normalized',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -162,9 +159,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      vi.doMock('@/lib/workflows/db-helpers', () => ({
-        loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue(mockNormalizedData),
-      }))
+      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
 
       mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
       mockGetWorkflowAccessContext.mockResolvedValueOnce({
@@ -194,12 +189,12 @@ describe('Workflow By ID API Route', () => {
         workspaceId: 'workspace-456',
       }
 
-      const mockNormalizedData = {
+      const mockWorkflowState = {
         blocks: {},
         edges: [],
         loops: {},
         parallels: {},
-        isFromNormalizedTables: true,
+        source: 'normalized',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -217,9 +212,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      vi.doMock('@/lib/workflows/db-helpers', () => ({
-        loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue(mockNormalizedData),
-      }))
+      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
 
       mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
       mockGetWorkflowAccessContext.mockResolvedValueOnce({
@@ -280,7 +273,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Access denied')
     })
 
-    it('should use normalized tables when available', async () => {
+    it('should return Yjs-backed workflow state when the authoritative loader has it', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -288,12 +281,12 @@ describe('Workflow By ID API Route', () => {
         workspaceId: null,
       }
 
-      const mockNormalizedData = {
+      const mockWorkflowState = {
         blocks: { 'block-1': { id: 'block-1', type: 'input_trigger' } },
         edges: [{ id: 'edge-1', source: 'block-1', target: 'block-2' }],
         loops: {},
         parallels: {},
-        isFromNormalizedTables: true,
+        source: 'yjs',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -311,9 +304,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      vi.doMock('@/lib/workflows/db-helpers', () => ({
-        loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue(mockNormalizedData),
-      }))
+      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -323,8 +314,8 @@ describe('Workflow By ID API Route', () => {
 
       expect(response.status).toBe(200)
       const data = await response.json()
-      expect(data.data.state.blocks).toEqual(mockNormalizedData.blocks)
-      expect(data.data.state.edges).toEqual(mockNormalizedData.edges)
+      expect(data.data.state.blocks).toEqual(mockWorkflowState.blocks)
+      expect(data.data.state.edges).toEqual(mockWorkflowState.edges)
     })
 
     it('should return an empty state when no normalized data exists yet', async () => {
@@ -366,13 +357,68 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should allow owner to delete workflow', async () => {
+    it('should delete the socket/Yjs session after deleting the workflow row', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
         workspaceId: null,
       }
+      const events: string[] = []
+
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: null,
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+      mockDeleteYjsSessionInSocketServer.mockImplementationOnce(async () => {
+        events.push('socket-delete')
+      })
+
+      vi.doMock('@tradinggoose/db', () => ({
+        db: {
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockImplementation(async () => {
+              events.push('db-delete')
+              return [{ id: 'workflow-123' }]
+            }),
+          }),
+        },
+        workflow: {},
+      }))
+
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+        method: 'DELETE',
+      })
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { DELETE } = await import('@/app/api/workflows/[id]/route')
+      const response = await DELETE(req, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.success).toBe(true)
+      expect(mockDeleteYjsSessionInSocketServer).toHaveBeenCalledWith('workflow-123')
+      expect(events).toEqual(['db-delete', 'socket-delete'])
+    })
+
+    it('should not clean up the Yjs session if workflow row deletion fails', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        workspaceId: null,
+      }
+      const deleteWhereMock = vi.fn().mockRejectedValue(new Error('db offline'))
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -392,15 +438,11 @@ describe('Workflow By ID API Route', () => {
       vi.doMock('@tradinggoose/db', () => ({
         db: {
           delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([{ id: 'workflow-123' }]),
+            where: deleteWhereMock,
           }),
         },
         workflow: {},
       }))
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-      })
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'DELETE',
@@ -410,11 +452,11 @@ describe('Workflow By ID API Route', () => {
       const { DELETE } = await import('@/app/api/workflows/[id]/route')
       const response = await DELETE(req, { params })
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(500)
       const data = await response.json()
-      expect(data.success).toBe(true)
-      expect(mockRemoveDocument).toHaveBeenCalledWith('workflow-123')
-      expect(mockDeleteSession).toHaveBeenCalledWith('workflow-123')
+      expect(data.error).toBe('Internal server error')
+      expect(deleteWhereMock).toHaveBeenCalledOnce()
+      expect(mockDeleteYjsSessionInSocketServer).not.toHaveBeenCalled()
     })
 
     it('should allow admin to delete workspace workflow', async () => {
@@ -449,9 +491,52 @@ describe('Workflow By ID API Route', () => {
         workflow: {},
       }))
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+        method: 'DELETE',
       })
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { DELETE } = await import('@/app/api/workflows/[id]/route')
+      const response = await DELETE(req, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.success).toBe(true)
+    })
+
+    it('should continue deleting the workflow row when socket/Yjs cleanup fails', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        workspaceId: null,
+      }
+      const deleteWhereMock = vi.fn().mockResolvedValue([{ id: 'workflow-123' }])
+
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: null,
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+      mockDeleteYjsSessionInSocketServer.mockRejectedValueOnce(new Error('socket offline'))
+
+      vi.doMock('@tradinggoose/db', () => ({
+        db: {
+          delete: vi.fn().mockReturnValue({
+            where: deleteWhereMock,
+          }),
+        },
+        workflow: {},
+      }))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'DELETE',
@@ -464,6 +549,13 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
+      expect(deleteWhereMock).toHaveBeenCalledOnce()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to delete socket/Yjs session for workflow workflow-123'),
+        expect.objectContaining({
+          workflowId: 'workflow-123',
+        })
+      )
     })
 
     it('should deny deletion for non-admin users', async () => {

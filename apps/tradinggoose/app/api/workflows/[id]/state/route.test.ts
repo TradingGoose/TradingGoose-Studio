@@ -2,12 +2,9 @@ import { NextRequest } from 'next/server'
 /**
  * @vitest-environment node
  */
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setVariables } from '@/lib/yjs/workflow-session'
 
 describe('Workflow State API Route', () => {
-  let liveDoc: Y.Doc | null
   let loadWorkflowStateFromYjsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
   let tryApplyWorkflowStateMock: ReturnType<typeof vi.fn>
@@ -43,7 +40,6 @@ describe('Workflow State API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    liveDoc = null
     loadWorkflowStateFromYjsMock = vi.fn().mockResolvedValue(null)
     saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
     tryApplyWorkflowStateMock = vi.fn().mockResolvedValue({ success: true })
@@ -132,21 +128,19 @@ describe('Workflow State API Route', () => {
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       tryApplyWorkflowState: tryApplyWorkflowStateMock,
     }))
-
-    vi.doMock('@/socket-server/yjs/upstream-utils', () => ({
-      getExistingDocument: vi.fn(async () => liveDoc),
-    }))
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  it('falls back to live Yjs variables when the request body omits them', async () => {
-    liveDoc = new Y.Doc()
-    setVariables(
-      liveDoc,
-      {
+  it('falls back to authoritative Yjs variables when the request body omits them', async () => {
+    loadWorkflowStateFromYjsMock.mockResolvedValueOnce({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {
         'live-var': {
           id: 'live-var',
           workflowId: 'workflow-id',
@@ -155,8 +149,8 @@ describe('Workflow State API Route', () => {
           value: 'live value',
         },
       },
-      'test'
-    )
+      lastSaved: Date.now(),
+    })
 
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(createRequest(validStateBody), {
@@ -186,52 +180,6 @@ describe('Workflow State API Route', () => {
     )
   })
 
-  it('falls back to persisted Yjs variables when no live doc is mounted in-process', async () => {
-    loadWorkflowStateFromYjsMock.mockResolvedValueOnce({
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: {
-        'persisted-var': {
-          id: 'persisted-var',
-          workflowId: 'workflow-id',
-          name: 'persistedVar',
-          type: 'plain',
-          value: 'persisted value',
-        },
-      },
-      lastSaved: Date.now(),
-    })
-
-    const { PUT } = await import('@/app/api/workflows/[id]/state/route')
-    const response = await PUT(createRequest(validStateBody), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
-
-    expect(response.status).toBe(200)
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledWith(
-      'workflow-id',
-      expect.any(Object),
-      {
-        'persisted-var': expect.objectContaining({
-          name: 'persistedVar',
-          value: 'persisted value',
-        }),
-      }
-    )
-    expect(updateSetMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variables: {
-          'persisted-var': expect.objectContaining({
-            name: 'persistedVar',
-            value: 'persisted value',
-          }),
-        },
-      })
-    )
-  })
-
   it('does not republish workflow-row variables when no Yjs state is available in-process', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(createRequest(validStateBody), {
@@ -239,6 +187,27 @@ describe('Workflow State API Route', () => {
     })
 
     expect(response.status).toBe(200)
+    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        variables: expect.anything(),
+      })
+    )
+  })
+
+  it('continues saving when authoritative Yjs variable lookup fails', async () => {
+    loadWorkflowStateFromYjsMock.mockRejectedValueOnce(new Error('socket bridge unavailable'))
+
+    const { PUT } = await import('@/app/api/workflows/[id]/state/route')
+    const response = await PUT(createRequest(validStateBody), {
+      params: Promise.resolve({ id: 'workflow-id' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
+      'workflow-id',
+      expect.any(Object)
+    )
     expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
     expect(updateSetMock).toHaveBeenCalledWith(
       expect.not.objectContaining({

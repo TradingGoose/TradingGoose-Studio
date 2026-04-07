@@ -11,7 +11,7 @@ import {
   bootstrapReviewTarget,
   ReviewTargetBootstrapError,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import { getYjsSnapshot, YjsSnapshotBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
 
 export const dynamic = 'force-dynamic'
@@ -73,7 +73,7 @@ export async function GET(
     const snapshot = await getYjsSnapshot(sessionId, bridgeParams)
     return NextResponse.json(snapshot)
   } catch (error) {
-    if (!(error instanceof YjsSnapshotBridgeError) || error.status !== 404) {
+    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
       return NextResponse.json({ error: 'Failed to load snapshot' }, { status: 500 })
     }
   }

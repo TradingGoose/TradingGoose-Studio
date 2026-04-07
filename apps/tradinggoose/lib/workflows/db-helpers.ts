@@ -14,8 +14,7 @@ import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getExistingDocument } from '@/socket-server/yjs/upstream-utils'
-import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
+import { getWorkflowStateUpdateFromSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -81,34 +80,24 @@ export type PersistedWorkflowState = {
 }
 
 /**
- * Attempt to load the current workflow state from a live Yjs document
- * or the persisted Yjs session (Redis/local store).
+ * Attempt to load the current workflow state from the authoritative socket
+ * server Yjs session. The socket server resolves a live workflow doc first
+ * and otherwise falls back to its persisted Yjs blob.
  *
  * Returns `null` when neither source has data for the given workflow,
  * signalling the caller to fall back to the normalized DB tables.
- *
- * When a live upstream doc exists for `workflowId` (i.e. an active
- * WebSocket session is open), the snapshot is read directly from that
- * doc without any serialization overhead.  Only when no live doc
- * exists does the function fall back to deserializing the persisted
- * binary state into a temporary Y.Doc.
  */
 export async function loadWorkflowStateFromYjs(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
-  const liveDoc = await getExistingDocument(workflowId)
-  if (liveDoc) {
-    return extractPersistedStateFromDoc(liveDoc)
-  }
-
-  const persistedState = await getPersistedYjsState(workflowId)
-  if (!persistedState) {
+  const workflowStateUpdate = await getWorkflowStateUpdateFromSocketServer(workflowId)
+  if (!workflowStateUpdate) {
     return null
   }
 
   const doc = new Y.Doc()
   try {
-    Y.applyUpdate(doc, persistedState)
+    Y.applyUpdate(doc, workflowStateUpdate)
     return extractPersistedStateFromDoc(doc)
   } finally {
     doc.destroy()
@@ -123,6 +112,9 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
  * Loads the current workflow state from Yjs (live doc or persisted session),
  * falling back to the normalized DB tables + workflow row variables.
  *
+ * Callers that already have the workflow row can pass `lastSynced` to avoid
+ * an extra staleness-check query on the common fresh-Yjs path.
+ *
  * Returns `null` when neither source has data for the given workflow.
  *
  * The Yjs lookup is intentionally awaited before the DB query.  Yjs is the
@@ -132,21 +124,67 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
  * result were used by mistake.
  */
 export async function loadWorkflowStateWithFallback(
-  workflowId: string
+  workflowId: string,
+  lastSynced?: Date
 ): Promise<WorkflowStateWithSource | null> {
-  const yjsState = await loadWorkflowStateFromYjs(workflowId)
-  if (yjsState) {
-    return { ...yjsState, source: 'yjs' }
+  const providedWorkflowLastSynced = resolveStoredDateValue(lastSynced)
+  let workflowRowPromise:
+    | Promise<
+        | {
+            variables: unknown
+            lastSynced: unknown
+          }
+        | undefined
+      >
+    | undefined
+
+  const loadWorkflowRow = () => {
+    if (!workflowRowPromise) {
+      workflowRowPromise = db
+        .select({ variables: workflow.variables, lastSynced: workflow.lastSynced })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+        .then((rows) => rows[0])
+    }
+
+    return workflowRowPromise
+  }
+
+  try {
+    const yjsState = await loadWorkflowStateFromYjs(workflowId)
+    if (yjsState) {
+      const workflowLastSynced =
+        providedWorkflowLastSynced ?? resolveStoredDateValue((await loadWorkflowRow())?.lastSynced)
+      const yjsLastSaved = resolveStoredDateValue(yjsState.lastSaved)
+
+      if (
+        !workflowLastSynced ||
+        (yjsLastSaved && yjsLastSaved.getTime() >= workflowLastSynced.getTime())
+      ) {
+        return { ...yjsState, source: 'yjs' }
+      }
+
+      logger.warn(
+        `Ignoring stale Yjs workflow state for ${workflowId} because normalized state is newer`,
+        {
+          workflowId,
+          workflowLastSynced: workflowLastSynced.toISOString(),
+          yjsLastSaved: yjsLastSaved?.toISOString(),
+        }
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `Failed to load authoritative Yjs state for workflow ${workflowId}; falling back to normalized tables`,
+      error
+    )
   }
 
   // Load normalized tables and workflow variables in parallel
-  const [normalizedData, [workflowRow]] = await Promise.all([
+  const [normalizedData, resolvedWorkflowRow] = await Promise.all([
     loadWorkflowFromNormalizedTables(workflowId),
-    db
-      .select({ variables: workflow.variables })
-      .from(workflow)
-      .where(eq(workflow.id, workflowId))
-      .limit(1),
+    loadWorkflowRow(),
   ])
 
   if (!normalizedData) {
@@ -158,7 +196,7 @@ export async function loadWorkflowStateWithFallback(
     edges: normalizedData.edges,
     loops: normalizedData.loops,
     parallels: normalizedData.parallels,
-    variables: normalizeVariables(workflowRow?.variables),
+    variables: normalizeVariables(resolvedWorkflowRow?.variables),
     lastSaved: Date.now(),
     source: 'normalized',
   }

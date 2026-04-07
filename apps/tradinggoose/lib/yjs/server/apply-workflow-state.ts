@@ -1,10 +1,6 @@
-import * as Y from 'yjs'
-import { setWorkflowState, setVariables, getMetadataMap } from '@/lib/yjs/workflow-session'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { getDocument, setPersistence } from '@/socket-server/yjs/upstream-utils'
-import { getState, storeState } from '@/socket-server/yjs/persistence'
 import { createLogger } from '@/lib/logs/console/logger'
+import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('ApplyWorkflowState')
 
@@ -21,29 +17,7 @@ export async function applyWorkflowState(
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>
 ): Promise<void> {
-  // Register persistence for this doc
-  setPersistence(workflowId, { getState, storeState })
-
-  // Get or create the doc
-  const doc = getDocument(workflowId)
-
-  // Apply the workflow state as a system replacement
-  setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
-
-  // Apply variables if provided
-  if (variables) {
-    setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
-  }
-
-  // Clear reseeded flag since we just applied fresh state
-  const metadata = getMetadataMap(doc)
-  doc.transact(() => {
-    metadata.delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SYSTEM)
-
-  // Persist immediately
-  const state = Y.encodeStateAsUpdate(doc)
-  await storeState(workflowId, state)
+  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables)
 }
 
 /**

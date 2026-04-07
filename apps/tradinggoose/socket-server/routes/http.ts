@@ -7,8 +7,15 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } from '@/lib/yjs/server/bootstrap-review-target'
-import { getState } from '@/socket-server/yjs/persistence'
-import { getExistingDocument } from '@/socket-server/yjs/upstream-utils'
+import {
+  getMetadataMap as getWorkflowMetadataMap,
+  setVariables,
+  setWorkflowState,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { deleteSession, getState, storeState } from '@/socket-server/yjs/persistence'
+import { getExistingDocument, removeDocument } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
   info: (message: string, ...args: any[]) => void
@@ -38,6 +45,22 @@ type HttpHandlerOptions = {
 }
 
 const INTERNAL_SECRET_HEADER = 'x-internal-secret'
+const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
+const INTERNAL_YJS_WORKFLOW_STATE_UPDATE_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/state-update$/
+const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
+const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
+
+type ApplyWorkflowStateRequest = {
+  workflowState: WorkflowSnapshot
+  variables?: Record<string, any>
+}
+
+class InvalidInternalYjsRequestError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'InvalidInternalYjsRequestError'
+  }
+}
 
 function isInternalRequestAuthorized(req: IncomingMessage): boolean {
   const providedHeader = req.headers[INTERNAL_SECRET_HEADER]
@@ -90,6 +113,248 @@ function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
   }
 }
 
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = []
+
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+
+  const raw = Buffer.concat(chunks).toString('utf8').trim()
+  if (!raw) {
+    throw new InvalidInternalYjsRequestError('Request body is required')
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new InvalidInternalYjsRequestError('Invalid JSON body')
+  }
+}
+
+function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateRequest {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new InvalidInternalYjsRequestError('Invalid apply workflow state body')
+  }
+
+  const candidate = body as Record<string, unknown>
+  if (
+    !candidate.workflowState ||
+    typeof candidate.workflowState !== 'object' ||
+    Array.isArray(candidate.workflowState)
+  ) {
+    throw new InvalidInternalYjsRequestError('workflowState is required')
+  }
+
+  if (
+    candidate.variables !== undefined &&
+    (!candidate.variables ||
+      typeof candidate.variables !== 'object' ||
+      Array.isArray(candidate.variables))
+  ) {
+    throw new InvalidInternalYjsRequestError('variables must be an object')
+  }
+
+  return {
+    workflowState: candidate.workflowState as WorkflowSnapshot,
+    variables: candidate.variables as Record<string, any> | undefined,
+  }
+}
+
+function replaceWorkflowDocState(
+  doc: Y.Doc,
+  workflowState: WorkflowSnapshot,
+  variables?: Record<string, any>
+): void {
+  setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
+
+  if (variables !== undefined) {
+    setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
+  }
+
+  doc.transact(() => {
+    getWorkflowMetadataMap(doc).delete('reseededFromCanonical')
+  }, YJS_ORIGINS.SYSTEM)
+}
+
+async function handleInternalYjsWorkflowApplyRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  logger: Logger,
+  workflowId: string
+): Promise<void> {
+  try {
+    const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
+    const liveDoc = await getExistingDocument(workflowId)
+    const doc = liveDoc ?? new Y.Doc()
+
+    try {
+      replaceWorkflowDocState(doc, body.workflowState, body.variables)
+      await storeState(workflowId, Y.encodeStateAsUpdate(doc))
+    } finally {
+      if (!liveDoc) doc.destroy()
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ success: true }))
+  } catch (error) {
+    logger.error('Error applying workflow state', { error, workflowId })
+    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
+    res.writeHead(status, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to apply workflow state',
+      })
+    )
+  }
+}
+
+async function handleInternalYjsSessionDeleteRequest(
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    removeDocument(sessionId)
+    await deleteSession(sessionId)
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ success: true }))
+  } catch (error) {
+    logger.error('Error deleting Yjs session', { error, sessionId })
+    res.writeHead(500, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Failed to delete Yjs session' }))
+  }
+}
+
+async function getLiveOrPersistedYjsState(
+  sessionId: string
+): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null }> {
+  const liveDoc = await getExistingDocument(sessionId)
+  if (liveDoc) {
+    return {
+      liveDoc,
+      state: Y.encodeStateAsUpdate(liveDoc),
+    }
+  }
+
+  return {
+    liveDoc: null,
+    state: await getState(sessionId),
+  }
+}
+
+async function handleInternalYjsWorkflowStateUpdateRequest(
+  res: ServerResponse,
+  logger: Logger,
+  workflowId: string
+): Promise<void> {
+  try {
+    const { state } = await getLiveOrPersistedYjsState(workflowId)
+
+    if (!state) {
+      res.writeHead(404)
+      res.end()
+      return
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        snapshotBase64: Buffer.from(state).toString('base64'),
+      })
+    )
+  } catch (error) {
+    logger.error('Error getting Yjs workflow state update', { error, workflowId })
+    res.writeHead(500, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Failed to get workflow state update' }))
+  }
+}
+
+async function handleInternalYjsSnapshotRequest(
+  parsedUrl: URL,
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
+    if (envelope.sessionId !== sessionId) {
+      res.writeHead(409, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Session ID mismatch', sessionId }))
+      return
+    }
+
+    const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+    const { liveDoc, state } = await getLiveOrPersistedYjsState(sessionId)
+
+    if (!state) {
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Session not found', sessionId }))
+      return
+    }
+
+    const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : getRuntimeStateFromUpdate(state)
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        snapshotBase64: Buffer.from(state).toString('base64'),
+        descriptor,
+        runtime,
+      })
+    )
+  } catch (error) {
+    logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
+    res.writeHead(400, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Failed to get snapshot' }))
+  }
+}
+
+function matchInternalRoute(pathname: string, pattern: RegExp, method: string, reqMethod?: string): string | null {
+  if (reqMethod !== method) return null
+  const match = pathname.match(pattern)?.[1]
+  return match ? decodeURIComponent(match) : null
+}
+
+async function handleInternalYjsRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  logger: Logger,
+  parsedUrl: URL
+): Promise<boolean> {
+  const applyId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_WORKFLOW_APPLY_PATH, 'POST', req.method)
+  if (applyId) {
+    await handleInternalYjsWorkflowApplyRequest(req, res, logger, applyId)
+    return true
+  }
+
+  const stateUpdateId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_WORKFLOW_STATE_UPDATE_PATH,
+    'GET',
+    req.method
+  )
+  if (stateUpdateId) {
+    await handleInternalYjsWorkflowStateUpdateRequest(res, logger, stateUpdateId)
+    return true
+  }
+
+  const snapshotId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_SNAPSHOT_PATH, 'GET', req.method)
+  if (snapshotId) {
+    await handleInternalYjsSnapshotRequest(parsedUrl, res, logger, snapshotId)
+    return true
+  }
+
+  const deleteId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_SESSION_PATH, 'DELETE', req.method)
+  if (deleteId) {
+    await handleInternalYjsSessionDeleteRequest(res, logger, deleteId)
+    return true
+  }
+
+  return false
+}
+
 export function createHttpHandler(
   logger: Logger,
   options?: HttpHandlerOptions
@@ -137,53 +402,13 @@ export function createHttpHandler(
       return
     }
 
-    if (req.method === 'GET' && req.url) {
+    if (req.url) {
       const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
-      const yjsSnapshotMatch = parsedUrl.pathname.match(/^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/)
-
-      if (yjsSnapshotMatch) {
+      if (parsedUrl.pathname.startsWith('/internal/yjs/')) {
         if (rejectUnauthorizedRequest(req, res, logger)) return
-
-        const sessionId = decodeURIComponent(yjsSnapshotMatch[1])
-        const queryParams: Record<string, string | undefined> = {}
-        parsedUrl.searchParams.forEach((value, key) => {
-          queryParams[key] = value
-        })
-
-        try {
-          const envelope = parseYjsTransportEnvelope(queryParams)
-          if (envelope.sessionId !== sessionId) {
-            res.writeHead(409, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: 'Session ID mismatch', sessionId }))
-            return
-          }
-
-          const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-          const liveDoc = await getExistingDocument(sessionId)
-          const state = liveDoc ? Y.encodeStateAsUpdate(liveDoc) : await getState(sessionId)
-
-          if (!state) {
-            res.writeHead(404, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: 'Session not found', sessionId }))
-            return
-          }
-
-          const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : getRuntimeStateFromUpdate(state)
-
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(
-            JSON.stringify({
-              snapshotBase64: Buffer.from(state).toString('base64'),
-              descriptor,
-              runtime,
-            })
-          )
-        } catch (error) {
-          logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
-          res.writeHead(400, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Failed to get snapshot' }))
+        if (await handleInternalYjsRequest(req, res, logger, parsedUrl)) {
+          return
         }
-        return
       }
     }
 
