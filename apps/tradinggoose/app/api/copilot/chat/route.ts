@@ -789,7 +789,9 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (currentSession && responseData.content) {
+    const toolCalls = Array.isArray(responseData.toolCalls) ? responseData.toolCalls : undefined
+
+    if (currentSession && (responseData.content || toolCalls?.length)) {
       await persistChatMessages({
         reviewSessionId: actualReviewSessionId!,
         userMessageId: userMessageIdToUse,
@@ -800,6 +802,7 @@ export async function POST(req: NextRequest) {
           fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
         contexts:
           Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
+        toolCalls,
       })
 
       if (actualReviewSessionId && !currentSession.title && conversationHistory.length === 0) {

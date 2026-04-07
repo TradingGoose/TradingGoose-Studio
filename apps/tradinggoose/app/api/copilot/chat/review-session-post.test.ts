@@ -316,6 +316,66 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     )
   })
 
+  it('persists non-streaming tool-only assistant turns', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      title: 'Shared skill review',
+      conversationId: null,
+    })
+    mockProxyCopilotRequest.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        content: '',
+        toolCalls: [
+          {
+            id: 'tool-call-1',
+            name: 'lookup_context',
+            success: true,
+            result: { ok: true },
+          },
+        ],
+      }),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Use the tool output only',
+      reviewSessionId: 'review-session-1',
+      model: 'gpt-5.4',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      reviewSessionId: 'review-session-1',
+    })
+    expect(txInsertValues).toHaveBeenCalledTimes(2)
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'review-session-1',
+        assistantMessage: expect.objectContaining({
+          content: '',
+          toolCalls: [
+            {
+              id: 'tool-call-1',
+              name: 'lookup_context',
+              success: true,
+              result: { ok: true },
+            },
+          ],
+        }),
+      })
+    )
+  })
+
   it('accepts live entity contexts and forwards processed supporting context to copilot', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
@@ -388,6 +448,66 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         ],
       }),
     })
+  })
+
+  it('preserves tool-call metadata for non-streaming text responses', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      title: 'Shared skill review',
+      conversationId: null,
+    })
+    mockProxyCopilotRequest.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        content: 'Saved response',
+        toolCalls: [
+          {
+            id: 'tool-call-1',
+            name: 'lookup_context',
+            success: true,
+            result: { ok: true },
+          },
+        ],
+      }),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Summarize the tool result',
+      reviewSessionId: 'review-session-1',
+      model: 'gpt-5.4',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      reviewSessionId: 'review-session-1',
+    })
+    expect(txInsertValues).toHaveBeenCalledTimes(2)
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'review-session-1',
+        assistantMessage: expect.objectContaining({
+          content: 'Saved response',
+          toolCalls: [
+            {
+              id: 'tool-call-1',
+              name: 'lookup_context',
+              success: true,
+              result: { ok: true },
+            },
+          ],
+        }),
+      })
+    )
   })
 
   it('derives append sequences from the latest in-transaction session history', async () => {
