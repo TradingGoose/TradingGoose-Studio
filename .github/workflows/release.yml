@@ -30,15 +30,23 @@ jobs:
           # Get the previous release date to filter PRs
           PREV_DATE=$(gh release list --limit 1 --json createdAt --jq '.[0].createdAt' 2>/dev/null || echo "")
 
-          # Build release notes from PRs merged into staging since last release
+          # Build release notes from individual commits within each PR merged into staging
+          NOTES=""
           if [ -n "$PREV_DATE" ]; then
-            NOTES=$(gh pr list --base staging --state merged --json number,title,author \
-              --jq '.[] | "- \(.title) (#\(.number)) @\(.author.login)"' \
-              --search "merged:>=$PREV_DATE")
+            PR_LIST=$(gh pr list --base staging --state merged --json number,title,mergedAt \
+              --jq "[.[] | select(.mergedAt >= \"$PREV_DATE\")] | .[] | \"\(.number)\t\(.title)\"")
           else
-            NOTES=$(gh pr list --base staging --state merged --json number,title,author \
-              --jq '.[] | "- \(.title) (#\(.number)) @\(.author.login)"')
+            PR_LIST=$(gh pr list --base staging --state merged --json number,title \
+              --jq '.[] | "\(.number)\t\(.title)"')
           fi
+
+          while IFS=$'\t' read -r PR_NUM PR_TITLE; do
+            [ -z "$PR_NUM" ] && continue
+            NOTES="${NOTES}### ${PR_TITLE} (#${PR_NUM})"$'\n'
+            COMMITS=$(gh pr view "$PR_NUM" --json commits \
+              --jq '.commits[] | "- \(.messageHeadline) (\(.oid[:7]))"')
+            NOTES="${NOTES}${COMMITS}"$'\n\n'
+          done <<< "$PR_LIST"
 
           if [ -z "$NOTES" ]; then
             NOTES="No changes since last release."
