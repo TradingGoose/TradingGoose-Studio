@@ -5,19 +5,12 @@ import Link from 'next/link'
 import { Clock } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { splitTitle, formatBlogDate } from '../lib/heading-slugs'
 import type { Post } from '../lib/types'
 
 interface PostCardProps {
   post: Post
   index: number
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 export default function PostCard({ post, index }: PostCardProps) {
@@ -37,7 +30,14 @@ export default function PostCard({ post, index }: PostCardProps) {
       )}
 
       <div className="mt-2 flex h-full w-full flex-col gap-2">
-        <h2 className="line-clamp-2 text-2xl font-extrabold">{post.title}</h2>
+        <h2 className="line-clamp-2 text-2xl font-extrabold">
+          {splitTitle(post.title).map((line, i, arr) => (
+            <span key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </span>
+          ))}
+        </h2>
         {post.description && (
           <p className="line-clamp-3 text-muted-foreground sm:line-clamp-2 md:line-clamp-4">
             {post.description}
@@ -45,7 +45,7 @@ export default function PostCard({ post, index }: PostCardProps) {
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-sm text-muted-foreground">
-          <span>{formatDate(post.date)}</span>
+          <span>{formatBlogDate(post.date, 'short')}</span>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">

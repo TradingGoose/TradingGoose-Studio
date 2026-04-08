@@ -1,20 +1,21 @@
 'use client'
 
-import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
 import Link from 'next/link'
 import { CodeBlock } from '@/components/ui/code-block'
-import { createHeadingSlugger, flattenNodeText } from '../lib/heading-slugs'
+import { flattenNodeText, textToSlug } from '../lib/heading-slugs'
 
 interface MarkdownContentProps {
   content: string
 }
 
+function getHeadingId(children: React.ReactNode): string {
+  return textToSlug(flattenNodeText(children))
+}
+
 export default function MarkdownContent({ content }: MarkdownContentProps) {
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset slugger when content changes
-  const slugger = useMemo(() => createHeadingSlugger(), [content])
 
   return (
     <div className="blog-content">
@@ -23,7 +24,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
         components={{
           h1: ({ children, ...props }) => (
             <h1
-              id={slugger(flattenNodeText(children))}
+              id={getHeadingId(children)}
               className="mt-2 scroll-m-20 text-4xl font-bold tracking-tight"
               {...props}
             >
@@ -32,7 +33,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           ),
           h2: ({ children, ...props }) => (
             <h2
-              id={slugger(flattenNodeText(children))}
+              id={getHeadingId(children)}
               className="mt-10 scroll-m-20 border-b pb-1 text-3xl font-semibold tracking-tight first:mt-0"
               {...props}
             >
@@ -41,7 +42,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           ),
           h3: ({ children, ...props }) => (
             <h3
-              id={slugger(flattenNodeText(children))}
+              id={getHeadingId(children)}
               className="mt-8 scroll-m-20 text-2xl font-semibold tracking-tight"
               {...props}
             >
@@ -50,7 +51,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           ),
           h4: ({ children, ...props }) => (
             <h4
-              id={slugger(flattenNodeText(children))}
+              id={getHeadingId(children)}
               className="mt-8 scroll-m-20 text-xl font-semibold tracking-tight"
               {...props}
             >
@@ -115,7 +116,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
                 alt={alt ?? ''}
                 width={832}
                 height={468}
-                className="my-8 rounded-md border"
+                className="mx-auto my-8 rounded-md border"
               />
             ) : null,
           pre: ({ children }) => {

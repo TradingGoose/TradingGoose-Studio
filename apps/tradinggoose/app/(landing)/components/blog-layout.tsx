@@ -56,7 +56,7 @@ export default function BlogLayout({ children, path, title }: BlogLayoutProps) {
       )}
       <Nav variant="legal" />
 
-      <div className="border-b border-border px-4 pt-10 pb-80 sm:px-6 md:px-10 lg:px-40">{children}</div>
+      <div className="border-b border-border px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60">{children}</div>
 
       <div className="relative z-20">
         <Footer fullWidth />

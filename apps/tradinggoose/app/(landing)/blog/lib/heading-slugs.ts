@@ -1,26 +1,23 @@
 /**
- * Shared heading slug generation for TOC extraction and markdown rendering.
- * Both posts.ts (server) and markdown-content.tsx (client) use the same
- * algorithm so heading IDs and TOC anchor links always match.
+ * Shared heading utilities for TOC extraction (server) and markdown rendering (client).
  */
 
-/**
- * Strip markdown formatting from heading text to get plain text.
- * Removes bold (**text**), italic (*text*), code (`text`), links, etc.
- */
 export function normalizeHeadingText(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, '$1') // bold
-    .replace(/\*(.+?)\*/g, '$1') // italic
-    .replace(/`(.+?)`/g, '$1') // inline code
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .trim()
 }
 
-/**
- * Flatten React node children to a plain text string.
- * Used by the client-side markdown renderer.
- */
+export function textToSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+}
+
 export function flattenNodeText(node: React.ReactNode): string {
   if (typeof node === 'string') return node
   if (typeof node === 'number') return String(node)
@@ -32,24 +29,25 @@ export function flattenNodeText(node: React.ReactNode): string {
   return ''
 }
 
-/**
- * Create a stateful slug generator that handles duplicate headings by
- * appending a counter suffix (e.g. "intro", "intro-1", "intro-2").
- *
- * Must create a new instance per document render so counters reset.
- */
-export function createHeadingSlugger() {
-  const counts = new Map<string, number>()
+const TITLE_BR_REGEX = /<br\s*\/?>/gi
 
-  return function slug(text: string): string {
-    const base = text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
+/** Strip `<br>` tags and newlines from a title for use in metadata/breadcrumbs. */
+export function plainTitle(title: string): string {
+  return title.replace(TITLE_BR_REGEX, ' ').replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').trim()
+}
 
-    const count = counts.get(base) ?? 0
-    counts.set(base, count + 1)
+const TITLE_SPLIT_REGEX = /<br\s*\/?>|\n/
 
-    return count === 0 ? base : `${base}-${count}`
-  }
+/** Split a title on `<br>` or newline for multiline rendering. */
+export function splitTitle(title: string): string[] {
+  return title.split(TITLE_SPLIT_REGEX).map((s) => s.trim()).filter(Boolean)
+}
+
+export function formatBlogDate(dateStr: string, style: 'long' | 'short' = 'long'): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: style === 'long' ? 'long' : 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
 }
