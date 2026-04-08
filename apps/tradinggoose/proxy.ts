@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
-const logger = createLogger('Middleware')
+const logger = createLogger('Proxy')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 
@@ -35,6 +35,7 @@ function isHostedEnvironment(): boolean {
 function isAllowedInHostedMode(pathname: string): boolean {
   if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
   if (pathname === '/blog' || pathname.startsWith('/blog/')) return true
+  if (pathname.startsWith('/blog-images/')) return true
   if (HOSTED_ALLOWED_API_PATHS.has(pathname)) return true
   // Allow static assets, Next.js internals, and public files
   if (pathname.startsWith('/_next/')) return true
@@ -214,6 +215,6 @@ export const config = {
     '/signup',
     '/invite/:path*', // Match invitation routes
     // Catch-all for other pages, excluding static assets and public directories
-    '/((?!_next/static|_next/image|favicon.ico|logo/|static/|footer/|social/|enterprise/|favicon/|twitter/|robots.txt|sitemap.xml).*)',
+    '/((?!_next/static|_next/image|blog-images/|favicon.ico|logo/|static/|footer/|social/|enterprise/|favicon/|twitter/|robots.txt|sitemap.xml).*)',
   ],
 }

@@ -1,7 +1,8 @@
+import { cache } from 'react'
 import fs from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
-import { createHeadingSlugger, normalizeHeadingText } from './heading-slugs'
+import { normalizeHeadingText, textToSlug } from './heading-slugs'
 import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
 
 /**
@@ -29,7 +30,8 @@ const GITHUB_REPO = process.env.BLOG_GITHUB_REPO ?? ''
 const GITHUB_BRANCH = process.env.BLOG_GITHUB_BRANCH ?? 'main'
 const LOCAL_CONTENT_DIR = path.join(process.cwd(), 'app/(landing)/blog/content')
 
-const REVALIDATE_SECONDS = 600
+/** Fetch fresh on every request — no ISR cache for blog content. */
+const FETCH_OPTIONS: RequestInit = { cache: 'no-store' }
 
 // ---------------------------------------------------------------------------
 // Shared utilities
@@ -48,13 +50,12 @@ function calculateReadingTime(content: string): number {
 function extractTOC(content: string): TOC[] {
   const headingRegex = /^(#{2,4})\s+(.+)$/gm
   const toc: TOC[] = []
-  const slugger = createHeadingSlugger()
   let match: RegExpExecArray | null
 
   while ((match = headingRegex.exec(content)) !== null) {
     const depth = match[1].length
     const title = normalizeHeadingText(match[2].trim())
-    const url = `#${slugger(title)}`
+    const url = `#${textToSlug(title)}`
     toc.push({ title, url, depth })
   }
 
@@ -65,22 +66,16 @@ function resolveAuthors(raw: PostFrontmatter['authors']): ResolvedAuthor[] {
   if (!raw || raw.length === 0) return []
 
   return raw.map((entry) => {
-    if (typeof entry === 'string') {
-      return {
-        github: entry,
-        name: `@${entry}`,
-        avatar: `https://github.com/${entry}.png`,
-        profileUrl: `https://github.com/${entry}`,
-      }
-    }
+    const github = typeof entry === 'string' ? entry : entry.github
+    const name = typeof entry === 'string' ? `@${entry}` : (entry.name ?? `@${entry.github}`)
+    const x = typeof entry === 'string' ? undefined : entry.x
+
     return {
-      github: entry.github,
-      name: entry.name ?? `@${entry.github}`,
-      avatar: `https://github.com/${entry.github}.png`,
-      profileUrl: entry.x
-        ? `https://x.com/${entry.x}`
-        : `https://github.com/${entry.github}`,
-      x: entry.x,
+      github,
+      name,
+      avatar: `https://avatars.githubusercontent.com/${github}`,
+      profileUrl: x ? `https://x.com/${x}` : `https://github.com/${github}`,
+      x,
     }
   })
 }
@@ -112,7 +107,7 @@ function resolveImageUrl(imagePath: string, postDir: string, mode: 'github' | 'l
 function resolveContentImages(content: string, postDir: string, mode: 'github' | 'local'): string {
   // Match ![alt](./path) and ![alt](path) but not ![alt](https://...)
   return content.replace(
-    /!\[([^\]]*)\]\((?!https?:\/\/)\.?\/?([^)]+)\)/g,
+    /!\[([^\]]*)\]\((?!https?:\/\/|\/\/)\.?\/?([^)]+)\)/g,
     (_, alt, imgPath) => {
       const resolved = resolveImageUrl(imgPath, postDir, mode)
       return `![${alt}](${resolved})`
@@ -167,7 +162,7 @@ async function fetchPostsFromGitHub(): Promise<Post[]> {
 
   const treeRes = await fetch(treeUrl, {
     headers,
-    next: { revalidate: REVALIDATE_SECONDS },
+    ...FETCH_OPTIONS,
   })
 
   if (!treeRes.ok) {
@@ -184,9 +179,7 @@ async function fetchPostsFromGitHub(): Promise<Post[]> {
 
   const posts = await Promise.all(
     postFiles.map(async (file) => {
-      const res = await fetch(rawGitHubUrl(file.path), {
-        next: { revalidate: REVALIDATE_SECONDS },
-      })
+      const res = await fetch(rawGitHubUrl(file.path), FETCH_OPTIONS)
       if (!res.ok) return null
 
       const text = await res.text()
@@ -242,9 +235,10 @@ function fetchPostsFromLocal(): Post[] {
 
 const useGitHub = GITHUB_REPO.length > 0
 
-export async function getAllPosts(): Promise<Post[]> {
+// Deduplicate within a single server render pass (generateMetadata + page component)
+export const getAllPosts = cache(async (): Promise<Post[]> => {
   return useGitHub ? fetchPostsFromGitHub() : fetchPostsFromLocal()
-}
+})
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
   const posts = await getAllPosts()

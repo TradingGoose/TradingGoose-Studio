@@ -51,12 +51,12 @@ export default function BlogLayout({ children, path, title }: BlogLayoutProps) {
       {breadcrumbStructuredData && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c') }}
         />
       )}
       <Nav variant="legal" />
 
-      <div className="border-b border-border px-4 pt-10 pb-80 sm:px-6 md:px-10 lg:px-40">{children}</div>
+      <div className="border-b border-border px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60">{children}</div>
 
       <div className="relative z-20">
         <Footer fullWidth />
