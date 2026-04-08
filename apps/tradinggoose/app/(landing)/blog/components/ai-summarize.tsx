@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { OpenAIIcon, AnthropicIcon, GeminiIcon, xAIIcon as XAIIcon } from '@/components/icons/provider-icons'
 import { PerplexityIcon } from '@/components/icons/icons'
@@ -7,11 +8,17 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface AiSummarizeProps {
-  url: string
+  path: string
   title: string
 }
 
-export default function AiSummarize({ url, title }: AiSummarizeProps) {
+export default function AiSummarize({ path, title }: AiSummarizeProps) {
+  const [url, setUrl] = useState(path)
+
+  useEffect(() => {
+    setUrl(`${window.location.origin}${path}`)
+  }, [path])
+
   const encodedQuery = encodeURIComponent(`Please summarize this article: ${title} - ${url}`)
 
   const platforms = [

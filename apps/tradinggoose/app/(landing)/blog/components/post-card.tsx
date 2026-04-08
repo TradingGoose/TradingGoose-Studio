@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { Clock } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { splitTitle, formatBlogDate } from '../lib/heading-slugs'
+import { formatBlogDate } from '../lib/heading-slugs'
+import MarkdownTitle from './markdown-title'
 import type { Post } from '../lib/types'
 
 interface PostCardProps {
@@ -30,14 +31,11 @@ export default function PostCard({ post, index }: PostCardProps) {
       )}
 
       <div className="mt-2 flex h-full w-full flex-col gap-2">
-        <h2 className="line-clamp-2 text-2xl font-extrabold">
-          {splitTitle(post.title).map((line, i, arr) => (
-            <span key={i}>
-              {line}
-              {i < arr.length - 1 && <br />}
-            </span>
-          ))}
-        </h2>
+        <MarkdownTitle
+          title={post.title}
+          as="h2"
+          className="line-clamp-2 text-2xl font-extrabold"
+        />
         {post.description && (
           <p className="line-clamp-3 text-muted-foreground sm:line-clamp-2 md:line-clamp-4">
             {post.description}
