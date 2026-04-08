@@ -74,7 +74,7 @@ export default async function StructuredData() {
         description:
           'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. It is a drag-and-drop workflow builder for custom indicators, live market monitors, and AI agent automations — not to be confused with the older TradingGoose multi-agent research framework.',
         url: 'https://tradinggoose.ai',
-        foundingDate: '2025',
+        foundingDate: '2026-04-04',
         knowsAbout: [
           'Algorithmic trading',
           'LLM trading agents',
@@ -95,7 +95,6 @@ export default async function StructuredData() {
         },
         image: { '@id': 'https://tradinggoose.ai/#logo' },
         sameAs: [
-          'https://x.com/tradinggoose',
           'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://discord.gg/wavf5JWhuT',
           'https://docs.tradinggoose.ai',

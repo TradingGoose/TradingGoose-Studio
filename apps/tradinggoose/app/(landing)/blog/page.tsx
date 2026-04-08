@@ -7,6 +7,9 @@ import FilteredPosts from './components/filtered-posts'
 export const metadata: Metadata = {
   title: 'Blog | TradingGoose',
   description: 'Articles about trading automation, workflow design, and building smarter strategies.',
+  alternates: {
+    canonical: '/blog',
+  },
 }
 
 export default async function BlogPage() {

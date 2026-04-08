@@ -27,21 +27,16 @@ jobs:
             TAG="v$(date -u +'%Y.%m.%d').$SUFFIX"
           done
 
-          # Get the previous release tag
+          # Get the previous release tag to use as the starting point
           PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
 
-          # Build release notes from commits since previous release
+          NOTES_START=""
           if [ -n "$PREV_TAG" ]; then
-            NOTES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
-          else
-            NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges)
-          fi
-
-          if [ -z "$NOTES" ]; then
-            NOTES="No changes since last release."
+            NOTES_START="--notes-start-tag $PREV_TAG"
           fi
 
           gh release create "$TAG" \
             --title "$TAG" \
-            --notes "$NOTES" \
+            --generate-notes \
+            $NOTES_START \
             --latest
