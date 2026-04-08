@@ -160,7 +160,7 @@ describe('WatchlistWidgetBody', () => {
     )
 
     await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(usePairColorStore.getState().contexts.red.listing).toEqual(selectedListing)
@@ -190,7 +190,7 @@ describe('WatchlistWidgetBody', () => {
     )
 
     await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(usePairColorStore.getState().contexts.gray.listing).toBeUndefined()
@@ -237,7 +237,7 @@ describe('WatchlistWidgetBody', () => {
     )
 
     await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(usePairColorStore.getState().contexts.red.listing).toBeNull()

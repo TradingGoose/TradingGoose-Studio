@@ -119,7 +119,7 @@ describe('WatchlistHeaderLeftControls', () => {
     expect(button).toBeTruthy()
 
     await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(mockEmitWatchlistParamsChange).toHaveBeenCalledTimes(1)
