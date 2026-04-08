@@ -1,11 +1,24 @@
-import { useEffect } from 'react'
 import {
   INDICATOR_WIDGET_SELECT_EVENT,
   type IndicatorWidgetSelectEventDetail,
+  type ReviewTargetEventFields,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
+import {
+  createSelectionPersistenceHook,
+  createEmitSelectionChange,
+  type UseSelectionPersistenceOptions,
+} from '@/widgets/utils/selection-persistence-factory'
 
 const DEFAULT_SCOPE_KEY = 'editor_indicator'
+
+// Hook
+
+const useIndicatorSelectionPersistenceGeneric = createSelectionPersistenceHook({
+  eventName: INDICATOR_WIDGET_SELECT_EVENT,
+  detailIdKey: 'indicatorId',
+  defaultScopeKey: DEFAULT_SCOPE_KEY,
+})
 
 interface UseIndicatorSelectionPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
@@ -17,56 +30,24 @@ interface UseIndicatorSelectionPersistenceOptions {
 }
 
 export function useIndicatorSelectionPersistence({
-  onWidgetParamsChange,
-  panelId,
-  params,
-  pairColor = 'gray',
   onIndicatorSelect,
-  scopeKey,
+  ...rest
 }: UseIndicatorSelectionPersistenceOptions) {
-  useEffect(() => {
-    if (!onWidgetParamsChange && !onIndicatorSelect) {
-      return
-    }
-
-    const resolvedScopeKey = scopeKey ?? DEFAULT_SCOPE_KEY
-
-    const handleIndicatorSelect = (event: Event) => {
-      const detail = (event as CustomEvent<IndicatorWidgetSelectEventDetail>).detail
-      if (!detail?.widgetKey) return
-      if (resolvedScopeKey && detail.widgetKey !== resolvedScopeKey) return
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-
-      if (pairColor !== 'gray' && onIndicatorSelect) {
-        onIndicatorSelect(detail.indicatorId ?? null)
-        return
-      }
-
-      if (pairColor !== 'gray') {
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        pineIndicatorId: detail.indicatorId ?? null,
-      })
-    }
-
-    window.addEventListener(INDICATOR_WIDGET_SELECT_EVENT, handleIndicatorSelect as EventListener)
-
-    return () => {
-      window.removeEventListener(
-        INDICATOR_WIDGET_SELECT_EVENT,
-        handleIndicatorSelect as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, onIndicatorSelect, pairColor, panelId, params, scopeKey])
+  const opts: UseSelectionPersistenceOptions = {
+    ...rest,
+    onEntitySelect: onIndicatorSelect,
+  }
+  useIndicatorSelectionPersistenceGeneric(opts)
 }
 
-interface EmitIndicatorSelectionOptions {
+// Emit
+
+const emitGeneric = createEmitSelectionChange({
+  eventName: INDICATOR_WIDGET_SELECT_EVENT,
+  detailIdKey: 'indicatorId',
+})
+
+interface EmitIndicatorSelectionOptions extends ReviewTargetEventFields {
   indicatorId?: string | null
   panelId?: string
   widgetKey: string
@@ -74,18 +55,7 @@ interface EmitIndicatorSelectionOptions {
 
 export function emitIndicatorSelectionChange({
   indicatorId,
-  panelId,
-  widgetKey,
+  ...rest
 }: EmitIndicatorSelectionOptions) {
-  if (!widgetKey) return
-
-  window.dispatchEvent(
-    new CustomEvent<IndicatorWidgetSelectEventDetail>(INDICATOR_WIDGET_SELECT_EVENT, {
-      detail: {
-        indicatorId: indicatorId ?? null,
-        panelId,
-        widgetKey,
-      },
-    })
-  )
+  emitGeneric({ ...rest, entityId: indicatorId })
 }

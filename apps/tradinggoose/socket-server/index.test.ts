@@ -3,13 +3,56 @@
  *
  * @vitest-environment node
  */
-import { createServer } from 'http'
+import { createServer, request as httpRequest } from 'http'
 import { io as createClient } from 'socket.io-client'
+import * as Y from 'yjs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  extractPersistedStateFromDoc,
+  setVariables,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
-import { RoomManager } from '@/socket-server/rooms/manager'
 import { createHttpHandler } from '@/socket-server/routes/http'
+import { cleanupPersistence, getState, storeState } from '@/socket-server/yjs/persistence'
+import {
+  cleanupAllDocuments,
+  getDocument,
+  getExistingDocument,
+  setPersistence,
+} from '@/socket-server/yjs/upstream-utils'
+
+vi.mock(import('@/lib/env'), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      INTERNAL_API_SECRET: '12345678901234567890123456789012',
+    },
+  }
+})
+
+const INTERNAL_SECRET = '12345678901234567890123456789012'
+
+vi.mock('@/lib/redis', () => ({
+  getRedisClient: vi.fn(() => null),
+  getRedisStorageMode: vi.fn(() => 'local'),
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  getRuntimeStateFromDoc: vi.fn(() => ({
+    docState: 'active',
+    replaySafe: false,
+    reseededFromCanonical: false,
+  })),
+  getRuntimeStateFromUpdate: vi.fn(() => ({
+    docState: 'active',
+    replaySafe: false,
+    reseededFromCanonical: false,
+  })),
+}))
 
 vi.mock('@/lib/auth', () => ({
   auth: {
@@ -29,6 +72,35 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
+vi.mock('@tradinggoose/db/schema', () => ({
+  workflowBlocks: {
+    id: 'workflowBlocks.id',
+    workflowId: 'workflowBlocks.workflowId',
+  },
+  workflowEdges: {
+    id: 'workflowEdges.id',
+    sourceBlockId: 'workflowEdges.sourceBlockId',
+    targetBlockId: 'workflowEdges.targetBlockId',
+    workflowId: 'workflowEdges.workflowId',
+  },
+}))
+
+vi.mock('postgres', () => ({
+  default: vi.fn(() => ({})),
+}))
+
+vi.mock('drizzle-orm/postgres-js', () => ({
+  drizzle: vi.fn(() => ({
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        leftJoin: vi.fn(() => ({
+          where: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
+  })),
+}))
+
 vi.mock('@/socket-server/middleware/auth', () => ({
   authenticateSocket: vi.fn((socket, next) => {
     socket.userId = 'test-user-id'
@@ -38,29 +110,73 @@ vi.mock('@/socket-server/middleware/auth', () => ({
   }),
 }))
 
-vi.mock('@/socket-server/middleware/permissions', () => ({
-  verifyWorkflowAccess: vi.fn().mockResolvedValue({
-    hasAccess: true,
-    role: 'admin',
-  }),
-  checkRolePermission: vi.fn().mockReturnValue({
-    allowed: true,
-  }),
-}))
+function sendHttpRequest(port: number, path: string, method = 'GET') {
+  return new Promise<{ statusCode: number | undefined; body: string }>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method,
+      },
+      (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode, body })
+        })
+      }
+    )
 
-vi.mock('@/socket-server/database/operations', () => ({
-  getWorkflowState: vi.fn().mockResolvedValue({
-    id: 'test-workflow',
-    name: 'Test Workflow',
-    lastModified: Date.now(),
-  }),
-  persistWorkflowOperation: vi.fn().mockResolvedValue(undefined),
-}))
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+function sendHttpRequestWithOptions(
+  port: number,
+  path: string,
+  options: {
+    method: string
+    headers?: Record<string, string>
+    body?: string
+  }
+) {
+  return new Promise<{ statusCode: number | undefined; body: string }>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method: options.method,
+        headers: options.headers,
+      },
+      (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode, body })
+        })
+      }
+    )
+
+    req.on('error', reject)
+    if (options.body) {
+      req.write(options.body)
+    }
+    req.end()
+  })
+}
 
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
-  let roomManager: RoomManager
   let logger: any
   let PORT: number
 
@@ -69,6 +185,9 @@ describe('Socket Server Index Integration', () => {
   })
 
   beforeEach(async () => {
+    cleanupAllDocuments()
+    cleanupPersistence()
+
     // Use a random port for each test to avoid conflicts
     PORT = 3333 + Math.floor(Math.random() * 1000)
 
@@ -78,11 +197,8 @@ describe('Socket Server Index Integration', () => {
     // Create Socket.IO server using extracted config
     io = createSocketIOServer(httpServer)
 
-    // Initialize room manager after io is created
-    roomManager = new RoomManager(io)
-
     // Configure HTTP request handler
-    const httpHandler = createHttpHandler(roomManager, logger)
+    const httpHandler = createHttpHandler(logger)
     httpServer.on('request', httpHandler)
 
     // Start server with timeout handling
@@ -112,6 +228,9 @@ describe('Socket Server Index Integration', () => {
   }, 20000)
 
   afterEach(async () => {
+    cleanupAllDocuments()
+    cleanupPersistence()
+
     // Properly close servers and wait for them to fully close
     if (io) {
       await new Promise<void>((resolve) => {
@@ -133,18 +252,331 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should handle health check endpoint', async () => {
-      try {
-        const response = await fetch(`http://localhost:${PORT}/health`)
-        expect(response.status).toBe(200)
+      const response = await sendHttpRequest(PORT, '/health')
 
-        const data = await response.json()
-        expect(data).toHaveProperty('status', 'ok')
-        expect(data).toHaveProperty('timestamp')
-        expect(data).toHaveProperty('connections')
-      } catch (error) {
-        // Skip this test if fetch fails (likely due to test environment)
-        console.warn('Health check test skipped due to fetch error:', error)
+      expect(response.statusCode).toBe(200)
+
+      const data = JSON.parse(response.body)
+      expect(data).toHaveProperty('status', 'ok')
+      expect(data).toHaveProperty('timestamp')
+      expect(data).toHaveProperty('connections')
+    })
+
+    it('should not expose retired workflow sync bridge endpoints', async () => {
+      const [workflowUpdated, copilotWorkflowEdit, workflowDeleted, workflowReverted] =
+        await Promise.all([
+          sendHttpRequest(PORT, '/api/workflow-updated', 'POST'),
+          sendHttpRequest(PORT, '/api/copilot-workflow-edit', 'POST'),
+          sendHttpRequest(PORT, '/api/workflow-deleted', 'POST'),
+          sendHttpRequest(PORT, '/api/workflow-reverted', 'POST'),
+        ])
+
+      expect(workflowUpdated.statusCode).toBe(404)
+      expect(copilotWorkflowEdit.statusCode).toBe(404)
+      expect(workflowDeleted.statusCode).toBe(404)
+      expect(workflowReverted.statusCode).toBe(404)
+    })
+
+    it('should apply workflow state through the internal Yjs route', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            workflowState: {
+              blocks: {
+                'block-1': {
+                  id: 'block-1',
+                  type: 'agent',
+                  name: 'Applied Agent',
+                  position: { x: 10, y: 20 },
+                  subBlocks: {},
+                  outputs: {},
+                  enabled: true,
+                },
+              },
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+            variables: {
+              var1: {
+                id: 'var1',
+                workflowId: 'workflow-1',
+                name: 'token',
+                type: 'plain',
+                value: 'secret',
+              },
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('workflow-1')).toBeNull()
+
+      const persisted = await getState('workflow-1')
+      expect(persisted).toBeTruthy()
+
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, persisted!)
+        const state = extractPersistedStateFromDoc(doc)
+        expect(state.blocks['block-1']).toEqual(
+          expect.objectContaining({
+            id: 'block-1',
+            name: 'Applied Agent',
+          })
+        )
+        expect(state.variables.var1).toEqual(
+          expect.objectContaining({
+            id: 'var1',
+            name: 'token',
+            value: 'secret',
+          })
+        )
+      } finally {
+        doc.destroy()
       }
+    })
+
+    it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
+      const { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } = await import(
+        '@/lib/yjs/server/bootstrap-review-target'
+      )
+
+      setPersistence('workflow-state-update', { getState, storeState })
+      getDocument('workflow-state-update')
+      const liveDoc = await getExistingDocument('workflow-state-update')
+
+      setWorkflowState(
+        liveDoc!,
+        {
+          blocks: {
+            current: {
+              id: 'current',
+              type: 'agent',
+              name: 'Current Agent',
+              position: { x: 5, y: 15 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-06T00:00:00.000Z',
+          isDeployed: false,
+        },
+        'test'
+      )
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/workflow-state-update/snapshot?targetKind=workflow&sessionId=workflow-state-update&workflowId=workflow-state-update&entityKind=workflow&entityId=workflow-state-update',
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+
+      const data = JSON.parse(response.body)
+      expect(data).toEqual({
+        snapshotBase64: expect.any(String),
+        descriptor: {
+          workspaceId: null,
+          entityKind: 'workflow',
+          entityId: 'workflow-state-update',
+          draftSessionId: null,
+          reviewSessionId: null,
+          yjsSessionId: 'workflow-state-update',
+        },
+        runtime: getRuntimeStateFromDoc(liveDoc!),
+      })
+
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, Buffer.from(data.snapshotBase64, 'base64'))
+        const state = extractPersistedStateFromDoc(doc)
+        expect(state.blocks.current).toEqual(
+          expect.objectContaining({
+            id: 'current',
+            name: 'Current Agent',
+          })
+        )
+      } finally {
+        doc.destroy()
+      }
+
+      expect(getRuntimeStateFromDoc).toHaveBeenCalled()
+      expect(getRuntimeStateFromUpdate).not.toHaveBeenCalled()
+    })
+
+    it('should return 404 from the internal Yjs snapshot route when no workflow state exists', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=workflow&sessionId=missing-workflow&workflowId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(404)
+      expect(JSON.parse(response.body)).toEqual({
+        error: 'Session not found',
+        sessionId: 'missing-workflow',
+      })
+    })
+
+    it('should clear reseededFromCanonical on the live Yjs session doc', async () => {
+      setPersistence('review-session-live', { getState, storeState })
+      getDocument('review-session-live')
+      const liveDoc = await getExistingDocument('review-session-live')
+
+      liveDoc!.transact(() => {
+        liveDoc!.getMap('fields').set('title', 'Shared Tool')
+        liveDoc!.getMap('metadata').set('reseededFromCanonical', true)
+      }, 'test')
+      await storeState('review-session-live', Y.encodeStateAsUpdate(liveDoc!))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/review-session-live/clear-reseeded',
+        {
+          method: 'POST',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
+      expect(await getExistingDocument('review-session-live')).toBe(liveDoc)
+      expect(liveDoc!.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
+
+      const persisted = await getState('review-session-live')
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, persisted!)
+        expect(doc.getMap('fields').get('title')).toBe('Shared Tool')
+        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
+      } finally {
+        doc.destroy()
+      }
+    })
+
+    it('should clear reseededFromCanonical from persisted session state without overwriting fields', async () => {
+      const persistedDoc = new Y.Doc()
+      try {
+        persistedDoc.transact(() => {
+          persistedDoc.getMap('fields').set('title', 'Persisted Tool')
+          persistedDoc.getMap('metadata').set('reseededFromCanonical', true)
+        }, 'test')
+        await storeState('review-session-cold', Y.encodeStateAsUpdate(persistedDoc))
+      } finally {
+        persistedDoc.destroy()
+      }
+
+      expect(await getExistingDocument('review-session-cold')).toBeNull()
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/review-session-cold/clear-reseeded',
+        {
+          method: 'POST',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
+      expect(await getExistingDocument('review-session-cold')).toBeNull()
+
+      const persisted = await getState('review-session-cold')
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, persisted!)
+        expect(doc.getMap('fields').get('title')).toBe('Persisted Tool')
+        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
+      } finally {
+        doc.destroy()
+      }
+    })
+
+    it('should delete the live workflow doc and persisted session through the internal Yjs route', async () => {
+      setPersistence('workflow-2', { getState, storeState })
+      getDocument('workflow-2')
+      const liveDoc = await getExistingDocument('workflow-2')
+
+      setWorkflowState(
+        liveDoc!,
+        {
+          blocks: {
+            old: {
+              id: 'old',
+              type: 'agent',
+              name: 'Old Agent',
+              position: { x: 0, y: 0 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-05T00:00:00.000Z',
+          isDeployed: false,
+        },
+        'test'
+      )
+      setVariables(
+        liveDoc!,
+        {
+          oldVar: {
+            id: 'oldVar',
+            workflowId: 'workflow-2',
+            name: 'old',
+            type: 'plain',
+            value: 'old',
+          },
+        },
+        'test'
+      )
+      await storeState('workflow-2', Y.encodeStateAsUpdate(liveDoc!))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/workflow-2',
+        {
+          method: 'DELETE',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('workflow-2')).toBeNull()
+      expect(await getState('workflow-2')).toBeNull()
     })
   })
 
@@ -166,64 +598,6 @@ describe('Socket Server Index Integration', () => {
       const transports = io.engine.opts.transports
       expect(transports).toContain('polling')
       expect(transports).toContain('websocket')
-    })
-  })
-
-  describe('Room Manager Integration', () => {
-    it('should create room manager successfully', () => {
-      expect(roomManager).toBeDefined()
-      expect(roomManager.getTotalActiveConnections()).toBe(0)
-    })
-
-    it('should create workflow rooms', () => {
-      const workflowId = 'test-workflow-123'
-      const room = roomManager.createWorkflowRoom(workflowId)
-      roomManager.setWorkflowRoom(workflowId, room)
-
-      expect(roomManager.hasWorkflowRoom(workflowId)).toBe(true)
-      const retrievedRoom = roomManager.getWorkflowRoom(workflowId)
-      expect(retrievedRoom).toBeDefined()
-      expect(retrievedRoom?.workflowId).toBe(workflowId)
-    })
-
-    it('should manage user sessions', () => {
-      const socketId = 'test-socket-123'
-      const workflowId = 'test-workflow-456'
-      const session = { userId: 'user-123', userName: 'Test User' }
-
-      roomManager.setWorkflowForSocket(socketId, workflowId)
-      roomManager.setUserSession(socketId, session)
-
-      expect(roomManager.getWorkflowIdForSocket(socketId)).toBe(workflowId)
-      expect(roomManager.getUserSession(socketId)).toEqual(session)
-    })
-
-    it('should clean up rooms properly', () => {
-      const workflowId = 'test-workflow-789'
-      const socketId = 'test-socket-789'
-
-      const room = roomManager.createWorkflowRoom(workflowId)
-      roomManager.setWorkflowRoom(workflowId, room)
-
-      // Add user to room
-      room.users.set(socketId, {
-        userId: 'user-789',
-        workflowId,
-        userName: 'Test User',
-        socketId,
-        joinedAt: Date.now(),
-        lastActivity: Date.now(),
-        role: 'admin',
-      })
-      room.activeConnections = 1
-
-      roomManager.setWorkflowForSocket(socketId, workflowId)
-
-      // Clean up user
-      roomManager.cleanupUserFromRoom(socketId, workflowId)
-
-      expect(roomManager.hasWorkflowRoom(workflowId)).toBe(false)
-      expect(roomManager.getWorkflowIdForSocket(socketId)).toBeUndefined()
     })
   })
 
@@ -253,32 +627,18 @@ describe('Socket Server Index Integration', () => {
       // Test that all modules can be imported without errors
       const { createSocketIOServer } = await import('@/socket-server/config/socket')
       const { createHttpHandler } = await import('@/socket-server/routes/http')
-      const { RoomManager } = await import('@/socket-server/rooms/manager')
       const { authenticateSocket } = await import('@/socket-server/middleware/auth')
-      const { verifyWorkflowAccess } = await import('@/socket-server/middleware/permissions')
-      const { getWorkflowState } = await import('@/socket-server/database/operations')
       const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
 
       expect(createSocketIOServer).toBeTypeOf('function')
       expect(createHttpHandler).toBeTypeOf('function')
-      expect(RoomManager).toBeTypeOf('function')
       expect(authenticateSocket).toBeTypeOf('function')
-      expect(verifyWorkflowAccess).toBeTypeOf('function')
-      expect(getWorkflowState).toBeTypeOf('function')
       expect(WorkflowOperationSchema).toBeDefined()
     })
 
-    it.concurrent('should maintain all original functionality after refactoring', () => {
-      // Verify that the main components are properly instantiated
+    it.concurrent('should keep the remaining socket runtime available after refactoring', () => {
       expect(httpServer).toBeDefined()
       expect(io).toBeDefined()
-      expect(roomManager).toBeDefined()
-
-      // Verify core methods exist and are callable
-      expect(typeof roomManager.createWorkflowRoom).toBe('function')
-      expect(typeof roomManager.cleanupUserFromRoom).toBe('function')
-      expect(typeof roomManager.handleWorkflowDeletion).toBe('function')
-      expect(typeof roomManager.validateWorkflowConsistency).toBe('function')
     })
   })
 

@@ -6,6 +6,22 @@ import {
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
 
+vi.mock('@tradinggoose/db', () => ({
+  db: {},
+}))
+
+vi.mock('@tradinggoose/db/schema', () => ({
+  settings: {
+    emailPreferences: 'emailPreferences',
+    userId: 'userId',
+    updatedAt: 'updatedAt',
+  },
+  user: {
+    id: 'id',
+    email: 'email',
+  },
+}))
+
 vi.mock('@/lib/env', () => ({
   env: {
     BETTER_AUTH_SECRET: 'test-secret-key',

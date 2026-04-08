@@ -1,18 +1,24 @@
 'use client'
 
-import type { ComponentType } from 'react'
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
 import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
+import {
+  EntityEditorHeaderButton,
+  EntityEditorRedoButton,
+  EntityEditorUndoButton,
+} from '@/widgets/widgets/components/entity-editor-buttons'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
-import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import {
+  buildPersistedPairContext,
+  readEntitySelectionState,
+  resolveMcpServerId,
+} from '@/widgets/widgets/_shared/mcp/utils'
 
 const McpEditorSelector = ({
   workspaceId,
@@ -40,7 +46,15 @@ const McpEditorSelector = ({
   const handleServerChange = (nextServerId: string | null) => {
     if (isLinkedToColorPair) {
       if (pairContext?.mcpServerId === nextServerId) return
-      setPairContext(resolvedPairColor, { mcpServerId: nextServerId })
+      setPairContext(
+        resolvedPairColor,
+        buildPersistedPairContext({
+          existing: pairContext,
+          legacyIdKey: 'mcpServerId',
+          descriptor: null,
+          legacyEntityId: nextServerId,
+        })
+      )
       return
     }
 
@@ -62,41 +76,6 @@ const McpEditorSelector = ({
   )
 }
 
-const McpEditorHeaderButton = ({
-  tooltip,
-  label,
-  icon: Icon,
-  onClick,
-  disabled = false,
-  variant = 'outline',
-}: {
-  tooltip: string
-  label: string
-  icon: ComponentType<{ className?: string }>
-  onClick: () => void
-  disabled?: boolean
-  variant?: 'default' | 'secondary' | 'outline' | 'ghost'
-}) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <span className='inline-flex'>
-        <Button
-          type='button'
-          variant={variant}
-          size='sm'
-          className='h-7 w-7 text-xs'
-          onClick={onClick}
-          disabled={disabled}
-        >
-          <Icon className='h-4 w-4' />
-          <span className='sr-only'>{label}</span>
-        </Button>
-      </span>
-    </TooltipTrigger>
-    <TooltipContent side='top'>{tooltip}</TooltipContent>
-  </Tooltip>
-)
-
 const McpEditorHeaderActions = ({
   workspaceId,
   panelId,
@@ -111,15 +90,21 @@ const McpEditorHeaderActions = ({
   widgetKey?: string
 }) => {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
-  const resolvedServerId = resolveMcpServerId({
+  const selectionState = readEntitySelectionState({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
+    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
+    legacyIdKey: 'mcpServerId',
   })
-  const hasSelection = Boolean(resolvedServerId)
+  const hasSelection =
+    !!selectionState.legacyEntityId ||
+    !!selectionState.reviewSessionId ||
+    !!selectionState.reviewDraftSessionId
+  const hasCanonicalEntity = !!(selectionState.reviewEntityId ?? selectionState.legacyEntityId)
 
-  const emitAction = (action: 'save' | 'refresh' | 'close' | 'reset' | 'test') => {
+  const emitAction = (
+    action: 'save' | 'refresh' | 'close' | 'reset' | 'test' | 'undo' | 'redo'
+  ) => {
     emitMcpEditorAction({
       action,
       panelId,
@@ -129,23 +114,31 @@ const McpEditorHeaderActions = ({
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
-      <McpEditorHeaderButton
+      <EntityEditorUndoButton
+        reviewSessionId={selectionState.reviewSessionId}
+        onAction={() => emitAction('undo')}
+      />
+      <EntityEditorRedoButton
+        reviewSessionId={selectionState.reviewSessionId}
+        onAction={() => emitAction('redo')}
+      />
+      <EntityEditorHeaderButton
         tooltip='Refresh tools'
         label='Refresh tools'
         icon={RefreshCw}
         onClick={() => emitAction('refresh')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!workspaceId || !hasCanonicalEntity}
         variant='outline'
       />
-      <McpEditorHeaderButton
+      <EntityEditorHeaderButton
         tooltip='Test connection'
         label='Test connection'
         icon={Play}
         onClick={() => emitAction('test')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!workspaceId || !hasCanonicalEntity}
         variant='outline'
       />
-      <McpEditorHeaderButton
+      <EntityEditorHeaderButton
         tooltip='Reset form'
         label='Reset form'
         icon={RotateCcw}
@@ -153,7 +146,7 @@ const McpEditorHeaderActions = ({
         disabled={!hasSelection}
         variant='secondary'
       />
-      <McpEditorHeaderButton
+      <EntityEditorHeaderButton
         tooltip='Save server'
         label='Save server'
         icon={Save}
@@ -161,7 +154,7 @@ const McpEditorHeaderActions = ({
         disabled={!workspaceId || !hasSelection}
         variant='default'
       />
-      <McpEditorHeaderButton
+      <EntityEditorHeaderButton
         tooltip='Clear selection'
         label='Clear selection'
         icon={X}
@@ -179,7 +172,7 @@ export const editorMcpWidget: DashboardWidgetDefinition = {
   icon: Server,
   category: 'editor',
   description: 'Inspect, edit, test, and refresh a selected MCP server.',
-  component: (props: WidgetComponentProps) => <EditorMcpWidgetBody {...props} />,
+  component: (props) => <EditorMcpWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =
       widget?.params && typeof widget.params === 'object'

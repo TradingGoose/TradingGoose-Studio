@@ -105,7 +105,7 @@ function summarizeConnections(
 export const previewEditWorkflowServerTool: BaseServerTool<PreviewEditWorkflowParams, any> = {
   name: 'preview_edit_workflow',
   async execute(params: PreviewEditWorkflowParams): Promise<any> {
-    // Reuse edit_workflow logic but avoid persistence by omitting context.
+    // Reuse edit_workflow logic without introducing approval-time side effects.
     const result = await editWorkflowServerTool.execute(params as any, undefined)
 
     let baseState: any | undefined

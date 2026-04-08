@@ -1,8 +1,7 @@
-export const getIndicatorIdFromParams = (params?: Record<string, unknown> | null) => {
-  if (!params || typeof params !== 'object') return null
-  const value = (params as Record<string, unknown>).pineIndicatorId
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
+// Barrel re-exports so widget-local imports resolve without reaching into entity_review/.
+export * from '@/widgets/widgets/entity_review/indicator-utils'
+export {
+  buildPersistedPairContext,
+  buildPersistedReviewParams,
+  readEntitySelectionState,
+} from '@/widgets/widgets/entity_review/review-target-utils'

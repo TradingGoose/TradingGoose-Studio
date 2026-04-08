@@ -4,9 +4,9 @@ import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateRequestId } from '@/lib/utils'
+import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
+import { parseListingFilter } from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsAPI')
 
@@ -41,25 +41,6 @@ const QueryParamsSchema = z.object({
   workspaceId: z.string(),
 })
 
-const normalizeOptionalString = (value: string | undefined) => {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-const parseListingFilter = (
-  value: string | undefined
-): ListingIdentity | undefined | null => {
-  const normalized = normalizeOptionalString(value)
-  if (!normalized) return undefined
-
-  try {
-    const parsed = JSON.parse(normalized)
-    return toListingValueObject(parsed)
-  } catch {
-    return null
-  }
-}
 
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()

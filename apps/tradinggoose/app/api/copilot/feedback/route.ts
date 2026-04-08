@@ -6,16 +6,17 @@ import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
   createInternalServerErrorResponse,
+  createNotFoundResponse,
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CopilotFeedbackAPI')
 
-// Schema for feedback submission
 const FeedbackSchema = z.object({
-  chatId: z.string().uuid('Chat ID must be a valid UUID'),
+  reviewSessionId: z.string().uuid('Review session ID must be a valid UUID'),
   userQuery: z.string().min(1, 'User query is required'),
   agentResponse: z.string().min(1, 'Agent response is required'),
   isPositiveFeedback: z.boolean(),
@@ -23,15 +24,11 @@ const FeedbackSchema = z.object({
   workflowYaml: z.string().optional(), // Optional workflow YAML when edit/build workflow tools were used
 })
 
-/**
- * POST /api/copilot/feedback
- * Submit feedback for a copilot interaction
- */
+/** POST /api/copilot/feedback */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
 
   try {
-    // Authenticate user using the same pattern as other copilot routes
     const { userId: authenticatedUserId, isAuthenticated } =
       await authenticateCopilotRequestSessionOnly()
 
@@ -40,12 +37,28 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { chatId, userQuery, agentResponse, isPositiveFeedback, feedback, workflowYaml } =
-      FeedbackSchema.parse(body)
+    const {
+      reviewSessionId,
+      userQuery,
+      agentResponse,
+      isPositiveFeedback,
+      feedback,
+      workflowYaml,
+    } = FeedbackSchema.parse(body)
+
+    // Ownership/access check runs as a separate SELECT before the INSERT.
+    // loadReviewSessionForUser may evaluate workspace permissions for shared
+    // entity sessions, so it cannot be folded into a simple INSERT subquery.
+    // The TOCTOU window is acceptable here: a concurrent session deletion
+    // between the check and the INSERT would at worst orphan a feedback row.
+    const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId)
+    if (!session) {
+      return createNotFoundResponse('Review session not found or unauthorized')
+    }
 
     logger.info(`[${tracker.requestId}] Processing copilot feedback submission`, {
       userId: authenticatedUserId,
-      chatId,
+      reviewSessionId,
       isPositiveFeedback,
       userQueryLength: userQuery.length,
       agentResponseLength: agentResponse.length,
@@ -54,12 +67,12 @@ export async function POST(req: NextRequest) {
       workflowYamlLength: workflowYaml?.length || 0,
     })
 
-    // Insert feedback into the database
     const [feedbackRecord] = await db
       .insert(copilotFeedback)
       .values({
         userId: authenticatedUserId,
-        chatId,
+        // Maps to legacy chatId column — refers to reviewSessionId
+        chatId: reviewSessionId,
         userQuery,
         agentResponse,
         isPositive: isPositiveFeedback,
@@ -107,15 +120,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * GET /api/copilot/feedback
- * Get all feedback records (for analytics)
- */
+/** GET /api/copilot/feedback */
 export async function GET(req: NextRequest) {
   const tracker = createRequestTracker()
 
   try {
-    // Authenticate user
     const { userId: authenticatedUserId, isAuthenticated } =
       await authenticateCopilotRequestSessionOnly()
 
@@ -123,7 +132,6 @@ export async function GET(req: NextRequest) {
       return createUnauthorizedResponse()
     }
 
-    // Get all feedback records
     const feedbackRecords = await db
       .select({
         feedbackId: copilotFeedback.feedbackId,

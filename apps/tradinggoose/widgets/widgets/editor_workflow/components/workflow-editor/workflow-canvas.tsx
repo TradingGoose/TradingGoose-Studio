@@ -16,23 +16,21 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
-import { DiffControls } from '@/widgets/widgets/editor_workflow/components/diff-controls'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
 import { TrainingControls } from '@/widgets/widgets/editor_workflow/components/training-controls/training-controls'
 import { TriggerList } from '@/widgets/widgets/editor_workflow/components/trigger-list/trigger-list'
@@ -48,11 +46,14 @@ import {
   workflowNodeTypes,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
 import { createConnectionEdge } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/connection-manager'
-import { deriveCanvasEdges } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/derive-canvas-edges'
 import {
   deriveCanvasNodes,
   getStableBlocksHash,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/derive-canvas-nodes'
+import {
+  shouldAutoFitWorkflowView,
+  WORKFLOW_FIT_VIEW_PADDING,
+} from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-view-fit'
 import {
   getNodeAbsolutePosition,
   getNodeSourceAnchorPosition,
@@ -118,7 +119,6 @@ export type WorkflowCanvasUIConfig = {
   floatingControls?: boolean
   trainingControls?: boolean
   forceTrainingControls?: boolean
-  diffControls?: boolean
   triggerList?: boolean
 }
 
@@ -127,7 +127,6 @@ const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
   floatingControls: false,
   trainingControls: false,
   forceTrainingControls: false,
-  diffControls: true,
   triggerList: true,
 }
 
@@ -159,13 +158,59 @@ const WorkflowCanvas = React.memo(
     // Enhanced edge selection with parent context and unique identifier
     const [selectedEdgeInfo, setSelectedEdgeInfo] = useState<SelectedEdgeInfo | null>(null)
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+    // Yjs awareness for collaborative presence
+    const workflowSession = useOptionalWorkflowSession()
+    const awarenessRef = useRef(workflowSession?.awareness)
+    useEffect(() => {
+      awarenessRef.current = workflowSession?.awareness
+      // Clear cursor/selection on unmount so collaborators don't see stale presence
+      return () => {
+        const awareness = awarenessRef.current
+        if (awareness) {
+          const current = awareness.getLocalState() ?? {}
+          awareness.setLocalState({ ...current, cursor: null, selection: null })
+        }
+      }
+    }, [workflowSession?.awareness])
+
     const handleSelectionChange = useCallback(({ nodes }: { nodes: Node[] }) => {
-      setSelectedNodeId(nodes.length === 1 ? nodes[0].id : null)
+      const nodeId = nodes.length === 1 ? nodes[0].id : null
+      setSelectedNodeId(nodeId)
+      // Broadcast selection to collaborators via Yjs Awareness
+      const awareness = awarenessRef.current
+      if (awareness) {
+        const current = awareness.getLocalState() ?? {}
+        awareness.setLocalState({
+          ...current,
+          selection: nodeId ? { type: 'block', id: nodeId } : { type: 'none' },
+        })
+      }
     }, [])
 
     useOnSelectionChange({
       onChange: handleSelectionChange,
     })
+
+    // Throttled cursor tracking via Yjs Awareness
+    const lastCursorBroadcast = useRef(0)
+    const reactFlowInstance = useReactFlow()
+    const handleMouseMove = useCallback((event: React.MouseEvent) => {
+      const awareness = awarenessRef.current
+      if (!awareness) return
+      const now = performance.now()
+      if (now - lastCursorBroadcast.current < 50) return // 20fps throttle
+      lastCursorBroadcast.current = now
+      try {
+        const flowPosition = reactFlowInstance.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        })
+        const current = awareness.getLocalState() ?? {}
+        awareness.setLocalState({ ...current, cursor: flowPosition })
+      } catch {
+        // screenToFlowPosition can throw if ReactFlow is not initialized yet
+      }
+    }, [reactFlowInstance])
 
     // State for trigger warning dialog
     const [triggerWarning, setTriggerWarning] = useState<{
@@ -184,6 +229,8 @@ const WorkflowCanvas = React.memo(
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
     const { project, getNodes, screenToFlowPosition } = useReactFlow()
+    const previousViewIdentityRef = useRef<string | null>(null)
+    const previousViewNodeCountRef = useRef(0)
 
     const getViewportCenterCoordinates = useCallback(() => {
       if (viewportBounds) {
@@ -225,12 +272,12 @@ const WorkflowCanvas = React.memo(
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
 
-    const {
-      updateNodeDimensions,
-      updateBlockPosition: storeUpdateBlockPosition,
-      setDragStartPosition,
-      getDragStartPosition,
-    } = useWorkflowStore()
+    const yjsMutations = useWorkflowMutations()
+    const updateNodeDimensions = yjsMutations.updateNodeDimensions
+    const storeUpdateBlockPosition = yjsMutations.updateBlockPosition
+
+    // Local ref for tracking drag start position (used for undo/redo move entries)
+    const dragStartPositionRef = useRef<{id: string, x: number, y: number, parentId?: string | null} | null>(null)
 
     // Get copilot cleanup function
     const copilotCleanup = useCopilotStore((state) => state.cleanup)
@@ -239,7 +286,7 @@ const WorkflowCanvas = React.memo(
     useStreamCleanup(copilotCleanup)
 
     // Extract workflow data from the abstraction
-    const { blocks, edges, isDiffMode } = currentWorkflow
+    const { blocks, edges } = currentWorkflow
     const resolvedSelectedNodeId = selectedNodeId && blocks[selectedNodeId] ? selectedNodeId : null
     const hasLockedBlocks = useMemo(
       () => Object.values(blocks).some((block) => Boolean(block.locked)),
@@ -257,36 +304,12 @@ const WorkflowCanvas = React.memo(
       }
     }, [blocks, selectedNodeId])
 
-    // Get diff analysis for edge reconstruction
-    const { diffAnalysis, isShowingDiff, isDiffReady } = useWorkflowDiffStore()
-
-    const edgesForDisplay = useMemo(() => {
-      return deriveCanvasEdges({
-        edges,
-        isShowingDiff,
-        isDiffReady,
-        diffAnalysis,
-        blocks,
-      })
-    }, [edges, isShowingDiff, isDiffReady, diffAnalysis, blocks])
+    const edgesForDisplay = edges
 
     // User permissions - get current user's specific permissions from context
     const userPermissions = useUserPermissionsContext()
 
-    // Create diff-aware permissions that disable editing when in diff mode
-    const effectivePermissions = useMemo(() => {
-      if (isDiffMode) {
-        // In diff mode, disable all editing regardless of user permissions
-        return {
-          ...userPermissions,
-          canEdit: false,
-          canAdmin: false,
-          // Keep canRead true so users can still view content
-          canRead: userPermissions.canRead,
-        }
-      }
-      return userPermissions
-    }, [userPermissions, isDiffMode])
+    const effectivePermissions = userPermissions
 
     // Workspace permissions - get all users and their permissions for this workspace
     const { permissions: workspacePermissions, error: permissionsError } = useWorkspacePermissions(
@@ -301,9 +324,7 @@ const WorkflowCanvas = React.memo(
       collaborativeUpdateBlockPosition,
       collaborativeUpdateParentId: updateParentId,
       collaborativeSetSubblockValue,
-      undo,
-      redo,
-    } = useCollaborativeWorkflow()
+    } = useWorkflowEditorActions()
 
     // Execution and debug mode state
     const { activeBlockIds, pendingBlocks, isDebugging } = useExecutionStore()
@@ -369,7 +390,9 @@ const WorkflowCanvas = React.memo(
           getNodes,
           edgesForDisplay,
           affectedEdges,
-          updateBlockPosition: collaborativeUpdateBlockPosition,
+          updateBlockPosition: (id, position) => {
+            collaborativeUpdateBlockPosition(id, position)
+          },
           updateParentId,
           updateNodeDimensions,
         })
@@ -482,13 +505,13 @@ const WorkflowCanvas = React.memo(
           cleanup = debouncedAutoLayout()
         } else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
           event.preventDefault()
-          undo()
+          workflowSession?.undo()
         } else if (
           (event.ctrlKey || event.metaKey) &&
           (event.key === 'Z' || (event.key === 'z' && event.shiftKey))
         ) {
           event.preventDefault()
-          redo()
+          workflowSession?.redo()
         }
       }
 
@@ -498,7 +521,7 @@ const WorkflowCanvas = React.memo(
         window.removeEventListener('keydown', handleKeyDown)
         if (cleanup) cleanup()
       }
-    }, [debouncedAutoLayout, undo, redo])
+    }, [debouncedAutoLayout, workflowSession])
 
     // Listen for explicit subflow detach actions from ActionBar
     useEffect(() => {
@@ -1083,8 +1106,6 @@ const WorkflowCanvas = React.memo(
       if (!currentId || !workflows[currentId]) return
 
       if (activeWorkflowId !== currentId) {
-        const { clearDiff } = useWorkflowDiffStore.getState()
-        clearDiff()
         setActiveWorkflow({ workflowId: currentId, channelId: resolvedChannelId }).catch(
           (error) => {
             logger.error('Failed to activate workflow for channel', {
@@ -1212,7 +1233,6 @@ const WorkflowCanvas = React.memo(
       }))
     }, [
       blocksHash,
-      blocks,
       activeBlockIds,
       pendingBlocks,
       isDebugging,
@@ -1220,6 +1240,57 @@ const WorkflowCanvas = React.memo(
       getBlockConfig,
       resolvedSelectedNodeId,
     ])
+
+    const workflowViewIdentity = useMemo(
+      () => (effectiveWorkflowId ? `${resolvedChannelId}:${effectiveWorkflowId}` : null),
+      [resolvedChannelId, effectiveWorkflowId]
+    )
+
+    useEffect(() => {
+      const previousIdentity = previousViewIdentityRef.current
+      const previousNodeCount = previousViewNodeCountRef.current
+      const nextNodeCount = nodes.length
+
+      const shouldFit = shouldAutoFitWorkflowView({
+        previousIdentity,
+        nextIdentity: workflowViewIdentity,
+        previousNodeCount,
+        nextNodeCount,
+        isWorkflowReady,
+      })
+
+      previousViewIdentityRef.current = workflowViewIdentity
+      previousViewNodeCountRef.current = nextNodeCount
+
+      if (!shouldFit) {
+        return
+      }
+
+      let frameA: number | null = null
+      let frameB: number | null = null
+
+      frameA = requestAnimationFrame(() => {
+        frameA = null
+        frameB = requestAnimationFrame(() => {
+          frameB = null
+          reactFlowInstance.fitView({ padding: WORKFLOW_FIT_VIEW_PADDING })
+        })
+      })
+
+      return () => {
+        if (frameA !== null) {
+          cancelAnimationFrame(frameA)
+        }
+        if (frameB !== null) {
+          cancelAnimationFrame(frameB)
+        }
+      }
+    }, [workflowViewIdentity, nodes.length, isWorkflowReady, reactFlowInstance])
+
+    useEffect(() => {
+      setSelectedNodeId(null)
+      setSelectedEdgeInfo(null)
+    }, [workflowViewIdentity])
 
     // Update nodes - use store version to avoid collaborative feedback loops
     const onNodesChange = useCallback(
@@ -1337,7 +1408,9 @@ const WorkflowCanvas = React.memo(
     // Handle node drag to detect intersections with container nodes
     const onNodeDrag = useCallback(
       (_event: React.MouseEvent, node: any) => {
-        collaborativeUpdateBlockPosition(node.id, node.position, false)
+        collaborativeUpdateBlockPosition(node.id, node.position, {
+          origin: YJS_ORIGINS.SYSTEM,
+        })
 
         const draggedBlockConfig = node.data?.type ? getBlock(node.data.type) : null
         const isTriggerBlock = draggedBlockConfig?.category === 'triggers'
@@ -1379,24 +1452,26 @@ const WorkflowCanvas = React.memo(
         const currentParentId = blocks[node.id]?.data?.parentId || null
         setDragStartParentId(currentParentId)
         // Store starting position for undo/redo move entry
-        setDragStartPosition({
+        dragStartPositionRef.current = {
           id: node.id,
           x: node.position.x,
           y: node.position.y,
           parentId: currentParentId,
-        })
+        }
       },
-      [blocks, setDragStartPosition]
+      [blocks]
     )
 
     // Handle node drag stop to establish parent-child relationships
     const onNodeDragStop = useCallback(
       (_event: React.MouseEvent, node: any) => {
         clearContainerHighlights()
-        collaborativeUpdateBlockPosition(node.id, node.position, true)
+        collaborativeUpdateBlockPosition(node.id, node.position, {
+          origin: YJS_ORIGINS.USER,
+        })
 
         try {
-          const start = getDragStartPosition()
+          const start = dragStartPositionRef.current
           if (start && start.id === node.id) {
             const before = { x: start.x, y: start.y, parentId: start.parentId }
             const after = {
@@ -1417,7 +1492,7 @@ const WorkflowCanvas = React.memo(
                 })
               }
             }
-            setDragStartPosition(null)
+            dragStartPositionRef.current = null
           }
         } catch {}
 
@@ -1489,8 +1564,6 @@ const WorkflowCanvas = React.memo(
         blocks,
         isProtectedBlockId,
         getNodeAbsolutePositionWrapper,
-        getDragStartPosition,
-        setDragStartPosition,
         resolvedChannelId,
         effectiveWorkflowId,
       ]
@@ -1499,6 +1572,11 @@ const WorkflowCanvas = React.memo(
     const onPaneClick = useCallback(() => {
       setSelectedEdgeInfo(null)
       setSelectedNodeId(null)
+      const awareness = awarenessRef.current
+      if (awareness) {
+        const current = awareness.getLocalState() ?? {}
+        awareness.setLocalState({ ...current, selection: { type: 'none' } })
+      }
     }, [])
     const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
@@ -1506,6 +1584,11 @@ const WorkflowCanvas = React.memo(
       }
       setSelectedEdgeInfo(null)
       setSelectedNodeId(node.id)
+      const awareness = awarenessRef.current
+      if (awareness) {
+        const current = awareness.getLocalState() ?? {}
+        awareness.setLocalState({ ...current, selection: { type: 'block', id: node.id } })
+      }
     }, [])
 
     const nodeIndexForSelection = useMemo(() => createNodeIndex(nodes), [nodes])
@@ -1514,6 +1597,11 @@ const WorkflowCanvas = React.memo(
       (event: React.MouseEvent, edge: any) => {
         event.stopPropagation()
         setSelectedEdgeInfo(getSelectedEdgeInfo(edge, nodeIndexForSelection))
+        const awareness = awarenessRef.current
+        if (awareness) {
+          const current = awareness.getLocalState() ?? {}
+          awareness.setLocalState({ ...current, selection: { type: 'edge', id: edge.id } })
+        }
       },
       [nodeIndexForSelection]
     )
@@ -1590,7 +1678,7 @@ const WorkflowCanvas = React.memo(
     }
 
     return (
-      <div className={`${containerHeightClass} w-full overflow-hidden`}>
+      <div className={`${containerHeightClass} w-full overflow-hidden`} onMouseMove={handleMouseMove}>
         <div
           id={
             effectiveWorkflowId ? `workflow-editor-overlay-root-${effectiveWorkflowId}` : undefined
@@ -1634,7 +1722,7 @@ const WorkflowCanvas = React.memo(
             onInit={(instance) => {
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                  instance.fitView({ padding: 0.3 })
+                  instance.fitView({ padding: WORKFLOW_FIT_VIEW_PADDING })
                 })
               })
             }}
@@ -1673,9 +1761,6 @@ const WorkflowCanvas = React.memo(
             <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
             <NodeEditorPanel selectedNodeId={resolvedSelectedNodeId} />
           </ReactFlow>
-
-          {/* Show DiffControls if diff is available (regardless of current view mode) */}
-          {uiConfig.diffControls && <DiffControls constrainToContainer={Boolean(viewportBounds)} />}
 
           {/* Trigger warning dialog */}
           <TriggerWarningDialog

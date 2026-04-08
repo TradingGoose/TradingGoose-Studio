@@ -263,7 +263,7 @@ describe('Model Capabilities', () => {
     it.concurrent(
       'should return false for providers that do not support tool usage control',
       () => {
-        const unsupportedProviders = ['ollama', 'cerebras', 'groq', 'non-existent-provider']
+        const unsupportedProviders = ['ollama', 'non-existent-provider']
 
         for (const provider of unsupportedProviders) {
           expect(supportsToolUsageControl(provider)).toBe(false)
@@ -318,10 +318,9 @@ describe('Model Capabilities', () => {
       expect(MODELS_WITH_REASONING_EFFORT).not.toContain('gpt-5-chat-latest')
       expect(MODELS_WITH_REASONING_EFFORT).not.toContain('azure/gpt-5-chat-latest')
 
-      // Should NOT contain other models
+      // Should NOT contain non-reasoning models
       expect(MODELS_WITH_REASONING_EFFORT).not.toContain('gpt-4o')
       expect(MODELS_WITH_REASONING_EFFORT).not.toContain('claude-sonnet-4-0')
-      expect(MODELS_WITH_REASONING_EFFORT).not.toContain('o1')
     })
 
     it.concurrent('should have correct models in MODELS_WITH_VERBOSITY', () => {
@@ -337,15 +336,18 @@ describe('Model Capabilities', () => {
       expect(MODELS_WITH_VERBOSITY).not.toContain('gpt-5-chat-latest')
       expect(MODELS_WITH_VERBOSITY).not.toContain('azure/gpt-5-chat-latest')
 
-      // Should NOT contain other models
+      // Should NOT contain models without verbosity support
       expect(MODELS_WITH_VERBOSITY).not.toContain('gpt-4o')
       expect(MODELS_WITH_VERBOSITY).not.toContain('claude-sonnet-4-0')
       expect(MODELS_WITH_VERBOSITY).not.toContain('o1')
     })
 
-    it.concurrent('should have same models in both reasoning effort and verbosity arrays', () => {
-      // GPT-5 models that support reasoning effort should also support verbosity and vice versa
-      expect(MODELS_WITH_REASONING_EFFORT.sort()).toEqual(MODELS_WITH_VERBOSITY.sort())
+    it.concurrent('should keep verbosity as a strict subset of reasoning-capable models', () => {
+      MODELS_WITH_VERBOSITY.forEach((model) => {
+        expect(MODELS_WITH_REASONING_EFFORT).toContain(model)
+      })
+      expect(MODELS_WITH_REASONING_EFFORT).toContain('o1')
+      expect(MODELS_WITH_VERBOSITY).not.toContain('o1')
     })
   })
 })
@@ -420,16 +422,16 @@ describe('Cost Calculation', () => {
 })
 
 describe('getHostedModels', () => {
-  it.concurrent('should return OpenAI and Anthropic models as hosted', () => {
+  it.concurrent('should return OpenAI, Anthropic, and Google models as hosted', () => {
     const hostedModels = getHostedModels()
 
     expect(hostedModels).toContain('gpt-4o')
     expect(hostedModels).toContain('claude-sonnet-4-0')
     expect(hostedModels).toContain('o1')
     expect(hostedModels).toContain('claude-opus-4-0')
+    expect(hostedModels).toContain('gemini-2.5-pro')
 
     // Should not contain models from other providers
-    expect(hostedModels).not.toContain('gemini-2.5-pro')
     expect(hostedModels).not.toContain('deepseek-v3')
   })
 

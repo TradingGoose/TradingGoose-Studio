@@ -320,8 +320,8 @@ describe('manage_* tool TradingGoose parity', () => {
     const skillTool = new ManageSkillClientTool('manage-skill-edit')
     await skillTool.execute({ operation: 'edit' })
 
-    const mcpTool = new ManageMcpToolClientTool('manage-mcp-delete')
-    await mcpTool.execute({ operation: 'delete' })
+    const mcpTool = new ManageMcpToolClientTool('manage-mcp-edit')
+    await mcpTool.execute({ operation: 'edit' })
 
     expect(customTool.getInterruptDisplays()).toBeDefined()
     expect(skillTool.getInterruptDisplays()).toBeDefined()

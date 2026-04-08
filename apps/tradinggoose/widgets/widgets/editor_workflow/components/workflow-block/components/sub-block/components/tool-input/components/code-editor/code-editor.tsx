@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
+import type * as Y from 'yjs'
 import { Wand2 } from 'lucide-react'
 import { MonacoEditor } from '@/components/monaco-editor'
 import type { MonacoDecoration, MonacoEditorHandle, MonacoEditorProps } from '@/components/monaco-editor'
@@ -41,6 +42,10 @@ interface CodeEditorProps {
   autoHeight?: boolean
   extraLibs?: ReadonlyArray<{ content: string; filePath?: string }>
   editorOptions?: MonacoEditorProps['options']
+  /** Y.Text instance for collaborative Yjs binding (bypasses value/onChange) */
+  yText?: Y.Text | null
+  /** Yjs Awareness for remote cursor rendering */
+  awareness?: any
 }
 
 export function CodeEditor({
@@ -68,6 +73,8 @@ export function CodeEditor({
   autoHeight,
   extraLibs,
   editorOptions,
+  yText,
+  awareness,
 }: CodeEditorProps) {
   const [code, setCode] = useState(value)
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -348,6 +355,8 @@ export function CodeEditor({
           readOnly={disabled || isCollapsed}
           extraLibs={extraLibs}
           options={mergedEditorOptions}
+          yText={yText}
+          awareness={awareness}
         />
       </div>
     </div>

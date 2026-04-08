@@ -1,13 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import ReactFlow, {
-  applyNodeChanges,
   Background,
   ConnectionLineType,
-  type Node,
-  type NodeChange,
+  type EdgeTypes,
+  type NodeTypes,
   ReactFlowProvider,
   useReactFlow,
   useStore,
@@ -15,206 +14,32 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { BlockConfig } from '@/blocks/types'
-import { useWorkflowStore, WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
-import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
-import { isBlockProtected } from '@/stores/workflows/workflow/utils'
-import {
-  getBlockConfigFromCache,
-  workflowEdgeTypes as importedEdgeTypes,
-  workflowNodeTypes as importedNodeTypes,
-  resolveCanvasNodeDescriptor,
-} from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
-import { resizeContainerNodes } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/node-position-utils'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
+import { PreviewNode } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node'
+import { adaptPreviewPayloadToCanvas } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
+import { PreviewSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-subflow'
 
-// importedNodeTypes / importedEdgeTypes are module-level constants in
-// block-registry.ts. In dev, Turbopack HMR re-evaluates that module on any
-// edit to its transitive imports, producing a new object identity which
-// trips React Flow's nodeTypes-changed warning. In production these remain
-// stable. Kept aliased for call-site readability; actual stabilization
-// happens via useMemo inside WorkflowPreviewFlow.
-const nodeTypesImport = importedNodeTypes
-const edgeTypesImport = importedEdgeTypes
+const previewNodeTypesImport: NodeTypes = {
+  previewNode: PreviewNode,
+  subflowNode: PreviewSubflow,
+}
 
-const LANDING_WORKSPACE_ID = 'landing-preview'
-const LANDING_WORKFLOW_ID = 'landing-workflow'
-const LANDING_CHANNEL_ID = 'landing-workflow-preview'
+const previewEdgeTypesImport: EdgeTypes = {
+  default: WorkflowEdge,
+  workflowEdge: WorkflowEdge,
+}
+
 const PREVIEW_CANVAS_EXTENT: [[number, number], [number, number]] = [
   [-1_000_000, -1_000_000],
   [1_000_000, 1_000_000],
 ]
+
 const PREVIEW_FIT_PADDING = 0.12
-
-function getLoopModeLabel(workflowState: WorkflowState, block: BlockState) {
-  const loopConfig = workflowState.loops[block.id]
-  const loopType = loopConfig?.loopType ?? block.data?.loopType ?? 'for'
-
-  if (loopType === 'forEach') {
-    return 'For each item'
-  }
-
-  if (loopType === 'while') {
-    return 'While condition'
-  }
-
-  if (loopType === 'doWhile') {
-    return 'Do while condition'
-  }
-
-  return 'Fixed iteration loop'
-}
-
-function getLoopSummaryLabel(workflowState: WorkflowState, block: BlockState) {
-  const iterations = workflowState.loops[block.id]?.iterations ?? block.data?.count
-  return typeof iterations === 'number' ? `${iterations} iterations` : undefined
-}
-
-function getParallelModeLabel(workflowState: WorkflowState, block: BlockState) {
-  const parallelType = workflowState.parallels[block.id]?.parallelType ?? block.data?.parallelType
-  return parallelType === 'collection' ? 'Collection fan-out' : 'Fixed branch fan-out'
-}
-
-function getParallelSummaryLabel(workflowState: WorkflowState, block: BlockState) {
-  const count = workflowState.parallels[block.id]?.count ?? block.data?.count
-  return typeof count === 'number' ? `${count} branches` : undefined
-}
-
-function buildPreviewNodes(workflowState: WorkflowState): Node[] {
-  const blockConfigCache = new Map<string, BlockConfig | undefined>()
-
-  return Object.values(workflowState.blocks).flatMap((block) => {
-    const descriptor = resolveCanvasNodeDescriptor({
-      block,
-      isActive: false,
-      isPending: false,
-      hasNestedError: false,
-      resolveBlockConfig: (type) => getBlockConfigFromCache(blockConfigCache, type),
-    })
-
-    if (!descriptor) return []
-
-    return [
-      {
-        id: block.id,
-        type: descriptor.nodeType,
-        position: block.position,
-        parentId: block.data?.parentId,
-        draggable: !isBlockProtected(block.id, workflowState.blocks),
-        extent: block.data?.extent || undefined,
-        width: descriptor.width,
-        height: descriptor.height,
-        data:
-          descriptor.nodeType === 'workflowBlock'
-            ? {
-                ...descriptor.data,
-                readOnly: true,
-                isPreview: true,
-                subBlockValues: block.subBlocks,
-                blockState: block,
-              }
-            : {
-                ...descriptor.data,
-                enabled: block.enabled ?? true,
-                isPreview: true,
-                childCount: Object.values(workflowState.blocks).filter(
-                  (candidate) => candidate.data?.parentId === block.id
-                ).length,
-                modeLabel:
-                  block.type === 'loop'
-                    ? getLoopModeLabel(workflowState, block)
-                    : getParallelModeLabel(workflowState, block),
-                summaryLabel:
-                  block.type === 'loop'
-                    ? getLoopSummaryLabel(workflowState, block)
-                    : getParallelSummaryLabel(workflowState, block),
-              },
-      } satisfies Node,
-    ]
-  })
-}
-
-function buildPreviewEdges(workflowState: WorkflowState) {
-  return workflowState.edges.map((edge) => ({
-    ...edge,
-    type: edge.type || 'workflowEdge',
-  }))
-}
-
-function resizePreviewContainers(
-  nodes: Node[],
-  blocks: Record<string, BlockState>
-): {
-  nodes: Node[]
-  blocks: Record<string, BlockState>
-} {
-  let nextNodes = nodes
-  let nextBlocks = blocks
-  let hasChanges = false
-
-  const getNodes = () => nextNodes
-
-  const updateNodeDimensions = (id: string, dimensions: { width: number; height: number }) => {
-    const currentNode = nextNodes.find((node) => node.id === id)
-    const currentBlock = nextBlocks[id]
-    const currentWidth =
-      (typeof currentNode?.data?.width === 'number' ? currentNode.data.width : undefined) ??
-      currentBlock?.data?.width
-    const currentHeight =
-      (typeof currentNode?.data?.height === 'number' ? currentNode.data.height : undefined) ??
-      currentBlock?.data?.height
-
-    if (currentWidth === dimensions.width && currentHeight === dimensions.height) {
-      return
-    }
-
-    hasChanges = true
-    nextNodes = nextNodes.map((node) =>
-      node.id === id
-        ? {
-            ...node,
-            width: dimensions.width,
-            height: dimensions.height,
-            data: {
-              ...node.data,
-              width: dimensions.width,
-              height: dimensions.height,
-            },
-          }
-        : node
-    )
-
-    if (currentBlock) {
-      nextBlocks = {
-        ...nextBlocks,
-        [id]: {
-          ...currentBlock,
-          data: {
-            ...currentBlock.data,
-            width: dimensions.width,
-            height: dimensions.height,
-          },
-        },
-      }
-    }
-  }
-
-  resizeContainerNodes(getNodes, updateNodeDimensions, nextBlocks)
-
-  return hasChanges ? { nodes: nextNodes, blocks: nextBlocks } : { nodes, blocks }
-}
-
-function useHydrateStore(workflowState: WorkflowState) {
-  const replaceWorkflowState = useWorkflowStore((s) => s.replaceWorkflowState)
-
-  useEffect(() => {
-    replaceWorkflowState(workflowState, { updateLastSaved: false })
-  }, [workflowState, replaceWorkflowState])
-}
 
 function WorkflowPreviewControls() {
   const { zoomIn, zoomOut } = useReactFlow()
-  const zoom = useStore((state: any) =>
+  const zoom = useStore((state: { transform?: number[]; viewport?: { zoom?: number } }) =>
     Array.isArray(state.transform) ? state.transform[2] : state.viewport?.zoom
   )
   const currentZoom = Math.round(((zoom as number) || 1) * 100)
@@ -259,58 +84,9 @@ type WorkflowPreviewCanvasProps = {
 type WorkflowPreviewFlowProps = Omit<WorkflowPreviewCanvasProps, 'workflowKey'>
 
 function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowProps) {
-  // Capture types once per mount so the ref stays identical across re-renders
-  // even if HMR rebuilds block-registry and swaps the imported object.
-  const nodeTypes = useMemo(() => nodeTypesImport, [])
-  const edgeTypes = useMemo(() => edgeTypesImport, [])
-
-  const previewSeed = useMemo(() => {
-    const initialBlocks = workflowState.blocks
-    const initialNodes = buildPreviewNodes(workflowState)
-    const resizedPreview = resizePreviewContainers(initialNodes, initialBlocks)
-
-    return {
-      blocks: resizedPreview.blocks,
-      nodes: resizedPreview.nodes,
-      edges: buildPreviewEdges(workflowState),
-    }
-  }, [workflowState])
-
-  const [previewBlocks, setPreviewBlocks] = useState(previewSeed.blocks)
-  const [nodes, setNodes] = useState(previewSeed.nodes)
-
-  const hydratedWorkflowState = useMemo(
-    () => ({
-      ...workflowState,
-      blocks: previewBlocks,
-    }),
-    [workflowState, previewBlocks]
-  )
-
-  useHydrateStore(hydratedWorkflowState)
-
-  const edges = useMemo(() => previewSeed.edges, [previewSeed.edges])
-
-  useEffect(() => {
-    setPreviewBlocks(previewSeed.blocks)
-    setNodes(previewSeed.nodes)
-  }, [previewSeed.blocks, previewSeed.nodes])
-
-  useEffect(() => {
-    const resizedPreview = resizePreviewContainers(nodes, previewBlocks)
-
-    if (resizedPreview.blocks !== previewBlocks) {
-      setPreviewBlocks(resizedPreview.blocks)
-    }
-
-    if (resizedPreview.nodes !== nodes) {
-      setNodes(resizedPreview.nodes)
-    }
-  }, [nodes, previewBlocks])
-
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
-  }, [])
+  const nodeTypes = useMemo(() => previewNodeTypesImport, [])
+  const edgeTypes = useMemo(() => previewEdgeTypesImport, [])
+  const { nodes, edges } = useMemo(() => adaptPreviewPayloadToCanvas(workflowState), [workflowState])
 
   const onInit = useCallback((instance: any) => {
     requestAnimationFrame(() => {
@@ -325,7 +101,6 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionLineType={ConnectionLineType.Bezier}
@@ -334,18 +109,16 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         fitViewOptions={{ padding: PREVIEW_FIT_PADDING }}
         elementsSelectable
         selectNodesOnDrag={false}
-        nodesDraggable
+        nodesDraggable={false}
         nodesConnectable={false}
         panOnScroll
         zoomOnDoubleClick={false}
         zoomOnPinch
-        draggable={false}
         minZoom={0.05}
         maxZoom={1.3}
         translateExtent={PREVIEW_CANVAS_EXTENT}
         nodeExtent={PREVIEW_CANVAS_EXTENT}
         noWheelClassName='allow-scroll'
-        autoPanOnNodeDrag
         proOptions={{ hideAttribution: true }}
         className='h-full w-full'
       >
@@ -362,20 +135,12 @@ export function WorkflowPreviewCanvas({
   className,
 }: WorkflowPreviewCanvasProps) {
   return (
-    <WorkflowRouteProvider
-      workspaceId={LANDING_WORKSPACE_ID}
-      workflowId={LANDING_WORKFLOW_ID}
-      channelId={LANDING_CHANNEL_ID}
-    >
-      <WorkflowStoreProvider channelId={LANDING_CHANNEL_ID} workflowId={LANDING_WORKFLOW_ID}>
-        <ReactFlowProvider>
-          <WorkflowPreviewFlow
-            key={workflowKey}
-            workflowState={workflowState}
-            className={className}
-          />
-        </ReactFlowProvider>
-      </WorkflowStoreProvider>
-    </WorkflowRouteProvider>
+    <ReactFlowProvider>
+      <WorkflowPreviewFlow
+        key={workflowKey}
+        workflowState={workflowState}
+        className={className}
+      />
+    </ReactFlowProvider>
   )
 }

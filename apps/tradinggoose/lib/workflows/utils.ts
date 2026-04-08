@@ -12,6 +12,10 @@ import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowUtils')
 
+type WorkflowComparisonState = WorkflowState & {
+  variables?: Record<string, any>
+}
+
 const WORKFLOW_BASE_SELECTION = {
   id: workflowTable.id,
   userId: workflowTable.userId,
@@ -269,8 +273,8 @@ function normalizedStringify(value: any): string {
  * @returns True if there are meaningful changes, false if only position changes or no changes
  */
 export function hasWorkflowChanged(
-  currentState: WorkflowState,
-  deployedState: WorkflowState | null
+  currentState: WorkflowComparisonState,
+  deployedState: WorkflowComparisonState | null
 ): boolean {
   // If no deployed state exists, then the workflow has changed
   if (!deployedState) return true
@@ -482,6 +486,19 @@ export function hasWorkflowChanged(
     ) {
       return true
     }
+  }
+
+  // 6. Compare global workflow variables
+  const deployedStateIncludesVariables = Object.prototype.hasOwnProperty.call(
+    deployedState,
+    'variables'
+  )
+  if (
+    deployedStateIncludesVariables &&
+    normalizedStringify(currentState.variables || {}) !==
+      normalizedStringify(deployedState.variables || {})
+  ) {
+    return true
   }
 
   return false

@@ -256,11 +256,19 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
       return
     }
 
+    form.clearErrors('root')
     setIsSubmitting(true)
 
     try {
       // Create the template state from current workflow using the same format as deployment
       const templateState = buildWorkflowStateForTemplate(workflowId)
+      if (!templateState) {
+        form.setError('root', {
+          type: 'manual',
+          message: 'Workflow session is not ready yet. Wait for the editor to finish loading.',
+        })
+        return
+      }
 
       const templateData = {
         workflowId,
@@ -587,7 +595,10 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
 
             {/* Fixed Footer */}
             <div className='mt-auto border-t px-6 py-4'>
-              <div className='flex items-center'>
+              <div className='flex items-center gap-3'>
+                {form.formState.errors.root?.message ? (
+                  <p className='text-destructive text-sm'>{form.formState.errors.root.message}</p>
+                ) : null}
                 {existingTemplate && (
                   <Button
                     type='button'

@@ -3,7 +3,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('WorkflowQueries')
 
@@ -83,14 +82,6 @@ export function useCreateWorkflow() {
     },
     onSuccess: (data, variables) => {
       logger.info(`Workflow ${data.id} created successfully`)
-
-      const { subBlockValues } = buildDefaultWorkflowArtifacts()
-      useSubBlockStore.setState((state) => ({
-        workflowValues: {
-          ...state.workflowValues,
-          [data.id]: subBlockValues,
-        },
-      }))
 
       useWorkflowRegistry.setState((state) => ({
         workflows: {

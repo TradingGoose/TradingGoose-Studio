@@ -11,6 +11,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import type { PreviewDiffOperation } from './preview-diff'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
 import { PreviewNode } from './preview-node'
 import { adaptPreviewPayloadToCanvas } from './preview-payload-adapter'
@@ -29,6 +30,7 @@ interface PreviewWorkflowProps {
   showInspector?: boolean
   onNodeClick?: (blockId: string, mousePosition: { x: number; y: number }) => void
   framed?: boolean
+  diffOperations?: PreviewDiffOperation[]
 }
 
 const previewNodeTypes: NodeTypes = {
@@ -53,12 +55,13 @@ export function PreviewWorkflow({
   showInspector = true,
   onNodeClick,
   framed = true,
+  diffOperations,
 }: PreviewWorkflowProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const { nodes, edges } = useMemo(() => {
-    return adaptPreviewPayloadToCanvas(workflowState)
-  }, [workflowState])
+    return adaptPreviewPayloadToCanvas(workflowState, { operations: diffOperations })
+  }, [diffOperations, workflowState])
 
   return (
     <ReactFlowProvider>

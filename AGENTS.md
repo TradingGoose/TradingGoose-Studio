@@ -4,6 +4,7 @@
 - Do not use the pacakge "server-only" in the project.
 - Do not edit any `*/migration/*` files; they are auto-generated.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
+- We do not need any form of legacy support as the project is under fresh dev, do not add any form of legacy backfill path
 - This project does not support any legacy methods.
 - Ignore all license related issues.
 - Project uses `Bun` pacakge manager with turborepo.

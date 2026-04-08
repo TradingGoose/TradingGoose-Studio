@@ -14,7 +14,6 @@ import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useFolderStore } from '@/stores/folders/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
@@ -55,9 +54,6 @@ export function DashboardWorkflowCreateMenu({
     setIsCreatingWorkflow(true)
 
     try {
-      const { clearDiff } = useWorkflowDiffStore.getState()
-      clearDiff()
-
       const workflowId = await createWorkflow({ workspaceId })
 
       if (workflowId) {
@@ -119,9 +115,6 @@ export function DashboardWorkflowCreateMenu({
           }
           return `Imported Workflow - ${new Date().toLocaleString()}`
         }
-
-        const { clearDiff } = useWorkflowDiffStore.getState()
-        clearDiff()
 
         const newWorkflowId = await createWorkflow({
           name: getWorkflowName(),

@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { getProviderFromModel } from '@/providers/ai/utils'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  useWorkflowStore,
-} from '@/stores/workflows/workflow/store-client'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+  useBlock,
+  useSubBlockValue as useYjsSubBlockValue,
+} from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('SubBlockValue')
 
@@ -38,28 +34,11 @@ export function useSubBlockValue<T = any>(
 ): readonly [T | null, (value: T) => void] {
   const { isStreaming = false, onStreamingEnd } = options || {}
 
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
-  const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const routeWorkflowId = routeContext?.workflowId ?? null
+  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
 
-  // Subscribe to active workflow id to avoid races where the workflow id is set after mount.
-  // This ensures our selector recomputes when the active workflow changes.
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
-
-  const blockType = useWorkflowStore(
-    useCallback((state) => state.blocks?.[blockId]?.type, [blockId])
-  )
-
-  const initialValue = useWorkflowStore(
-    useCallback(
-      (state) => state.blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null,
-      [blockId, subBlockId]
-    )
-  )
+  const block = useBlock(blockId)
+  const blockType = block?.type
+  const currentValue = useYjsSubBlockValue(blockId, subBlockId) as T | null
 
   // Keep a ref to the latest value to prevent unnecessary re-renders
   const valueRef = useRef<T | null>(null)
@@ -69,42 +48,13 @@ export function useSubBlockValue<T = any>(
   const streamingValueRef = useRef<T | null>(null)
   const wasStreamingRef = useRef<boolean>(false)
 
-  // Get value from subblock store, keyed by active workflow id
-  // Optimized: use shallow equality comparison to prevent re-renders when other fields change
-  const storeValue = useSubBlockStore(
-    useCallback(
-      (state) => {
-        // If the active workflow ID isn't available yet, return undefined so we can fall back to initialValue
-        if (!resolvedWorkflowId) return undefined
-        return state.workflowValues[resolvedWorkflowId]?.[blockId]?.[subBlockId] ?? null
-      },
-      [resolvedWorkflowId, blockId, subBlockId]
-    ),
-    (a, b) => isEqual(a, b) // Use deep equality to prevent re-renders for same values
-  )
-
-  // Check if we're in diff mode and get diff value if available
-  const { isShowingDiff, diffWorkflow } = useWorkflowDiffStore()
-  const diffValue =
-    isShowingDiff && diffWorkflow
-      ? (diffWorkflow.blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null)
-      : null
-
   // Check if this is an API key field that could be auto-filled
   const isApiKey =
     subBlockId === 'apiKey' || (subBlockId?.toLowerCase().includes('apikey') ?? false)
 
-  // Always call this hook unconditionally - don't wrap it in a condition
-  // Optimized: only re-render if model value actually changes
-  const modelSubBlockValue = useSubBlockStore(
-    useCallback(() => {
-      if (!resolvedWorkflowId) return null
-      return (
-        useSubBlockStore.getState().workflowValues[resolvedWorkflowId]?.[blockId]?.model ?? null
-      )
-    }, [resolvedWorkflowId, blockId]),
-    (a, b) => a === b
-  )
+  // Get the model subblock value for provider-based blocks
+  const modelSubBlockValue = useYjsSubBlockValue(blockId, 'model') as string | null
+  const currentApiKeyValue = useYjsSubBlockValue(blockId, 'apiKey') as string | null
 
   // Determine if this is a provider-based block type
   const isProviderBasedBlock =
@@ -113,7 +63,7 @@ export function useSubBlockValue<T = any>(
   // Compute the modelValue based on block type
   const modelValue = isProviderBasedBlock ? (modelSubBlockValue as string) : null
 
-  // Emit the value to socket/DB
+  // Persist the value through the workflow editor action layer.
   const emitValue = useCallback(
     (value: T) => {
       collaborativeSetSubblockValue(blockId, subBlockId, value)
@@ -134,23 +84,9 @@ export function useSubBlockValue<T = any>(
     wasStreamingRef.current = isStreaming
   }, [isStreaming, blockId, subBlockId, emitValue, onStreamingEnd])
 
-  // Hook to set a value in the subblock store
+  // Setter for the live sub-block value.
   const setValue = useCallback(
     (newValue: T) => {
-      // Don't allow updates when in diff mode (readonly preview)
-      if (isShowingDiff) {
-        logger.debug('Ignoring setValue in diff mode', { blockId, subBlockId })
-        return
-      }
-
-      const registryState = useWorkflowRegistry.getState()
-      const currentActiveWorkflowId = registryState.getActiveWorkflowId(resolvedChannelId)
-      const targetWorkflowId = currentActiveWorkflowId ?? routeWorkflowId
-      if (!targetWorkflowId) {
-        logger.warn('No workflow ID when setting value', { blockId, subBlockId })
-        return
-      }
-
       // Use deep comparison to avoid unnecessary updates for complex objects
       if (!isEqual(valueRef.current, newValue)) {
         valueRef.current = newValue
@@ -169,47 +105,26 @@ export function useSubBlockValue<T = any>(
           return
         }
 
-        // Update local store immediately for UI responsiveness (non-streaming)
-        useSubBlockStore.setState((state) => ({
-          workflowValues: {
-            ...state.workflowValues,
-            [targetWorkflowId]: {
-              ...state.workflowValues[targetWorkflowId],
-              [blockId]: {
-                ...state.workflowValues[targetWorkflowId]?.[blockId],
-                [subBlockId]: newValue,
-              },
-            },
-          },
-        }))
+        // Single Yjs write path: collaborativeSetSubblockValue writes to Yjs
+        // and handles declarative cascade clearing for dependent sub-blocks.
+        emitValue(valueCopy)
 
-        // Handle model changes for provider-based blocks - clear API key when provider changes (non-streaming)
+        // Handle model changes for provider-based blocks - clear API key when provider changes.
+        // This is a special case not covered by the generic dependsOn cascade.
         if (
           subBlockId === 'model' &&
           isProviderBasedBlock &&
           newValue &&
           typeof newValue === 'string'
         ) {
-          const currentApiKeyValue =
-            targetWorkflowId != null
-              ? (useSubBlockStore.getState().workflowValues[targetWorkflowId]?.[blockId]?.apiKey ??
-                null)
-              : null
           if (currentApiKeyValue && currentApiKeyValue !== '') {
-            const oldModelValue = storeValue as string
+            const oldModelValue = currentValue as string
             const oldProvider = oldModelValue ? getProviderFromModel(oldModelValue) : null
             const newProvider = getProviderFromModel(newValue)
             if (oldProvider !== newProvider) {
               collaborativeSetSubblockValue(blockId, 'apiKey', '')
             }
           }
-        }
-
-        // Emit immediately; the client queue coalesces same-key ops and the server debounces
-        emitValue(valueCopy)
-
-        if (triggerWorkflowUpdate) {
-          useWorkflowStore.getState().triggerUpdate()
         }
       }
     },
@@ -218,39 +133,31 @@ export function useSubBlockValue<T = any>(
       subBlockId,
       blockType,
       isApiKey,
-      storeValue,
+      currentValue,
       triggerWorkflowUpdate,
       modelValue,
       isStreaming,
       emitValue,
-      isShowingDiff,
-      resolvedChannelId,
-      routeWorkflowId,
+      isProviderBasedBlock,
+      collaborativeSetSubblockValue,
+      currentApiKeyValue,
     ]
   )
 
-  // Determine the effective value: diff value takes precedence if in diff mode
-  const effectiveValue =
-    isShowingDiff && diffValue !== null
-      ? diffValue
-      : storeValue !== undefined
-        ? storeValue
-        : initialValue
-
   // Initialize valueRef on first render
   useEffect(() => {
-    valueRef.current = effectiveValue
+    valueRef.current = currentValue
   }, [])
 
   // Update the ref if the effective value changes
   // This ensures we're always working with the latest value
   useEffect(() => {
     // Use deep comparison for objects to prevent unnecessary updates
-    if (!isEqual(valueRef.current, effectiveValue)) {
-      valueRef.current = effectiveValue
+    if (!isEqual(valueRef.current, currentValue)) {
+      valueRef.current = currentValue
     }
-  }, [effectiveValue])
+  }, [currentValue])
 
   // Return appropriate tuple based on whether options were provided
-  return [effectiveValue, setValue] as const
+  return [currentValue, setValue] as const
 }

@@ -1482,8 +1482,8 @@ describe('InputResolver', () => {
         contextWithConnections
       )
       expect(conditionResult.conditions).toBe(
-        '[{"id":"cond1","title":"if","value":"<start.input> === \\"Hello World\\""}]'
-      ) // Conditions not resolved at input level
+        JSON.stringify([{ id: 'cond1', title: 'if', value: '<start.input> === "Hello World"' }])
+      )
 
       const responseResult = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
       expect(responseResult.content).toBe('Hello World') // Raw string for response
@@ -2821,7 +2821,7 @@ describe('InputResolver', () => {
       const conditionResult = arrayResolver.resolveInputs(conditionBlock, arrayContext)
 
       expect(functionResult.code).toBe('return "b"') // Should be quoted for function
-      expect(conditionResult.conditions).toBe('<array-block.matrix[0][1]> === "b"') // Not resolved at input level
+      expect(conditionResult.conditions).toBe('<array-block.matrix[0][1]> === "b"')
     })
   })
 

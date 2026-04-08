@@ -4,6 +4,7 @@ import {
   type ComponentType,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type WheelEvent,
@@ -40,14 +41,14 @@ import {
 } from '@/lib/chat/deployment-config'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { WorkflowDeploymentVersionResponse } from '@/lib/workflows/db-helpers'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTrigger, isNativeTrigger } from '@/triggers'
 import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
@@ -222,7 +223,7 @@ export function DeployModal({
     state.getWorkflowDeploymentStatus(workflowId)
   )
   const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
-  const currentBlocks = useWorkflowStore((state) => state.blocks)
+  const currentBlocks = useWorkflowBlocks()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUndeploying, setIsUndeploying] = useState(false)
   const [deploymentInfo, setDeploymentInfo] = useState<WorkflowDeploymentInfo | null>(null)
@@ -297,8 +298,10 @@ export function DeployModal({
         blockId: block.id,
         label: block.name || blockConfig?.name || triggerDef?.name || triggerId,
         triggerId,
-        icon: blockConfig?.icon as ComponentType<{ className?: string }> | undefined,
-        iconAccentColor: blockConfig?.bgColor,
+        icon:
+          triggerDef?.icon ??
+          (blockConfig?.icon as ComponentType<{ className?: string }> | undefined),
+        iconAccentColor: sanitizeSolidIconColor(blockConfig?.bgColor),
         subBlocks,
         hasConfigurableFields,
       }
@@ -323,58 +326,54 @@ export function DeployModal({
         : hasChatTrigger
           ? 'chat'
           : 'versions'
-  const triggerDeployValidationState = useSubBlockStore(
-    useCallback(
-      (state) => {
-        if (!workflowId) {
-          return []
-        }
+  const triggerDeployValidationState = useMemo(() => {
+    if (!workflowId) {
+      return []
+    }
 
-        return triggerDeployTabs.map((tab) => {
-          const configurableSubBlocks = tab.subBlocks.filter(isConfigurableTriggerDeploySubBlock)
-          const missingRequiredFieldLabels = configurableSubBlocks
-            .filter((subBlock) => subBlock.required)
-            .filter((subBlock) => {
-              const value = state.getValue(tab.blockId, subBlock.id, workflowId)
-              if (isMissingConfigValue(value) && subBlock.defaultValue !== undefined) {
-                return isMissingConfigValue(subBlock.defaultValue)
-              }
-              return isMissingConfigValue(value)
-            })
-            .map((subBlock) => subBlock.title || subBlock.id)
-
-          const requiresSavedConfig = tab.subBlocks.some(
-            (subBlock) => subBlock.id === 'triggerSave' || subBlock.type === 'trigger-save'
-          )
-          const webhookIdValue = requiresSavedConfig
-            ? state.getValue(tab.blockId, 'webhookId', workflowId)
-            : null
-          const savedTriggerConfig = requiresSavedConfig
-            ? state.getValue(tab.blockId, 'triggerConfig', workflowId)
-            : null
-          const hasUnsavedDeployConfig =
-            requiresSavedConfig &&
-            configurableSubBlocks.some((subBlock) => {
-              if (subBlock.id === 'triggerCredentials') {
-                return false
-              }
-              const currentValue = state.getValue(tab.blockId, subBlock.id, workflowId)
-              const savedValue = getSavedTriggerConfigValue(savedTriggerConfig, subBlock.id)
-              return !areConfigValuesEqual(currentValue, savedValue)
-            })
-
-          return {
-            key: tab.key,
-            missingRequiredFieldLabels,
-            requiresSavedConfig,
-            webhookIdValue,
-            hasUnsavedDeployConfig,
+    return triggerDeployTabs.map((tab) => {
+      const block = currentBlocks[tab.blockId]
+      const configurableSubBlocks = tab.subBlocks.filter(isConfigurableTriggerDeploySubBlock)
+      const missingRequiredFieldLabels = configurableSubBlocks
+        .filter((subBlock) => subBlock.required)
+        .filter((subBlock) => {
+          const value = block?.subBlocks?.[subBlock.id]?.value ?? null
+          if (isMissingConfigValue(value) && subBlock.defaultValue !== undefined) {
+            return isMissingConfigValue(subBlock.defaultValue)
           }
+          return isMissingConfigValue(value)
         })
-      },
-      [triggerDeployTabs, workflowId]
-    )
-  )
+        .map((subBlock) => subBlock.title || subBlock.id)
+
+      const requiresSavedConfig = tab.subBlocks.some(
+        (subBlock) => subBlock.id === 'triggerSave' || subBlock.type === 'trigger-save'
+      )
+      const webhookIdValue = requiresSavedConfig
+        ? (block?.subBlocks?.['webhookId']?.value ?? null)
+        : null
+      const savedTriggerConfig = requiresSavedConfig
+        ? (block?.subBlocks?.['triggerConfig']?.value ?? null)
+        : null
+      const hasUnsavedDeployConfig =
+        requiresSavedConfig &&
+        configurableSubBlocks.some((subBlock) => {
+          if (subBlock.id === 'triggerCredentials') {
+            return false
+          }
+          const currentValue = block?.subBlocks?.[subBlock.id]?.value ?? null
+          const savedValue = getSavedTriggerConfigValue(savedTriggerConfig, subBlock.id)
+          return !areConfigValuesEqual(currentValue, savedValue)
+        })
+
+      return {
+        key: tab.key,
+        missingRequiredFieldLabels,
+        requiresSavedConfig,
+        webhookIdValue,
+        hasUnsavedDeployConfig,
+      }
+    })
+  }, [triggerDeployTabs, workflowId, currentBlocks])
   const triggerValidationStateByKey = new Map(
     triggerDeployValidationState.map((tabState) => [tabState.key, tabState])
   )
@@ -454,7 +453,7 @@ export function DeployModal({
             key: 'chat',
             label: 'Chat',
             icon: getTrigger('chat')?.icon,
-            iconAccentColor: getBlock('chat_trigger')?.bgColor,
+            iconAccentColor: sanitizeSolidIconColor(getBlock('chat_trigger')?.bgColor),
             isReady: isChatTriggerReady,
           },
         ]
@@ -465,7 +464,7 @@ export function DeployModal({
             key: API_TRIGGER_TAB_KEY,
             label: 'API Trigger',
             icon: getTrigger('api')?.icon,
-            iconAccentColor: getBlock('api_trigger')?.bgColor,
+            iconAccentColor: sanitizeSolidIconColor(getBlock('api_trigger')?.bgColor),
             isReady: isApiTriggerReady,
           },
         ]
@@ -599,16 +598,14 @@ export function DeployModal({
   const getInputFormatExample = (includeStreaming = false) => {
     let inputFormatExample = ''
     try {
-      const blocks = Object.values(useWorkflowStore.getState().blocks)
+      const blocks = Object.values(currentBlocks)
 
       // Check for API trigger block first (takes precedence)
       const apiTriggerBlock = blocks.find((block) => block.type === 'api_trigger')
       const targetBlock = apiTriggerBlock
 
       if (targetBlock) {
-        const inputFormat = useSubBlockStore
-          .getState()
-          .getValue(targetBlock.id, 'inputFormat', workflowId ?? undefined)
+        const inputFormat = targetBlock.subBlocks?.['inputFormat']?.value ?? null
 
         const exampleData: Record<string, any> = {}
 
@@ -1209,12 +1206,7 @@ export function DeployModal({
         <div className='space-y-1 px-1'>
           {tabs.map((tab) => {
             const Icon = tab.icon
-            const iconTileStyle = tab.iconAccentColor
-              ? {
-                  backgroundColor: `${tab.iconAccentColor}20`,
-                  color: tab.iconAccentColor,
-                }
-              : undefined
+            const iconTileStyle = getIconTileStyle(tab.iconAccentColor)
             const button = (
               <button
                 key={tab.key}

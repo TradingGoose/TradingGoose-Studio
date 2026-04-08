@@ -10,7 +10,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
+import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         const message = createPermissionError('run tools in')
         return NextResponse.json({ error: message }, { status: 403 })
       }
-      workspaceId = resolvedWorkspaceId
+      workspaceId = resolvedWorkspaceId ?? undefined
     }
 
     const toolConfig = toolName.startsWith('custom_')

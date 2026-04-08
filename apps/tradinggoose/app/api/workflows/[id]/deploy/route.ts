@@ -7,8 +7,8 @@ import {
 } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { deployWorkflow } from '@/lib/workflows/db-helpers'
-import { validateWorkflowPermissions } from '@/lib/workflows/utils'
+import { deployWorkflow, loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -99,17 +99,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     if (active?.state) {
-      const { loadWorkflowFromNormalizedTables } = await import('@/lib/workflows/db-helpers')
-      const normalizedData = await loadWorkflowFromNormalizedTables(id)
-      if (normalizedData) {
-        const currentState = {
-          blocks: normalizedData.blocks,
-          edges: normalizedData.edges,
-          loops: normalizedData.loops,
-          parallels: normalizedData.parallels,
-        }
-        const { hasWorkflowChanged } = await import('@/lib/workflows/utils')
-        needsRedeployment = hasWorkflowChanged(currentState as any, active.state as any)
+      const currentState = await loadWorkflowStateWithFallback(id, workflowData.lastSynced)
+      if (currentState) {
+        needsRedeployment = hasWorkflowChanged(currentState, active.state as any)
       }
     }
 

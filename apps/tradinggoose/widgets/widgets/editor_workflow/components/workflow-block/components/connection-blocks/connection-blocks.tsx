@@ -1,5 +1,6 @@
 import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { type ConnectedBlock, useBlockConnections } from '@/hooks/workflow/use-block-connections'
@@ -76,7 +77,7 @@ export function ConnectionBlocks({
     const blockConfig = getBlock(connection.type)
     // Handle special blocks that aren't in the registry (loop and parallel)
     let Icon = blockConfig?.icon
-    let bgColor = blockConfig?.bgColor || undefined
+    let bgColor = sanitizeSolidIconColor(blockConfig?.bgColor)
 
     if (!blockConfig) {
       if (connection.type === 'loop') {
@@ -105,10 +106,7 @@ export function ConnectionBlocks({
         {Icon && (
           <div
             className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
-            style={{
-              backgroundColor: bgColor ? `${bgColor}20` : undefined,
-              color: bgColor || undefined,
-            }}
+            style={getIconTileStyle(bgColor)}
           >
             <Icon className='h-4 w-4' />
           </div>

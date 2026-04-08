@@ -1,4 +1,5 @@
 import type { editor as MonacoEditorTypes, Position } from 'monaco-editor'
+import type * as Y from 'yjs'
 
 export type MonacoModule = typeof import('monaco-editor')
 
@@ -53,4 +54,15 @@ export type MonacoEditorProps = {
     content: string
     filePath?: string
   }>
+  /**
+   * When provided, MonacoBinding from y-monaco binds this Y.Text directly to
+   * the editor model for character-level collaborative editing. The `value`
+   * prop is ignored and `onChange` will not fire; all edits flow through Yjs.
+   */
+  yText?: Y.Text | null
+  /**
+   * Yjs Awareness instance for rendering remote cursor positions and
+   * selections as Monaco decorations. Only used when `yText` is provided.
+   */
+  awareness?: import('@y/protocols/awareness').Awareness | null
 }

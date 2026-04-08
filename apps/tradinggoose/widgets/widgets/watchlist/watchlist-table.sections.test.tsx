@@ -252,13 +252,13 @@ describe('WatchlistTable section interactions', () => {
     expect(renameButton).toBeTruthy()
 
     await act(async () => {
-      renameButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      renameButton?.dispatchEvent(new globalThis.MouseEvent('mousedown', { bubbles: true }))
     })
 
     expect(mockDragActivation).not.toHaveBeenCalled()
 
     await act(async () => {
-      renameButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      renameButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     const input = container.querySelector('input')
@@ -267,7 +267,7 @@ describe('WatchlistTable section interactions', () => {
     expect(input?.value).toBe('Section 1')
 
     await act(async () => {
-      input?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      input?.dispatchEvent(new globalThis.MouseEvent('mousedown', { bubbles: true }))
     })
 
     expect(mockDragActivation).not.toHaveBeenCalled()
@@ -351,7 +351,7 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow).toBeTruthy()
 
     await act(async () => {
-      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(onSelectListing).toHaveBeenCalledWith({
@@ -372,7 +372,7 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow).toBeTruthy()
 
     await act(async () => {
-      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(listingRow?.className).toContain('bg-accent')
@@ -390,11 +390,11 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow).toBeTruthy()
 
     await act(async () => {
-      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     await act(async () => {
-      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(listingRow?.className.split(/\s+/)).not.toContain('bg-accent')
@@ -448,7 +448,7 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow).toBeTruthy()
 
     await act(async () => {
-      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(onSelectListing).toHaveBeenCalledWith(null)
@@ -467,13 +467,13 @@ describe('WatchlistTable section interactions', () => {
     expect(deleteButton).toBeTruthy()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      deleteButton?.dispatchEvent(new globalThis.MouseEvent('mousedown', { bubbles: true }))
     })
 
     expect(mockDragActivation).not.toHaveBeenCalled()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      deleteButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(container.textContent).toContain('Delete section?')
@@ -481,7 +481,7 @@ describe('WatchlistTable section interactions', () => {
     const confirmButton = container.querySelector('[data-testid="confirm-delete-section"]')
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
 
     expect(onRemoveSection).toHaveBeenCalledWith('section-1')
@@ -508,13 +508,13 @@ describe('WatchlistTable section interactions', () => {
     expect(deleteButton).toBeTruthy()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      deleteButton?.dispatchEvent(new globalThis.MouseEvent('mousedown', { bubbles: true }))
     })
 
     expect(mockDragActivation).not.toHaveBeenCalled()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      deleteButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(container.textContent).toContain('Delete symbol?')
@@ -524,7 +524,7 @@ describe('WatchlistTable section interactions', () => {
     )
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
 
     expect(onRemoveItem).toHaveBeenCalledWith('listing-1')
@@ -561,7 +561,7 @@ describe('WatchlistTable section interactions', () => {
     expect(editButton).toBeTruthy()
 
     await act(async () => {
-      editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      editButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     const selector = container.querySelector(
@@ -579,7 +579,7 @@ describe('WatchlistTable section interactions', () => {
     )
 
     await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      selectButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(onUpdateItemListing).toHaveBeenCalledWith('listing-1', {
@@ -620,7 +620,7 @@ describe('WatchlistTable section interactions', () => {
     expect(editButton).toBeTruthy()
 
     await act(async () => {
-      editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      editButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     const selectButton = container.querySelector(
@@ -628,7 +628,7 @@ describe('WatchlistTable section interactions', () => {
     )
 
     await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      selectButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(onUpdateItemListing).toHaveBeenCalledWith('listing-1', {
@@ -718,7 +718,7 @@ describe('WatchlistTable section interactions', () => {
     )
 
     await act(async () => {
-      editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      editButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     const selector = container.querySelector(
@@ -740,7 +740,7 @@ describe('WatchlistTable section interactions', () => {
 
     await act(async () => {
       focusButton?.dispatchEvent(new Event('pointerdown', { bubbles: true }))
-      focusButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      focusButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(

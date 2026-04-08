@@ -171,13 +171,10 @@ export class InputResolver {
     const result: Record<string, any> = {}
     const isConditionBlock = block.metadata?.id === 'condition'
 
-    if (isConditionBlock && 'conditions' in inputs) {
-      result.conditions = this.resolveConditionInput(inputs.conditions, context, block)
-    }
-
     // Process each input parameter
     for (const [key, value] of Object.entries(inputs)) {
       if (isConditionBlock && key === 'conditions') {
+        result.conditions = value
         continue
       }
       // Skip null or undefined values
@@ -297,44 +294,6 @@ export class InputResolver {
 
     return result
   }
-
-  private resolveConditionInput(
-    value: any,
-    context: ExecutionContext,
-    block: SerializedBlock
-  ): any {
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value)
-        if (Array.isArray(parsed)) {
-          return parsed.map((cond: any) => ({
-            ...cond,
-            value:
-              typeof cond.value === 'string'
-                ? this.resolveConditionTemplate(cond.value, context, block)
-                : cond.value,
-          }))
-        }
-      } catch {
-        // Fall through to template resolution below.
-      }
-
-      return this.resolveConditionTemplate(value, context, block)
-    }
-
-    if (Array.isArray(value)) {
-      return value.map((cond: any) => ({
-        ...cond,
-        value:
-          typeof cond.value === 'string'
-            ? this.resolveConditionTemplate(cond.value, context, block)
-            : cond.value,
-      }))
-    }
-
-    return value
-  }
-
   /**
    * Retrieves the correctly typed value of a variable based on its stored type.
    * Uses VariableManager for consistent handling of all variable types.
@@ -710,12 +669,14 @@ export class InputResolver {
       const sourceBlock = this.blockById.get(validation.resolvedBlockId!)!
 
       if (sourceBlock.enabled === false) {
-        resolvedValue = resolvedValue.replace(raw, '')
-        continue
+        throw new Error(`Block "${sourceBlock.metadata?.name || sourceBlock.id}" is disabled`)
       }
 
       // For parallel execution, check if we need to use the virtual block ID
       let blockState = context.blockStates.get(sourceBlock.id)
+      const usesIndexedPath = pathParts.some((part) => part.includes('[') || part.includes(']'))
+      let attemptedVirtualSourceState = false
+      let virtualSourceBlockId: string | null = null
 
       // If we're in parallel execution and the source block is also in the same parallel,
       // try to get the virtual block state for the same iteration
@@ -729,10 +690,15 @@ export class InputResolver {
           const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
           if (parallel?.nodes.includes(sourceBlock.id)) {
             // Try to get the virtual block state for the same iteration
-            const virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
+            virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
+            attemptedVirtualSourceState = true
             blockState = context.blockStates.get(virtualSourceBlockId)
           }
         }
+      }
+
+      if (attemptedVirtualSourceState && !blockState) {
+        throw new Error(`No state found for block "${virtualSourceBlockId}"`)
       }
 
       if (!blockState) {
@@ -742,67 +708,70 @@ export class InputResolver {
 
       let replacementValue: any = blockState.output
 
-      try {
-        for (const part of pathParts) {
-          if (!replacementValue || typeof replacementValue !== 'object') {
-            replacementValue = undefined
-            break
+      for (const part of pathParts) {
+        if (!replacementValue || typeof replacementValue !== 'object') {
+          replacementValue = undefined
+          break
+        }
+
+        // Handle array indexing syntax like "files[0]" or "items[1]"
+        const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
+        if (arrayMatch) {
+          const [, arrayName, indexStr] = arrayMatch
+          const index = Number.parseInt(indexStr, 10)
+
+          // First access the array property
+          const arrayValue = replacementValue[arrayName]
+          if (!Array.isArray(arrayValue)) {
+            throw new Error(
+              `Invalid path "${part}" in "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
+            )
           }
 
-          // Handle array indexing syntax like "files[0]" or "items[1]"
-          const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
-          if (arrayMatch) {
-            const [, arrayName, indexStr] = arrayMatch
-            const index = Number.parseInt(indexStr, 10)
-
-            // First access the array property
-            const arrayValue = replacementValue[arrayName]
-            if (!Array.isArray(arrayValue)) {
-              replacementValue = undefined
-              break
-            }
-
-            // Then access the array element
-            if (index < 0 || index >= arrayValue.length) {
-              replacementValue = undefined
-              break
-            }
-
-            replacementValue = arrayValue[index]
-          } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
-            // Enhanced: support multiple indices like "values[0][0]"
-            replacementValue = this.resolvePartWithIndices(
-              replacementValue,
-              part,
-              path,
-              sourceBlock.metadata?.name || sourceBlock.id
+          // Then access the array element
+          if (index < 0 || index >= arrayValue.length) {
+            throw new Error(
+              `Array index ${index} is out of bounds in path "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
             )
-          } else {
-            // Regular property access with FileReference mapping
-            const directValue = resolvePropertyAccess(replacementValue, part)
+          }
 
-            // If working with an array, allow property access on the first element as a compatibility fallback.
-            if (directValue === undefined && Array.isArray(replacementValue)) {
-              const firstItem = replacementValue[0]
-              if (firstItem && typeof firstItem === 'object' && part in firstItem) {
-                replacementValue = (firstItem as any)[part]
-              } else {
-                replacementValue = directValue
-              }
+          replacementValue = arrayValue[index]
+        } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
+          // Enhanced: support multiple indices like "values[0][0]"
+          replacementValue = this.resolvePartWithIndices(
+            replacementValue,
+            part,
+            path,
+            sourceBlock.metadata?.name || sourceBlock.id
+          )
+        } else {
+          // Regular property access with FileReference mapping
+          const directValue = resolvePropertyAccess(replacementValue, part)
+
+          // If working with an array, allow property access on the first element as a compatibility fallback.
+          if (directValue === undefined && Array.isArray(replacementValue)) {
+            const firstItem = replacementValue[0]
+            if (firstItem && typeof firstItem === 'object' && part in firstItem) {
+              replacementValue = (firstItem as any)[part]
             } else {
               replacementValue = directValue
             }
-          }
-
-          if (replacementValue === undefined) {
-            break
+          } else {
+            replacementValue = directValue
           }
         }
-      } catch {
-        replacementValue = undefined
+
+        if (replacementValue === undefined) {
+          break
+        }
       }
 
       if (replacementValue === undefined) {
+        if (usesIndexedPath) {
+          throw new Error(
+            `No value found at path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}".`
+          )
+        }
         resolvedValue = resolvedValue.replace(raw, '')
         continue
       }
@@ -1161,6 +1130,22 @@ export class InputResolver {
         isValid: false,
         errorMessage: `Block "${blockRef}" was not found. Available blocks: ${accessibleNames.join(', ')}`,
       }
+    }
+
+    const accessibleBlocks = this.getAccessibleBlocks(currentBlockId)
+    const isAlwaysAccessibleTrigger =
+      sourceBlock.metadata?.category === 'triggers' ||
+      sourceBlock.metadata?.id === 'input_trigger' ||
+      sourceBlock.metadata?.id === 'api_trigger' ||
+      sourceBlock.metadata?.id === 'manual_trigger' ||
+      sourceBlock.metadata?.id === 'chat_trigger'
+
+    if (
+      sourceBlock.id !== currentBlockId &&
+      !isAlwaysAccessibleTrigger &&
+      !accessibleBlocks.has(sourceBlock.id)
+    ) {
+      return { isValid: false }
     }
 
     return { isValid: true, resolvedBlockId: sourceBlock.id }

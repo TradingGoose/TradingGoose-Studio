@@ -1,6 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { copilotChats } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import {
+  copilotReviewItems,
+  copilotReviewSessions,
+  copilotReviewTurns,
+} from '@tradinggoose/db/schema'
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -9,18 +13,211 @@ import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
   createInternalServerErrorResponse,
+  createNotFoundResponse,
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { getCopilotModel } from '@/lib/copilot/config'
-import type { CopilotProviderConfig } from '@/lib/copilot/types'
-import { env } from '@/lib/env'
+import {
+  COPILOT_RUNTIME_MODELS,
+  DEFAULT_COPILOT_RUNTIME_MODEL,
+} from '@/lib/copilot/runtime-models'
+import {
+  buildCopilotRuntimeProviderConfig,
+} from '@/lib/copilot/runtime-provider.server'
+import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
+import {
+  buildAppendReviewTurn,
+  mapReviewItemToApi,
+  MESSAGE_ROLES,
+  REVIEW_ITEM_KINDS,
+  type ReviewMessageApi,
+  type ReviewMessageInput,
+} from '@/lib/copilot/review-sessions/thread-history'
+import {
+  mapSessionToApiResponse,
+  SESSION_SELECT_COLUMNS,
+} from '@/lib/copilot/review-sessions/api-mapping'
+import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
+import {
+  COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
+  COPILOT_SESSION_KIND,
+} from '@/lib/copilot/session-scope'
+import type { ProviderId } from '@/providers/ai/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
+import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('CopilotChatAPI')
+
+type ReviewSessionRow = Parameters<typeof mapSessionToApiResponse>[0]
+
+/** Domain objects attached to a persisted chat message. */
+interface PersistMessageAttachments {
+  fileAttachments?: ReviewMessageInput['fileAttachments']
+  contexts?: ReviewMessageInput['contexts']
+  toolCalls?: ReviewMessageInput['toolCalls']
+}
+
+interface PersistChatMessagesResult {
+  savedUserMessage: boolean
+  savedAssistantMessage: boolean
+}
+
+// Generic copilot chats are grouped by widget panel channel + workspace for
+// history lists. Creating a new generic chat inserts a fresh session unless a
+// specific reviewSessionId is explicitly supplied by the client.
+
+/**
+ * Persists user + assistant messages and updates the review session in a single transaction.
+ * Shared between the streaming and non-streaming response paths.
+ */
+async function persistChatMessages(params: {
+  reviewSessionId: string
+  userMessageId: string
+  userContent: string
+  assistantContent: string | null
+  timestamp: string
+  conversationId?: string
+} & PersistMessageAttachments): Promise<PersistChatMessagesResult> {
+  const hasAssistantMessage =
+    (typeof params.assistantContent === 'string' && params.assistantContent.trim().length > 0) ||
+    (Array.isArray(params.toolCalls) && params.toolCalls.length > 0)
+
+  await db.transaction(async (tx) => {
+    // Serialize append operations per session so sequence numbers are derived
+    // from the latest committed ledger, not from the pre-request snapshot.
+    await tx
+      .update(copilotReviewSessions)
+      .set({
+        updatedAt: new Date(),
+      })
+      .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+
+    const currentItems = await tx
+      .select()
+      .from(copilotReviewItems)
+      .where(
+        and(
+          eq(copilotReviewItems.sessionId, params.reviewSessionId),
+          eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+        )
+      )
+      .orderBy(asc(copilotReviewItems.sequence))
+    const currentMessages = currentItems.map(mapReviewItemToApi)
+
+    const assistantMessage = hasAssistantMessage
+      ? {
+          id: crypto.randomUUID(),
+          role: MESSAGE_ROLES.ASSISTANT,
+          content: params.assistantContent ?? '',
+          timestamp: params.timestamp,
+          toolCalls: params.toolCalls,
+        }
+      : null
+
+    const nextTurn = buildAppendReviewTurn({
+      reviewSessionId: params.reviewSessionId,
+      existingMessages: currentMessages,
+      userMessage: {
+        id: params.userMessageId,
+        role: MESSAGE_ROLES.USER,
+        content: params.userContent,
+        timestamp: params.timestamp,
+        fileAttachments: params.fileAttachments,
+        contexts: params.contexts,
+      },
+      assistantMessage,
+    })
+
+    await tx.insert(copilotReviewTurns).values(nextTurn.turn)
+    await tx.insert(copilotReviewItems).values(nextTurn.items)
+
+    await tx
+      .update(copilotReviewSessions)
+      .set({
+        updatedAt: new Date(),
+        ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+      })
+      .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+  })
+
+  return {
+    savedUserMessage: true,
+    savedAssistantMessage: hasAssistantMessage,
+  }
+}
+
+/**
+ * Generates a title for a new review session and persists it.
+ * Optionally invokes a callback (e.g. to emit an SSE event) when the title is ready.
+ */
+function generateAndPersistTitle(params: {
+  reviewSessionId: string
+  message: string
+  model: string
+  provider?: ProviderId
+  requestId: string
+  onTitle?: (title: string) => void
+}): void {
+  requestCopilotTitle({
+    message: params.message,
+    model: params.model,
+    provider: params.provider,
+  })
+    .then(async (title) => {
+      if (title) {
+        await db
+          .update(copilotReviewSessions)
+          .set({
+            title,
+            updatedAt: new Date(),
+          })
+          .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+
+        params.onTitle?.(title)
+        logger.info(`[${params.requestId}] Generated and saved title: ${title}`)
+      }
+    })
+    .catch((error) => {
+      logger.error(`[${params.requestId}] Title generation failed:`, error)
+    })
+}
+
+/**
+ * Extracts a user-facing message from an SSE error event, wraps it in italics,
+ * and enqueues the rewritten content + done events onto the stream.
+ * Returns the formatted assistant content string so the caller can persist it.
+ */
+function enqueueErrorRewrite(
+  event: Record<string, unknown>,
+  controller: ReadableStreamDefaultController,
+  reader: ReadableStreamDefaultReader
+): string {
+  const eventData =
+    typeof event.data === 'object' && event.data !== null
+      ? (event.data as Record<string, unknown>)
+      : null
+  const displayMessage: string =
+    (typeof eventData?.displayMessage === 'string' && eventData.displayMessage) ||
+    (typeof event.error === 'string' && event.error) ||
+    (typeof event.data === 'string' && event.data) ||
+    'Sorry, I encountered an error. Please try again.'
+  const formatted = `_${displayMessage}_`
+  try {
+    controller.enqueue(encodeSSE({ type: 'content', data: formatted }))
+  } catch {
+    reader.cancel()
+    return formatted
+  }
+  try {
+    controller.enqueue(encodeSSE({ type: 'done' }))
+  } catch {
+    reader.cancel()
+  }
+  return formatted
+}
 
 const FileAttachmentSchema = z.object({
   id: z.string(),
@@ -33,30 +230,16 @@ const FileAttachmentSchema = z.object({
 const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
-  chatId: z.string().optional(),
-  workflowId: z.string().min(1, 'Workflow ID is required'),
-  model: z
-    .enum([
-      'gpt-5-fast',
-      'gpt-5',
-      'gpt-5-medium',
-      'gpt-5-high',
-      'gpt-4o',
-      'gpt-4.1',
-      'o3',
-      'claude-4-sonnet',
-      'claude-4.5-haiku',
-      'claude-4.5-sonnet',
-      'claude-4.1-opus',
-    ])
-    .optional()
-    .default('claude-4.5-sonnet'),
+  reviewSessionId: z.string().optional(),
+  channelId: z.string().min(1).optional(),
+  workflowId: z.string().min(1).optional(),
+  model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   prefetch: z.boolean().optional(),
-  createNewChat: z.boolean().optional().default(false),
   stream: z.boolean().optional().default(true),
   fileAttachments: z.array(FileAttachmentSchema).optional(),
-  provider: z.string().optional().default('openai'),
+  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
+  workspaceId: z.string().optional(),
   contexts: z
     .array(
       z.object({
@@ -64,7 +247,14 @@ const ChatMessageSchema = z.object({
           'past_chat',
           'workflow',
           'current_workflow',
-          'current_targets',
+          'skill',
+          'current_skill',
+          'indicator',
+          'current_indicator',
+          'custom_tool',
+          'current_custom_tool',
+          'mcp_server',
+          'current_mcp_server',
           'blocks',
           'logs',
           'workflow_block',
@@ -73,13 +263,14 @@ const ChatMessageSchema = z.object({
           'docs',
         ]),
         label: z.string(),
-        chatId: z.string().optional(),
+        reviewSessionId: z.string().optional(),
         workflowId: z.string().optional(),
         skillId: z.string().optional(),
+        indicatorId: z.string().optional(),
         customToolId: z.string().optional(),
         mcpServerId: z.string().optional(),
-        indicatorId: z.string().optional(),
-        pineIndicatorId: z.string().optional(),
+        workspaceId: z.string().optional(),
+        blockIds: z.array(z.string()).optional(),
         knowledgeId: z.string().optional(),
         blockId: z.string().optional(),
         templateId: z.string().optional(),
@@ -90,15 +281,11 @@ const ChatMessageSchema = z.object({
     .optional(),
 })
 
-/**
- * POST /api/copilot/chat
- * Send messages to TradingGoose Copilot and handle chat persistence
- */
+/** POST /api/copilot/chat */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
 
   try {
-    // Get session to access user information including name
     const session = await getSession()
 
     if (!session?.user?.id) {
@@ -111,18 +298,21 @@ export async function POST(req: NextRequest) {
     const {
       message,
       userMessageId,
-      chatId,
+      reviewSessionId: incomingReviewSessionId,
+      channelId,
       workflowId,
       model,
       prefetch,
-      createNewChat,
       stream,
       fileAttachments,
       provider,
       conversationId,
+      workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
-    // Ensure we have a consistent user message ID for this request
+    if (!incomingReviewSessionId && !channelId) {
+      return createBadRequestResponse('channelId or reviewSessionId is required')
+    }
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
       logger.info(`[${tracker.requestId}] Received chat POST`, {
@@ -131,7 +321,7 @@ export async function POST(req: NextRequest) {
         contextsPreview: Array.isArray(contexts)
           ? contexts.map((c: any) => ({
               kind: c?.kind,
-              chatId: c?.chatId,
+              reviewSessionId: c?.reviewSessionId,
               workflowId: c?.workflowId,
               executionId: (c as any)?.executionId,
               label: c?.label,
@@ -139,12 +329,16 @@ export async function POST(req: NextRequest) {
           : undefined,
       })
     } catch {}
-    // Preprocess contexts server-side
     let agentContexts: Array<{ type: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
       try {
         const { processContextsServer } = await import('@/lib/copilot/process-contents')
-        const processed = await processContextsServer(contexts as any, authenticatedUserId, message)
+        const processed = await processContextsServer(
+          contexts as any,
+          authenticatedUserId,
+          message,
+          incomingWorkspaceId
+        )
         agentContexts = processed
         logger.info(`[${tracker.requestId}] Contexts processed for request`, {
           processedCount: agentContexts.length,
@@ -161,50 +355,68 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Handle chat context
-    let currentChat: any = null
-    let conversationHistory: any[] = []
-    let actualChatId = chatId
+    // Start file attachment processing early so it runs in parallel with session loading/creation
+    const fileProcessingPromise =
+      fileAttachments && fileAttachments.length > 0
+        ? CopilotFiles.processCopilotAttachments(fileAttachments, tracker.requestId)
+        : null
 
-    if (chatId) {
-      // Load existing chat
-      const [chat] = await db
-        .select()
-        .from(copilotChats)
-        .where(and(eq(copilotChats.id, chatId), eq(copilotChats.userId, authenticatedUserId)))
-        .limit(1)
+    let currentSession: ReviewSessionRow | null = null
+    let conversationHistory: ReviewMessageApi[] = []
+    let actualReviewSessionId = incomingReviewSessionId
+    let sessionCreatedThisRequest = false
 
-      if (chat) {
-        currentChat = chat
-        conversationHistory = Array.isArray(chat.messages) ? chat.messages : []
+    if (incomingReviewSessionId) {
+      const session = await loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId)
+      if (!session) {
+        return createNotFoundResponse('Review session not found or unauthorized')
       }
-    } else if (createNewChat && workflowId) {
-      // Create new chat
-      const { provider, model } = getCopilotModel('chat')
-      const [newChat] = await db
-        .insert(copilotChats)
+
+      currentSession = session
+
+      const existingMessages = await db
+        .select()
+        .from(copilotReviewItems)
+        .where(
+          and(
+            eq(copilotReviewItems.sessionId, incomingReviewSessionId),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sequence))
+
+      conversationHistory = existingMessages.map(mapReviewItemToApi)
+    } else if (channelId) {
+      if (!model || typeof model !== 'string') {
+        return createBadRequestResponse('model is required when creating a new review session')
+      }
+      // Generic copilot supports multiple chats per panel. When the client omits
+      // reviewSessionId, this route always creates a fresh session in that panel's
+      // history bucket instead of reusing the latest channel-matched row.
+      const [newSession] = await db
+        .insert(copilotReviewSessions)
         .values({
           userId: authenticatedUserId,
-          workflowId,
+          entityKind: COPILOT_SESSION_KIND,
+          entityId: null,
+          workspaceId: incomingWorkspaceId || null,
+          draftSessionId: null,
+          channelId,
           title: null,
-          model,
-          messages: [],
+          model: COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
         })
-        .returning()
+        .returning(SESSION_SELECT_COLUMNS)
 
-      if (newChat) {
-        currentChat = newChat
-        actualChatId = newChat.id
+      if (newSession) {
+        currentSession = newSession
+        actualReviewSessionId = newSession.id
+        sessionCreatedThisRequest = true
       }
     }
 
-    // Process file attachments if present
     const processedFileContents: any[] = []
-    if (fileAttachments && fileAttachments.length > 0) {
-      const processedAttachments = await CopilotFiles.processCopilotAttachments(
-        fileAttachments,
-        tracker.requestId
-      )
+    if (fileProcessingPromise) {
+      const processedAttachments = await fileProcessingPromise
 
       for (const { buffer, attachment } of processedAttachments) {
         const fileContent = createFileContent(buffer, attachment.media_type)
@@ -214,33 +426,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const defaults = getCopilotModel('chat')
-    const modelToUse = env.COPILOT_MODEL || defaults.model
+    const { provider: runtimeProvider, providerConfig } = buildCopilotRuntimeProviderConfig({
+      model,
+      provider,
+    })
 
-    let providerConfig: CopilotProviderConfig | undefined
-    const providerEnv = env.COPILOT_PROVIDER as any
-
-    if (providerEnv) {
-      if (providerEnv === 'azure-openai') {
-        providerConfig = {
-          provider: 'azure-openai',
-          model: modelToUse,
-          apiKey: env.AZURE_OPENAI_API_KEY,
-          apiVersion: 'preview',
-          endpoint: env.AZURE_OPENAI_ENDPOINT,
-        }
-      } else {
-        providerConfig = {
-          provider: providerEnv,
-          model: modelToUse,
-          apiKey: env.COPILOT_API_KEY,
-        }
-      }
-    }
-
-    // Determine conversationId to use for this request
     const effectiveConversationId =
-      (currentChat?.conversationId as string | undefined) || conversationId
+      (currentSession?.conversationId as string | undefined) || conversationId
 
     const requestPayload = {
       message: message, // Just send the current user message text
@@ -255,7 +447,7 @@ export async function POST(req: NextRequest) {
       ...(typeof prefetch === 'boolean' ? { prefetch: prefetch } : {}),
       ...(session?.user?.name && { userName: session.user.name }),
       ...(agentContexts.length > 0 && { context: agentContexts }),
-      ...(actualChatId ? { chatId: actualChatId } : {}),
+      ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
       ...(processedFileContents.length > 0 && { fileAttachments: processedFileContents }),
     }
 
@@ -292,9 +484,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // If streaming is requested, forward the stream and update chat later
     if (stream && copilotResponse.body) {
-      // Create user message to save
       const userMessage = {
         id: userMessageIdToUse, // Consistent ID used for request and persistence
         role: 'user',
@@ -308,30 +498,28 @@ export async function POST(req: NextRequest) {
           }),
       }
 
-      // Create a pass-through stream that captures the response
       const transformedStream = new ReadableStream({
         async start(controller) {
-          const encoder = new TextEncoder()
           let assistantContent = ''
           const toolCalls: any[] = []
           let buffer = ''
-          const isFirstDone = true
           let conversationIdFromStart: string | undefined
           const shouldGenerateTitle =
-            actualChatId && !currentChat?.title && conversationHistory.length === 0
+            actualReviewSessionId && !currentSession?.title && conversationHistory.length === 0
           let titleRequested = false
-
-          // Send chatId as first event
-          if (actualChatId) {
-            const chatIdEvent = `data: ${JSON.stringify({
-              type: 'chat_id',
-              chatId: actualChatId,
-            })}\n\n`
-            controller.enqueue(encoder.encode(chatIdEvent))
-            logger.debug(`[${tracker.requestId}] Sent initial chatId event to client`)
+          let persistedMessages: PersistChatMessagesResult = {
+            savedUserMessage: false,
+            savedAssistantMessage: false,
           }
 
-          // Forward the Copilot stream and capture assistant response
+          if (actualReviewSessionId) {
+            controller.enqueue(encodeSSE({
+              type: 'review_session_id',
+              reviewSessionId: actualReviewSessionId,
+            }))
+            logger.debug(`[${tracker.requestId}] Sent initial reviewSessionId event to client`)
+          }
+
           const reader = copilotResponse.body!.getReader()
           const decoder = new TextDecoder()
 
@@ -342,7 +530,6 @@ export async function POST(req: NextRequest) {
                 break
               }
 
-              // Decode and parse SSE events for logging and capturing content
               const decodedChunk = decoder.decode(value, { stream: true })
               buffer += decodedChunk
 
@@ -367,7 +554,6 @@ export async function POST(req: NextRequest) {
 
                     const event = JSON.parse(jsonStr)
 
-                    // Log different event types comprehensively
                     switch (event.type) {
                       case 'content':
                         if (event.data) {
@@ -416,34 +602,19 @@ export async function POST(req: NextRequest) {
                           event.data.conversationId.length > 0
                         ) {
                           titleRequested = true
-                          requestCopilotTitle({
+                          generateAndPersistTitle({
+                            reviewSessionId: actualReviewSessionId!,
                             message,
-                            model: providerConfig?.model ?? model,
-                            provider: providerConfig?.provider,
+                            model,
+                            provider: runtimeProvider,
+                            requestId: tracker.requestId,
+                            onTitle: (title) => {
+                              controller.enqueue(encodeSSE({
+                                type: 'title_updated',
+                                title,
+                              }))
+                            },
                           })
-                            .then(async (title) => {
-                              if (title) {
-                                await db
-                                  .update(copilotChats)
-                                  .set({
-                                    title,
-                                    updatedAt: new Date(),
-                                  })
-                                  .where(eq(copilotChats.id, actualChatId!))
-
-                                const titleEvent = `data: ${JSON.stringify({
-                                  type: 'title_updated',
-                                  title: title,
-                                })}\n\n`
-                                controller.enqueue(encoder.encode(titleEvent))
-                                logger.info(
-                                  `[${tracker.requestId}] Generated and saved title: ${title}`
-                                )
-                              }
-                            })
-                            .catch((error) => {
-                              logger.error(`[${tracker.requestId}] Title generation failed:`, error)
-                            })
                         }
                         break
 
@@ -456,43 +627,11 @@ export async function POST(req: NextRequest) {
                       default:
                     }
 
-                    // Emit to client: rewrite 'error' events into user-friendly assistant message
                     if (event?.type === 'error') {
-                      try {
-                        const displayMessage: string =
-                          (event?.data && (event.data.displayMessage as string)) ||
-                          (typeof event?.error === 'string' && event.error) ||
-                          (typeof event?.data === 'string' && event.data) ||
-                          'Sorry, I encountered an error. Please try again.'
-                        const formatted = `_${displayMessage}_`
-                        // Replace any accumulated content with the error text so we don't show mixed output
-                        assistantContent = formatted
-                        // Send as content chunk
-                        try {
-                          controller.enqueue(
-                            encoder.encode(
-                              `data: ${JSON.stringify({ type: 'content', data: formatted })}\n\n`
-                            )
-                          )
-                        } catch (enqueueErr) {
-                          reader.cancel()
-                          break
-                        }
-                        // Then close this response cleanly for the client
-                        try {
-                          controller.enqueue(
-                            encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-                          )
-                        } catch (enqueueErr) {
-                          reader.cancel()
-                          break
-                        }
-                      } catch {}
-                      // Do not forward the original error event
+                      assistantContent = enqueueErrorRewrite(event, controller, reader)
                     } else {
-                      // Forward original event to client
                       try {
-                        controller.enqueue(encoder.encode(`data: ${jsonStr}\n\n`))
+                        controller.enqueue(encodeSSE(event))
                       } catch (enqueueErr) {
                         reader.cancel()
                         break
@@ -535,30 +674,11 @@ export async function POST(req: NextRequest) {
                   if (event.type === 'content' && event.data) {
                     assistantContent += event.data
                   }
-                  // Forward remaining event, applying same error rewrite behavior
                   if (event?.type === 'error') {
-                    const displayMessage: string =
-                      (event?.data && (event.data.displayMessage as string)) ||
-                      (typeof event?.error === 'string' && event.error) ||
-                      (typeof event?.data === 'string' && event.data) ||
-                      'Sorry, I encountered an error. Please try again.'
-                    const formatted = `_${displayMessage}_`
-                    assistantContent = formatted
-                    try {
-                      controller.enqueue(
-                        encoder.encode(
-                          `data: ${JSON.stringify({ type: 'content', data: formatted })}\n\n`
-                        )
-                      )
-                      controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-                      )
-                    } catch (enqueueErr) {
-                      reader.cancel()
-                    }
+                    assistantContent = enqueueErrorRewrite(event, controller, reader)
                   } else {
                     try {
-                      controller.enqueue(encoder.encode(`data: ${jsonStr}\n\n`))
+                      controller.enqueue(encodeSSE(event))
                     } catch (enqueueErr) {
                       reader.cancel()
                     }
@@ -577,50 +697,50 @@ export async function POST(req: NextRequest) {
               toolNames: toolCalls.map((tc) => tc?.name).filter(Boolean),
             })
 
-            // Save messages to database after streaming completes (including aborted messages)
-            if (currentChat) {
-              const updatedMessages = [...conversationHistory, userMessage]
+            if (currentSession) {
+              const now = new Date().toISOString()
+              const conversationIdToPersist =
+                conversationIdFromStart ||
+                (currentSession?.conversationId ?? undefined)
 
-              // Save assistant message if there's any content or tool calls (even partial from abort)
-              if (assistantContent.trim() || toolCalls.length > 0) {
-                const assistantMessage = {
-                  id: crypto.randomUUID(),
-                  role: 'assistant',
-                  content: assistantContent,
-                  timestamp: new Date().toISOString(),
-                  ...(toolCalls.length > 0 && { toolCalls }),
+              persistedMessages = await persistChatMessages({
+                reviewSessionId: actualReviewSessionId!,
+                userMessageId: userMessage.id as string,
+                userContent: message,
+                assistantContent,
+                timestamp: now,
+                conversationId: conversationIdToPersist,
+                fileAttachments:
+                  fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
+                contexts:
+                  Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
+                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              })
+
+              logger.info(
+                `[${tracker.requestId}] Updated review session ${actualReviewSessionId} with new messages`,
+                {
+                  savedUserMessage: persistedMessages.savedUserMessage,
+                  savedAssistantMessage: persistedMessages.savedAssistantMessage,
+                  updatedConversationId: conversationIdToPersist || null,
                 }
-                updatedMessages.push(assistantMessage)
+              )
+            }
+
+            if (sessionCreatedThisRequest && !persistedMessages.savedUserMessage) {
+              try {
+                await db
+                  .delete(copilotReviewSessions)
+                  .where(eq(copilotReviewSessions.id, actualReviewSessionId!))
                 logger.info(
-                  `[${tracker.requestId}] Saving assistant message with content (${assistantContent.length} chars) and ${toolCalls.length} tool calls`
+                  `[${tracker.requestId}] Cleaned up empty review session ${actualReviewSessionId}`
                 )
-              } else {
-                logger.info(
-                  `[${tracker.requestId}] No assistant content or tool calls to save (aborted before response)`
+              } catch (cleanupErr) {
+                logger.error(
+                  `[${tracker.requestId}] Failed to clean up empty review session`,
+                  cleanupErr
                 )
               }
-
-              // Persist the conversationId from the start event (do not overwrite with responseId)
-              const previousConversationId = currentChat?.conversationId as string | undefined
-              const conversationIdToPersist =
-                conversationIdFromStart || previousConversationId || undefined
-
-              // Update chat in database immediately (without title)
-              await db
-                .update(copilotChats)
-                .set({
-                  messages: updatedMessages,
-                  updatedAt: new Date(),
-                  ...(conversationIdToPersist ? { conversationId: conversationIdToPersist } : {}),
-                })
-                .where(eq(copilotChats.id, actualChatId!))
-
-              logger.info(`[${tracker.requestId}] Updated chat ${actualChatId} with new messages`, {
-                messageCount: updatedMessages.length,
-                savedUserMessage: true,
-                savedAssistantMessage: assistantContent.trim().length > 0,
-                updatedConversationId: conversationIdToPersist || null,
-              })
             }
           } catch (error) {
             logger.error(`[${tracker.requestId}] Error processing stream:`, error)
@@ -632,17 +752,12 @@ export async function POST(req: NextRequest) {
       })
 
       const response = new Response(transformedStream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-          'X-Accel-Buffering': 'no',
-        },
+        headers: SSE_HEADERS,
       })
 
       logger.info(`[${tracker.requestId}] Returning streaming response to client`, {
         duration: tracker.getDuration(),
-        chatId: actualChatId,
+        reviewSessionId: actualReviewSessionId,
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
@@ -653,7 +768,6 @@ export async function POST(req: NextRequest) {
       return response
     }
 
-    // For non-streaming responses
     const responseData = await copilotResponse.json()
     logger.info(`[${tracker.requestId}] Non-streaming response from Copilot:`, {
       hasContent: !!responseData.content,
@@ -664,7 +778,6 @@ export async function POST(req: NextRequest) {
       hasTokens: !!responseData.tokens,
     })
 
-    // Log tool calls if present
     if (responseData.toolCalls?.length > 0) {
       responseData.toolCalls.forEach((toolCall: any) => {
         logger.info(`[${tracker.requestId}] Tool call in response:`, {
@@ -676,75 +789,44 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Save messages if we have a chat
-    if (currentChat && responseData.content) {
-      const userMessage = {
-        id: userMessageIdToUse, // Consistent ID used for request and persistence
-        role: 'user',
-        content: message,
+    const toolCalls = Array.isArray(responseData.toolCalls) ? responseData.toolCalls : undefined
+
+    if (currentSession && (responseData.content || toolCalls?.length)) {
+      await persistChatMessages({
+        reviewSessionId: actualReviewSessionId!,
+        userMessageId: userMessageIdToUse,
+        userContent: message,
+        assistantContent: responseData.content,
         timestamp: new Date().toISOString(),
-        ...(fileAttachments && fileAttachments.length > 0 && { fileAttachments }),
-        ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
-        ...(Array.isArray(contexts) &&
-          contexts.length > 0 && {
-            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-          }),
-      }
+        fileAttachments:
+          fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
+        contexts:
+          Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
+        toolCalls,
+      })
 
-      const assistantMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: responseData.content,
-        timestamp: new Date().toISOString(),
-      }
-
-      const updatedMessages = [...conversationHistory, userMessage, assistantMessage]
-
-      // Start title generation in parallel if this is first message (non-streaming)
-      if (actualChatId && !currentChat.title && conversationHistory.length === 0) {
+      if (actualReviewSessionId && !currentSession.title && conversationHistory.length === 0) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
-        requestCopilotTitle({
+        generateAndPersistTitle({
+          reviewSessionId: actualReviewSessionId,
           message,
           model: providerConfig?.model ?? model,
           provider: providerConfig?.provider,
+          requestId: tracker.requestId,
         })
-          .then(async (title) => {
-            if (title) {
-              await db
-                .update(copilotChats)
-                .set({
-                  title,
-                  updatedAt: new Date(),
-                })
-                .where(eq(copilotChats.id, actualChatId!))
-              logger.info(`[${tracker.requestId}] Generated and saved title: ${title}`)
-            }
-          })
-          .catch((error) => {
-            logger.error(`[${tracker.requestId}] Title generation failed:`, error)
-          })
       }
-
-      // Update chat in database immediately (without blocking for title)
-      await db
-        .update(copilotChats)
-        .set({
-          messages: updatedMessages,
-          updatedAt: new Date(),
-        })
-        .where(eq(copilotChats.id, actualChatId!))
     }
 
     logger.info(`[${tracker.requestId}] Returning non-streaming response`, {
       duration: tracker.getDuration(),
-      chatId: actualChatId,
+      reviewSessionId: actualReviewSessionId,
       responseLength: responseData.content?.length || 0,
     })
 
     return NextResponse.json({
       success: true,
       response: responseData,
-      chatId: actualChatId,
+      reviewSessionId: actualReviewSessionId,
       metadata: {
         requestId: tracker.requestId,
         message,
@@ -781,57 +863,86 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const workflowId = searchParams.get('workflowId')
+    const reviewSessionId = searchParams.get('reviewSessionId')
+    const channelId = searchParams.get('channelId')
+    const workspaceId = searchParams.get('workspaceId')
 
-    if (!workflowId) {
-      return createBadRequestResponse('workflowId is required')
+    if (!reviewSessionId && !channelId) {
+      return createBadRequestResponse('channelId or reviewSessionId is required')
     }
 
-    // Get authenticated user using consolidated helper
     const { userId: authenticatedUserId, isAuthenticated } =
       await authenticateCopilotRequestSessionOnly()
     if (!isAuthenticated || !authenticatedUserId) {
       return createUnauthorizedResponse()
     }
 
-    // Fetch chats for this user and workflow
-    const chats = await db
-      .select({
-        id: copilotChats.id,
-        title: copilotChats.title,
-        model: copilotChats.model,
-        messages: copilotChats.messages,
-        conversationId: copilotChats.conversationId,
-        createdAt: copilotChats.createdAt,
-        updatedAt: copilotChats.updatedAt,
+    let sessions: ReviewSessionRow[] = []
+
+    if (reviewSessionId) {
+      const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId)
+
+      if (!session) {
+        return NextResponse.json({ error: 'Review session not found or unauthorized' }, { status: 404 })
+      }
+
+      sessions = [session]
+    } else {
+      sessions = await db
+        .select(SESSION_SELECT_COLUMNS)
+        .from(copilotReviewSessions)
+        .where(
+          and(
+            eq(copilotReviewSessions.userId, authenticatedUserId),
+            eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND),
+            eq(copilotReviewSessions.channelId, channelId!),
+            workspaceId
+              ? eq(copilotReviewSessions.workspaceId, workspaceId)
+              : isNull(copilotReviewSessions.workspaceId)
+          )
+        )
+        .orderBy(desc(copilotReviewSessions.updatedAt))
+    }
+
+    const sessionIds = sessions.map((s) => s.id)
+    const messagesBySession = new Map<string, ReviewMessageApi[]>()
+
+    if (sessionIds.length > 0) {
+      const allMessages = await db
+        .select()
+        .from(copilotReviewItems)
+        .where(
+          and(
+            inArray(copilotReviewItems.sessionId, sessionIds),
+            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+          )
+        )
+        .orderBy(asc(copilotReviewItems.sessionId), asc(copilotReviewItems.sequence))
+
+      for (const msg of allMessages) {
+        const list = messagesBySession.get(msg.sessionId) ?? []
+        list.push(mapReviewItemToApi(msg))
+        messagesBySession.set(msg.sessionId, list)
+      }
+    }
+
+    const transformedChats = sessions.map((session) =>
+      mapSessionToApiResponse(session, {
+        messageCount: messagesBySession.get(session.id)?.length ?? 0,
+        messages: messagesBySession.get(session.id) ?? [],
       })
-      .from(copilotChats)
-      .where(
-        and(eq(copilotChats.userId, authenticatedUserId), eq(copilotChats.workflowId, workflowId))
-      )
-      .orderBy(desc(copilotChats.updatedAt))
+    )
 
-    // Transform the data to include message count
-    const transformedChats = chats.map((chat) => ({
-      id: chat.id,
-      title: chat.title,
-      model: chat.model,
-      messages: Array.isArray(chat.messages) ? chat.messages : [],
-      messageCount: Array.isArray(chat.messages) ? chat.messages.length : 0,
-      previewYaml: null, // Not needed for chat list
-      conversationId: chat.conversationId,
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
-    }))
-
-    logger.info(`Retrieved ${transformedChats.length} chats for workflow ${workflowId}`)
+    logger.info(
+      `Retrieved ${transformedChats.length} review sessions for ${channelId ? `channel ${channelId}` : `session ${reviewSessionId}`}`
+    )
 
     return NextResponse.json({
       success: true,
       chats: transformedChats,
     })
   } catch (error) {
-    logger.error('Error fetching copilot chats:', error)
-    return createInternalServerErrorResponse('Failed to fetch chats')
+    logger.error('Error fetching copilot review sessions:', error)
+    return createInternalServerErrorResponse('Failed to fetch review sessions')
   }
 }

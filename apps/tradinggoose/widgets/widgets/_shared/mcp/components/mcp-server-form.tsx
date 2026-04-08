@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import type { McpServerTestResult } from '@/hooks/use-mcp-server-test'
 import type { McpServerFormData } from '@/widgets/widgets/_shared/mcp/utils'
@@ -47,6 +49,34 @@ export function McpServerForm({
   const [activeHeaderIndex, setActiveHeaderIndex] = useState<number | null>(null)
   const [urlScrollLeft, setUrlScrollLeft] = useState(0)
   const [headerScrollLeft, setHeaderScrollLeft] = useState<Record<string, number>>({})
+
+  const parseArgs = useCallback((value: string) => {
+    return value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }, [])
+
+  const parseKeyValueLines = useCallback((value: string) => {
+    return Object.fromEntries(
+      value
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const separatorIndex = line.indexOf('=')
+          if (separatorIndex === -1) {
+            return [line, '']
+          }
+
+          return [
+            line.slice(0, separatorIndex).trim(),
+            line.slice(separatorIndex + 1).trim(),
+          ]
+        })
+        .filter(([key]) => key.length > 0)
+    )
+  }, [])
 
   const handleEnvVarSelect = useCallback(
     (newValue: string) => {
@@ -147,6 +177,34 @@ export function McpServerForm({
     <div className={cn('w-full rounded-md border bg-background shadow-xs', className)}>
       <div className='space-y-4'>
         <div>
+          <Label htmlFor='server-name'>Server Name</Label>
+          <Input
+            id='server-name'
+            placeholder='Workspace MCP server'
+            value={formData.name}
+            onChange={(event) => {
+              if (testResult) clearTestResult()
+              setFormData((prev) => ({ ...prev, name: event.target.value }))
+            }}
+            className='h-9'
+          />
+        </div>
+
+        <div>
+          <Label htmlFor='server-description'>Description</Label>
+          <Textarea
+            id='server-description'
+            placeholder='What this server provides to the workspace.'
+            value={formData.description}
+            onChange={(event) => {
+              if (testResult) clearTestResult()
+              setFormData((prev) => ({ ...prev, description: event.target.value }))
+            }}
+            className='min-h-[88px] resize-y'
+          />
+        </div>
+
+        <div>
           <Label htmlFor='transport'>Transport Type</Label>
           <Select
             value={formData.transport}
@@ -205,6 +263,36 @@ export function McpServerForm({
               style={{ position: 'absolute', top: '100%', left: 0, zIndex: 99999 }}
             />
           )}
+        </div>
+
+        <div>
+          <Label htmlFor='server-command'>Stored Command</Label>
+          <Input
+            id='server-command'
+            placeholder='Optional. Preserved on save but not used by the current URL transport runtime.'
+            value={formData.command}
+            onChange={(event) => {
+              setFormData((prev) => ({ ...prev, command: event.target.value }))
+            }}
+            className='h-9'
+          />
+        </div>
+
+        <div>
+          <Label htmlFor='server-args'>Stored Args</Label>
+          <Textarea
+            id='server-args'
+            placeholder='One argument per line or comma-separated.'
+            value={formData.args.join('\n')}
+            onChange={(event) => {
+              setFormData((prev) => ({ ...prev, args: parseArgs(event.target.value) }))
+            }}
+            className='min-h-[96px] resize-y font-mono text-sm'
+          />
+          <p className='mt-1 text-muted-foreground text-xs'>
+            These fields are preserved in the saved server record. Test and refresh still use the
+            URL transport only.
+          </p>
         </div>
 
         <div>
@@ -349,6 +437,79 @@ export function McpServerForm({
             <Plus className='mr-2 h-3 w-3' />
             Add Header
           </Button>
+        </div>
+
+        <div>
+          <Label htmlFor='server-env'>Stored Environment Variables</Label>
+          <Textarea
+            id='server-env'
+            placeholder={'KEY=value\nANOTHER_KEY=example'}
+            value={Object.entries(formData.env)
+              .map(([key, value]) => `${key}=${value}`)
+              .join('\n')}
+            onChange={(event) => {
+              setFormData((prev) => ({ ...prev, env: parseKeyValueLines(event.target.value) }))
+            }}
+            className='min-h-[120px] resize-y font-mono text-sm'
+          />
+        </div>
+
+        <div className='grid gap-4 md:grid-cols-3'>
+          <div>
+            <Label htmlFor='server-timeout'>Timeout (ms)</Label>
+            <Input
+              id='server-timeout'
+              type='number'
+              min={0}
+              value={formData.timeout}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value)
+                setFormData((prev) => ({
+                  ...prev,
+                  timeout: Number.isFinite(nextValue) ? nextValue : 0,
+                }))
+              }}
+              className='h-9'
+            />
+          </div>
+
+          <div>
+            <Label htmlFor='server-retries'>Retries</Label>
+            <Input
+              id='server-retries'
+              type='number'
+              min={0}
+              value={formData.retries}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value)
+                setFormData((prev) => ({
+                  ...prev,
+                  retries: Number.isFinite(nextValue) ? nextValue : 0,
+                }))
+              }}
+              className='h-9'
+            />
+          </div>
+
+          <div className='flex items-end'>
+            <div className='flex w-full items-center justify-between rounded-md border px-3 py-2'>
+              <div>
+                <Label htmlFor='server-enabled' className='text-sm'>
+                  Enabled
+                </Label>
+                <p className='text-muted-foreground text-xs'>
+                  Controls whether this server is active.
+                </p>
+              </div>
+              <Switch
+                id='server-enabled'
+                checked={formData.enabled}
+                onCheckedChange={(checked) => {
+                  setFormData((prev) => ({ ...prev, enabled: checked }))
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className='border-t pt-4'>

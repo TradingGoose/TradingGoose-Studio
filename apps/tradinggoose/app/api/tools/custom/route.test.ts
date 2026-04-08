@@ -102,6 +102,35 @@ describe('Custom Tools API Routes', () => {
     expect(body.error).toBe('workspaceId is required')
   })
 
+  it('POST should require non-empty workspaceId in body', async () => {
+    const req = new NextRequest('http://localhost:3000/api/tools/custom', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspaceId: '',
+        tools: [
+          {
+            title: 'Example',
+            schema: {
+              type: 'function',
+              function: {
+                name: 'example',
+                parameters: { type: 'object', properties: {} },
+              },
+            },
+            code: '',
+          },
+        ],
+      }),
+    })
+
+    const { POST } = await import('@/app/api/tools/custom/route')
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toBe('workspaceId is required')
+  })
+
   it('DELETE should require workspaceId query parameter', async () => {
     const req = new NextRequest('http://localhost:3000/api/tools/custom?id=tool-1', {
       method: 'DELETE',

@@ -5,7 +5,8 @@ import { ArrowDownToLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
+import { sanitizeForExport } from '@/lib/workflows/json-sanitizer'
+import { getWorkflowWithValues } from '@/stores/workflows'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -23,8 +24,6 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const [isExporting, setIsExporting] = useState(false)
   const { workflows } = useWorkflowRegistry()
   const { workflowId, channelId } = useWorkflowRoute()
-  const { getJson } = useWorkflowJsonStore()
-
   const currentWorkflow = workflowId ? workflows[workflowId] : null
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
@@ -51,12 +50,13 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
 
     setIsExporting(true)
     try {
-      // Get the JSON from the store
-      const jsonContent = await getJson({ workflowId, channelId })
-
-      if (!jsonContent) {
+      // Read live workflow state from Yjs and sanitize for export
+      const workflow = getWorkflowWithValues(workflowId, channelId)
+      if (!workflow?.state) {
         throw new Error('Failed to generate JSON')
       }
+      const exportState = sanitizeForExport(workflow.state)
+      const jsonContent = JSON.stringify(exportState, null, 2)
 
       const filename = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '-')}.json`
       downloadFile(jsonContent, filename, 'application/json')

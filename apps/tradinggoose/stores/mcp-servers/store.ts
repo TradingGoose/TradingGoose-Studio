@@ -36,18 +36,15 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         set({ isLoading: true, error: null })
 
         try {
-          const serverData = {
+          const requestBody = {
             ...config,
             workspaceId,
-            id: `mcp-${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           }
 
           const response = await fetch('/api/mcp/servers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(serverData),
+            body: JSON.stringify(requestBody),
           })
 
           const data = await response.json()
@@ -56,7 +53,28 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             throw new Error(data.error || 'Failed to create server')
           }
 
-          const newServer = { ...serverData, connectionStatus: 'disconnected' as const }
+          const serverId =
+            data?.data && typeof data.data.serverId === 'string' ? data.data.serverId : null
+
+          if (!serverId) {
+            throw new Error('Failed to create server: missing server id')
+          }
+
+          const newServer = {
+            ...requestBody,
+            id: serverId,
+            description: requestBody.description ?? undefined,
+            url: requestBody.url ?? undefined,
+            command: requestBody.command ?? undefined,
+            args: requestBody.args ?? [],
+            env: requestBody.env ?? {},
+            timeout: requestBody.timeout ?? 30000,
+            retries: requestBody.retries ?? 3,
+            enabled: requestBody.enabled ?? true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            connectionStatus: 'disconnected' as const,
+          }
           set((state) => ({
             servers: [...state.servers, newServer],
             isLoading: false,

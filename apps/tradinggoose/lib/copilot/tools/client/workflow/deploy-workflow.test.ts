@@ -25,6 +25,10 @@ vi.mock('@/stores/copilot/store', () => ({
   }),
 }))
 
+vi.mock('@/lib/workflows/operations/deployment-utils', () => ({
+  getInputFormatExample: vi.fn(() => ''),
+}))
+
 describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
   beforeEach(() => {
     vi.restoreAllMocks()

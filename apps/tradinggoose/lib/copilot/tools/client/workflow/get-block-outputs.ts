@@ -16,7 +16,7 @@ import {
   GetBlockOutputsResult,
   type GetBlockOutputsResultType,
 } from '@/lib/copilot/tools/shared/schemas'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 
 const logger = createLogger('GetBlockOutputsClientTool')
 
@@ -72,10 +72,15 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
         return
       }
 
-      const workflowStore = useWorkflowStore.getState(executionContext.channelId)
-      const blocks = workflowStore.blocks || {}
-      const loops = workflowStore.loops || {}
-      const parallels = workflowStore.parallels || {}
+      const snapshot = getSnapshotForWorkflow(activeWorkflowId)
+      if (!snapshot) {
+        await this.markToolComplete(400, 'No active Yjs session found')
+        this.setState(ClientToolCallState.error)
+        return
+      }
+      const blocks = snapshot.blocks || {}
+      const loops = snapshot.loops || {}
+      const parallels = snapshot.parallels || {}
       const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId)
 
       const ctx = { workflowId: activeWorkflowId, blocks, loops, parallels, subBlockValues }

@@ -1,16 +1,29 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('Workflows')
 
+function getYjsWorkflowState(workflowId: string): WorkflowState | null {
+  const snapshot = getSnapshotForWorkflow(workflowId)
+  if (!snapshot) return null
+  return {
+    blocks: snapshot.blocks ?? {},
+    edges: snapshot.edges ?? [],
+    loops: snapshot.loops ?? {},
+    parallels: snapshot.parallels ?? {},
+    lastSaved: snapshot.lastSaved,
+    isDeployed: snapshot.isDeployed,
+    deployedAt: snapshot.deployedAt,
+  } as WorkflowState
+}
+
 /**
  * Get a workflow with its state merged in by ID
- * Note: Since localStorage has been removed, this only works for the active workflow
+ * Reads state from the Yjs session for the given workflow.
  * @param workflowId ID of the workflow to retrieve
- * @returns The workflow with merged state values or null if not found/not active
+ * @returns The workflow with state values or null if not found/not active
  */
 export function getWorkflowWithValues(workflowId: string, channelId?: string) {
   const registryState = useWorkflowRegistry.getState()
@@ -19,16 +32,21 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
     typeof registryState.getActiveWorkflowId === 'function'
       ? registryState.getActiveWorkflowId(channelId)
       : null
-  const workflowStore = useWorkflowStore.getState(channelId)
 
   if (!workflows[workflowId]) {
     logger.warn(`Workflow ${workflowId} not found`)
     return null
   }
 
-  // Since localStorage persistence has been removed, only return data for active workflow
+  // Only return data for active workflow with a live Yjs session
   if (workflowId !== activeWorkflowId) {
-    logger.warn(`Cannot get state for non-active workflow ${workflowId} - localStorage removed`)
+    logger.warn(`Cannot get state for non-active workflow ${workflowId}`)
+    return null
+  }
+
+  const workflowState = getYjsWorkflowState(workflowId)
+  if (!workflowState) {
+    logger.warn(`No Yjs session for workflow ${workflowId}`)
     return null
   }
 
@@ -36,18 +54,6 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
 
   // Get deployment status from registry
   const deploymentStatus = useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)
-
-  // Use the current state from the store (only available for active workflow)
-  const workflowState: WorkflowState = {
-    // Use the main store's method to get the base workflow state
-    ...workflowStore.getWorkflowState(),
-    // Override deployment fields with registry-specific deployment status
-    isDeployed: deploymentStatus?.isDeployed || false,
-    deployedAt: deploymentStatus?.deployedAt,
-  }
-
-  // Merge the subblock values for this specific workflow
-  const mergedBlocks = mergeSubblockState(workflowState.blocks, workflowId)
 
   return {
     id: workflowId,
@@ -58,13 +64,13 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
     workspaceId: metadata.workspaceId,
     folderId: metadata.folderId,
     state: {
-      blocks: mergedBlocks,
+      blocks: workflowState.blocks,
       edges: workflowState.edges,
       loops: workflowState.loops,
       parallels: workflowState.parallels,
       lastSaved: workflowState.lastSaved,
-      isDeployed: workflowState.isDeployed,
-      deployedAt: workflowState.deployedAt,
+      isDeployed: deploymentStatus?.isDeployed || false,
+      deployedAt: deploymentStatus?.deployedAt,
     },
   }
 }
@@ -72,52 +78,44 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
 /**
  * Get a specific block with its subblock values merged in
  * @param blockId ID of the block to retrieve
- * @returns The block with merged subblock values or null if not found
+ * @returns The block with subblock values or null if not found
  */
 export function getBlockWithValues(blockId: string, channelId?: string): BlockState | null {
   const registryState = useWorkflowRegistry.getState()
-  const workflowStore = useWorkflowStore.getState(channelId)
   const activeWorkflowId =
     typeof registryState.getActiveWorkflowId === 'function'
       ? registryState.getActiveWorkflowId(channelId)
       : null
 
-  if (!activeWorkflowId || !workflowStore.blocks[blockId]) return null
+  if (!activeWorkflowId) return null
 
-  const mergedBlocks = mergeSubblockState(workflowStore.blocks, activeWorkflowId, blockId)
-  return mergedBlocks[blockId] || null
+  const workflowState = getYjsWorkflowState(activeWorkflowId)
+  if (!workflowState || !workflowState.blocks[blockId]) return null
+
+  return workflowState.blocks[blockId] || null
 }
 
 /**
- * Get all workflows with their values merged
- * Note: Since localStorage has been removed, this only includes the active workflow state
+ * Get all workflows with their values
+ * Only includes the active workflow state (read from Yjs).
  * @returns An object containing workflows, with state only for the active workflow
  */
 export function getAllWorkflowsWithValues(channelId?: string) {
   const { workflows } = useWorkflowRegistry.getState()
   const result: Record<string, any> = {}
   const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
-  const workflowStore = useWorkflowStore.getState(channelId)
 
   // Only sync the active workflow to ensure we always send valid state data
   if (activeWorkflowId && workflows[activeWorkflowId]) {
     const metadata = workflows[activeWorkflowId]
 
+    const workflowState = getYjsWorkflowState(activeWorkflowId)
+    if (!workflowState) return result
+
     // Get deployment status from registry
     const deploymentStatus = useWorkflowRegistry
       .getState()
       .getWorkflowDeploymentStatus(activeWorkflowId)
-
-    // Use the canonical workflow state shape from store
-    const workflowState: WorkflowState = {
-      ...workflowStore.getWorkflowState(),
-      // Override deployment fields with registry-specific deployment status
-      isDeployed: deploymentStatus?.isDeployed || false,
-      deployedAt: deploymentStatus?.deployedAt,
-    }
-
-    // Merge the subblock values for this specific workflow
-    const mergedBlocks = mergeSubblockState(workflowState.blocks, activeWorkflowId)
 
     // Include the API key in the state if it exists in the deployment status
     const apiKey = deploymentStatus?.apiKey
@@ -130,13 +128,13 @@ export function getAllWorkflowsWithValues(channelId?: string) {
       marketplaceData: metadata.marketplaceData || null,
       folderId: metadata.folderId,
       state: {
-        blocks: mergedBlocks,
+        blocks: workflowState.blocks,
         edges: workflowState.edges,
         loops: workflowState.loops,
         parallels: workflowState.parallels,
         lastSaved: workflowState.lastSaved,
-        isDeployed: workflowState.isDeployed,
-        deployedAt: workflowState.deployedAt,
+        isDeployed: deploymentStatus?.isDeployed || false,
+        deployedAt: deploymentStatus?.deployedAt,
         marketplaceData: metadata.marketplaceData || null,
       },
       // Include API key if available
@@ -154,8 +152,6 @@ export function getAllWorkflowsWithValues(channelId?: string) {
 
 export { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 export type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-export { useSubBlockStore } from '@/stores/workflows/subblock/store'
-export type { SubBlockStore } from '@/stores/workflows/subblock/types'
 export { mergeSubblockState } from '@/stores/workflows/utils'
-export { useWorkflowStore } from '@/stores/workflows/workflow/store'
 export type { WorkflowState } from '@/stores/workflows/workflow/types'
+

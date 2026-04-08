@@ -11,9 +11,19 @@ import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Edge } from 'reactflow'
 import { v4 as uuidv4 } from 'uuid'
+import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
+import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
+import { resolveStoredDateValue } from '@/lib/time-format'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
+import type { Variable } from '@/stores/variables/types'
 import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
 import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
@@ -43,6 +53,214 @@ const upsertLockedInBlockData = (data: unknown, locked: boolean): Record<string,
 
   const { locked: _locked, ...rest } = next
   return rest
+}
+
+const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) {
+    return {}
+  }
+
+  const candidate = layout as Record<string, unknown>
+  const nextLayout: BlockState['layout'] = {}
+
+  if (typeof candidate.measuredWidth === 'number' && Number.isFinite(candidate.measuredWidth)) {
+    nextLayout.measuredWidth = candidate.measuredWidth
+  }
+
+  if (typeof candidate.measuredHeight === 'number' && Number.isFinite(candidate.measuredHeight)) {
+    nextLayout.measuredHeight = candidate.measuredHeight
+  }
+
+  return nextLayout
+}
+
+export type PersistedWorkflowState = {
+  blocks: Record<string, any>
+  edges: any[]
+  loops: Record<string, any>
+  parallels: Record<string, any>
+  variables: Record<string, any>
+  lastSaved: number
+}
+
+/**
+ * Attempt to load the current workflow state from the authoritative socket
+ * server Yjs session through the generic Yjs snapshot transport. The socket
+ * server resolves a live workflow doc first and otherwise falls back to its
+ * persisted Yjs blob.
+ *
+ * Returns `null` when neither source has data for the given workflow,
+ * signalling the caller to fall back to the normalized DB tables.
+ */
+export async function loadWorkflowStateFromYjs(
+  workflowId: string
+): Promise<PersistedWorkflowState | null> {
+  try {
+    const snapshot = await getYjsSnapshot(
+      workflowId,
+      serializeYjsTransportEnvelope(
+        buildYjsTransportEnvelope({
+          workspaceId: null,
+          entityKind: 'workflow',
+          entityId: workflowId,
+          draftSessionId: null,
+          reviewSessionId: null,
+          yjsSessionId: workflowId,
+        })
+      )
+    )
+
+    if (!snapshot.snapshotBase64) {
+      return null
+    }
+
+    const doc = new Y.Doc()
+    try {
+      Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+      return extractPersistedStateFromDoc(doc)
+    } finally {
+      doc.destroy()
+    }
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+export type WorkflowStateWithSource = PersistedWorkflowState & {
+  source: 'yjs' | 'normalized'
+}
+
+/**
+ * Loads the current workflow state from Yjs (live doc or persisted session),
+ * falling back to the normalized DB tables + workflow row variables.
+ *
+ * Callers that already have the workflow row can pass `lastSynced` to avoid
+ * an extra staleness-check query on the common fresh-Yjs path.
+ *
+ * Returns `null` when neither source has data for the given workflow.
+ *
+ * The Yjs lookup is intentionally awaited before the DB query.  Yjs is the
+ * authoritative source when a live session or persisted session exists, and
+ * running both in parallel would waste a DB round-trip in the common case
+ * while risking returning stale normalized-table data if the concurrent
+ * result were used by mistake.
+ */
+export async function loadWorkflowStateWithFallback(
+  workflowId: string,
+  lastSynced?: Date
+): Promise<WorkflowStateWithSource | null> {
+  const providedWorkflowLastSynced = resolveStoredDateValue(lastSynced)
+  let workflowRowPromise:
+    | Promise<
+        | {
+            variables: unknown
+            lastSynced: unknown
+          }
+        | undefined
+      >
+    | undefined
+
+  const loadWorkflowRow = () => {
+    if (!workflowRowPromise) {
+      workflowRowPromise = db
+        .select({ variables: workflow.variables, lastSynced: workflow.lastSynced })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+        .then((rows) => rows[0])
+    }
+
+    return workflowRowPromise
+  }
+
+  try {
+    const yjsState = await loadWorkflowStateFromYjs(workflowId)
+    if (yjsState) {
+      const workflowLastSynced =
+        providedWorkflowLastSynced ?? resolveStoredDateValue((await loadWorkflowRow())?.lastSynced)
+      const yjsLastSaved = resolveStoredDateValue(yjsState.lastSaved)
+
+      if (
+        !workflowLastSynced ||
+        (yjsLastSaved && yjsLastSaved.getTime() >= workflowLastSynced.getTime())
+      ) {
+        return { ...yjsState, source: 'yjs' }
+      }
+
+      logger.warn(
+        `Ignoring stale Yjs workflow state for ${workflowId} because normalized state is newer`,
+        {
+          workflowId,
+          workflowLastSynced: workflowLastSynced.toISOString(),
+          yjsLastSaved: yjsLastSaved?.toISOString(),
+        }
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `Failed to load authoritative Yjs state for workflow ${workflowId}; falling back to normalized tables`,
+      error
+    )
+  }
+
+  // Load normalized tables and workflow variables in parallel
+  const [normalizedData, resolvedWorkflowRow] = await Promise.all([
+    loadWorkflowFromNormalizedTables(workflowId),
+    loadWorkflowRow(),
+  ])
+
+  if (!normalizedData) {
+    return null
+  }
+
+  return {
+    blocks: normalizedData.blocks,
+    edges: normalizedData.edges,
+    loops: normalizedData.loops,
+    parallels: normalizedData.parallels,
+    variables: normalizeVariables(resolvedWorkflowRow?.variables),
+    lastSaved: Date.now(),
+    source: 'normalized',
+  }
+}
+
+/**
+ * Safely coerce an unknown value (string, number, Date, null/undefined) to an
+ * ISO-8601 string.  Returns `undefined` when the input cannot be converted.
+ *
+ * Useful for normalising `lastSaved` / `deployedAt` values that may arrive as
+ * epoch numbers from Yjs or as Date objects from the database layer.
+ */
+export function toISOStringOrUndefined(
+  value: string | number | Date | null | undefined
+): string | undefined {
+  return resolveStoredDateValue(value)?.toISOString()
+}
+
+/**
+ * Create a deep copy of a variables record with fresh IDs and the given
+ * `newWorkflowId`.  Used when duplicating a workflow or instantiating a
+ * template so variable references are independent.
+ */
+export function remapVariableIds(
+  sourceVariables: Record<string, Variable>,
+  newWorkflowId: string
+): Record<string, Variable> {
+  const remapped: Record<string, Variable> = {}
+
+  for (const variable of Object.values(sourceVariables)) {
+    const newVarId = crypto.randomUUID()
+    remapped[newVarId] = {
+      ...variable,
+      id: newVarId,
+      workflowId: newWorkflowId,
+    }
+  }
+
+  return remapped
 }
 
 export async function ensureUniqueBlockIds(
@@ -395,6 +613,7 @@ export async function loadWorkflowFromNormalizedTables(
         subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
         outputs: (block.outputs as BlockState['outputs']) || {},
         data: blockData,
+        layout: sanitizeBlockLayout(block.layout),
       }
 
       blocksMap[block.id] = assembled
@@ -529,6 +748,7 @@ export async function saveWorkflowToNormalizedTables(
         subBlocks: block.subBlocks || {},
         outputs: block.outputs || {},
         data: upsertLockedInBlockData(block.data || {}, Boolean(block.locked)),
+        layout: sanitizeBlockLayout(block.layout),
       })
 
       return acc
@@ -734,18 +954,13 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
-    if (!normalizedData) {
+    // Prefer Yjs state from a live editor or persisted session before falling
+    // back to the normalized tables snapshot.
+    const stateWithSource = await loadWorkflowStateWithFallback(workflowId)
+    if (!stateWithSource) {
       return { success: false, error: 'Failed to load workflow state' }
     }
-
-    const currentState = {
-      blocks: normalizedData.blocks,
-      edges: normalizedData.edges,
-      loops: normalizedData.loops,
-      parallels: normalizedData.parallels,
-      lastSaved: Date.now(),
-    }
+    const currentState: PersistedWorkflowState = stateWithSource
 
     const now = new Date()
 
@@ -776,10 +991,11 @@ export async function deployWorkflow(params: {
         createdAt: now,
       })
 
-      // Update workflow to deployed
+      // Update workflow to deployed and persist variables
       const updateData: Record<string, unknown> = {
         isDeployed: true,
         deployedAt: now,
+        variables: currentState.variables || {},
       }
 
       if (includeDeployedState) {

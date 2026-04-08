@@ -1,0 +1,4 @@
+DROP INDEX "copilot_review_sessions_scope_key_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "copilot_review_sessions_saved_entity_unique" ON "copilot_review_sessions" USING btree ("workspace_id","entity_kind","entity_id") WHERE "copilot_review_sessions"."channel_id" IS NULL AND "copilot_review_sessions"."entity_kind" <> 'workflow' AND "copilot_review_sessions"."entity_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "copilot_review_sessions_draft_entity_unique" ON "copilot_review_sessions" USING btree ("user_id","workspace_id","entity_kind","draft_session_id") WHERE "copilot_review_sessions"."channel_id" IS NULL AND "copilot_review_sessions"."entity_kind" <> 'workflow' AND "copilot_review_sessions"."entity_id" IS NULL AND "copilot_review_sessions"."draft_session_id" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "copilot_review_sessions" DROP COLUMN "session_scope_key";

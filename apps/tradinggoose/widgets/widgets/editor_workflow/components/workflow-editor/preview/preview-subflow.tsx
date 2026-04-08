@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { Handle, type NodeProps, Position } from 'reactflow'
 import { cn } from '@/lib/utils'
+import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewSubflowData } from './preview-payload-adapter'
 
 function PreviewSubflowInner({ data }: NodeProps<PreviewSubflowData>) {
@@ -17,7 +18,13 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewSubflowData>) {
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
 
   return (
-    <div className='relative rounded-md border border-border bg-card' style={{ width, height }}>
+    <div
+      className={cn(
+        'relative rounded-md border border-border bg-card',
+        getPreviewDiffClasses(data.diffStatus)
+      )}
+      style={{ width, height }}
+    >
       <Handle
         type='target'
         position={Position.Left}

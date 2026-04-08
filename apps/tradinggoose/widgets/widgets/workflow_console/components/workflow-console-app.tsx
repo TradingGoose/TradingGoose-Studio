@@ -4,11 +4,8 @@ import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { Terminal } from './terminal/terminal'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { SocketProvider } from '@/contexts/socket-context'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  WorkflowStoreProvider,
-} from '@/stores/workflows/workflow/store-client'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface WorkflowConsoleAppProps {
   workspaceId: string
@@ -37,23 +34,25 @@ const WorkflowConsoleApp = ({
 
   return (
     <Providers workspaceId={workspaceId}>
-      <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <div className='flex h-full w-full flex-col overflow-hidden'>
-              <Terminal
-                panelWidth={panelWidth}
-                hideScrollbar={false}
-                uiKey={panelId ?? `${workspaceId}-${workflowId}`}
-              />
-            </div>
-          </WorkflowStoreProvider>
+          <div className='flex h-full w-full flex-col overflow-hidden'>
+            <Terminal
+              panelWidth={panelWidth}
+              hideScrollbar={false}
+              uiKey={panelId ?? `${workspaceId}-${workflowId}`}
+            />
+          </div>
         </WorkflowRouteProvider>
-      </SocketProvider>
+      </WorkflowSessionProvider>
     </Providers>
   )
 }

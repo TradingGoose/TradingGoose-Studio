@@ -10,7 +10,7 @@ export interface StreamingContext {
   isInThinkingBlock: boolean
   currentThinkingBlock: any | null
   pendingContent: string
-  newChatId?: string
+  newReviewSessionId?: string
   doneEventCount: number
   streamComplete?: boolean
 }

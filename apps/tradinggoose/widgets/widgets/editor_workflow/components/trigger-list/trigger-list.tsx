@@ -5,17 +5,18 @@ import { Info, Plus, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import {
-  getAllTriggerBlocks,
-  getTriggerDisplayName,
-  getTriggersForSidebar,
-} from '@/lib/workflows/trigger-utils'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
+import {
+  getAllTriggerBlocks,
+  getTriggerDisplayName,
+  getTriggersForSidebar,
+} from '@/lib/workflows/trigger-utils'
 
 const logger = createLogger('TriggerList')
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
@@ -148,13 +149,9 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
         >
           <div
             className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-            style={{ backgroundColor: trigger.color + '30', color: trigger.color }}
+            style={getIconTileStyle(trigger.color, '30')}
           >
-            {Icon ? (
-              <Icon className='!h-4 !w-4' />
-            ) : (
-              <div className='/20 h-4 w-4 rounded' />
-            )}
+            {Icon ? <Icon className='!h-4 !w-4' /> : <div className='/20 h-4 w-4 rounded' />}
           </div>
           <span className='flex-1 truncate font-medium text-sm leading-none'>
             {getTriggerDisplayName(trigger.id)}

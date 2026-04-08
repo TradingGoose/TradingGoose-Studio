@@ -1,8 +1,24 @@
-import { useEffect } from 'react'
-import { SKILL_WIDGET_SELECT_EVENT, type SkillWidgetSelectEventDetail } from '@/widgets/events'
+import {
+  SKILL_WIDGET_SELECT_EVENT,
+  type SkillWidgetSelectEventDetail,
+  type ReviewTargetEventFields,
+} from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
+import {
+  createSelectionPersistenceHook,
+  createEmitSelectionChange,
+  type UseSelectionPersistenceOptions,
+} from '@/widgets/utils/selection-persistence-factory'
 
 const DEFAULT_SCOPE_KEY = 'editor_skill'
+
+// Hook
+
+const useSkillSelectionPersistenceGeneric = createSelectionPersistenceHook({
+  eventName: SKILL_WIDGET_SELECT_EVENT,
+  detailIdKey: 'skillId',
+  defaultScopeKey: DEFAULT_SCOPE_KEY,
+})
 
 interface UseSkillSelectionPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
@@ -14,53 +30,24 @@ interface UseSkillSelectionPersistenceOptions {
 }
 
 export function useSkillSelectionPersistence({
-  onWidgetParamsChange,
-  panelId,
-  params,
-  pairColor = 'gray',
   onSkillSelect,
-  scopeKey,
+  ...rest
 }: UseSkillSelectionPersistenceOptions) {
-  useEffect(() => {
-    if (!onWidgetParamsChange && !onSkillSelect) {
-      return
-    }
-
-    const resolvedScopeKey = scopeKey ?? DEFAULT_SCOPE_KEY
-
-    const handleSkillSelect = (event: Event) => {
-      const detail = (event as CustomEvent<SkillWidgetSelectEventDetail>).detail
-      if (!detail?.widgetKey) return
-      if (resolvedScopeKey && detail.widgetKey !== resolvedScopeKey) return
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-
-      if (pairColor !== 'gray' && onSkillSelect) {
-        onSkillSelect(detail.skillId ?? null)
-        return
-      }
-
-      if (pairColor !== 'gray') {
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        skillId: detail.skillId ?? null,
-      })
-    }
-
-    window.addEventListener(SKILL_WIDGET_SELECT_EVENT, handleSkillSelect as EventListener)
-
-    return () => {
-      window.removeEventListener(SKILL_WIDGET_SELECT_EVENT, handleSkillSelect as EventListener)
-    }
-  }, [onWidgetParamsChange, onSkillSelect, pairColor, panelId, params, scopeKey])
+  const opts: UseSelectionPersistenceOptions = {
+    ...rest,
+    onEntitySelect: onSkillSelect,
+  }
+  useSkillSelectionPersistenceGeneric(opts)
 }
 
-interface EmitSkillSelectionOptions {
+// Emit
+
+const emitGeneric = createEmitSelectionChange({
+  eventName: SKILL_WIDGET_SELECT_EVENT,
+  detailIdKey: 'skillId',
+})
+
+interface EmitSkillSelectionOptions extends ReviewTargetEventFields {
   skillId?: string | null
   panelId?: string
   widgetKey: string
@@ -68,18 +55,7 @@ interface EmitSkillSelectionOptions {
 
 export function emitSkillSelectionChange({
   skillId,
-  panelId,
-  widgetKey,
+  ...rest
 }: EmitSkillSelectionOptions) {
-  if (!widgetKey) return
-
-  window.dispatchEvent(
-    new CustomEvent<SkillWidgetSelectEventDetail>(SKILL_WIDGET_SELECT_EVENT, {
-      detail: {
-        skillId: skillId ?? null,
-        panelId,
-        widgetKey,
-      },
-    })
-  )
+  emitGeneric({ ...rest, entityId: skillId })
 }

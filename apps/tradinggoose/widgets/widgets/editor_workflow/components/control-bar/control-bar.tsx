@@ -22,10 +22,9 @@ import {
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
-import { useOperationQueueStore } from '@/stores/operation-queue/store'
+
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
   widgetHeaderButtonGroupClassName,
@@ -96,7 +95,7 @@ export function ControlBar({
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
   // Store hooks
-  const { setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
+  const blocks = useWorkflowBlocks()
   const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
@@ -227,38 +226,28 @@ export function ControlBar({
     }
 
     if (isDeployed) {
-      setNeedsRedeploymentFlag(false)
       fetchDeployedState()
     } else {
       setDeployedState(null)
       setIsLoadingDeployedState(false)
     }
-  }, [activeWorkflowId, isDeployed, setNeedsRedeploymentFlag, isRegistryLoading])
+  }, [activeWorkflowId, isDeployed, isRegistryLoading])
 
-  // Get current store state for change detection
-  const currentBlocks = useWorkflowStore((state) => state.blocks)
-  const currentEdges = useWorkflowStore((state) => state.edges)
-  const subBlockValues = useSubBlockStore((state) =>
-    activeWorkflowId ? state.workflowValues[activeWorkflowId] : null
-  )
+  // Get current state for change detection (from Yjs doc)
+  const currentBlocks = useWorkflowBlocks()
+  const currentEdges = useWorkflowEdges()
 
   useEffect(() => {
-    // Avoid off-by-one false positives: wait until operation queue is idle
-    const { operations, isProcessing } = useOperationQueueStore.getState()
-    const hasPendingOps =
-      isProcessing || operations.some((op) => op.status === 'pending' || op.status === 'processing')
-
     if (!activeWorkflowId || !deployedState) {
       setChangeDetected(false)
       return
     }
 
-    if (isLoadingDeployedState || hasPendingOps) {
+    if (isLoadingDeployedState) {
       return
     }
 
-    // Use the workflow status API to get accurate change detection
-    // This uses the same logic as the deployment API (reading from normalized tables)
+    // Check if the live workflow state differs from the deployed state
     const checkForChanges = async () => {
       try {
         const response = await fetch(`/api/workflows/${activeWorkflowId}/status`)
@@ -281,10 +270,7 @@ export function ControlBar({
     deployedState,
     currentBlocks,
     currentEdges,
-    subBlockValues,
     isLoadingDeployedState,
-    useOperationQueueStore.getState().isProcessing,
-    useOperationQueueStore.getState().operations.length,
   ])
 
   useEffect(() => {

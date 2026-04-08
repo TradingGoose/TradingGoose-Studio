@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, type ReactNode, useContext, useMemo } from 'react'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface WorkflowRouteContextValue {
   workspaceId: string

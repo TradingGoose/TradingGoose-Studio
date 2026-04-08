@@ -7,8 +7,8 @@ import {
   type EditOperation,
 } from '@/lib/workflows/training/compute-edit-sequence'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('CopilotTrainingStore')
@@ -90,23 +90,24 @@ const updateChannelState = (
 }
 
 /**
- * Get a clean snapshot of the current workflow state
+ * Get a clean snapshot of the current workflow state from the Yjs session.
  */
 function captureWorkflowSnapshot(channelId?: string): WorkflowState {
-  const rawState = useWorkflowStore.getState(channelId).getWorkflowState()
   const workflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
+  if (!workflowId) {
+    return { blocks: {}, edges: [], loops: {}, parallels: {}, lastSaved: Date.now() }
+  }
 
-  // Merge subblock values to get complete state
-  const blocksWithSubblockValues = workflowId
-    ? mergeSubblockState(rawState.blocks, workflowId)
-    : rawState.blocks
+  const snapshot = getSnapshotForWorkflow(workflowId)
+  if (!snapshot) {
+    return { blocks: {}, edges: [], loops: {}, parallels: {}, lastSaved: Date.now() }
+  }
 
-  // Clean the state - only include essential fields
   return {
-    blocks: blocksWithSubblockValues,
-    edges: rawState.edges || [],
-    loops: rawState.loops || {},
-    parallels: rawState.parallels || {},
+    blocks: snapshot.blocks,
+    edges: snapshot.edges || [],
+    loops: snapshot.loops || {},
+    parallels: snapshot.parallels || {},
     lastSaved: Date.now(),
   }
 }

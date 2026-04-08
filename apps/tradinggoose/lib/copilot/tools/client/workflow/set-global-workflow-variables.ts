@@ -5,7 +5,12 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useVariablesStore } from '@/stores/variables/store'
+import {
+  getRegisteredWorkflowSession,
+  getVariablesForWorkflow,
+} from '@/lib/yjs/workflow-session-registry'
+import { setVariables } from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
@@ -49,11 +54,6 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     },
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: SetGlobalVarsArgs): Promise<void> {
     const logger = createLogger('SetGlobalWorkflowVariablesClientTool')
     try {
@@ -67,16 +67,10 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         throw new Error('No active workflow found')
       }
 
-      // Fetch current variables so we can construct full array payload
-      const getRes = await fetch(`/api/workflows/${payload.workflowId}/variables`, {
-        method: 'GET',
-      })
-      if (!getRes.ok) {
-        const txt = await getRes.text().catch(() => '')
-        throw new Error(txt || 'Failed to load current variables')
+      const currentVarsRecord = getVariablesForWorkflow(payload.workflowId)
+      if (!currentVarsRecord) {
+        throw new Error('No active Yjs session for this workflow')
       }
-      const currentJson = await getRes.json()
-      const currentVarsRecord = (currentJson?.data as Record<string, any>) || {}
 
       // Helper to convert string -> typed value
       function coerceValue(
@@ -135,7 +129,6 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         }
         if (op.operation === 'edit') {
           if (!byName[key]) {
-            // If editing a non-existent variable, create it
             byName[key] = {
               id: crypto.randomUUID(),
               workflowId: payload.workflowId,
@@ -153,49 +146,20 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         }
       }
 
-      const variablesArray = Object.values(byName)
+      // Apply the updated variables directly to the Yjs doc as a transaction.
+      // This is the sole write path - no API call. The canonical save route
+      // persists Yjs state to the database when the user saves.
+      const updatedRecord: Record<string, any> = {}
+      for (const variable of Object.values(byName)) {
+        updatedRecord[variable.id] = variable
+      }
+      const session = getRegisteredWorkflowSession(payload.workflowId)!
+      setVariables(session.doc, updatedRecord, YJS_ORIGINS.COPILOT_TOOL)
 
-      // POST full variables array to persist
-      const res = await fetch(`/api/workflows/${payload.workflowId}/variables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variables: variablesArray }),
+      logger.info('Applied variable operations to Yjs doc', {
+        workflowId: payload.workflowId,
+        operationCount: payload.operations?.length ?? 0,
       })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Failed to update variables (${res.status})`)
-      }
-
-      try {
-        const activeWorkflowId = payload.workflowId
-        if (activeWorkflowId) {
-          // Fetch the updated variables from the API
-          const refreshRes = await fetch(`/api/workflows/${activeWorkflowId}/variables`, {
-            method: 'GET',
-          })
-
-          if (refreshRes.ok) {
-            const refreshJson = await refreshRes.json()
-            const updatedVarsRecord = (refreshJson?.data as Record<string, any>) || {}
-
-            // Update the variables store with the fresh data
-            useVariablesStore.setState((state) => {
-              // Remove old variables for this workflow
-              const withoutWorkflow = Object.fromEntries(
-                Object.entries(state.variables).filter(([, v]) => v.workflowId !== activeWorkflowId)
-              )
-              // Add the updated variables
-              return {
-                variables: { ...withoutWorkflow, ...updatedVarsRecord },
-              }
-            })
-
-            logger.info('Refreshed variables in store', { workflowId: activeWorkflowId })
-          }
-        }
-      } catch (refreshError) {
-        logger.warn('Failed to refresh variables in store', { error: refreshError })
-      }
 
       await this.markToolComplete(200, 'Workflow variables updated', { variables: byName })
       this.setState(ClientToolCallState.success)

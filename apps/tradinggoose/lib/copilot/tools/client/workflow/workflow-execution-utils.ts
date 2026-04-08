@@ -12,12 +12,14 @@ import type { ExecutionResult, StreamingExecution } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import {
+  getSnapshotForWorkflow,
+  getVariablesForWorkflow,
+} from '@/lib/yjs/workflow-session-registry'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowExecutionUtils')
 
@@ -46,7 +48,7 @@ export interface WorkflowExecutionOptions {
 
 export interface WorkflowExecutionContext {
   activeWorkflowId: string
-  currentWorkflow: any
+  currentWorkflow: WorkflowSnapshot
   getAllVariables: () => any
   getVariablesByWorkflowId: (workflowId: string) => any[]
   setExecutor: (executor: Executor) => void
@@ -63,17 +65,19 @@ export function getWorkflowExecutionContext(
     throw new Error('No active workflow found')
   }
 
-  const workflowState = useWorkflowStore.getState(channelId).getWorkflowState()
-  const { isShowingDiff, isDiffReady, diffWorkflow } = useWorkflowDiffStore.getState()
-
-  // Determine which workflow to use - same logic as useCurrentWorkflow
-  const hasDiffBlocks = !!diffWorkflow && Object.keys((diffWorkflow as any).blocks || {}).length > 0
-  const shouldUseDiff = isShowingDiff && isDiffReady && hasDiffBlocks
-  const currentWorkflow = shouldUseDiff ? diffWorkflow : workflowState
+  const currentWorkflow = getSnapshotForWorkflow(activeWorkflowId)
+  if (!currentWorkflow) {
+    throw new Error('No active Yjs session found for workflow')
+  }
 
   const { getAllVariables } = useEnvironmentStore.getState()
-  const { getVariablesByWorkflowId } = useVariablesStore.getState()
   const { setExecutor } = useExecutionStore.getState()
+
+  const getVariablesByWorkflowId = (workflowId: string): any[] => {
+    const varsSnapshot = getVariablesForWorkflow(workflowId)
+    if (!varsSnapshot) return []
+    return Object.values(varsSnapshot)
+  }
 
   return {
     activeWorkflowId,
@@ -123,15 +127,13 @@ export async function executeWorkflowWithLogging(
     workflowInput && typeof workflowInput === 'object' && 'input' in workflowInput
 
   logger.info('Executing workflow', {
-    isDiffMode: (currentWorkflow as any).isDiffMode,
     isExecutingFromChat,
     totalBlocksCount: Object.keys(workflowBlocks).length,
     validBlocksCount: Object.keys(validBlocks).length,
     edgesCount: workflowEdges.length,
   })
 
-  // Merge subblock states from the appropriate store
-  const mergedStates = mergeSubblockState(validBlocks, activeWorkflowId)
+  const mergedStates = validBlocks
 
   const currentBlockStates = Object.entries(mergedStates).reduce(
     (acc, [id, block]) => {

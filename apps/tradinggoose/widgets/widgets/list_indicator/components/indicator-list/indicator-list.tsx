@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
-  useCreateIndicator,
   useDeleteIndicator,
   useIndicators,
   useUpdateIndicator,
@@ -14,10 +13,15 @@ import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { getCurrentTabId, writeSeed } from '@/widgets/utils/draft-bootstrap-seeds'
 import {
   emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
 } from '@/widgets/utils/indicator-selection'
+import {
+  buildPersistedPairContext,
+  getIndicatorIdFromParams,
+} from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'
 
 export const IndicatorListMessage = ({ message }: { message: string }) => (
@@ -38,7 +42,6 @@ export function IndicatorList({
   const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
-  const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
   const updateMutation = useUpdateIndicator()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -53,8 +56,16 @@ export function IndicatorList({
     pairColor: resolvedPairColor,
     onIndicatorSelect: (indicatorId) => {
       if (!isLinkedToColorPair) return
-      if (pairContext?.pineIndicatorId === indicatorId) return
-      setPairContext(resolvedPairColor, { pineIndicatorId: indicatorId })
+      if (pairContext?.indicatorId === indicatorId) return
+      setPairContext(
+        resolvedPairColor,
+        buildPersistedPairContext({
+          existing: pairContext,
+          legacyIdKey: 'indicatorId',
+          descriptor: null,
+          legacyEntityId: indicatorId,
+        })
+      )
     },
   })
 
@@ -66,18 +77,24 @@ export function IndicatorList({
 
   const selectedIndicatorId = useMemo(() => {
     if (isLinkedToColorPair) {
-      return pairContext?.pineIndicatorId ?? null
+      return pairContext?.indicatorId ?? null
     }
-    if (!params || typeof params !== 'object') return null
-    const value = (params as Record<string, unknown>).pineIndicatorId
-    return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [isLinkedToColorPair, pairContext?.pineIndicatorId, params])
+    return getIndicatorIdFromParams(params)
+  }, [isLinkedToColorPair, pairContext?.indicatorId, params])
 
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
       if (isLinkedToColorPair) {
-        if (pairContext?.pineIndicatorId !== indicatorId) {
-          setPairContext(resolvedPairColor, { pineIndicatorId: indicatorId })
+        if (pairContext?.indicatorId !== indicatorId) {
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'indicatorId',
+              descriptor: null,
+              legacyEntityId: indicatorId,
+            })
+          )
         }
         return
       }
@@ -87,7 +104,7 @@ export function IndicatorList({
           params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
         onWidgetParamsChange({
           ...currentParams,
-          pineIndicatorId: indicatorId,
+          indicatorId,
         })
       }
 
@@ -99,7 +116,8 @@ export function IndicatorList({
     },
     [
       isLinkedToColorPair,
-      pairContext?.pineIndicatorId,
+      pairContext?.indicatorId,
+      pairContext,
       resolvedPairColor,
       setPairContext,
       onWidgetParamsChange,
@@ -152,21 +170,54 @@ export function IndicatorList({
 
       try {
         const copiedName = `${indicator.name || 'Untitled indicator'} (Copy)`
-        const response = await createMutation.mutateAsync({
-          workspaceId,
-          indicator: {
+        const draftSessionId = crypto.randomUUID()
+
+        writeSeed({
+          draftSessionId,
+          entityKind: 'indicator',
+          payload: {
             name: copiedName,
+            color: indicator.color ?? '',
             pineCode: indicator.pineCode ?? '',
             inputMeta:
               indicator.inputMeta && typeof indicator.inputMeta === 'object'
                 ? indicator.inputMeta
-                : undefined,
+                : null,
           },
+          ownerTabId: getCurrentTabId(),
+          createdAt: Date.now(),
         })
-        const created = Array.isArray(response) ? response[0] : null
-        if (created?.id) {
-          handleSelect(created.id)
+
+        if (isLinkedToColorPair) {
+          setPairContext(resolvedPairColor, {
+            indicatorId: null,
+            reviewTarget: {
+              reviewSessionId: null,
+              reviewEntityKind: 'indicator',
+              reviewEntityId: null,
+              reviewDraftSessionId: draftSessionId,
+            },
+          })
+        } else if (onWidgetParamsChange) {
+          const currentParams =
+            params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
+          onWidgetParamsChange({
+            ...currentParams,
+            indicatorId: null,
+            reviewSessionId: null,
+            reviewEntityKind: 'indicator',
+            reviewEntityId: null,
+            reviewDraftSessionId: draftSessionId,
+          })
         }
+
+        emitIndicatorSelectionChange({
+          indicatorId: null,
+          panelId,
+          widgetKey: 'editor_indicator',
+          reviewEntityKind: 'indicator',
+          reviewDraftSessionId: draftSessionId,
+        })
       } finally {
         setCopyingIds((prev) => {
           const next = new Set(prev)
@@ -175,7 +226,16 @@ export function IndicatorList({
         })
       }
     },
-    [createMutation, handleSelect, permissions.canEdit, workspaceId]
+    [
+      isLinkedToColorPair,
+      onWidgetParamsChange,
+      panelId,
+      params,
+      permissions.canEdit,
+      resolvedPairColor,
+      setPairContext,
+      workspaceId,
+    ]
   )
 
   if (isLoading) {

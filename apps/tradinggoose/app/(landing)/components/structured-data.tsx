@@ -1,4 +1,67 @@
-export default function StructuredData() {
+interface GitHubStats {
+  stars: number | null
+  forks: number | null
+  subscribers: number | null
+}
+
+async function fetchGitHubStats(): Promise<GitHubStats> {
+  try {
+    const res = await fetch(
+      'https://api.github.com/repos/TradingGoose/TradingGoose-Studio',
+      {
+        headers: { Accept: 'application/vnd.github+json' },
+        // Revalidate daily — stars change slowly and API has rate limits.
+        next: { revalidate: 86400 },
+      }
+    )
+    if (!res.ok) return { stars: null, forks: null, subscribers: null }
+    const data = (await res.json()) as {
+      stargazers_count?: number
+      forks_count?: number
+      subscribers_count?: number
+    }
+    return {
+      stars: typeof data.stargazers_count === 'number' ? data.stargazers_count : null,
+      forks: typeof data.forks_count === 'number' ? data.forks_count : null,
+      subscribers: typeof data.subscribers_count === 'number' ? data.subscribers_count : null,
+    }
+  } catch {
+    return { stars: null, forks: null, subscribers: null }
+  }
+}
+
+function buildInteractionCounters(stats: GitHubStats) {
+  const counters: Array<Record<string, unknown>> = []
+  if (stats.stars !== null) {
+    counters.push({
+      '@type': 'InteractionCounter',
+      interactionType: { '@type': 'LikeAction' },
+      userInteractionCount: stats.stars,
+      name: 'GitHub stars',
+    })
+  }
+  if (stats.forks !== null) {
+    counters.push({
+      '@type': 'InteractionCounter',
+      interactionType: { '@type': 'ShareAction' },
+      userInteractionCount: stats.forks,
+      name: 'GitHub forks',
+    })
+  }
+  if (stats.subscribers !== null) {
+    counters.push({
+      '@type': 'InteractionCounter',
+      interactionType: { '@type': 'FollowAction' },
+      userInteractionCount: stats.subscribers,
+      name: 'GitHub watchers',
+    })
+  }
+  return counters
+}
+
+export default async function StructuredData() {
+  const githubStats = await fetchGitHubStats()
+  const interactionStatistic = buildInteractionCounters(githubStats)
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -6,10 +69,21 @@ export default function StructuredData() {
         '@type': 'Organization',
         '@id': 'https://tradinggoose.ai/#organization',
         name: 'TradingGoose',
-        alternateName: 'TradingGoose Studio',
+        alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
+        legalName: 'TradingGoose Studio',
         description:
-          'Open-source visual workflow platform for technical LLM-driven trading. Build custom indicators, monitor live markets, and trigger AI agent workflows.',
+          'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. It is a drag-and-drop workflow builder for custom indicators, live market monitors, and AI agent automations — not to be confused with the older TradingGoose multi-agent research framework.',
         url: 'https://tradinggoose.ai',
+        foundingDate: '2025',
+        knowsAbout: [
+          'Algorithmic trading',
+          'LLM trading agents',
+          'Technical analysis indicators',
+          'PineTS scripting',
+          'Workflow automation',
+          'Backtesting',
+          'Market data integration',
+        ],
         logo: {
           '@type': 'ImageObject',
           '@id': 'https://tradinggoose.ai/#logo',
@@ -25,12 +99,14 @@ export default function StructuredData() {
           'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://discord.gg/wavf5JWhuT',
           'https://docs.tradinggoose.ai',
+          'https://www.tradinggoose.ai',
         ],
         contactPoint: {
           '@type': 'ContactPoint',
           contactType: 'customer support',
           availableLanguage: ['en'],
         },
+        ...(interactionStatistic.length > 0 && { interactionStatistic }),
       },
       {
         '@type': 'WebSite',
@@ -74,6 +150,10 @@ export default function StructuredData() {
           '@id': 'https://tradinggoose.ai/#breadcrumb',
         },
         inLanguage: 'en-US',
+        speakable: {
+          '@type': 'SpeakableSpecification',
+          cssSelector: ['h1', 'h2', '.hero-description'],
+        },
         potentialAction: [
           {
             '@type': 'ReadAction',
@@ -215,7 +295,60 @@ export default function StructuredData() {
               text: 'No. TradingGoose is a workflow platform, not a financial advisor. It provides the building blocks to create your own trading automations. You define the strategies, the signals, and the actions. Use it at your own risk.',
             },
           },
+          {
+            '@type': 'Question',
+            name: 'How much does TradingGoose cost?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'TradingGoose offers four tiers. Community is free for individuals exploring indicators and AI workflows. Pro is $20/month for active users who need higher throughput and unlimited workspaces. Team is $40/month for teams sharing workflows with pooled storage. Enterprise is custom-priced. Self-hosting the open-source Studio edition is free under the project license.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I self-host TradingGoose?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes. TradingGoose Studio is fully self-hostable. Clone the repository at github.com/TradingGoose/TradingGoose-Studio, provide your own database and AI provider credentials, and run it on your own infrastructure. Docker images and deployment guides are in the documentation at docs.tradinggoose.ai.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can TradingGoose backtest trading strategies?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes. TradingGoose supports backtesting against historical candle data. You can run any indicator or workflow against past market conditions to validate signal quality before deploying to live monitors.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'What is PineTS and how does it differ from Pine Script?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'PineTS is TradingGoose’s TypeScript-based indicator language. It borrows the familiar concepts from TradingView Pine Script (series, ta.* functions, built-in indicators) but executes in a standard TypeScript runtime, giving you full typing, testing, and tooling. PineTS is purpose-built for TradingGoose’s streaming monitors and is not directly compatible with TradingView Pine Script source.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Does TradingGoose execute trades automatically?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Only if you wire it up to do so. TradingGoose does not execute trades on its own and is not a broker. You bring your own broker or exchange credentials and define the actions a workflow takes when a signal fires. The platform ships with safe-by-default behavior — workflows only take actions you explicitly configure.',
+            },
+          },
         ],
+      },
+      {
+        '@type': 'Article',
+        '@id': 'https://tradinggoose.ai/#article-disambiguation',
+        headline: 'TradingGoose Studio: open-source visual workflow platform for LLM-driven trading',
+        description:
+          'Canonical reference page for TradingGoose Studio. This is the drag-and-drop workflow builder with PineTS custom indicators, live market monitors, and AI agent automation — distinct from the older TradingGoose multi-agent LLM research framework.',
+        author: { '@id': 'https://tradinggoose.ai/#organization' },
+        publisher: { '@id': 'https://tradinggoose.ai/#organization' },
+        mainEntityOfPage: { '@id': 'https://tradinggoose.ai/#webpage' },
+        datePublished: '2025-01-01T00:00:00+00:00',
+        dateModified: new Date().toISOString(),
+        inLanguage: 'en-US',
       },
     ],
   }

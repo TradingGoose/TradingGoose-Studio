@@ -1,15 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { Chat } from './chat/chat'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { SocketProvider } from '@/contexts/socket-context'
-import {
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-  WorkflowStoreProvider,
-} from '@/stores/workflows/workflow/store-client'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface WorkflowChatAppProps {
   workspaceId: string
@@ -17,14 +14,20 @@ interface WorkflowChatAppProps {
   channelId?: string
 }
 
-const WorkflowChatApp = ({
+interface WorkflowChatSessionProvidersProps {
+  workspaceId: string
+  workflowId: string
+  channelId?: string
+  children: ReactNode
+}
+
+const WorkflowChatSessionProviders = ({
   workspaceId,
   workflowId,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-}: WorkflowChatAppProps) => {
+  children,
+}: WorkflowChatSessionProvidersProps) => {
   const session = useSession()
-  const [chatMessage, setChatMessage] = useState('')
-
   const user = session.data?.user
     ? {
       id: session.data.user.id,
@@ -35,26 +38,43 @@ const WorkflowChatApp = ({
 
   return (
     <Providers workspaceId={workspaceId}>
-      <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
-        <WorkflowRouteProvider
-          workspaceId={workspaceId}
-          workflowId={workflowId}
-          channelId={channelId}
-        >
-          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <div className='flex h-full w-full flex-col overflow-y-auto'>
-              <Chat
-                chatMessage={chatMessage}
-                setChatMessage={setChatMessage}
-                hideScrollbar={false}
-              />
-            </div>
-          </WorkflowStoreProvider>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
+        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+          {children}
         </WorkflowRouteProvider>
-      </SocketProvider>
+      </WorkflowSessionProvider>
     </Providers>
+  )
+}
+
+const WorkflowChatApp = ({
+  workspaceId,
+  workflowId,
+  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+}: WorkflowChatAppProps) => {
+  const [chatMessage, setChatMessage] = useState('')
+
+  return (
+    <WorkflowChatSessionProviders
+      workspaceId={workspaceId}
+      workflowId={workflowId}
+      channelId={channelId}
+    >
+      <div className='flex h-full w-full flex-col overflow-y-auto'>
+        <Chat
+          chatMessage={chatMessage}
+          setChatMessage={setChatMessage}
+          hideScrollbar={false}
+        />
+      </div>
+    </WorkflowChatSessionProviders>
   )
 }
 
 export default WorkflowChatApp
 export { WorkflowChatApp }
+export { WorkflowChatSessionProviders }

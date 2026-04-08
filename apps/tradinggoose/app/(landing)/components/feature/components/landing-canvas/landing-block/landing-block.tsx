@@ -1,5 +1,6 @@
 import React from 'react'
 import { BookIcon } from 'lucide-react'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { Tag, type TagProps } from './tag'
 
 /**
@@ -36,6 +37,8 @@ export const LandingBlock = React.memo(function LandingBlock({
   tags,
   className,
 }: LandingBlockProps) {
+  const iconBackgroundColor = sanitizeSolidIconColor(color)
+
   return (
     <div
       className={`z-10 flex w-64 flex-col items-start gap-3 rounded-lg border border-[#E5E5E5] bg-[#FEFEFE] p-3 ${className ?? ''}`}
@@ -47,7 +50,7 @@ export const LandingBlock = React.memo(function LandingBlock({
         <div className='flex items-center gap-2.5'>
           <div
             className='flex h-6 w-6 items-center justify-center rounded-sm text-white'
-            style={{ backgroundColor: color as string }}
+            style={iconBackgroundColor ? { backgroundColor: iconBackgroundColor } : undefined}
           >
             {icon}
           </div>

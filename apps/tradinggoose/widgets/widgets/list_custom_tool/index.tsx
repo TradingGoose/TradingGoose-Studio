@@ -40,6 +40,7 @@ import {
 } from '@/widgets/widgets/components/widget-header-control'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
+  buildPersistedPairContext,
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
@@ -134,40 +135,81 @@ function CustomToolCreateMenu({
 function CustomToolListHeaderRight({
   workspaceId,
   panelId,
+  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
+  pairColor?: PairColor
 }) {
-  const createMutation = useCreateCustomTool()
   const permissions = useUserPermissionsContext()
+  const createToolMutation = useCreateCustomTool()
   const storedTools = useCustomToolsStore((state) =>
     workspaceId ? state.getAllTools(workspaceId) : []
   )
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
 
-  const handleCreateTool = useCallback(async () => {
-    if (!workspaceId || createMutation.isPending || !permissions.canEdit) return
+  const handleCreateTool = useCallback(() => {
+    if (!workspaceId || !permissions.canEdit) return
 
-    try {
-      const createdTools = await createMutation.mutateAsync({
+    void createToolMutation
+      .mutateAsync({
         workspaceId,
         tool: buildNewCustomToolDraft(storedTools),
       })
-      const createdTool = Array.isArray(createdTools) ? createdTools[0] : null
-      if (!createdTool?.id) return
+      .then((createdTools) => {
+        const createdTool = createdTools[0]
+        const createdToolId =
+          createdTool && typeof createdTool.id === 'string' ? createdTool.id : null
 
-      emitCustomToolSelectionChange({
-        customToolId: createdTool.id,
-        panelId,
-        widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
+        if (!createdToolId) {
+          throw new Error('Created custom tool is missing an id')
+        }
+
+        if (isLinkedToColorPair) {
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'customToolId',
+              descriptor: null,
+              legacyEntityId: createdToolId,
+            })
+          )
+          return
+        }
+
+        emitCustomToolSelectionChange({
+          customToolId: createdToolId,
+          panelId,
+          widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
+        })
+        emitCustomToolSelectionChange({
+          customToolId: createdToolId,
+          panelId,
+          widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
+        })
       })
-    } catch (error) {
-      console.error('Failed to create custom tool', error)
-    }
-  }, [createMutation, panelId, permissions.canEdit, storedTools, workspaceId])
+      .catch((error) => {
+        console.error('Failed to create custom tool from list widget', error)
+      })
+  }, [
+    createToolMutation,
+    isLinkedToColorPair,
+    pairContext,
+    panelId,
+    permissions.canEdit,
+    resolvedPairColor,
+    setPairContext,
+    storedTools,
+    workspaceId,
+  ])
 
   return (
     <CustomToolCreateMenu
-      disabled={!workspaceId || createMutation.isPending || !permissions.canEdit}
+      disabled={!workspaceId || !permissions.canEdit || createToolMutation.isPending}
       onCreateCustomTool={handleCreateTool}
     />
   )
@@ -176,9 +218,11 @@ function CustomToolListHeaderRight({
 const ListCustomToolHeaderRight = ({
   workspaceId,
   panelId,
+  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
+  pairColor?: PairColor
 }) => {
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>Explorer</span>
@@ -187,7 +231,11 @@ const ListCustomToolHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <CustomToolListHeaderRight workspaceId={workspaceId} panelId={panelId} />
+        <CustomToolListHeaderRight
+          workspaceId={workspaceId}
+          panelId={panelId}
+          pairColor={pairColor}
+        />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -236,7 +284,15 @@ function ListCustomToolWidgetBodyInner({
     onCustomToolSelect: (customToolId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
+      setPairContext(
+        resolvedPairColor,
+        buildPersistedPairContext({
+          existing: pairContext,
+          legacyIdKey: 'customToolId',
+          descriptor: null,
+          legacyEntityId: customToolId,
+        })
+      )
     },
   })
 
@@ -244,7 +300,15 @@ function ListCustomToolWidgetBodyInner({
     (customToolId: string | null) => {
       if (isLinkedToColorPair) {
         if (pairContext?.customToolId !== customToolId) {
-          setPairContext(resolvedPairColor, { customToolId })
+          setPairContext(
+            resolvedPairColor,
+            buildPersistedPairContext({
+              existing: pairContext,
+              legacyIdKey: 'customToolId',
+              descriptor: null,
+              legacyEntityId: customToolId,
+            })
+          )
         }
         return
       }
@@ -266,6 +330,7 @@ function ListCustomToolWidgetBodyInner({
       isLinkedToColorPair,
       onWidgetParamsChange,
       pairContext?.customToolId,
+      pairContext,
       panelId,
       params,
       resolvedPairColor,
@@ -383,7 +448,13 @@ export const listCustomToolWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage workspace custom tools.',
   component: (props) => <ListCustomToolWidgetBody {...props} />,
-  renderHeader: ({ context, panelId }) => ({
-    right: <ListCustomToolHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
+  renderHeader: ({ widget, context, panelId }) => ({
+    right: (
+      <ListCustomToolHeaderRight
+        workspaceId={context?.workspaceId}
+        panelId={panelId}
+        pairColor={widget?.pairColor}
+      />
+    ),
   }),
 }

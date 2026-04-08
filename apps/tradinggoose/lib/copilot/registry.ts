@@ -37,9 +37,6 @@ export const ToolIds = z.enum([
   'get_operations_examples',
   'search_documentation',
   'search_online',
-  'search_patterns',
-  'search_errors',
-  'remember_debug',
   'make_api_request',
   'get_environment_variables',
   'set_environment_variables',
@@ -56,6 +53,7 @@ export const ToolIds = z.enum([
   'check_deployment_status',
   'knowledge_base',
   'manage_custom_tool',
+  'manage_indicator',
   'manage_skill',
   'manage_mcp_tool',
   'sleep',
@@ -147,6 +145,8 @@ export const ToolArgSchemas = {
         })
       )
       .min(1),
+    workflowId: z.string().optional(),
+    currentUserWorkflow: z.string().optional(),
   }),
   preview_edit_workflow: z.object({
     operations: z
@@ -158,6 +158,8 @@ export const ToolArgSchemas = {
         })
       )
       .min(1),
+    workflowId: z.string().optional(),
+    currentUserWorkflow: z.string().optional(),
   }),
 
   run_workflow: z.object({
@@ -165,6 +167,7 @@ export const ToolArgSchemas = {
   }),
 
   get_workflow_console: z.object({
+    workflowId: z.string().optional(),
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
@@ -202,24 +205,6 @@ export const ToolArgSchemas = {
     hl: z.string().optional(),
   }),
 
-  search_patterns: z.object({
-    queries: z.array(z.string()).min(1).max(3),
-    limit: z.number().optional().default(3),
-  }),
-
-  search_errors: z.object({
-    query: z.string(),
-    limit: z.number().optional().default(5),
-  }),
-
-  remember_debug: z.object({
-    operation: z.enum(['add', 'edit', 'delete']),
-    id: z.string().optional(),
-    problem: z.string().optional(),
-    solution: z.string().optional(),
-    description: z.string().optional(),
-  }),
-
   make_api_request: z.object({
     url: z.string(),
     method: z.enum(['GET', 'POST', 'PUT']),
@@ -255,15 +240,15 @@ export const ToolArgSchemas = {
 
   manage_custom_tool: z.object({
     operation: z
-      .enum(['add', 'edit', 'delete', 'list'])
+      .enum(['add', 'edit', 'list'])
       .describe(
-        'The operation to perform: add (create new), edit (update existing), delete, or list'
+        'The operation to perform: add (create new), edit (update existing), or list'
       ),
     toolId: z
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the custom tool (e.g., "0robnW7_JUVwZrDkq1mqj"). Use manage_custom_tool with operation "list" or get_workflow_data with data_type "custom_tools" to get the list of tools and their IDs. Do NOT use the function name - use the actual "id" field from the tool.'
+        'Required for edit operations. The database ID of the custom tool (e.g., "0robnW7_JUVwZrDkq1mqj"). Use manage_custom_tool with operation "list" or get_workflow_data with data_type "custom_tools" to get the list of tools and their IDs. Do NOT use the function name - use the actual "id" field from the tool.'
       ),
     title: z
       .string()
@@ -295,15 +280,15 @@ export const ToolArgSchemas = {
   }),
   manage_skill: z.object({
     operation: z
-      .enum(['add', 'edit', 'delete', 'list'])
+      .enum(['add', 'edit', 'list'])
       .describe(
-        'The operation to perform: add (create new), edit (update existing), delete, or list'
+        'The operation to perform: add (create new), edit (update existing), or list'
       ),
     skillId: z
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the skill. Use manage_skill with operation "list" or get_workflow_data with data_type "skills" to get the list of skills and their IDs.'
+        'Required for edit operations. The database ID of the skill. Use manage_skill with operation "list" or get_workflow_data with data_type "skills" to get the list of skills and their IDs.'
       ),
     name: z
       .string()
@@ -319,32 +304,65 @@ export const ToolArgSchemas = {
       .describe('Required for add. The full skill instructions content.'),
   }),
 
+  manage_indicator: z.object({
+    operation: z
+      .enum(['add', 'edit', 'list'])
+      .describe('The operation to perform: add (create new), edit (update existing), or list'),
+    indicatorId: z
+      .string()
+      .optional()
+      .describe(
+        'Required for edit operations. The database ID of the indicator. Use manage_indicator with operation "list" to get the list of indicators and their IDs.'
+      ),
+    name: z.string().optional().describe('Required for add. The indicator display name.'),
+    color: z.string().optional().describe('Optional. The indicator color hex code.'),
+    pineCode: z.string().optional().describe('Required for add. The Pine Script indicator code.'),
+    inputMeta: z
+      .record(z.unknown())
+      .optional()
+      .describe('Optional. Input metadata for the indicator.'),
+  }),
+
   manage_mcp_tool: z.object({
     operation: z
-      .enum(['add', 'edit', 'delete', 'list'])
+      .enum(['add', 'edit', 'list'])
       .describe(
-        'The operation to perform: add (create new), edit (update existing), delete, or list'
+        'The operation to perform: add (create new), edit (update existing), or list'
       ),
     serverId: z
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the MCP server. Use manage_mcp_tool with operation "list" to get the available servers and their IDs.'
+        'Required for edit operations. The database ID of the MCP server. Use manage_mcp_tool with operation "list" to get the available servers and their IDs.'
       ),
     config: z
       .object({
-        name: z.string().describe('The display name for the MCP server'),
+        name: z.string().optional().describe('The display name for the MCP server'),
+        description: z.string().optional().describe('Optional description for the MCP server'),
         transport: z
-          .enum(['streamable-http'])
+          .enum(['http', 'sse', 'streamable-http'])
           .optional()
           .default('streamable-http')
-          .describe('Transport protocol (currently only streamable-http is supported)'),
+          .describe('Transport protocol (currently limited to the URL-based MCP transports)'),
         url: z.string().optional().describe('The MCP server endpoint URL (required for add)'),
         headers: z
           .record(z.string())
           .optional()
           .describe('Optional HTTP headers to send with requests'),
+        command: z
+          .string()
+          .optional()
+          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
+        args: z
+          .array(z.string())
+          .optional()
+          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
+        env: z
+          .record(z.string())
+          .optional()
+          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
         timeout: z.number().optional().describe('Request timeout in milliseconds (default: 30000)'),
+        retries: z.number().optional().describe('Retry count for the MCP server (default: 3)'),
         enabled: z.boolean().optional().describe('Whether the server is enabled (default: true)'),
       })
       .optional()
@@ -420,9 +438,6 @@ export const ToolSSESchemas = {
   ),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
-  search_patterns: toolCallSSEFor('search_patterns', ToolArgSchemas.search_patterns),
-  search_errors: toolCallSSEFor('search_errors', ToolArgSchemas.search_errors),
-  remember_debug: toolCallSSEFor('remember_debug', ToolArgSchemas.remember_debug),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
   get_environment_variables: toolCallSSEFor(
     'get_environment_variables',
@@ -451,6 +466,7 @@ export const ToolSSESchemas = {
   ),
   knowledge_base: toolCallSSEFor('knowledge_base', ToolArgSchemas.knowledge_base),
   manage_custom_tool: toolCallSSEFor('manage_custom_tool', ToolArgSchemas.manage_custom_tool),
+  manage_indicator: toolCallSSEFor('manage_indicator', ToolArgSchemas.manage_indicator),
   manage_skill: toolCallSSEFor('manage_skill', ToolArgSchemas.manage_skill),
   manage_mcp_tool: toolCallSSEFor('manage_mcp_tool', ToolArgSchemas.manage_mcp_tool),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
@@ -620,33 +636,6 @@ export const ToolResultSchemas = {
   }),
   search_documentation: z.object({ results: z.array(z.any()) }),
   search_online: z.object({ results: z.array(z.any()) }),
-  search_patterns: z.object({
-    patterns: z.array(
-      z.object({
-        blocks_involved: z.array(z.string()).optional(),
-        description: z.string().optional(),
-        pattern_category: z.string().optional(),
-        pattern_name: z.string().optional(),
-        use_cases: z.array(z.string()).optional(),
-        workflow_json: z.any().optional(),
-      })
-    ),
-  }),
-  search_errors: z.object({
-    results: z.array(
-      z.object({
-        problem: z.string().optional(),
-        solution: z.string().optional(),
-        context: z.string().optional(),
-        similarity: z.number().optional(),
-      })
-    ),
-  }),
-  remember_debug: z.object({
-    success: z.boolean(),
-    message: z.string().optional(),
-    id: z.string().optional(),
-  }),
   make_api_request: z.object({
     status: z.number(),
     statusText: z.string().optional(),
@@ -756,7 +745,7 @@ export const ToolResultSchemas = {
   manage_custom_tool: z
     .object({
       success: z.boolean(),
-      operation: z.enum(['add', 'edit', 'delete']),
+      operation: z.enum(['add', 'edit']),
       toolId: z.string().optional(),
       title: z.string().optional(),
       functionName: z.string().optional(),
@@ -780,7 +769,7 @@ export const ToolResultSchemas = {
   manage_skill: z
     .object({
       success: z.boolean(),
-      operation: z.enum(['add', 'edit', 'delete']),
+      operation: z.enum(['add', 'edit']),
       skillId: z.string().optional(),
       name: z.string().optional(),
       message: z.string().optional(),
@@ -800,10 +789,32 @@ export const ToolResultSchemas = {
         count: z.number(),
       })
     ),
+  manage_indicator: z
+    .object({
+      success: z.boolean(),
+      operation: z.enum(['add', 'edit']),
+      indicatorId: z.string().optional(),
+      name: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .or(
+      z.object({
+        success: z.boolean(),
+        operation: z.literal('list'),
+        indicators: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            color: z.string().optional(),
+          })
+        ),
+        count: z.number(),
+      })
+    ),
   manage_mcp_tool: z
     .object({
       success: z.boolean(),
-      operation: z.enum(['add', 'edit', 'delete']),
+      operation: z.enum(['add', 'edit']),
       serverId: z.string().optional(),
       name: z.string().optional(),
       serverName: z.string().optional(),

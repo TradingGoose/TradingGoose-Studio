@@ -1,5 +1,7 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export type ToolState = ClientToolCallState
 
@@ -9,6 +11,7 @@ export interface CopilotToolCall {
   state: ClientToolCallState
   params?: Record<string, any>
   display?: ClientToolDisplay
+  result?: any
   // Immutable execution provenance captured when the tool call is created.
   provenance?: CopilotToolExecutionProvenance
 }
@@ -45,20 +48,33 @@ export interface CopilotMessage {
 }
 
 // Contexts attached to a user message
-export type ChatContext =
-  | { kind: 'past_chat'; chatId: string; label: string }
+type WorkflowChatContext =
   | { kind: 'workflow'; workflowId: string; label: string }
   | { kind: 'current_workflow'; workflowId: string; label: string }
-  | {
-      kind: 'current_targets'
-      label: string
-      workflowId?: string
-      skillId?: string
-      customToolId?: string
-      mcpServerId?: string
-      indicatorId?: string
-      pineIndicatorId?: string
-    }
+
+type SkillChatContext =
+  | { kind: 'skill'; skillId: string; workspaceId?: string; label: string }
+  | { kind: 'current_skill'; skillId: string; workspaceId?: string; label: string }
+
+type IndicatorChatContext =
+  | { kind: 'indicator'; indicatorId: string; workspaceId?: string; label: string }
+  | { kind: 'current_indicator'; indicatorId: string; workspaceId?: string; label: string }
+
+type CustomToolChatContext =
+  | { kind: 'custom_tool'; customToolId: string; workspaceId?: string; label: string }
+  | { kind: 'current_custom_tool'; customToolId: string; workspaceId?: string; label: string }
+
+type McpServerChatContext =
+  | { kind: 'mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
+  | { kind: 'current_mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
+
+export type ChatContext =
+  | { kind: 'past_chat'; reviewSessionId: string; label: string }
+  | WorkflowChatContext
+  | SkillChatContext
+  | IndicatorChatContext
+  | CustomToolChatContext
+  | McpServerChatContext
   | { kind: 'blocks'; blockIds: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
@@ -67,64 +83,60 @@ export type ChatContext =
   | { kind: 'docs'; label: string }
 
 export interface CopilotChat {
-  id: string
+  reviewSessionId: string
+  workspaceId: string | null
+  channelId: string | null
+  entityKind: string | null
+  entityId: string | null
+  draftSessionId: string | null
   title: string | null
-  model: string
   messages: CopilotMessage[]
   messageCount: number
-  previewYaml: string | null
   conversationId?: string | null
   createdAt: Date
   updatedAt: Date
 }
 
+export interface CopilotLiveContext {
+  workflowId: string | null
+  workspaceId: string | null
+}
+
 export interface CopilotToolExecutionProvenance {
   channelId: string
-  workflowId: string
+  workflowId?: string
+  reviewSessionId?: string
+  entityKind?: ReviewEntityKind
+  entityId?: string
+  draftSessionId?: string
+  workspaceId?: string
 }
 
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
-  selectedModel:
-    | 'gpt-5-fast'
-    | 'gpt-5'
-    | 'gpt-5-medium'
-    | 'gpt-5-high'
-    | 'gpt-4o'
-    | 'gpt-4.1'
-    | 'o3'
-    | 'claude-4-sonnet'
-    | 'claude-4.5-haiku'
-    | 'claude-4.5-sonnet'
-    | 'claude-4.1-opus'
+  selectedModel: CopilotRuntimeModel
   agentPrefetch: boolean
-  enabledModels: string[] | null // Null means not loaded yet, array of model IDs when loaded
   isCollapsed: boolean
 
   currentChat: CopilotChat | null
   chats: CopilotChat[]
   messages: CopilotMessage[]
-  workflowId: string | null
-
-  checkpoints: any[]
-  messageCheckpoints: Record<string, any[]>
+  liveContext: CopilotLiveContext
+  implicitContexts: ChatContext[]
 
   isLoading: boolean
   isLoadingChats: boolean
-  isLoadingCheckpoints: boolean
   isSendingMessage: boolean
   isSaving: boolean
-  isRevertingCheckpoint: boolean
   isAborting: boolean
 
   error: string | null
   saveError: string | null
-  checkpointError: string | null
 
   abortController: AbortController | null
 
   chatsLastLoadedAt: Date | null
-  chatsLoadedForWorkflow: string | null
+  chatsLoadedForScope: string | null
 
   revertState: { messageId: string; messageContent: string } | null
   inputValue: string
@@ -158,16 +170,15 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  setEnabledModels: (models: string[] | null) => void
   fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
 
-  setWorkflowId: (workflowId: string | null) => Promise<void>
+  setLiveContext: (context: Partial<CopilotLiveContext>) => void
   validateCurrentChat: () => boolean
-  loadChats: (forceRefresh?: boolean) => Promise<void>
-  areChatsFresh: (workflowId: string) => boolean
+  loadChats: (forceRefresh?: boolean, options?: { workspaceId?: string | null }) => Promise<void>
+  areChatsFresh: () => boolean
   selectChat: (chat: CopilotChat) => Promise<void>
   createNewChat: () => Promise<void>
-  deleteChat: (chatId: string) => Promise<void>
+  deleteChat: (reviewSessionId: string) => Promise<void>
 
   sendMessage: (
     message: string,
@@ -187,18 +198,9 @@ export interface CopilotActions {
   sendDocsMessage: (query: string, options?: { stream?: boolean; topK?: number }) => Promise<void>
   saveChatMessages: (chatId: string) => Promise<void>
 
-  loadCheckpoints: (chatId: string) => Promise<void>
-  loadMessageCheckpoints: (chatId: string) => Promise<void>
-  revertToCheckpoint: (checkpointId: string) => Promise<void>
-  getCheckpointsForMessage: (messageId: string) => any[]
-
-  setPreviewYaml: (yamlContent: string) => Promise<void>
-  clearPreviewYaml: () => Promise<void>
-
   clearMessages: () => void
   clearError: () => void
   clearSaveError: () => void
-  clearCheckpointError: () => void
   retrySave: (chatId: string) => Promise<void>
   cleanup: () => void
   reset: () => void
@@ -218,7 +220,7 @@ export interface CopilotActions {
     isContinuation?: boolean,
     triggerUserMessageId?: string
   ) => Promise<void>
-  handleNewChatCreation: (newChatId: string) => Promise<void>
+  handleNewReviewSessionCreation: (newReviewSessionId: string) => Promise<void>
   updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>
   updateDiffStoreWithWorkflowState: (workflowState: any, toolName?: string) => Promise<void>
 

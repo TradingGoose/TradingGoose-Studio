@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
 
     // Create the contact first
     const { data: contactData, error: createError } = await resend.contacts.create({
+      audienceId: env.RESEND_SEGMENT_ID,
       email,
-      segments: [{ id: env.RESEND_SEGMENT_ID }],
     })
 
     if (createError) {

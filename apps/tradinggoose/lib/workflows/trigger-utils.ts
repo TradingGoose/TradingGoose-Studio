@@ -1,3 +1,4 @@
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { getAllBlocks, getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 
@@ -25,24 +26,26 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
 
     // Check if it's a core trigger block (category: 'triggers')
     if (block.category === 'triggers') {
+      const color = sanitizeSolidIconColor(block.bgColor) ?? '#6B7280'
       triggers.push({
         id: block.type,
         name: block.name,
         description: block.description,
         icon: block.icon,
-        color: block.bgColor ?? '#6B7280',
+        color,
         category: 'core',
         enableTriggerMode: hasTriggerCapability(block),
       })
     }
     // Check if it's a tool with trigger capability
     else if (hasTriggerCapability(block)) {
+      const color = sanitizeSolidIconColor(block.bgColor) ?? '#6B7280'
       triggers.push({
         id: block.type,
         name: block.name,
         description: block.description.replace(' or trigger workflows from ', ', trigger from '),
         icon: block.icon,
-        color: block.bgColor ?? '#6B7280',
+        color,
         category: 'integration',
         enableTriggerMode: true,
       })

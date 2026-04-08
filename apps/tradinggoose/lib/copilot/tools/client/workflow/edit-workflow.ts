@@ -7,11 +7,14 @@ import {
 import { shouldAutoApplyWorkflowEdits } from '@/lib/copilot/access-policy'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  requireActiveWorkflowSession,
+  resolveWorkflowIdFromExecutionContext,
+  serializeReadableWorkflowSnapshot,
+} from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 interface EditWorkflowOperation {
   operation_type: 'add' | 'edit' | 'delete'
@@ -29,7 +32,13 @@ export class EditWorkflowClientTool extends BaseClientTool {
   static readonly id = 'edit_workflow'
   private lastResult: any | undefined
   private hasExecuted = false
-  private hasAppliedDiff = false
+  private hasAppliedState = false
+  private hasPersistedAcceptedState = false
+  private lastWorkflowId: string | null = null
+
+  private resolvePersistedStagedResult(): any | undefined {
+    return this.resolvePersistedResult()
+  }
 
   constructor(toolCallId: string) {
     super(toolCallId, EditWorkflowClientTool.id, EditWorkflowClientTool.metadata)
@@ -46,35 +55,111 @@ export class EditWorkflowClientTool extends BaseClientTool {
       [ClientToolCallState.aborted]: { text: 'Aborted editing your workflow', icon: MinusCircle },
       [ClientToolCallState.pending]: { text: 'Editing your workflow', icon: Loader2 },
     },
+    interrupt: {
+      accept: { text: 'Accept changes', icon: Grid2x2Check },
+      reject: { text: 'Reject changes', icon: Grid2x2X },
+    },
+  }
+
+  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
+    return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
   }
 
   async handleAccept(): Promise<void> {
     const logger = createLogger('EditWorkflowClientTool')
-    logger.info('handleAccept called', {
-      toolCallId: this.toolCallId,
-      state: this.getState(),
-      hasResult: this.lastResult !== undefined,
-    })
-    this.setState(ClientToolCallState.success)
-    const completed = await this.markToolComplete(200, 'Workflow edits accepted', this.lastResult)
-    if (!completed) {
-      logger.warn('markToolComplete failed during handleAccept', {
+    try {
+      logger.info('handleAccept called', {
         toolCallId: this.toolCallId,
+        state: this.getState(),
+        hasResult: this.lastResult !== undefined,
       })
+      const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+      if (stagedResult && !this.lastResult) {
+        this.lastResult = stagedResult
+      }
+
+      if (!stagedResult?.workflowState) {
+        throw new Error('No staged workflow edits found to accept')
+      }
+
+      const executionContext = this.requireExecutionContext()
+      const workflowId = this.lastWorkflowId ?? executionContext.workflowId
+      if (!workflowId) {
+        throw new Error('No active workflow found')
+      }
+      const session = requireActiveWorkflowSession(
+        executionContext,
+        workflowId
+      )
+
+      if (!this.hasAppliedState) {
+        setWorkflowState(session.doc, stagedResult.workflowState, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
+        this.hasAppliedState = true
+      }
+      if (!this.hasPersistedAcceptedState) {
+        await this.persistAcceptedWorkflowState(workflowId, session.doc)
+        this.hasPersistedAcceptedState = true
+      }
+
+      this.setState(ClientToolCallState.success)
+      const completed = await this.markToolComplete(200, 'Workflow edits accepted', stagedResult)
+      if (!completed) {
+        logger.warn('markToolComplete failed during handleAccept', {
+          toolCallId: this.toolCallId,
+        })
+      }
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error('handleAccept failed', { toolCallId: this.toolCallId, message })
+      this.setState(ClientToolCallState.error)
+      await this.markToolComplete(500, message || 'Failed to apply workflow edits')
     }
-    this.setState(ClientToolCallState.success)
   }
 
-  async handleReject(): Promise<void> {
-    const logger = createLogger('EditWorkflowClientTool')
-    logger.info('handleReject called', { toolCallId: this.toolCallId, state: this.getState() })
-    this.setState(ClientToolCallState.rejected)
-    const completed = await this.markToolComplete(200, 'Workflow changes rejected')
-    if (!completed) {
-      logger.warn('markToolComplete failed during handleReject', {
-        toolCallId: this.toolCallId,
-      })
+  private async persistAcceptedWorkflowState(workflowId: string, doc: Parameters<typeof setWorkflowState>[0]) {
+    // Accept applies the reviewed state to the live Yjs doc immediately, but
+    // the canonical workflow save route still owns DB persistence and follow-up
+    // side effects such as custom-tool extraction.
+    const persistedState = extractPersistedStateFromDoc(doc)
+    const response = await fetch(`/api/workflows/${workflowId}/state`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(persistedState),
+    })
+
+    if (response.ok) {
+      return
     }
+
+    let errorMessage = `Failed to persist accepted workflow edits (${response.status})`
+
+    try {
+      const errorData = await response.json()
+      if (errorData?.error) {
+        errorMessage = String(errorData.error)
+      }
+    } catch {}
+
+    throw new Error(errorMessage)
+  }
+
+  protected getRejectCompletionMessage(): string {
+    return 'Workflow changes rejected'
+  }
+
+  protected async getPendingUserAction(): Promise<'execute'> {
+    return 'execute'
+  }
+
+  protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
+    const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+
+    if (!stagedResult?.workflowState) {
+      await this.execute(args)
+      return this.resolveUserActionState() === ClientToolCallState.review
+    }
+
+    return true
   }
 
   async execute(args?: EditWorkflowArgs): Promise<void> {
@@ -90,25 +175,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const executionContext = this.requireExecutionContext()
 
       // Resolve workflowId
-      const workflowId = args?.workflowId ?? executionContext.workflowId
-      if (!workflowId) {
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No active workflow found')
-        return
-      }
-      const registryState = useWorkflowRegistry.getState()
-      const channelIdForWorkflow =
-        registryState.getPrimaryLoadedChannelForWorkflow?.(workflowId) || executionContext.channelId
-
-      // Capture channel/workflow scope and toolCallId so accept/reject stays channel-safe.
-      try {
-        const diffStore = useWorkflowDiffStore.getState()
-        diffStore.setScope?.({
-          channelId: channelIdForWorkflow,
-          workflowId,
-        })
-        diffStore.setPendingEditToolCallId?.(this.toolCallId)
-      } catch {}
+      const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
+      this.lastWorkflowId = workflowId
 
       // Validate operations
       const operations = args?.operations || []
@@ -118,63 +186,21 @@ export class EditWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Prepare currentUserWorkflow JSON from stores to preserve block IDs
+      // Build the edit baseline from the live Yjs workflow doc when available,
+      // but allow review-mode staging to fall back to the persisted workflow.
       let currentUserWorkflow = args?.currentUserWorkflow
-      const diffStoreState = useWorkflowDiffStore.getState()
-      const canUseScopedDiff =
-        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === channelIdForWorkflow
-      let usedDiffWorkflow = false
 
-      if (
-        !currentUserWorkflow &&
-        canUseScopedDiff &&
-        diffStoreState.isDiffReady &&
-        diffStoreState.diffWorkflow
-      ) {
+      if (!currentUserWorkflow) {
         try {
-          const diffWorkflow = diffStoreState.diffWorkflow
-          const normalizedDiffWorkflow = {
-            ...diffWorkflow,
-            blocks: diffWorkflow.blocks || {},
-            edges: diffWorkflow.edges || [],
-            loops: diffWorkflow.loops || {},
-            parallels: diffWorkflow.parallels || {},
-          }
-          currentUserWorkflow = JSON.stringify(normalizedDiffWorkflow)
-          usedDiffWorkflow = true
-          logger.info('Using diff workflow state as base for edit_workflow operations', {
-            toolCallId: this.toolCallId,
-            blocksCount: Object.keys(normalizedDiffWorkflow.blocks).length,
-            edgesCount: normalizedDiffWorkflow.edges.length,
-          })
+          currentUserWorkflow = (
+            await serializeReadableWorkflowSnapshot(
+              executionContext,
+              workflowId
+            )
+          ).currentUserWorkflow
         } catch (e) {
-          logger.warn(
-            'Failed to serialize diff workflow state; falling back to active workflow',
-            e as any
-          )
-        }
-      }
-
-      if (!currentUserWorkflow && !usedDiffWorkflow) {
-        try {
-          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
-          const fullState = workflowStore.getWorkflowState()
-          let merged = fullState
-          if (merged?.blocks) {
-            merged = { ...merged, blocks: mergeSubblockState(merged.blocks, workflowId as any) }
-          }
-          if (merged) {
-            if (!merged.loops) merged.loops = {}
-            if (!merged.parallels) merged.parallels = {}
-            if (!merged.edges) merged.edges = []
-            if (!merged.blocks) merged.blocks = {}
-            currentUserWorkflow = JSON.stringify(merged)
-          }
-        } catch (e) {
-          logger.warn(
-            'Failed to build currentUserWorkflow from stores; proceeding without it',
-            e as any
-          )
+          logger.warn('Failed to build currentUserWorkflow from readable workflow snapshot', e as any)
+          throw new Error('Failed to read the current workflow')
         }
       }
 
@@ -203,7 +229,13 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const json = await res.json()
       const parsed = ExecuteResponseSuccessSchema.parse(json)
       const result = parsed.result as any
+      if (!result.workflowState) {
+        throw new Error('No workflow state returned from server')
+      }
+
       this.lastResult = result
+      this.hasAppliedState = false
+      this.hasPersistedAcceptedState = false
       logger.info('server result parsed', {
         hasWorkflowState: !!result?.workflowState,
         blocksCount: result?.workflowState
@@ -211,31 +243,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
           : 0,
       })
 
-      // Update diff directly with workflow state - no YAML conversion needed!
-      if (result.workflowState) {
-        try {
-          if (!this.hasAppliedDiff) {
-            const diffStore = useWorkflowDiffStore.getState()
-            await diffStore.setProposedChanges(result.workflowState)
-            logger.info('diff proposed changes set for edit_workflow with direct workflow state')
-            this.hasAppliedDiff = true
-          } else {
-            logger.info('skipping diff apply (already applied)')
-          }
-        } catch (e) {
-          logger.warn('Failed to set proposed changes in diff store', e as any)
-          throw new Error('Failed to create workflow diff')
-        }
-      } else {
-        throw new Error('No workflow state returned from server')
-      }
-
       const accessLevel = getCopilotStoreForToolCall(this.toolCallId).getState().accessLevel
       if (shouldAutoApplyWorkflowEdits(accessLevel)) {
-        logger.info('Auto-applying workflow diff for full access session', {
+        logger.info('Auto-applying workflow edits for full access session', {
           toolCallId: this.toolCallId,
         })
-        await useWorkflowDiffStore.getState().acceptChanges()
+        await this.handleAccept()
         return
       }
 

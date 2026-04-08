@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
@@ -12,9 +13,7 @@ type ParallelToolbarItemProps = {
 }
 
 // Custom component for the Parallel Tool
-export default function ParallelToolbarItem({
-  disabled = false,
-}: ParallelToolbarItemProps) {
+export default function ParallelToolbarItem({ disabled = false }: ParallelToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
   const addBlock = useToolbarAddBlock()
   const handleDragStart = (e: React.DragEvent) => {
@@ -58,7 +57,7 @@ export default function ParallelToolbarItem({
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={{ backgroundColor: ParallelTool.bgColor + '30', color: ParallelTool.bgColor }}
+        style={getIconTileStyle(ParallelTool.bgColor, '30')}
       >
         <ParallelTool.icon
           className={cn(

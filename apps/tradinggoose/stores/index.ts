@@ -8,12 +8,9 @@ import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/console/store'
 import { useSkillsStore } from '@/stores/skills/store'
-import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 const logger = createLogger('Stores')
 
@@ -216,7 +213,6 @@ if (typeof window !== 'undefined') {
 
 // Export all stores
 export {
-  useWorkflowStore,
   useWorkflowRegistry,
   useEnvironmentStore,
   useExecutionStore,
@@ -224,8 +220,6 @@ export {
   useCopilotStore,
   useCustomToolsStore,
   useIndicatorsStore,
-  useVariablesStore,
-  useSubBlockStore,
   useSubscriptionStore,
 }
 
@@ -241,8 +235,6 @@ export const resetAllStores = () => {
     isLoading: false,
     error: null,
   })
-  useWorkflowStore.getState().clear()
-  useSubBlockStore.getState().clear()
   useEnvironmentStore.setState({
     variables: {},
     isLoading: false,
@@ -261,7 +253,6 @@ export const resetAllStores = () => {
 // Helper function to log all store states
 export const logAllStores = () => {
   const state = {
-    workflow: useWorkflowStore.getState(),
     workflowRegistry: useWorkflowRegistry.getState(),
     environment: useEnvironmentStore.getState(),
     execution: useExecutionStore.getState(),
@@ -270,8 +261,6 @@ export const logAllStores = () => {
     customTools: useCustomToolsStore.getState(),
     skills: useSkillsStore.getState(),
     indicators: useIndicatorsStore.getState(),
-    subBlock: useSubBlockStore.getState(),
-    variables: useVariablesStore.getState(),
     subscription: useSubscriptionStore.getState(),
   }
 

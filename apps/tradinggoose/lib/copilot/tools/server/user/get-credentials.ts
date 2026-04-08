@@ -3,7 +3,7 @@ import { account, user } from '@tradinggoose/db/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
+import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { generateRequestId } from '@/lib/utils'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
@@ -43,7 +43,7 @@ export const getCredentialsServerTool: BaseServerTool<GetCredentialsParams, any>
         throw new Error(errorMessage)
       }
 
-      workspaceId = wId
+      workspaceId = wId ?? undefined
     }
 
     const userId = authenticatedUserId

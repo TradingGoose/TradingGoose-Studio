@@ -103,6 +103,27 @@ const brandLogos: BrandLogo[] = [
   { icon: Icons.DuckDuckGoIcon, name: 'DuckDuckGo' },
 ]
 
+// AI-readable entity list of integrations. This is the machine-readable
+// companion to the visual logo marquee below — AI crawlers cannot parse
+// React icon components, so we emit an ItemList JSON-LD snapshot.
+const integrationsStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': 'https://tradinggoose.ai/#integrations',
+  name: 'TradingGoose integrations',
+  description:
+    'Third-party services, LLM providers, data sources, and tools that TradingGoose integrates with as callable workflow blocks.',
+  numberOfItems: brandLogos.length,
+  itemListElement: brandLogos.map((logo, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    item: {
+      '@type': 'SoftwareApplication',
+      name: logo.name,
+    },
+  })),
+}
+
 // Split logos evenly across 4 columns
 const perCol = Math.ceil(brandLogos.length / 4)
 const col1 = brandLogos.slice(0, perCol)
@@ -125,6 +146,10 @@ export default function Integrations() {
 
   return (
     <section id='integrations' className='py-8 sm:py-16 lg:py-24'>
+      <script
+        type='application/ld+json'
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(integrationsStructuredData) }}
+      />
       <div className='mx-auto px-4 sm:px-6 lg:px-48'>
         <div className='flex items-start justify-between gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>
           {/* Header */}

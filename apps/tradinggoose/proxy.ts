@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
-const logger = createLogger('Middleware')
+const logger = createLogger('Proxy')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 
@@ -12,8 +12,14 @@ const AUTH_ROUTES = new Set(['/login', '/signup'])
  * are served. Every other route gets a 404 so we can show "coming soon" only.
  */
 const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms', '/changelog'])
+const HOSTED_ALLOWED_API_PATHS = new Set(['/api/github-stars', '/api/newsletter/subscribe'])
 
-const HOSTED_HOSTNAMES = ['www.tradinggoose.ai', 'tradinggoose.ai', 'preview.tradinggoose.ai', 'staging.tradinggoose.ai']
+const HOSTED_HOSTNAMES = [
+  'www.tradinggoose.ai',
+  'tradinggoose.ai',
+  'preview.tradinggoose.ai',
+  'staging.tradinggoose.ai',
+]
 
 function isHostedEnvironment(): boolean {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -28,6 +34,9 @@ function isHostedEnvironment(): boolean {
 
 function isAllowedInHostedMode(pathname: string): boolean {
   if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
+  if (pathname === '/blog' || pathname.startsWith('/blog/')) return true
+  if (pathname.startsWith('/blog-images/')) return true
+  if (HOSTED_ALLOWED_API_PATHS.has(pathname)) return true
   // Allow static assets, Next.js internals, and public files
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
@@ -37,8 +46,14 @@ function isAllowedInHostedMode(pathname: string): boolean {
   if (pathname.startsWith('/footer/')) return true
   // Allow public root assets (images, icons, etc.)
   if (/^\/.+\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|css|js)$/.test(pathname)) return true
-  if (pathname === '/robots.txt' || pathname === '/sitemap.xml' || pathname === '/manifest.webmanifest') return true
-  if (pathname === '/changelog.xml' || pathname === '/llms.txt') return true
+  if (
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/manifest.webmanifest'
+  )
+    return true
+  if (pathname === '/changelog.xml' || pathname === '/llms.txt' || pathname === '/llms-full.txt')
+    return true
   return false
 }
 const AUTH_COOKIE_KEYS = [
@@ -200,6 +215,6 @@ export const config = {
     '/signup',
     '/invite/:path*', // Match invitation routes
     // Catch-all for other pages, excluding static assets and public directories
-    '/((?!_next/static|_next/image|favicon.ico|logo/|static/|footer/|social/|enterprise/|favicon/|twitter/|robots.txt|sitemap.xml).*)',
+    '/((?!_next/static|_next/image|blog-images/|favicon.ico|logo/|static/|footer/|social/|enterprise/|favicon/|twitter/|robots.txt|sitemap.xml).*)',
   ],
 }

@@ -1,38 +1,37 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import {
-  User,
-  BotMessageSquare,
   ChevronsUpDown,
   CreditCard,
+  KeyRound,
   LifeBuoy,
-  Star,
   LogIn,
   LogOut,
+  type LucideIcon,
   Monitor,
   Moon,
+  Star,
   Sun,
+  User,
   Users,
-  type LucideIcon,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
 import { isBillingEnabled, isHosted } from '@/lib/environment'
-import { getUserRole } from '@/lib/organization/helpers'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getInitials } from '../utils'
-import { clearUserData } from '@/stores'
-import { useGeneralStore } from '@/stores/settings/general/store'
-import { useOrganizations } from '@/hooks/queries/organization'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
+import { useOrganizations } from '@/hooks/queries/organization'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { clearUserData } from '@/stores'
+import { useGeneralStore } from '@/stores/settings/general/store'
+import { getInitials } from '../utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,8 +93,7 @@ export function UserMenu({
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
-  const currentThemeLabel =
-    THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
+  const currentThemeLabel = THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
   const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
@@ -152,17 +150,13 @@ export function UserMenu({
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const customEvent = event as CustomEvent<{ url?: string | null; version?: number } | undefined>
+      const customEvent = event as CustomEvent<
+        { url?: string | null; version?: number } | undefined
+      >
       const detail = customEvent.detail
       setAvatarOverride((prev) => ({
-        url:
-          detail && 'url' in detail
-            ? detail?.url ?? null
-            : prev.url,
-        version:
-          detail && 'version' in detail
-            ? detail?.version ?? Date.now()
-            : Date.now(),
+        url: detail && 'url' in detail ? (detail?.url ?? null) : prev.url,
+        version: detail && 'version' in detail ? (detail?.version ?? Date.now()) : Date.now(),
       }))
     }
 
@@ -321,8 +315,9 @@ export function UserMenu({
                   </DropdownMenuItem>
                   {THEME_OPTIONS.map(({ value, label, Icon }) => {
                     const isActive = theme === value
-                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
-                      }`
+                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${
+                      isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
+                    }`
                     return (
                       <DropdownMenuItem
                         key={value}
@@ -365,16 +360,16 @@ export function UserMenu({
                   onSelect={(event) => {
                     event.preventDefault()
                     if (onOpenSettings) {
-                      onOpenSettings('copilot')
+                      onOpenSettings('service')
                     } else if (typeof window !== 'undefined') {
                       window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'copilot' } })
+                        new CustomEvent('open-settings', { detail: { tab: 'service' } })
                       )
                     }
                   }}
                 >
-                  <BotMessageSquare />
-                  Copilot Settings
+                  <KeyRound />
+                  Service API Keys
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               {billingEnabled ? (
@@ -469,9 +464,9 @@ export function UserMenu({
                   event.preventDefault()
                   void handleSignOut()
                 }}
-                className="text-destructive focus:text-destructive"
+                className='text-destructive focus:text-destructive'
               >
-                <LogOut className="text-destructive " />
+                <LogOut className='text-destructive ' />
                 {isSigningOut ? 'Logging out…' : 'Log out'}
               </DropdownMenuItem>
             </DropdownMenuContent>

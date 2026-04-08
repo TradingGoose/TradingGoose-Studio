@@ -6,7 +6,6 @@ import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -227,8 +226,6 @@ const WorkflowListWidgetBody = ({
 
       try {
         setIsCreatingWorkflow(true)
-        const { clearDiff } = useWorkflowDiffStore.getState()
-        clearDiff()
         const newWorkflowId = await createWorkflow({
           workspaceId,
           folderId: folderId ?? undefined,

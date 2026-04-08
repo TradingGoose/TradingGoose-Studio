@@ -18,6 +18,10 @@ vi.mock('reactflow', () => ({
   },
 }))
 
+vi.mock('@/blocks', () => ({
+  getBlock: () => undefined,
+}))
+
 import { PreviewNode } from './preview-node'
 
 describe('PreviewNode', () => {
@@ -122,5 +126,59 @@ describe('PreviewNode', () => {
     expect(markup).toContain('data-handle-position="left"')
     expect(markup).toContain('data-handle-id="source"')
     expect(markup).toContain('data-handle-position="right"')
+  })
+
+  it('filters conditional preview rows before rendering duplicate subblock ids', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PreviewNode as any, {
+        id: 'custom-conditional',
+        data: {
+          type: 'custom-conditional',
+          name: 'Conditional Node',
+          config: {
+            category: 'blocks',
+            bgColor: '#00ccff',
+            icon: (props: any) => createElement('svg', props),
+            subBlocks: [
+              {
+                id: 'model',
+                title: 'Model',
+                type: 'short-input',
+                layout: 'half',
+              },
+              {
+                id: 'temperature',
+                title: 'Temperature 0-1',
+                type: 'slider',
+                layout: 'half',
+                condition: {
+                  field: 'model',
+                  value: ['range-1'],
+                },
+              },
+              {
+                id: 'temperature',
+                title: 'Temperature 0-2',
+                type: 'slider',
+                layout: 'half',
+                condition: {
+                  field: 'model',
+                  value: ['range-2'],
+                },
+              },
+            ],
+          },
+          subBlockValues: {
+            model: { value: 'range-2' },
+            temperature: { value: 0.7 },
+          },
+          readOnly: true,
+          isPreview: true,
+        },
+      })
+    )
+
+    expect(markup).toContain('Temperature 0-2')
+    expect(markup).not.toContain('Temperature 0-1')
   })
 })

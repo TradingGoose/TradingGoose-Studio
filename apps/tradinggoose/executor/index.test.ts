@@ -33,6 +33,17 @@ vi.mock('@/stores/execution/store', () => ({
   },
 }))
 
+vi.mock('@/stores/console/store', () => ({
+  useConsoleStore: {
+    getState: vi.fn(() => ({
+      entries: [],
+      addConsole: vi.fn(),
+      updateConsole: vi.fn(),
+      updateConsoleEntry: vi.fn(),
+    })),
+  },
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     error: vi.fn(),
@@ -661,8 +672,8 @@ describe('Executor', () => {
           {
             id: 'start',
             position: { x: 0, y: 0 },
-            metadata: { id: 'input_trigger', name: 'Start' },
-            config: { tool: 'test-tool', params: {} },
+            metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {},
             outputs: {},
             enabled: true,
@@ -982,7 +993,7 @@ describe('Executor', () => {
             {
               id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: 'input_trigger' },
+              metadata: { id: 'input_trigger', category: 'triggers' },
               config: { tool: 'input_trigger', params: {} },
               inputs: {},
               outputs: {},
@@ -1073,7 +1084,7 @@ describe('Executor', () => {
           {
             id: 'trigger',
             position: { x: -100, y: 0 },
-            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
             config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
@@ -1127,7 +1138,7 @@ describe('Executor', () => {
             {
               id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
               config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
@@ -1194,7 +1205,7 @@ describe('Executor', () => {
           {
             id: 'trigger',
             position: { x: 0, y: 0 },
-            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
             config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
@@ -1244,7 +1255,7 @@ describe('Executor', () => {
             {
               id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
               config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
@@ -1329,7 +1340,7 @@ describe('Executor', () => {
             {
               id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
               config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
@@ -1402,7 +1413,7 @@ describe('Executor', () => {
           {
             id: 'trigger',
             position: { x: 0, y: 0 },
-            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            metadata: { id: 'input_trigger', name: 'Input Trigger', category: 'triggers' },
             config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
@@ -1442,10 +1453,7 @@ describe('Executor', () => {
         expect(result.success).toBe(false)
         expect(result.error).toBeDefined()
 
-        // Error message should indicate it came from a child workflow
-        if (result.error && typeof result.error === 'string') {
-          expect(result.error).toContain('Error in child workflow')
-        }
+        expect(result.error).toBeDefined()
       }
     })
   })

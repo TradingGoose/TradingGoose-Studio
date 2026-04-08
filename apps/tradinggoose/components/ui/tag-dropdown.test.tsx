@@ -114,10 +114,7 @@ vi.mock('@/lib/get-block', () => ({
 }))
 
 vi.mock('@/stores/workflows/workflow/store-client', () => ({
-  useWorkflowStore: vi.fn(() => ({
-    blocks: {},
-    edges: [],
-  })),
+  DEFAULT_WORKFLOW_CHANNEL_ID: 'default',
 }))
 
 vi.mock('@/stores/workflows/registry/store', () => ({
@@ -129,21 +126,21 @@ vi.mock('@/stores/workflows/registry/store', () => ({
   }),
 }))
 
-vi.mock('@/stores/variables/store', () => ({
-  useVariablesStore: vi.fn(() => ({
-    getVariablesByWorkflowId: vi.fn(() => []),
-    loadVariables: vi.fn(),
-    variables: {},
-  })),
+vi.mock('@/lib/yjs/use-workflow-doc', () => ({
+  useWorkflowBlocks: vi.fn(() => ({})),
+  useWorkflowEdges: vi.fn(() => []),
+  useWorkflowLoops: vi.fn(() => ({})),
+  useWorkflowParallels: vi.fn(() => ({})),
+  useWorkflowVariables: vi.fn(() => ({})),
 }))
 
-vi.mock('@/stores/workflows/subblock/store', () => ({
-  useSubBlockStore: vi.fn(() => ({
-    getValue: vi.fn(() => null),
-    getState: vi.fn(() => ({
-      getValue: vi.fn(() => null),
-    })),
-  })),
+vi.mock('@/lib/yjs/workflow-session-registry', () => ({
+  getRegisteredWorkflowSession: vi.fn(() => null),
+}))
+
+vi.mock('@/lib/yjs/workflow-session', () => ({
+  getWorkflowSnapshot: vi.fn(() => ({ blocks: {}, edges: [], loops: {}, parallels: {} })),
+  getVariablesSnapshot: vi.fn(() => ({})),
 }))
 
 // Mock trigger functions
@@ -1357,13 +1354,6 @@ describe('TagDropdown Response Format Support', () => {
   it.concurrent(
     'should use custom schema properties when response format is specified',
     async () => {
-      // Mock the subblock store to return a custom response format
-      const mockGetValue = vi.fn()
-      const mockUseSubBlockStore = vi.mocked(
-        await import('@/stores/workflows/subblock/store')
-      ).useSubBlockStore
-
-      // Set up the mock to return the example schema from the user
       const responseFormatValue = JSON.stringify({
         name: 'short_schema',
         description: 'A minimal example schema with a single string property.',
@@ -1380,20 +1370,6 @@ describe('TagDropdown Response Format Support', () => {
           required: ['example_property'],
         },
       })
-
-      mockGetValue.mockImplementation((blockId: string, subBlockId: string) => {
-        if (blockId === 'agent1' && subBlockId === 'responseFormat') {
-          return responseFormatValue
-        }
-        return null
-      })
-
-      mockUseSubBlockStore.mockReturnValue({
-        getValue: mockGetValue,
-        getState: () => ({
-          getValue: mockGetValue,
-        }),
-      } as any)
 
       // Test the parseResponseFormatSafely function
       const parsedFormat = parseResponseFormatSafely(responseFormatValue, 'agent1')

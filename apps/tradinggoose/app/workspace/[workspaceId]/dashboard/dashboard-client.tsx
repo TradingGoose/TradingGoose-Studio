@@ -28,6 +28,8 @@ import {
   type ListingInputValue,
   toListingValueObject,
 } from '@/lib/listing/identity'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { normalizeOptionalString } from '@/lib/utils'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
@@ -86,13 +88,6 @@ interface DropdownItem {
   href: string
   icon?: ComponentType<any>
   bgColor?: string
-}
-
-const sanitizeHexColor = (value?: string) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
 }
 
 const DashboardNode = memo(
@@ -482,7 +477,7 @@ export function DashboardClient({
           id: block.type,
           name: block.name,
           icon: block.icon,
-          bgColor: block.bgColor?.trim() ? block.bgColor : undefined,
+          bgColor: sanitizeSolidIconColor(block.bgColor),
           href: block.docsLink!,
         }))
       )
@@ -763,7 +758,7 @@ export function DashboardClient({
                         >
                           {(() => {
                             const DocIcon = doc.icon ?? BookOpen
-                            const docColor = sanitizeHexColor(doc.bgColor) ?? undefined
+                            const docColor = sanitizeSolidIconColor(doc.bgColor) ?? undefined
                             return (
                               <div
                                 className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
@@ -1101,77 +1096,42 @@ function applyPairDataToWidget(
     widget.params && typeof widget.params === 'object' && !Array.isArray(widget.params)
       ? { ...(widget.params as Record<string, unknown>) }
       : {}
+  const hadLegacyPineIndicatorId = 'pineIndicatorId' in baseParams
+  delete baseParams.pineIndicatorId
 
-  const workflowId = pairData.workflowId ?? null
-  const listing = pairData.listing ?? null
-  const copilotChatId = pairData.copilotChatId ?? null
-  const indicatorId = pairData.indicatorId ?? null
-  const pineIndicatorId = pairData.pineIndicatorId ?? null
-  const mcpServerId = pairData.mcpServerId ?? null
-  const customToolId = pairData.customToolId ?? null
-  const skillId = pairData.skillId ?? null
+  const pairKeys = [
+    'workflowId',
+    'listing',
+    'indicatorId',
+    'mcpServerId',
+    'customToolId',
+    'skillId',
+  ] as const
+
+  const reviewKeys = [
+    'reviewSessionId',
+    'reviewEntityKind',
+    'reviewEntityId',
+    'reviewDraftSessionId',
+  ] as const
+
   const hasPairData =
-    workflowId != null ||
-    listing != null ||
-    copilotChatId != null ||
-    indicatorId != null ||
-    pineIndicatorId != null ||
-    mcpServerId != null ||
-    customToolId != null ||
-    skillId != null
+    pairKeys.some((k) => pairData[k] != null) ||
+    reviewKeys.some((k) => pairData.reviewTarget?.[k] != null)
   const hasPairParams =
-    'workflowId' in baseParams ||
-    'listing' in baseParams ||
-    'copilotChatId' in baseParams ||
-    'indicatorId' in baseParams ||
-    'pineIndicatorId' in baseParams ||
-    'mcpServerId' in baseParams ||
-    'customToolId' in baseParams ||
-    'skillId' in baseParams
+    pairKeys.some((k) => k in baseParams) ||
+    reviewKeys.some((k) => k in baseParams) ||
+    hadLegacyPineIndicatorId
 
   if (!hasPairData && !hasPairParams) {
     return widget
   }
 
-  if (workflowId == null) {
-    baseParams.workflowId = undefined
-  } else {
-    baseParams.workflowId = workflowId
+  for (const key of pairKeys) {
+    baseParams[key] = pairData[key] ?? undefined
   }
-  if (listing == null) {
-    baseParams.listing = undefined
-  } else {
-    baseParams.listing = listing
-  }
-  if (copilotChatId == null) {
-    baseParams.copilotChatId = undefined
-  } else {
-    baseParams.copilotChatId = copilotChatId
-  }
-  if (indicatorId == null) {
-    baseParams.indicatorId = undefined
-  } else {
-    baseParams.indicatorId = indicatorId
-  }
-  if (pineIndicatorId == null) {
-    baseParams.pineIndicatorId = undefined
-  } else {
-    baseParams.pineIndicatorId = pineIndicatorId
-  }
-  if (mcpServerId == null) {
-    baseParams.mcpServerId = undefined
-  } else {
-    baseParams.mcpServerId = mcpServerId
-  }
-  if (customToolId == null) {
-    baseParams.customToolId = undefined
-  } else {
-    baseParams.customToolId = customToolId
-  }
-  if (skillId == null) {
-    baseParams.skillId = undefined
-  } else {
-    baseParams.skillId = skillId
+  for (const key of reviewKeys) {
+    baseParams[key] = pairData.reviewTarget?.[key] ?? undefined
   }
 
   const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
@@ -1201,9 +1161,8 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
     nextContexts[pair.color] = {
       workflowId: pair.workflowId ?? undefined,
       listing: pair.listing ?? null,
-      copilotChatId: pair.copilotChatId ?? null,
+      reviewTarget: pair.reviewTarget,
       indicatorId: pair.indicatorId ?? null,
-      pineIndicatorId: pair.pineIndicatorId ?? null,
       mcpServerId: pair.mcpServerId ?? null,
       customToolId: pair.customToolId ?? null,
       skillId: pair.skillId ?? null,
@@ -1222,43 +1181,24 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
   colorsInUse.forEach((color) => {
     if (color === 'gray') return
     const context = contexts[color]
-    const workflowId =
-      typeof context?.workflowId === 'string' && context.workflowId.trim().length > 0
-        ? context.workflowId
-        : null
+    const workflowId = normalizeOptionalString(context?.workflowId)
     const listing = getListingIdentity(context?.listing)
-    const copilotChatId =
-      typeof context?.copilotChatId === 'string' && context.copilotChatId.trim().length > 0
-        ? context.copilotChatId
-        : null
-    const indicatorId =
-      typeof context?.indicatorId === 'string' && context.indicatorId.trim().length > 0
-        ? context.indicatorId
-        : null
-    const pineIndicatorId =
-      typeof context?.pineIndicatorId === 'string' && context.pineIndicatorId.trim().length > 0
-        ? context.pineIndicatorId
-        : null
-    const mcpServerId =
-      typeof context?.mcpServerId === 'string' && context.mcpServerId.trim().length > 0
-        ? context.mcpServerId
-        : null
-    const customToolId =
-      typeof context?.customToolId === 'string' && context.customToolId.trim().length > 0
-        ? context.customToolId
-        : null
-    const skillId =
-      typeof context?.skillId === 'string' && context.skillId.trim().length > 0
-        ? context.skillId
-        : null
+    const indicatorId = normalizeOptionalString(context?.indicatorId)
+    const mcpServerId = normalizeOptionalString(context?.mcpServerId)
+    const customToolId = normalizeOptionalString(context?.customToolId)
+    const skillId = normalizeOptionalString(context?.skillId)
 
     pairs.push({
       color,
       workflowId,
       listing,
-      copilotChatId,
+      reviewTarget: {
+        reviewSessionId: normalizeOptionalString(context?.reviewTarget?.reviewSessionId),
+        reviewEntityKind: normalizeOptionalString(context?.reviewTarget?.reviewEntityKind),
+        reviewEntityId: normalizeOptionalString(context?.reviewTarget?.reviewEntityId),
+        reviewDraftSessionId: normalizeOptionalString(context?.reviewTarget?.reviewDraftSessionId),
+      },
       indicatorId,
-      pineIndicatorId,
       mcpServerId,
       customToolId,
       skillId,
@@ -1274,10 +1214,9 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
     (pair) =>
       pair?.color &&
       (pair.workflowId ||
-        pair.copilotChatId ||
+        pair.reviewTarget?.reviewSessionId ||
         Boolean(getListingIdentity(pair.listing)) ||
         pair.indicatorId ||
-        pair.pineIndicatorId ||
         pair.mcpServerId ||
         pair.customToolId ||
         pair.skillId)
@@ -1520,7 +1459,7 @@ function DropdownSection({
       <div className='space-y-1'>
         {items.map((item) => {
           const ItemIcon = item.icon ?? Icon
-          const iconColor = sanitizeHexColor(item.bgColor) ?? undefined
+          const iconColor = sanitizeSolidIconColor(item.bgColor) ?? undefined
 
           return (
             <button

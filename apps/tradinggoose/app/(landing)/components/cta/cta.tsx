@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { CreditCardIcon } from 'lucide-react'
 import { DiscordIcon } from '@/components/icons/icons'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Button } from '@/components/ui/button'
@@ -73,7 +72,7 @@ export default function CallToAction() {
             </Button>
           </div>
           {status === 'success' ? (
-            <p className='text-center text-sm text-emerald-500'>{message}</p>
+            <p className='text-center text-emerald-500 text-sm'>{message}</p>
           ) : (
             <form onSubmit={handleSubscribe} className='mx-auto flex w-full max-w-sm gap-2'>
               <Input
@@ -81,20 +80,24 @@ export default function CallToAction() {
                 required
                 placeholder='you@example.com'
                 value={email}
+                suppressHydrationWarning
                 onChange={(e) => {
                   setEmail(e.target.value)
                   if (status === 'error') setStatus('idle')
                 }}
                 className='h-9 bg-background'
               />
-              <Button type='submit' size='sm' disabled={status === 'loading'} className='h-9 shrink-0'>
+              <Button
+                type='submit'
+                size='sm'
+                disabled={status === 'loading'}
+                className='h-9 shrink-0'
+              >
                 {status === 'loading' ? 'Subscribing...' : 'Get updates'}
               </Button>
             </form>
           )}
-          {status === 'error' && (
-            <p className='text-center text-xs text-red-500'>{message}</p>
-          )}
+          {status === 'error' && <p className='text-center text-red-500 text-xs'>{message}</p>}
         </div>
       </div>
     </section>
