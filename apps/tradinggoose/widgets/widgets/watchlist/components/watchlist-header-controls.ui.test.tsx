@@ -194,13 +194,13 @@ describe('watchlist header controls', () => {
     expect(addButton?.hasAttribute('disabled')).toBe(true)
 
     await act(async () => {
-      listingButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(addButton?.hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
-      addButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      addButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
       await Promise.resolve()
     })
 
@@ -253,7 +253,7 @@ describe('watchlist header controls', () => {
     expect(button?.hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
     expect(mutateAsync).toHaveBeenCalledWith({

@@ -143,7 +143,7 @@ describe('WatchlistListSelector', () => {
     expect(renameButton).toBeTruthy()
 
     await act(async () => {
-      renameButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      renameButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
 
     const input = container.querySelector('input[value="Favorites"]') as HTMLInputElement | null
@@ -201,7 +201,7 @@ describe('WatchlistListSelector', () => {
     expect(deleteButton).toBeTruthy()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      deleteButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
 
     expect(container.textContent).toContain('Delete watchlist?')
@@ -213,7 +213,7 @@ describe('WatchlistListSelector', () => {
     expect(confirmButton).toBeTruthy()
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
 
     expect(onDeleteWatchlist).toHaveBeenCalledWith('favorites')
