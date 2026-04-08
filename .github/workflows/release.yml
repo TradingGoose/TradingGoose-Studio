@@ -48,6 +48,19 @@ jobs:
             NOTES="${NOTES}${COMMITS}"$'\n\n'
           done <<< "$PR_LIST"
 
+          # Collect unique contributors from PRs merged into staging
+          if [ -n "$PREV_DATE" ]; then
+            CONTRIBUTORS=$(gh pr list --base staging --state merged --json author,mergedAt \
+              --jq "[.[] | select(.mergedAt >= \"$PREV_DATE\")] | [.[].author.login] | unique | .[] | \"- @\(.\"")
+          else
+            CONTRIBUTORS=$(gh pr list --base staging --state merged --json author \
+              --jq '[.[].author.login] | unique | .[] | "- @\(.)"')
+          fi
+
+          if [ -n "$CONTRIBUTORS" ]; then
+            NOTES="${NOTES}## Contributors"$'\n'"${CONTRIBUTORS}"$'\n'
+          fi
+
           if [ -z "$NOTES" ]; then
             NOTES="No changes since last release."
           fi
