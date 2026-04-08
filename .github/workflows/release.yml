@@ -38,5 +38,6 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
+            --target staging \
             $NOTES_START \
             --latest
