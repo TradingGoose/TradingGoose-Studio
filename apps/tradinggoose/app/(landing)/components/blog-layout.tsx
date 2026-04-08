@@ -51,7 +51,7 @@ export default function BlogLayout({ children, path, title }: BlogLayoutProps) {
       {breadcrumbStructuredData && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c') }}
         />
       )}
       <Nav variant="legal" />

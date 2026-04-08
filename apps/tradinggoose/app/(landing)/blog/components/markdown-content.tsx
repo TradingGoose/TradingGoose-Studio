@@ -112,7 +112,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           img: ({ src, alt }) =>
             src && typeof src === 'string' ? (
               <Image
-                src={src as string}
+                src={src}
                 alt={alt ?? ''}
                 width={832}
                 height={468}

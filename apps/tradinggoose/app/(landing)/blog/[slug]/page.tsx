@@ -114,7 +114,7 @@ export default async function PostPage({ params }: PostPageProps) {
         {image && (
           <Image
             src={image}
-            alt={title}
+            alt={cleanTitle}
             width={1200}
             height={600}
             className="my-8 h-auto w-full rounded-md border bg-muted transition-colors"

@@ -107,7 +107,7 @@ function resolveImageUrl(imagePath: string, postDir: string, mode: 'github' | 'l
 function resolveContentImages(content: string, postDir: string, mode: 'github' | 'local'): string {
   // Match ![alt](./path) and ![alt](path) but not ![alt](https://...)
   return content.replace(
-    /!\[([^\]]*)\]\((?!https?:\/\/)\.?\/?([^)]+)\)/g,
+    /!\[([^\]]*)\]\((?!https?:\/\/|\/\/)\.?\/?([^)]+)\)/g,
     (_, alt, imgPath) => {
       const resolved = resolveImageUrl(imgPath, postDir, mode)
       return `![${alt}](${resolved})`
