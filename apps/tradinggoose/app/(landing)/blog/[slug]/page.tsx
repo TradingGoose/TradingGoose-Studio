@@ -8,8 +8,9 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BlogLayout } from '@/app/(landing)/components'
 import { getPostBySlug } from '../lib/posts'
-import { plainTitle, splitTitle, formatBlogDate } from '../lib/heading-slugs'
+import { formatBlogDate } from '../lib/heading-slugs'
 import BreadcrumbNav from '../components/breadcrumb-nav'
+import MarkdownTitle from '../components/markdown-title'
 import MarkdownContent from '../components/markdown-content'
 import TableOfContents from '../components/table-of-contents'
 import SocialShare from '../components/social-share'
@@ -26,20 +27,18 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   const post = await getPostBySlug(slug)
   if (!post) return {}
 
-  const metaTitle = plainTitle(post.title)
-
   return {
-    title: `${metaTitle} | TradingGoose Blog`,
+    title: `${post.title} | TradingGoose Blog`,
     description: post.description,
     openGraph: {
-      title: metaTitle,
+      title: post.title,
       description: post.description,
       type: 'article',
-      images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: metaTitle }] : [],
+      images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: post.title }] : [],
     },
     twitter: {
       card: 'summary_large_image',
-      title: metaTitle,
+      title: post.title,
       description: post.description,
       images: post.image ? [post.image] : [],
     },
@@ -52,23 +51,18 @@ export default async function PostPage({ params }: PostPageProps) {
   if (!post) notFound()
 
   const { title, date, image, authors, tags, toc, content, readingTime } = post
-  const postUrl = `https://tradinggoose.ai/blog/${slug}`
-  const cleanTitle = plainTitle(title)
-  const titleLines = splitTitle(title)
+  const postPath = `/blog/${slug}`
 
   return (
-    <BlogLayout path={`/blog/${slug}`} title={cleanTitle}>
+    <BlogLayout path={`/blog/${slug}`} title={title}>
       <article>
-        <BreadcrumbNav pageTitle={cleanTitle} />
+        <BreadcrumbNav pageTitle={title} />
 
-        <h1 className="mt-2 inline-block text-4xl font-bold leading-tight lg:text-5xl">
-          {titleLines.map((line, i) => (
-            <span key={i}>
-              {line}
-              {i < titleLines.length - 1 && <br />}
-            </span>
-          ))}
-        </h1>
+        <MarkdownTitle
+          title={title}
+          as="h1"
+          className="mt-2 inline-block text-4xl font-bold leading-tight lg:text-5xl"
+        />
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-y-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-3">
@@ -114,7 +108,7 @@ export default async function PostPage({ params }: PostPageProps) {
         {image && (
           <Image
             src={image}
-            alt={cleanTitle}
+            alt={title}
             width={1200}
             height={600}
             className="my-8 h-auto w-full rounded-md border bg-muted transition-colors"
@@ -130,9 +124,9 @@ export default async function PostPage({ params }: PostPageProps) {
 
           <div className="hidden text-sm xl:block">
             <div className="sticky top-10 max-h-[calc(100vh-4rem)] pt-4">
-              <SocialShare text={title} url={postUrl} />
+              <SocialShare text={title} path={postPath} />
               <Separator className="my-4" />
-              <AiSummarize url={postUrl} title={title} />
+              <AiSummarize path={postPath} title={title} />
               <Separator className="my-4" />
               <TableOfContents toc={toc} />
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Check, LinkIcon } from 'lucide-react'
 import {
@@ -13,12 +13,18 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface SocialShareProps {
-  url: string
+  path: string
   text?: string
 }
 
-export default function SocialShare({ url, text }: SocialShareProps) {
+export default function SocialShare({ path, text }: SocialShareProps) {
   const [copied, setCopied] = useState(false)
+  const [url, setUrl] = useState(path)
+
+  useEffect(() => {
+    setUrl(`${window.location.origin}${path}`)
+  }, [path])
+
   const encodedUrl = encodeURIComponent(url)
   const encodedText = encodeURIComponent(text ?? '')
 
