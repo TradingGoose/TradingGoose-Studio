@@ -27,17 +27,25 @@ jobs:
             TAG="v$(date -u +'%Y.%m.%d').$SUFFIX"
           done
 
-          # Get the previous release tag to use as the starting point
-          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          # Get the previous release date to filter PRs
+          PREV_DATE=$(gh release list --limit 1 --json createdAt --jq '.[0].createdAt' 2>/dev/null || echo "")
 
-          NOTES_START=""
-          if [ -n "$PREV_TAG" ]; then
-            NOTES_START="--notes-start-tag $PREV_TAG"
+          # Build release notes from PRs merged into staging since last release
+          if [ -n "$PREV_DATE" ]; then
+            NOTES=$(gh pr list --base staging --state merged --json number,title,author \
+              --jq '.[] | "- \(.title) (#\(.number)) @\(.author.login)"' \
+              --search "merged:>=$PREV_DATE")
+          else
+            NOTES=$(gh pr list --base staging --state merged --json number,title,author \
+              --jq '.[] | "- \(.title) (#\(.number)) @\(.author.login)"')
+          fi
+
+          if [ -z "$NOTES" ]; then
+            NOTES="No changes since last release."
           fi
 
           gh release create "$TAG" \
             --title "$TAG" \
-            --generate-notes \
             --target staging \
-            $NOTES_START \
+            --notes "$NOTES" \
             --latest
