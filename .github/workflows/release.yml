@@ -93,7 +93,7 @@ jobs:
           fi
 
           gh release create "$TAG" \
-            --title "TradingGoose Studio ${TAG}" \
+            --title "$TAG" \
             --target staging \
             --notes "$NOTES" \
             --latest
