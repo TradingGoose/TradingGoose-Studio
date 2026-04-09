@@ -30,46 +30,39 @@ interface SidebarNavProps {
 
 export function SidebarNav({ navItems }: SidebarNavProps) {
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
+  const adminItems = navItems.filter((item) => item.section === 'admin')
   const moreItems = navItems.filter((item) => item.section === 'more')
 
   return (
     <>
-      {workspaceItems.length ? (
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarMenu>
-            {workspaceItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-      ) : null}
-
-      {moreItems.length ? (
-        <SidebarGroup>
-          <SidebarGroupLabel>More</SidebarGroupLabel>
-          <SidebarMenu>
-            {moreItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-      ) : null}
+      {renderNavGroup('Workspace', workspaceItems)}
+      {renderNavGroup('System', adminItems)}
+      {renderNavGroup('More', moreItems)}
     </>
+  )
+}
+
+function renderNavGroup(label: string, items: NavSection[]) {
+  if (!items.length) {
+    return null
+  }
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarMenu>
+        {items.map((item) => (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
+              <Link href={item.url}>
+                <item.icon />
+                <span>{item.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
   )
 }
 

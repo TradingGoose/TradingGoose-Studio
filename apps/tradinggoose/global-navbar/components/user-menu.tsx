@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   Monitor,
   Moon,
+  ShieldCheck,
   Star,
   Sun,
   User,
@@ -69,6 +70,10 @@ interface UserMenuProps {
   userId?: string | null
   onOpenSettings?: (section: SettingsSection) => void
   canManageTeam?: boolean
+  systemNavigation?: {
+    href: string
+    label: string
+  } | null
 }
 
 export function UserMenu({
@@ -79,6 +84,7 @@ export function UserMenu({
   userId,
   onOpenSettings,
   canManageTeam,
+  systemNavigation,
 }: UserMenuProps) {
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -404,7 +410,7 @@ export function UserMenu({
                   </DropdownMenuGroup>
                 </>
               ) : null}
-              {(canManageTeam || canManageSSOSettings) && (
+              {(canManageTeam || canManageSSOSettings) ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -444,7 +450,23 @@ export function UserMenu({
                     ) : null}
                   </DropdownMenuGroup>
                 </>
-              )}
+              ) : null}
+              {systemNavigation ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        router.push(systemNavigation.href)
+                      }}
+                    >
+                      <ShieldCheck />
+                      {systemNavigation.label}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem

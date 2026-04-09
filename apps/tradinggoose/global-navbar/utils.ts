@@ -5,6 +5,7 @@ import {
   LayoutTemplate,
   LibraryBig,
   Scroll,
+  ShieldCheck,
   Waypoints,
 } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
@@ -63,10 +64,17 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
   ]
 }
 
+export function createAdminNav(): NavItemLink[] {
+  return [
+    { title: 'Overview', url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
+    { title: 'Integrations', url: '/admin/integrations', icon: Waypoints, section: 'admin' },
+  ]
+}
+
 export function createNavSections(pathname: string, workspaceItems: NavItemLink[]): NavSection[] {
   return workspaceItems.map((item) => ({
     ...item,
-    isActive: isPathActive(pathname, item.url),
+    isActive: isPathActive(pathname, item.url, item.match),
   }))
 }
 
@@ -79,13 +87,13 @@ export function getInitials(name: string) {
     .toUpperCase()
 }
 
-function isPathActive(pathname: string, url: string) {
+function isPathActive(pathname: string, url: string, match: 'exact' | 'prefix' = 'prefix') {
   if (!url.startsWith('/')) {
     return false
   }
 
-  if (url === '/') {
-    return pathname === '/'
+  if (url === '/' || match === 'exact') {
+    return pathname === url
   }
 
   return pathname === url || pathname.startsWith(`${url}/`)
