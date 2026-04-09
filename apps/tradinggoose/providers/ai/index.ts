@@ -1,16 +1,40 @@
 import { getCostMultiplier } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import type { ProviderRequest, ProviderResponse } from '@/providers/ai/types'
+import { anthropicProvider } from '@/providers/ai/anthropic'
+import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
+import { cerebrasProvider } from '@/providers/ai/cerebras'
+import { deepseekProvider } from '@/providers/ai/deepseek'
+import { googleProvider } from '@/providers/ai/google'
+import { groqProvider } from '@/providers/ai/groq'
+import { mistralProvider } from '@/providers/ai/mistral'
+import { ollamaProvider } from '@/providers/ai/ollama'
+import { openaiProvider } from '@/providers/ai/openai'
+import { openRouterProvider } from '@/providers/ai/openrouter'
+import { xAIProvider } from '@/providers/ai/xai'
+import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
   generateStructuredOutputInstructions,
-  getProvider,
   shouldBillModelUsage,
   supportsTemperature,
 } from '@/providers/ai/utils'
 
 const logger = createLogger('Providers')
+
+const providers: Record<string, ProviderConfig> = {
+  openai: openaiProvider,
+  anthropic: anthropicProvider,
+  google: googleProvider,
+  deepseek: deepseekProvider,
+  xai: xAIProvider,
+  cerebras: cerebrasProvider,
+  groq: groqProvider,
+  mistral: mistralProvider,
+  'azure-openai': azureOpenAIProvider,
+  openrouter: openRouterProvider,
+  ollama: ollamaProvider,
+}
 
 function sanitizeRequest(request: ProviderRequest): ProviderRequest {
   const sanitizedRequest = { ...request }
@@ -51,7 +75,7 @@ export async function executeProviderRequest(
   providerId: string,
   request: ProviderRequest
 ): Promise<ProviderResponse | ReadableStream | StreamingExecution> {
-  const provider = getProvider(providerId)
+  const provider = providers[providerId]
   if (!provider) {
     throw new Error(`Provider not found: ${providerId}`)
   }

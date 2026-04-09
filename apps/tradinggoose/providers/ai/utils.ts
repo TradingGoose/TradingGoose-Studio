@@ -1,15 +1,7 @@
 import { getEnv, isTruthy } from '@/lib/env'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { anthropicProvider } from '@/providers/ai/anthropic'
-import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
-import { cerebrasProvider } from '@/providers/ai/cerebras'
-import { deepseekProvider } from '@/providers/ai/deepseek'
-import { googleProvider } from '@/providers/ai/google'
-import { groqProvider } from '@/providers/ai/groq'
-import { mistralProvider } from '@/providers/ai/mistral'
 import {
-  getComputerUseModels,
   getEmbeddingModelPricing,
   getHostedModels as getHostedModelsFromDefinitions,
   getMaxTemperature as getMaxTempFromDefinitions,
@@ -22,101 +14,43 @@ import {
   getProviderModels as getProviderModelsFromDefinitions,
   getProvidersWithToolUsageControl,
   PROVIDER_DEFINITIONS,
+  type ProviderDefinition,
   supportsTemperature as supportsTemperatureFromDefinitions,
   supportsToolUsageControl as supportsToolUsageControlFromDefinitions,
   updateOllamaModels as updateOllamaModelsInDefinitions,
 } from '@/providers/ai/models'
-import { ollamaProvider } from '@/providers/ai/ollama'
-import { openaiProvider } from '@/providers/ai/openai'
-import { openRouterProvider } from '@/providers/ai/openrouter'
-import type { ProviderConfig, ProviderId, ProviderToolConfig } from '@/providers/ai/types'
-import { xAIProvider } from '@/providers/ai/xai'
+import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const logger = createLogger('ProviderUtils')
 
-/**
- * Provider configurations - built from the comprehensive definitions
- */
-export const providers: Record<
-  ProviderId,
-  ProviderConfig & {
-    models: string[]
-    computerUseModels?: string[]
-    modelPatterns?: RegExp[]
-  }
-> = {
-  openai: {
-    ...openaiProvider,
-    models: getProviderModelsFromDefinitions('openai'),
-    computerUseModels: ['computer-use-preview'],
-    modelPatterns: PROVIDER_DEFINITIONS.openai.modelPatterns,
-  },
-  anthropic: {
-    ...anthropicProvider,
-    models: getProviderModelsFromDefinitions('anthropic'),
-    computerUseModels: getComputerUseModels().filter((model) =>
-      getProviderModelsFromDefinitions('anthropic').includes(model)
-    ),
-    modelPatterns: PROVIDER_DEFINITIONS.anthropic.modelPatterns,
-  },
-  google: {
-    ...googleProvider,
-    models: getProviderModelsFromDefinitions('google'),
-    modelPatterns: PROVIDER_DEFINITIONS.google.modelPatterns,
-  },
-  deepseek: {
-    ...deepseekProvider,
-    models: getProviderModelsFromDefinitions('deepseek'),
-    modelPatterns: PROVIDER_DEFINITIONS.deepseek.modelPatterns,
-  },
-  xai: {
-    ...xAIProvider,
-    models: getProviderModelsFromDefinitions('xai'),
-    modelPatterns: PROVIDER_DEFINITIONS.xai.modelPatterns,
-  },
-  cerebras: {
-    ...cerebrasProvider,
-    models: getProviderModelsFromDefinitions('cerebras'),
-    modelPatterns: PROVIDER_DEFINITIONS.cerebras.modelPatterns,
-  },
-  groq: {
-    ...groqProvider,
-    models: getProviderModelsFromDefinitions('groq'),
-    modelPatterns: PROVIDER_DEFINITIONS.groq.modelPatterns,
-  },
-  mistral: {
-    ...mistralProvider,
-    models: getProviderModelsFromDefinitions('mistral'),
-    modelPatterns: PROVIDER_DEFINITIONS.mistral.modelPatterns,
-  },
-  'azure-openai': {
-    ...azureOpenAIProvider,
-    models: getProviderModelsFromDefinitions('azure-openai'),
-    modelPatterns: PROVIDER_DEFINITIONS['azure-openai'].modelPatterns,
-  },
-  openrouter: {
-    ...openRouterProvider,
-    models: getProviderModelsFromDefinitions('openrouter'),
-    modelPatterns: PROVIDER_DEFINITIONS.openrouter.modelPatterns,
-  },
-  ollama: {
-    ...ollamaProvider,
-    models: getProviderModelsFromDefinitions('ollama'),
-    modelPatterns: PROVIDER_DEFINITIONS.ollama.modelPatterns,
-  },
+type ProviderCatalogConfig = Omit<ProviderDefinition, 'models'> & {
+  version: string
+  models: string[]
 }
 
-Object.entries(providers).forEach(([id, provider]) => {
-  if (provider.initialize) {
-    provider.initialize().catch((error) => {
-      logger.error(`Failed to initialize ${id} provider`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    })
-  }
-})
+/**
+ * Provider metadata built from the comprehensive definitions.
+ * This stays browser-safe and does not pull in provider execution code.
+ */
+export const providers: Record<ProviderId, ProviderCatalogConfig> = Object.fromEntries(
+  Object.entries(PROVIDER_DEFINITIONS).map(([providerId, definition]) => [
+    providerId,
+    {
+      id: providerId,
+      name: definition.name,
+      description: definition.description,
+      version: '1.0.0',
+      models: getProviderModelsFromDefinitions(providerId),
+      defaultModel: definition.defaultModel,
+      modelPatterns: definition.modelPatterns,
+      icon: definition.icon,
+      capabilities: definition.capabilities,
+      contextInformationAvailable: definition.contextInformationAvailable,
+    },
+  ])
+) as Record<ProviderId, ProviderCatalogConfig>
 
 export function updateOllamaProviderModels(models: string[]): void {
   updateOllamaModelsInDefinitions(models)
@@ -189,13 +123,13 @@ export function getProviderFromModel(model: string): ProviderId {
   return 'ollama'
 }
 
-export function getProvider(id: string): ProviderConfig | undefined {
+export function getProvider(id: string): ProviderCatalogConfig | undefined {
   // Handle both formats: 'openai' and 'openai/chat'
   const providerId = id.split('/')[0] as ProviderId
   return providers[providerId]
 }
 
-export function getProviderConfigFromModel(model: string): ProviderConfig | undefined {
+export function getProviderConfigFromModel(model: string): ProviderCatalogConfig | undefined {
   const providerId = getProviderFromModel(model)
   return providers[providerId]
 }
