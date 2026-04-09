@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotConversationCreationTrigger: TriggerConfig = {
   id: 'hubspot_conversation_creation',
   name: 'HubSpot Conversation Creation',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a new conversation is created in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

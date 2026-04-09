@@ -351,7 +351,7 @@ export function useWebhookManagement({
         workflowId,
         blockId,
         path,
-        provider: triggerDef.provider,
+        provider: triggerDef.webhookProvider,
         providerConfig: webhookConfig,
       }),
     })
@@ -381,7 +381,7 @@ export function useWebhookManagement({
     logger.info('Trigger webhook created successfully', {
       webhookId: savedWebhookId,
       triggerId: effectiveTriggerId,
-      provider: triggerDef.provider,
+      provider: triggerDef.webhookProvider,
       blockId,
     })
 

@@ -21,7 +21,7 @@ const OUTLOOK_SYSTEM_FOLDERS = [
 export const outlookPollingTrigger: TriggerConfig = {
   id: 'outlook_poller',
   name: 'Outlook Email Trigger',
-  provider: 'outlook',
+  webhookProvider: 'outlook',
   description: 'Triggers when new emails are received in Outlook (requires Microsoft credentials)',
   version: '1.0.0',
   icon: OutlookIcon,

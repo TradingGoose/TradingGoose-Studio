@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotTicketCreatedTrigger: TriggerConfig = {
   id: 'hubspot_ticket_created',
   name: 'HubSpot Ticket Created',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a new ticket is created in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

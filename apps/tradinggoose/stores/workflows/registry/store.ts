@@ -407,7 +407,9 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
 
           const realChannels = getRealHydrationChannels(get().hydrationByChannel)
-          return realChannels.length > 0 ? realChannels : [WORKSPACE_BOOTSTRAP_CHANNEL]
+          return realChannels.length > 0
+            ? [...realChannels, WORKSPACE_BOOTSTRAP_CHANNEL]
+            : [WORKSPACE_BOOTSTRAP_CHANNEL]
         })()
 
         const requestId = crypto.randomUUID()

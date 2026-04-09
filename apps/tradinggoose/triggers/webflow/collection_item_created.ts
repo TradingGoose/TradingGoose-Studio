@@ -4,7 +4,7 @@ import type { TriggerConfig } from '../types'
 export const webflowCollectionItemCreatedTrigger: TriggerConfig = {
   id: 'webflow_collection_item_created',
   name: 'Collection Item Created',
-  provider: 'webflow',
+  webhookProvider: 'webflow',
   description:
     'Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)',
   version: '1.0.0',

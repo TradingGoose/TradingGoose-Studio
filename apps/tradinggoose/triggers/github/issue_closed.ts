@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubIssueClosedTrigger: TriggerConfig = {
   id: 'github_issue_closed',
   name: 'GitHub Issue Closed',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when an issue is closed in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,

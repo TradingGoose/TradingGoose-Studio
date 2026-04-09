@@ -5,7 +5,7 @@ import { buildMeetingOutputs, circlebackSetupInstructions } from './utils'
 export const circlebackMeetingCompletedTrigger: TriggerConfig = {
   id: 'circleback_meeting_completed',
   name: 'Circleback Meeting Completed',
-  provider: 'circleback',
+  webhookProvider: 'circleback',
   description: 'Trigger workflow when a meeting is processed and ready in Circleback',
   version: '1.0.0',
   icon: CirclebackIcon,

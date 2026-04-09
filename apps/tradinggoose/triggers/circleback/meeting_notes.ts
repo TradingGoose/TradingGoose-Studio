@@ -5,7 +5,7 @@ import { buildMeetingOutputs, circlebackSetupInstructions } from './utils'
 export const circlebackMeetingNotesTrigger: TriggerConfig = {
   id: 'circleback_meeting_notes',
   name: 'Circleback Meeting Notes Ready',
-  provider: 'circleback',
+  webhookProvider: 'circleback',
   description: 'Trigger workflow when meeting notes and action items are ready',
   version: '1.0.0',
   icon: CirclebackIcon,

@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubPRCommentTrigger: TriggerConfig = {
   id: 'github_pr_comment',
   name: 'GitHub PR Comment',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a comment is added to a pull request in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,

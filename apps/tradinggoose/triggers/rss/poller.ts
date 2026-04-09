@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const rssPollingTrigger: TriggerConfig = {
   id: 'rss_poller',
   name: 'RSS Feed Trigger',
-  provider: 'rss',
+  webhookProvider: 'rss',
   description: 'Triggers when new items are published to an RSS feed',
   version: '1.0.0',
   icon: RssIcon,

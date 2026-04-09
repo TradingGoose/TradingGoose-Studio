@@ -15,8 +15,8 @@ export interface TriggerConfigField {
   description?: string
   required?: boolean
   isSecret?: boolean
-  provider?: string // OAuth provider for credential type fields
-  requiredScopes?: string[] // Required OAuth scopes for credential type fields
+  oauthProvider?: string // OAuth service/provider id for credential fields, e.g. 'google-email' or 'outlook'
+  requiredScopes?: string[] // Required OAuth scopes for credential fields
 }
 
 export interface TriggerOutput {
@@ -28,7 +28,7 @@ export interface TriggerOutput {
 export interface TriggerConfig {
   id: string
   name: string
-  provider: string
+  webhookProvider: string
   description: string
   version: string
 
@@ -58,7 +58,7 @@ export interface TriggerConfig {
 
   // For triggers that require OAuth credentials (like Gmail)
   requiresCredentials?: boolean
-  credentialProvider?: string // 'google-email', 'microsoft', etc.
+  oauthProvider?: string // OAuth service/provider id, e.g. 'google-email', 'outlook', 'microsoft-teams'
 }
 
 export interface TriggerRegistry {

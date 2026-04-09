@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotConversationPrivacyDeletionTrigger: TriggerConfig = {
   id: 'hubspot_conversation_privacy_deletion',
   name: 'HubSpot Conversation Privacy Deletion',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description:
     'Trigger workflow when a conversation is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot',
   version: '1.0.0',

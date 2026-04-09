@@ -4,7 +4,7 @@ import type { TriggerConfig } from '../types'
 export const whatsappWebhookTrigger: TriggerConfig = {
   id: 'whatsapp_webhook',
   name: 'WhatsApp Webhook',
-  provider: 'whatsapp',
+  webhookProvider: 'whatsapp',
   description: 'Trigger workflow from WhatsApp messages and events via Business Platform webhooks',
   version: '1.0.0',
   icon: WhatsAppIcon,

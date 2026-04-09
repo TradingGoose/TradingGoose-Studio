@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const apiTrigger: TriggerConfig = {
   id: 'api',
   name: 'API',
-  provider: 'core',
+  webhookProvider: 'core',
   description: 'Start workflow via authenticated HTTP requests',
   version: '1.0.0',
   icon: ApiIcon,

@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubIssueOpenedTrigger: TriggerConfig = {
   id: 'github_issue_opened',
   name: 'GitHub Issue Opened',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a new issue is opened in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,
