@@ -4,12 +4,22 @@ import {
   boolean,
   check,
   index,
+  pgEnum,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { user } from './core'
+
+export const registrationModeEnum = pgEnum('registration_mode', ['open', 'waitlist', 'disabled'])
+
+export const waitlistStatusEnum = pgEnum('waitlist_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'signed_up',
+])
 
 export const systemAdmin = pgTable(
   'system_admin',
@@ -25,6 +35,13 @@ export const systemAdmin = pgTable(
     userIdUnique: uniqueIndex('system_admin_user_id_unique').on(table.userId),
   })
 )
+
+export const systemSettings = pgTable('system_settings', {
+  id: text('id').primaryKey(),
+  registrationMode: registrationModeEnum('registration_mode').notNull().default('open'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
 
 export const systemIntegrationDefinition = pgTable(
   'system_integration_definition',
@@ -69,5 +86,31 @@ export const systemIntegrationSecret = pgTable(
       table.definitionId,
       table.key
     ),
+  })
+)
+
+export const waitlist = pgTable(
+  'waitlist',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    status: waitlistStatusEnum('status').notNull().default('pending'),
+    approvedAt: timestamp('approved_at'),
+    approvedByUserId: text('approved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    rejectedAt: timestamp('rejected_at'),
+    rejectedByUserId: text('rejected_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedUpAt: timestamp('signed_up_at'),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    emailIdx: index('waitlist_email_idx').on(table.email),
+    statusIdx: index('waitlist_status_idx').on(table.status),
+    userIdIdx: index('waitlist_user_id_idx').on(table.userId),
   })
 )
