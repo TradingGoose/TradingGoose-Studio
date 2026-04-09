@@ -283,13 +283,11 @@ export async function executeTool(
       contextParams.credential =
         contextParams.alpacaCredential ||
         contextParams.tradierCredential ||
-        contextParams.robinhoodCredential ||
         contextParams.credential
 
       // Avoid leaking provider-specific credential params downstream
       contextParams.alpacaCredential = undefined
       contextParams.tradierCredential = undefined
-      contextParams.robinhoodCredential = undefined
     }
 
     if (contextParams.credential) {

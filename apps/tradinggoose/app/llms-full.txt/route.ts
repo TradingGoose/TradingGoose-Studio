@@ -54,7 +54,7 @@ trigger trades, alerts, portfolio rebalances, or any custom action.
 - Not a broker and not an investment advisor.
 - Does not provide financial advice.
 - Does not execute trades on its own. You bring your own broker/provider
-  credentials (e.g., Alpaca, Tradier, Robinhood) and define every action.
+  credentials (e.g., Alpaca, Tradier) and define every action.
 - Not a generic enterprise workflow builder — it is purpose-built for market
   data, indicators, and trading automations.
 
@@ -124,7 +124,7 @@ AI agents, and integrations. Enterprise contact: https://form.typeform.com/to/jq
 ### Workflows
 - AI agent blocks for autonomous analysis and decisions
 - Data, condition, loop, parallel, and trading action blocks
-- Broker routing to Alpaca, Tradier, Robinhood
+- Broker routing to Alpaca and Tradier
 - Integrations with Slack, Discord, GitHub, Gmail, Telegram, Teams, and more
 
 ## 9. Integrations
@@ -132,7 +132,7 @@ AI agents, and integrations. Enterprise contact: https://form.typeform.com/to/jq
 **LLM providers:** OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Mistral,
 Perplexity, HuggingFace, Ollama, vLLM, CrewAI, ElevenLabs.
 
-**Brokers / trading:** Alpaca, Tradier, Robinhood.
+**Brokers / trading:** Alpaca, Tradier.
 
 **Messaging & alerts:** Slack, Discord, Gmail, Outlook, Telegram, WhatsApp,
 Microsoft Teams, Zoom.
@@ -171,7 +171,7 @@ HuggingFace, Ollama, vLLM, CrewAI, and ElevenLabs. You bring your own API keys.
 
 **Does TradingGoose execute trades on my behalf?**
 No. TradingGoose does not execute trades on its own. You connect your own broker
-credentials (Alpaca, Tradier, Robinhood) and define every trading action block
+credentials (Alpaca, Tradier) and define every trading action block
 in a workflow. TradingGoose is not a broker and is not an investment advisor.
 
 **Is TradingGoose a broker or financial advisor?**

@@ -33,7 +33,6 @@ const ORDER_HISTORY_OMIT_KEYS = new Set([
   'apiKey',
   'apiSecret',
   'tradierCredential',
-  'robinhoodCredential',
   'alpacaCredential',
   '_context',
   '_workflowId',
@@ -214,7 +213,7 @@ const resolveOrderRequest = (params: TradingActionParams) => {
 export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionResponse> = {
   id: 'trading_place_order',
   name: 'Trading: Place Order',
-  description: 'Place buy or sell orders via Alpaca, Tradier, or Robinhood.',
+  description: 'Place buy or sell orders via Alpaca or Tradier.',
   version: '1.0.0',
 
   params: {
@@ -222,7 +221,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       type: 'string',
       required: true,
       visibility: 'user-only',
-      description: 'Trading provider id (alpaca, tradier, or robinhood).',
+      description: 'Trading provider id (alpaca or tradier).',
     },
     listing: {
       type: 'json',
@@ -315,12 +314,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-only',
       description: 'Tradier OAuth credential id.',
     },
-    robinhoodCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Robinhood OAuth credential id.',
-    },
     alpacaCredential: {
       type: 'string',
       required: false,
@@ -350,18 +343,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'user-or-llm',
       description: 'Account ID (Tradier).',
-    },
-    accountUrl: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Account resource URL (Robinhood).',
-    },
-    instrumentUrl: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Instrument resource URL for Robinhood orders.',
     },
   },
 

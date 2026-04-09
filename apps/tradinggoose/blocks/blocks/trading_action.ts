@@ -244,7 +244,7 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   type: 'trading_action',
   name: 'Trading Action',
-  description: 'Place buy/sell orders via Alpaca, Tradier, or Robinhood.',
+  description: 'Place buy/sell orders via Alpaca or Tradier.',
   authMode: AuthMode.OAuth,
   longDescription:
     'Unified trading action block that supports multiple brokerages with either OAuth or API-key authentication.',

@@ -65,7 +65,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   description: 'Fetch a unified account snapshot from supported brokers.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Unified holdings block that returns an account snapshot for Alpaca, Tradier, or Robinhood.',
+    'Unified holdings block that returns an account snapshot for Alpaca or Tradier.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
