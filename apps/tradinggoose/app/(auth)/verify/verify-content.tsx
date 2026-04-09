@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { cn } from '@/lib/utils'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
-import { soehne } from '@/app/fonts/soehne/soehne'
 
 interface VerifyContentProps {
   hasEmailService: boolean
@@ -63,12 +63,11 @@ function VerificationForm({
 
   return (
     <>
-      <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
-          {isVerified ? 'Email Verified!' : 'Verify Your Email'}
-        </h1>
-        <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          {isVerified
+      <AuthPageHeader
+        eyebrow='Verification'
+        title={isVerified ? 'Email Verified!' : 'Verify Your Email'}
+        description={
+          isVerified
             ? 'Your email has been verified. Redirecting to dashboard...'
             : !isEmailVerificationEnabled
               ? 'Email verification is disabled. Redirecting to dashboard...'
@@ -76,9 +75,9 @@ function VerificationForm({
                 ? `A verification code has been sent to ${email || 'your email'}`
                 : !isProduction
                   ? 'Development mode: Check your console logs for the verification code'
-                  : 'Error: Email verification is enabled but no email service is configured'}
-        </p>
-      </div>
+                  : 'Error: Email verification is enabled but no email service is configured'
+        }
+      />
 
       {!isVerified && isEmailVerificationEnabled && (
         <div className={`${inter.className} mt-8 space-y-8`}>

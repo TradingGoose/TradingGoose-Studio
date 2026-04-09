@@ -19,12 +19,18 @@ import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isFalsy, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getAuthRegistrationHref,
+  getAuthRegistrationLabel,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
+import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
-import { soehne } from '@/app/fonts/soehne/soehne'
 
 const logger = createLogger('LoginForm')
 
@@ -93,10 +99,12 @@ export default function LoginPage({
   githubAvailable,
   googleAvailable,
   isProduction,
+  registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
   isProduction: boolean
+  registrationMode: RegistrationMode
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -381,17 +389,23 @@ export default function LoginPage({
   const showTopSSO = hasOnlySSO
   const showBottomSection = hasSocial || (ssoEnabled && !hasOnlySSO)
   const showDivider = (emailEnabled || showTopSSO) && showBottomSection
+  const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
+  const registrationHref = isInviteFlow
+    ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}`
+    : getAuthRegistrationHref(registrationMode)
+  const registrationLabel = isInviteFlow ? 'Sign up' : getAuthRegistrationLabel(registrationMode)
 
   return (
     <>
-      <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
-          Sign in
-        </h1>
-        <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          Enter your credentials
-        </p>
-      </div>
+      <AuthPageHeader
+        eyebrow='Sign in'
+        title='Welcome back'
+        description='Enter your credentials'
+      />
+
+      {showWaitlistNote ? (
+        <AuthWaitlistNote />
+      ) : null}
 
       {/* SSO Login Button (primary top-only when it is the only method) */}
       {showTopSSO && (
@@ -516,14 +530,16 @@ export default function LoginPage({
       )}
 
       {/* Only show signup link if email/password signup is enabled */}
-      {!isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) && (
+      {!isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) &&
+        registrationHref &&
+        registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>Don't have an account? </span>
           <Link
-            href={isInviteFlow ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}` : '/signup'}
+            href={registrationHref}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
-            Sign up
+            {registrationLabel}
           </Link>
         </div>
       )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
+import { useRef } from 'react'
 import {
   ActivityIcon,
   BlocksIcon,
@@ -13,44 +13,16 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { PerplexityIcon } from '@/components/icons/icons'
-import { GeminiIcon } from '@/components/icons/provider-icons'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
-import { isHosted } from '@/lib/environment'
-
-const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
-
-const PROMPT_INTROS = [
-  'I am exploring https://tradinggoose.ai.',
-  'I just discovered TradingGoose-Studio at https://tradinggoose.ai.',
-  'I want to try TradingGoose-Studio at https://tradinggoose.ai for my trading setup.',
-] as const
-
-const PROMPT_ACTIONS = [
-  'How do I',
-  'Can you show me how to',
-  'What is the best way to',
-  'Walk me through how to',
-] as const
-
-const PROMPT_TOPICS = [
-  'automate a trading strategy end-to-end',
-  'build a custom indicator using PineTS',
-  'connect a live data provider and stream real-time prices',
-  'create an AI agent workflow that places trades automatically',
-  'set up workspace layouts with split panels and widgets',
-  'integrate Slack or Discord alerts into a workflow',
-  'backtest a strategy using historical candle data',
-  'use condition and loop blocks to build branching logic',
-  'deploy a workflow that monitors RSI and triggers a buy order',
-  'combine multiple indicators on a single chart',
-] as const
-
-const buildPrompt = () =>
-  `${pick(PROMPT_INTROS)} ${pick(PROMPT_ACTIONS)} ${pick(PROMPT_TOPICS)}?`
+import { useRegistrationState } from '@/hooks/queries/registration'
+import {
+  DEFAULT_REGISTRATION_MODE,
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+} from '@/lib/registration/shared'
 
 const Hero = () => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -70,12 +42,10 @@ const Hero = () => {
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
 
-  const handleAskClick = useCallback(
-    (base: string) => () => {
-      window.open(`${base}${encodeURIComponent(buildPrompt())}`, '_blank')
-    },
-    []
-  )
+  const registrationQuery = useRegistrationState()
+  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
+  const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
+  const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
 
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
@@ -120,45 +90,20 @@ const Hero = () => {
           </div>
 
           <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
-            {isHosted ? (
-              <>
-                <Button
-                  variant='outline'
-                  className='bg-background'
-                  size='sm'
-                  onClick={handleAskClick('https://google.com/ai?q=')}
-                >
-                  <GeminiIcon className='size-4 bg-background' />
-                  Ask Google AI
-                </Button>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  className='bg-background'
-                  onClick={handleAskClick('https://perplexity.ai?q=')}
-                >
-                  <PerplexityIcon className='size-4 bg-background' />
-                  Ask Perplexity
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size='lg' className='text-lg font-semibold' asChild>
-                  <Link href='/signup' prefetch={false}>
-                    Get Started
-                  </Link>
-                </Button>
-                <Button variant='outline' size='lg' className='text-lg font-semibold bg-background' asChild>
-                  <Link
-                    href='https://docs.tradinggoose.ai'
-                    target='_blank'
-                    rel='noopener noreferrer'
-                  >
-                    Learn More
-                  </Link>
-                </Button>
-              </>
-            )}
+            <Button size='lg' className='text-lg font-semibold' asChild>
+              <Link href={registrationPrimaryHref} prefetch={false}>
+                {registrationPrimaryLabel}
+              </Link>
+            </Button>
+            <Button variant='outline' size='lg' className='bg-background text-lg font-semibold' asChild>
+              <Link
+                href='https://docs.tradinggoose.ai'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                Learn More
+              </Link>
+            </Button>
           </div>
         </div>
 

@@ -11,11 +11,17 @@ import { client, useSession } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isFalsy, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  REGISTRATION_DISABLED_MESSAGE,
+  REGISTRATION_WAITLIST_MESSAGE,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
+import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
-import { soehne } from '@/app/fonts/soehne/soehne'
 
 const logger = createLogger('SignupForm')
 
@@ -75,10 +81,12 @@ function SignupFormContent({
   githubAvailable,
   googleAvailable,
   isProduction,
+  registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
   isProduction: boolean
+  registrationMode: RegistrationMode
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -276,16 +284,22 @@ function SignupFormContent({
               errorMessage.push(
                 'An account with this email already exists. Please sign in instead.'
               )
-              setEmailError(errorMessage[0])
+              setEmailError(errorMessage[errorMessage.length - 1])
             } else if (
               ctx.error.code?.includes('BAD_REQUEST') ||
               ctx.error.message?.includes('Email and password sign up is not enabled')
             ) {
-              errorMessage.push('Email signup is currently disabled.')
-              setEmailError(errorMessage[0])
+              if (ctx.error.message?.includes(REGISTRATION_DISABLED_MESSAGE)) {
+                errorMessage.push(REGISTRATION_DISABLED_MESSAGE)
+              } else if (ctx.error.message?.includes(REGISTRATION_WAITLIST_MESSAGE)) {
+                errorMessage.push('This email is not approved for signup yet. Join the waitlist first.')
+              } else {
+                errorMessage.push('Email signup is currently disabled.')
+              }
+              setEmailError(errorMessage[errorMessage.length - 1])
             } else if (ctx.error.code?.includes('INVALID_EMAIL')) {
               errorMessage.push('Please enter a valid email address.')
-              setEmailError(errorMessage[0])
+              setEmailError(errorMessage[errorMessage.length - 1])
             } else if (ctx.error.code?.includes('PASSWORD_TOO_SHORT')) {
               errorMessage.push('Password must be at least 8 characters long.')
               setPasswordErrors(errorMessage)
@@ -348,14 +362,19 @@ function SignupFormContent({
 
   return (
     <>
-      <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
-          Create an account
-        </h1>
-        <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          Create an account or log in
-        </p>
-      </div>
+      <AuthPageHeader
+        eyebrow='Sign up'
+        title='Create an account'
+        description={
+          registrationMode === 'waitlist' && !isInviteFlow
+            ? 'Approved waitlist access required'
+            : 'Create an account or log in'
+        }
+      />
+
+      {registrationMode === 'waitlist' && !isInviteFlow ? (
+        <AuthWaitlistNote />
+      ) : null}
 
       {/* SSO Login Button (primary top-only when it is the only method) */}
       {(() => {
@@ -569,10 +588,12 @@ export default function SignupPage({
   githubAvailable,
   googleAvailable,
   isProduction,
+  registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
   isProduction: boolean
+  registrationMode: RegistrationMode
 }) {
   return (
     <Suspense
@@ -582,6 +603,7 @@ export default function SignupPage({
         githubAvailable={githubAvailable}
         googleAvailable={googleAvailable}
         isProduction={isProduction}
+        registrationMode={registrationMode}
       />
     </Suspense>
   )

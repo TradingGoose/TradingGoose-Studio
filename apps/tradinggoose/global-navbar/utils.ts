@@ -6,6 +6,7 @@ import {
   LibraryBig,
   Scroll,
   ShieldCheck,
+  UserRoundPlus,
   Waypoints,
 } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
@@ -68,6 +69,7 @@ export function createAdminNav(): NavItemLink[] {
   return [
     { title: 'Overview', url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
     { title: 'Integrations', url: '/admin/integrations', icon: Waypoints, section: 'admin' },
+    { title: 'Registration', url: '/admin/registration', icon: UserRoundPlus, section: 'admin' },
   ]
 }
 

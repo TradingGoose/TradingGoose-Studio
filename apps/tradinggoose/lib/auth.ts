@@ -56,6 +56,14 @@ import {
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
 import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
+import {
+  getRegistrationEligibility,
+  markWaitlistEntrySignedUp,
+} from '@/lib/registration/service'
+import {
+  REGISTRATION_DISABLED_MESSAGE,
+  REGISTRATION_WAITLIST_MESSAGE,
+} from '@/lib/registration/shared'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
@@ -213,10 +221,32 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          const eligibility = await getRegistrationEligibility(user.email)
+          if (eligibility.allowed) {
+            return
+          }
+
+          if (eligibility.reason === 'disabled') {
+            throw new Error(REGISTRATION_DISABLED_MESSAGE)
+          }
+
+          throw new Error(REGISTRATION_WAITLIST_MESSAGE)
+        },
         after: async (user) => {
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
             userId: user.id,
           })
+
+          try {
+            await markWaitlistEntrySignedUp(user.email, user.id)
+          } catch (error) {
+            logger.error('[databaseHooks.user.create.after] Failed to mark waitlist signup', {
+              userId: user.id,
+              email: user.email,
+              error,
+            })
+          }
 
           try {
             await handleNewUser(user.id)
@@ -347,9 +377,6 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path.startsWith('/sign-up') && isTruthy(env.DISABLE_REGISTRATION))
-        throw new Error('Registration is disabled, please contact your admin.')
-
       if (
         (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
         (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)

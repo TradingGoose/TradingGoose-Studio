@@ -18,8 +18,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useRegistrationState } from '@/hooks/queries/registration'
+import {
+  DEFAULT_REGISTRATION_MODE,
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+} from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -34,6 +39,15 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   const [githubStars, setGithubStars] = useState('0')
   const router = useRouter()
   const brand = useBrandConfig()
+  const registrationQuery = useRegistrationState()
+  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
+  const registrationPrimaryDisabled = registrationMode === 'disabled'
+  const registrationPrimaryHref = registrationPrimaryDisabled
+    ? null
+    : getRegistrationPrimaryHref(registrationMode)
+  const registrationPrimaryLabel = registrationPrimaryDisabled
+    ? 'Coming soon'
+    : getRegistrationPrimaryLabel(registrationMode)
 
   useEffect(() => {
     if (variant !== 'landing') return
@@ -151,17 +165,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           )}
 
-          {!hideAuthButtons && isHosted && (
-            <Button
-              size='sm'
-              disabled
-              className='hidden rounded-md text-base md:inline-flex'
-              aria-label='Coming soon'
-            >
-              Coming soon
-            </Button>
-          )}
-          {!hideAuthButtons && !isHosted && (
+          {!hideAuthButtons && (
             <div className='hidden items-center gap-2 md:flex'>
               <Button
                 variant='ghost'
@@ -173,10 +177,13 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
               </Button>
               <Button
                 size='sm'
-                onClick={() => router.push('/signup')}
+                disabled={registrationPrimaryDisabled}
+                onClick={
+                  registrationPrimaryHref ? () => router.push(registrationPrimaryHref) : undefined
+                }
                 className='rounded-md text-base'
               >
-                Get Started
+                {registrationPrimaryLabel}
               </Button>
             </div>
           )}
@@ -226,22 +233,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                  {!hideAuthButtons && isHosted && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className='!bg-transparent'>
-                        <Button
-                          className='w-full justify-start rounded-lg'
-                          size='sm'
-                          disabled
-                          aria-label='Coming soon'
-                        >
-                          Coming soon
-                        </Button>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {!hideAuthButtons && !isHosted && (
+                  {!hideAuthButtons && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
@@ -258,9 +250,14 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                         <Button
                           className='w-full justify-start rounded-lg'
                           size='sm'
-                          onClick={() => router.push('/signup')}
+                          disabled={registrationPrimaryDisabled}
+                          onClick={
+                            registrationPrimaryHref
+                              ? () => router.push(registrationPrimaryHref)
+                              : undefined
+                          }
                         >
-                          Get Started
+                          {registrationPrimaryLabel}
                         </Button>
                       </DropdownMenuItem>
                     </>

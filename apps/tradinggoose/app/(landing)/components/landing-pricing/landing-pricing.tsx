@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { useRegistrationState } from '@/hooks/queries/registration'
+import {
+  DEFAULT_REGISTRATION_MODE,
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+} from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import {
@@ -73,6 +79,8 @@ const pricingTiers: PricingTier[] = [
 
 export default function LandingPricing() {
   const router = useRouter()
+  const registrationQuery = useRegistrationState()
+  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
 
   useCardGlow()
 
@@ -80,7 +88,7 @@ export default function LandingPricing() {
     if (tier.ctaText === 'Contact Sales') {
       window.open('https://form.typeform.com/to/jqCO12pF', '_blank')
     } else {
-      router.push('/signup')
+      router.push(getRegistrationPrimaryHref(registrationMode))
     }
   }
 
@@ -120,6 +128,10 @@ export default function LandingPricing() {
         <div className='mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-20 lg:grid-cols-4'>
           {pricingTiers.map((tier, index) => {
             const buttonVariant = tier.featured ? 'default' : 'outline'
+            const ctaText =
+              tier.ctaText === 'Contact Sales'
+                ? tier.ctaText
+                : getRegistrationPrimaryLabel(registrationMode)
 
             return (
               <MotionPreset
@@ -185,7 +197,7 @@ export default function LandingPricing() {
                         variant={buttonVariant}
                         onClick={() => handleCta(tier)}
                       >
-                        {tier.ctaText}
+                        {ctaText}
                       </Button>
 
                       <div className='flex flex-col gap-1.5'>

@@ -1,30 +1,20 @@
 import Link from 'next/link'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
-import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
-import SignupForm from '@/app/(auth)/signup/signup-form'
 import { Button } from '@/components/ui/button'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
+import { WaitlistForm } from './waitlist-form'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SignupPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ invite_flow?: string }>
-}) {
-  const [{ githubAvailable, googleAvailable, isProduction }, registrationMode] = await Promise.all([
-    getOAuthProviderStatus(),
-    getRegistrationModeForRender(),
-  ])
-  const resolvedSearchParams = (await searchParams) ?? {}
-  const isInviteFlow = resolvedSearchParams.invite_flow === 'true'
+export default async function WaitlistPage() {
+  const registrationMode = await getRegistrationModeForRender()
 
-  if (registrationMode === 'disabled' && !isInviteFlow) {
+  if (registrationMode === 'disabled') {
     return (
       <div className='space-y-6 text-center'>
         <AuthPageHeader
-          eyebrow='Sign up'
+          eyebrow='Waitlist'
           title='Registration closed'
           description={REGISTRATION_DISABLED_MESSAGE}
         />
@@ -41,11 +31,13 @@ export default async function SignupPage({
   }
 
   return (
-    <SignupForm
-      githubAvailable={githubAvailable}
-      googleAvailable={googleAvailable}
-      isProduction={isProduction}
-      registrationMode={registrationMode}
-    />
+    <div>
+      <AuthPageHeader
+        eyebrow='Waitlist'
+        title='Request access to TradingGoose'
+        description='Join the queue for platform access. If your email is already approved, you can continue straight to signup from here.'
+      />
+      <WaitlistForm />
+    </div>
   )
 }

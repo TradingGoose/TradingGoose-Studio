@@ -9,6 +9,8 @@ import {
   PlanWelcomeEmail,
   ResetPasswordEmail,
   UsageThresholdEmail,
+  WaitlistApprovedEmail,
+  WaitlistConfirmationEmail,
 } from '@/components/emails'
 import FreeTierUpgradeEmail from '@/components/emails/billing/free-tier-upgrade-email'
 import { getBrandConfig } from '@/lib/branding/branding'
@@ -149,6 +151,25 @@ export async function renderNewsletterWelcomeEmail(): Promise<string> {
   return await render(NewsletterWelcomeEmail())
 }
 
+export async function renderWaitlistConfirmationEmail(email: string): Promise<string> {
+  return await render(
+    WaitlistConfirmationEmail({
+      email,
+      submittedDate: new Date(),
+    })
+  )
+}
+
+export async function renderWaitlistApprovedEmail(email: string, signupLink: string): Promise<string> {
+  return await render(
+    WaitlistApprovedEmail({
+      email,
+      signupLink,
+      approvedDate: new Date(),
+    })
+  )
+}
+
 export function getEmailSubject(
   type:
     | 'sign-in'
@@ -164,6 +185,8 @@ export function getEmailSubject(
     | 'free-tier-upgrade'
     | 'plan-welcome-pro'
     | 'plan-welcome-team'
+    | 'waitlist-confirmation'
+    | 'waitlist-approved'
 ): string {
   const brandName = getBrandConfig().name
 
@@ -194,6 +217,10 @@ export function getEmailSubject(
       return `Your Pro plan is now active on ${brandName}`
     case 'plan-welcome-team':
       return `Your Team plan is now active on ${brandName}`
+    case 'waitlist-confirmation':
+      return `We received your ${brandName} access request`
+    case 'waitlist-approved':
+      return `Your ${brandName} access request was approved`
     default:
       return brandName
   }

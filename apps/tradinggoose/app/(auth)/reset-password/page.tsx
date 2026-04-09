@@ -4,9 +4,9 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
 import { inter } from '@/app/fonts/inter'
-import { soehne } from '@/app/fonts/soehne/soehne'
 
 const logger = createLogger('ResetPasswordPage')
 
@@ -75,14 +75,11 @@ function ResetPasswordContent() {
 
   return (
     <>
-      <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
-          Reset your password
-        </h1>
-        <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          Enter a new password for your account
-        </p>
-      </div>
+      <AuthPageHeader
+        eyebrow='Password reset'
+        title='Reset your password'
+        description='Enter a new password for your account'
+      />
 
       <div className={`${inter.className} mt-8`}>
         <SetNewPasswordForm

@@ -40,6 +40,23 @@ export default function AdminHomePage() {
               </Button>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Registration</CardTitle>
+              <CardDescription>
+                Control public signup mode and review the waitlist queue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className='flex items-center justify-between gap-4'>
+              <p className='text-sm text-muted-foreground'>
+                Switch between open access, waitlist approval, or fully disabled registration.
+              </p>
+              <Button asChild>
+                <Link href='/admin/registration'>Open</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
