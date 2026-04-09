@@ -1,5 +1,6 @@
 'use client'
-import { ChevronsUpDown, Loader2, Pencil, Plus, Sparkles, Trash2, Settings } from 'lucide-react'
+import Image from 'next/image'
+import { ChevronsUpDown, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -32,6 +33,8 @@ interface WorkspaceSwitcherProps {
   isCreatingWorkspace: boolean
   onDeleteWorkspace: (workspace: Workspace) => void
   brandName: string
+  fallbackSubtitle?: string
+  fallbackImageUrl: string
 }
 
 export function WorkspaceSwitcher({
@@ -56,6 +59,8 @@ export function WorkspaceSwitcher({
   isCreatingWorkspace,
   onDeleteWorkspace,
   brandName,
+  fallbackSubtitle = 'Workspace',
+  fallbackImageUrl,
 }: WorkspaceSwitcherProps) {
   return (
     <SidebarMenu>
@@ -67,16 +72,22 @@ export function WorkspaceSwitcher({
               size='lg'
               className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
             >
-              <div className='flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary p-1.5 text-sidebar-primary-foreground'>
+              <div className='flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground'>
                 {activeWorkspace ? (
                   <span className='font-semibold text-sm'>{getInitials(activeWorkspace.name)}</span>
                 ) : (
-                  <Sparkles className='size-4' />
+                  <Image
+                    src={fallbackImageUrl}
+                    alt={`${brandName} logo`}
+                    width={20}
+                    height={20}
+                    className='h-full w-full object-contain'
+                  />
                 )}
               </div>
               <div className='grid flex-1 text-left text-sm leading-tight'>
                 <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
-                <span className='truncate text-xs'>{activeWorkspace?.role ?? 'Workspace'}</span>
+                <span className='truncate text-xs'>{activeWorkspace?.role ?? fallbackSubtitle}</span>
               </div>
               <ChevronsUpDown className='ml-auto' />
             </SidebarMenuButton>
@@ -231,7 +242,7 @@ export function WorkspaceSwitcher({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
-      </SidebarMenuItem >
-    </SidebarMenu >
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
 }

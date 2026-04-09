@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -16,8 +16,9 @@ const createWorkspaceSchema = z.object({
 })
 
 // Get all workspaces for the current user
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getSession()
+  const allowWorkspaceBootstrap = request.nextUrl.searchParams.get('autoCreate') !== 'false'
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,6 +36,10 @@ export async function GET() {
     .orderBy(desc(workspace.createdAt))
 
   if (userWorkspaces.length === 0) {
+    if (!allowWorkspaceBootstrap) {
+      return NextResponse.json({ workspaces: [] })
+    }
+
     // Create a default workspace for the user
     const defaultWorkspace = await createDefaultWorkspace(session.user.id, session.user.name)
 
@@ -44,8 +49,10 @@ export async function GET() {
     return NextResponse.json({ workspaces: [defaultWorkspace] })
   }
 
-  // If user has workspaces but might have orphaned workflows, migrate them
-  await ensureWorkflowsHaveWorkspace(session.user.id, userWorkspaces[0].workspace.id)
+  if (allowWorkspaceBootstrap) {
+    // If user has workspaces but might have orphaned workflows, migrate them
+    await ensureWorkflowsHaveWorkspace(session.user.id, userWorkspaces[0].workspace.id)
+  }
 
   // Format the response with permission information
   const workspacesWithPermissions = userWorkspaces.map(

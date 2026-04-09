@@ -196,11 +196,13 @@ export function DashboardClient({
     }
     return applyColorPairsToLayout(initialState, normalizedInitialColorPairs)
   }, [initialState, normalizedInitialColorPairs])
+  const dashboardIdentity = `${workspaceId}:${layoutId}`
   const [tree, setTree] = useState<LayoutNode>(initialTree)
   const [layouts, setLayouts] = useState<LayoutTab[]>(() => sortLayouts(initialLayouts ?? []))
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const layoutIdRef = useRef(layoutId)
   const latestLayoutRef = useRef<LayoutNode>(initialTree)
+  const hydratedDashboardIdentityRef = useRef(dashboardIdentity)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const isCreatingLayoutRef = useRef(false)
   const pathname = usePathname()
@@ -275,13 +277,6 @@ export function DashboardClient({
   )
 
   useEffect(() => {
-    setLayouts((prev) => {
-      if (prev.length) return prev
-      return sortLayouts((initialLayouts ?? []).map((layout) => ({ ...layout })))
-    })
-  }, [initialLayouts, sortLayouts])
-
-  useEffect(() => {
     let isMounted = true
 
     const loadWorkspacesForSearch = async () => {
@@ -317,6 +312,21 @@ export function DashboardClient({
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (hydratedDashboardIdentityRef.current === dashboardIdentity) {
+      return
+    }
+
+    hydratedDashboardIdentityRef.current = dashboardIdentity
+    setTree(initialTree)
+    setLayouts(sortLayouts(initialLayouts ?? []))
+    layoutIdRef.current = layoutId
+    latestLayoutRef.current = initialTree
+    skipLayoutRef.current = new Set()
+    setSearchQuery('')
+    setIsSearchOpen(false)
+  }, [dashboardIdentity, initialLayouts, initialTree, layoutId])
 
   useEffect(() => {
     hydratePairStoreFromColorPairs(normalizedInitialColorPairs)

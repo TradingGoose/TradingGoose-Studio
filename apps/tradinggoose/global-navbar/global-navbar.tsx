@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Sidebar,
   SidebarContent,
@@ -15,9 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isBillingEnabled } from '@/lib/environment'
-import { generateWorkspaceName } from '@/lib/naming'
 import { useOrganizations } from '@/hooks/queries/organization'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
@@ -26,28 +24,38 @@ import { WorkspaceSwitcher } from './components/workspace-switcher'
 import { GlobalNavbarHeaderProvider } from './header-context'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
-import type { NavSection, Workspace } from './types'
+import type { NavSection } from './types'
 import {
+  createAdminNav,
   createNavSections,
   createWorkspaceNav,
   getWorkspaceIdFromPath,
-  getWorkspaceSwitchPath,
 } from './utils'
+import { useWorkspaceSwitcher } from './use-workspace-switcher'
 
 const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
 const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
 
-export function GlobalNavbar({ children }: { children: React.ReactNode }) {
+export function GlobalNavbar({
+  children,
+  isSystemAdmin = false,
+  navigationMode = 'workspace',
+}: {
+  children: React.ReactNode
+  isSystemAdmin?: boolean
+  navigationMode?: 'workspace' | 'admin'
+}) {
   const pathname = usePathname() ?? '/'
-  const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
-  const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
-  const workspaceNavItems = React.useMemo(() => createWorkspaceNav(workspaceId), [workspaceId])
+  const navItems = React.useMemo(
+    () => (navigationMode === 'admin' ? createAdminNav() : createWorkspaceNav(workspaceId)),
+    [navigationMode, workspaceId]
+  )
   const navMain = React.useMemo<NavSection[]>(
-    () => createNavSections(pathname, workspaceNavItems),
-    [pathname, workspaceNavItems]
+    () => createNavSections(pathname, navItems),
+    [pathname, navItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
@@ -68,22 +76,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const billingEnabled = isBillingEnabled
   const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
-  const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
-  const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
-  const [isWorkspacesLoading, setIsWorkspacesLoading] = React.useState(true)
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = React.useState(false)
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false)
-  const [hoveredWorkspaceId, setHoveredWorkspaceId] = React.useState<string | null>(null)
-  const [editingWorkspaceId, setEditingWorkspaceId] = React.useState<string | null>(null)
-  const [editingWorkspaceName, setEditingWorkspaceName] = React.useState('')
-  const [isRenamingWorkspace, setIsRenamingWorkspace] = React.useState(false)
-  const [renameError, setRenameError] = React.useState<string | null>(null)
-  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false)
-  const [inviteWorkspace, setInviteWorkspace] = React.useState<Workspace | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [workspaceToDelete, setWorkspaceToDelete] = React.useState<Workspace | null>(null)
-  const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
-  const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
@@ -100,6 +92,22 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const userAvatarVersion =
     userAvatarOverride.version ??
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
+  const workspaceSwitcher = useWorkspaceSwitcher({
+    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+    readOnly: navigationMode === 'admin',
+  })
+  const workspaceSwitcherActiveWorkspace =
+    navigationMode === 'admin' ? null : workspaceSwitcher.activeWorkspace
+  const systemNavigation = React.useMemo(() => {
+    if (!isSystemAdmin || navigationMode === 'admin') {
+      return null
+    }
+
+    return {
+      href: '/admin',
+      label: 'System Admin',
+    }
+  }, [isSystemAdmin, navigationMode])
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
@@ -233,234 +241,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     }
   }, [userId])
 
-  const createDefaultWorkspace = React.useCallback(async () => {
-    try {
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'My Workspace' }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create default workspace')
-      }
-
-      const data = await response.json()
-      const newWorkspace = data.workspace as Workspace | undefined
-
-      if (!newWorkspace) {
-        throw new Error('Workspace payload missing from response')
-      }
-
-      const normalizedWorkspace: Workspace = {
-        ...newWorkspace,
-        permissions: newWorkspace.permissions ?? 'admin',
-        role: newWorkspace.role ?? 'owner',
-      }
-
-      return normalizedWorkspace
-    } catch (error) {
-      console.error('Error creating default workspace:', error)
-      return null
-    }
-  }, [])
-
-  const fetchWorkspaces = React.useCallback(async () => {
-    if (!shouldRenderNavbar || isSessionLoading) {
-      return
-    }
-
-    if (!isAuthenticated) {
-      setWorkspaces([])
-      setActiveWorkspace(null)
-      setIsWorkspacesLoading(false)
-      return
-    }
-
-    setIsWorkspacesLoading(true)
-    try {
-      const response = await fetch('/api/workspaces')
-      if (!response.ok) {
-        setWorkspaces([])
-        setActiveWorkspace(null)
-        return
-      }
-      const data = await response.json()
-      let items = (data.workspaces ?? []) as Workspace[]
-
-      if (items.length === 0) {
-        const createdWorkspace = await createDefaultWorkspace()
-        if (createdWorkspace) {
-          items = [createdWorkspace]
-        }
-      }
-
-      setWorkspaces(items)
-
-      if (workspaceId) {
-        const match = items.find((workspace) => workspace.id === workspaceId)
-        setActiveWorkspace(match ?? items[0] ?? null)
-      } else {
-        setActiveWorkspace((current) => current ?? items[0] ?? null)
-      }
-    } catch (error) {
-      console.error('Error fetching workspaces:', error)
-      setWorkspaces([])
-      setActiveWorkspace(null)
-    } finally {
-      setIsWorkspacesLoading(false)
-    }
-  }, [workspaceId, isAuthenticated, isSessionLoading, createDefaultWorkspace, shouldRenderNavbar])
-
-  React.useEffect(() => {
-    if (!shouldRenderNavbar) {
-      return
-    }
-    fetchWorkspaces()
-  }, [fetchWorkspaces, shouldRenderNavbar])
-
-  const handleSwitchWorkspace = React.useCallback(
-    async (workspace: Workspace) => {
-      setActiveWorkspace(workspace)
-      setWorkspaceMenuOpen(false)
-      if (workspaceId !== workspace.id) {
-        try {
-          await switchToWorkspace(workspace.id)
-        } catch (error) {
-          console.error('Failed to reset workflow state during workspace switch', error)
-        }
-        const targetPath = getWorkspaceSwitchPath(pathname, workspace.id)
-        // Client navigation only; avoid full page reload
-        router.push(targetPath)
-      }
-    },
-    [pathname, router, switchToWorkspace, workspaceId]
-  )
-
-  const handleCreateWorkspace = React.useCallback(async () => {
-    if (isCreatingWorkspace) {
-      return
-    }
-    setIsCreatingWorkspace(true)
-    try {
-      const workspaceName = await generateWorkspaceName()
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: workspaceName }),
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create workspace')
-      }
-      const data = await response.json()
-      await fetchWorkspaces()
-      if (data.workspace) {
-        await handleSwitchWorkspace(data.workspace)
-      }
-    } catch (error) {
-      console.error('Error creating workspace:', error)
-    } finally {
-      setIsCreatingWorkspace(false)
-    }
-  }, [fetchWorkspaces, handleSwitchWorkspace, isCreatingWorkspace])
-
-  const handleStartEditing = React.useCallback((workspace: Workspace) => {
-    if (workspace.permissions !== 'admin') {
-      return
-    }
-    setEditingWorkspaceId(workspace.id)
-    setEditingWorkspaceName(workspace.name)
-    setRenameError(null)
-  }, [])
-
-  const handleCancelEditing = React.useCallback(() => {
-    setEditingWorkspaceId(null)
-    setEditingWorkspaceName('')
-    setRenameError(null)
-    setIsRenamingWorkspace(false)
-  }, [])
-
-  const handleSaveWorkspaceName = React.useCallback(async () => {
-    if (!editingWorkspaceId) {
-      return
-    }
-    const newName = editingWorkspaceName.trim()
-    if (!newName) {
-      handleCancelEditing()
-      return
-    }
-    setIsRenamingWorkspace(true)
-    try {
-      const response = await fetch(`/api/workspaces/${editingWorkspaceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName }),
-      })
-      if (!response.ok) {
-        const error = await response.json().catch(() => null)
-        throw new Error(error?.error ?? 'Failed to rename workspace')
-      }
-      await fetchWorkspaces()
-      handleCancelEditing()
-    } catch (error) {
-      setRenameError(error instanceof Error ? error.message : 'Failed to rename workspace')
-    } finally {
-      setIsRenamingWorkspace(false)
-    }
-  }, [editingWorkspaceId, editingWorkspaceName, fetchWorkspaces, handleCancelEditing])
-
-  const handleInviteDialogChange = React.useCallback((open: boolean) => {
-    setInviteDialogOpen(open)
-    if (!open) {
-      setInviteWorkspace(null)
-    }
-  }, [])
-
-  const handleOpenInviteDialog = React.useCallback((workspace: Workspace) => {
-    if (workspace.permissions !== 'admin') {
-      return
-    }
-    setInviteWorkspace(workspace)
-    setInviteDialogOpen(true)
-  }, [])
-
-  const handleDeleteDialogChange = React.useCallback((open: boolean) => {
-    if (!open) {
-      setDeleteDialogOpen(false)
-      setWorkspaceToDelete(null)
-      setDeleteError(null)
-      setIsDeletingWorkspace(false)
-    } else {
-      setDeleteDialogOpen(true)
-    }
-  }, [])
-
-  const handleConfirmDelete = React.useCallback(async () => {
-    if (!workspaceToDelete) {
-      return
-    }
-    setIsDeletingWorkspace(true)
-    try {
-      const response = await fetch(`/api/workspaces/${workspaceToDelete.id}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) {
-        const error = await response.json().catch(() => null)
-        throw new Error(error?.error ?? 'Failed to delete workspace')
-      }
-      await fetchWorkspaces()
-      if (workspaceToDelete.id === activeWorkspace?.id) {
-        setWorkspaceMenuOpen(false)
-      }
-      handleDeleteDialogChange(false)
-    } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Failed to delete workspace')
-    } finally {
-      setIsDeletingWorkspace(false)
-    }
-  }, [workspaceToDelete, fetchWorkspaces, activeWorkspace?.id, handleDeleteDialogChange])
-
   if (!shouldRenderNavbar) {
     return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
   }
@@ -524,30 +304,32 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
           <Sidebar collapsible='icon'>
             <SidebarHeader>
               <WorkspaceSwitcher
-                activeWorkspace={activeWorkspace}
-                workspaces={workspaces}
-                isLoading={isWorkspacesLoading}
-                workspaceMenuOpen={workspaceMenuOpen}
-                onWorkspaceMenuOpenChange={setWorkspaceMenuOpen}
-                hoveredWorkspaceId={hoveredWorkspaceId}
-                onHoverWorkspace={setHoveredWorkspaceId}
-                editingWorkspaceId={editingWorkspaceId}
-                editingWorkspaceName={editingWorkspaceName}
-                onEditingWorkspaceNameChange={setEditingWorkspaceName}
-                isRenamingWorkspace={isRenamingWorkspace}
-                renameError={renameError}
-                onStartEditing={handleStartEditing}
-                onCancelEditing={handleCancelEditing}
-                onSaveWorkspaceName={handleSaveWorkspaceName}
-                onSwitchWorkspace={handleSwitchWorkspace}
-                onInviteWorkspace={handleOpenInviteDialog}
-                onCreateWorkspace={handleCreateWorkspace}
-                isCreatingWorkspace={isCreatingWorkspace}
+                activeWorkspace={workspaceSwitcherActiveWorkspace}
+                workspaces={workspaceSwitcher.workspaces}
+                isLoading={workspaceSwitcher.isWorkspacesLoading}
+                workspaceMenuOpen={workspaceSwitcher.workspaceMenuOpen}
+                onWorkspaceMenuOpenChange={workspaceSwitcher.setWorkspaceMenuOpen}
+                hoveredWorkspaceId={workspaceSwitcher.hoveredWorkspaceId}
+                onHoverWorkspace={workspaceSwitcher.setHoveredWorkspaceId}
+                editingWorkspaceId={workspaceSwitcher.editingWorkspaceId}
+                editingWorkspaceName={workspaceSwitcher.editingWorkspaceName}
+                onEditingWorkspaceNameChange={workspaceSwitcher.setEditingWorkspaceName}
+                isRenamingWorkspace={workspaceSwitcher.isRenamingWorkspace}
+                renameError={workspaceSwitcher.renameError}
+                onStartEditing={workspaceSwitcher.handleStartEditing}
+                onCancelEditing={workspaceSwitcher.handleCancelEditing}
+                onSaveWorkspaceName={workspaceSwitcher.handleSaveWorkspaceName}
+                onSwitchWorkspace={workspaceSwitcher.handleSwitchWorkspace}
+                onInviteWorkspace={workspaceSwitcher.handleOpenInviteDialog}
+                onCreateWorkspace={workspaceSwitcher.handleCreateWorkspace}
+                isCreatingWorkspace={workspaceSwitcher.isCreatingWorkspace}
                 onDeleteWorkspace={(workspace) => {
-                  setWorkspaceToDelete(workspace)
-                  handleDeleteDialogChange(true)
+                  workspaceSwitcher.setWorkspaceToDelete(workspace)
+                  workspaceSwitcher.handleDeleteDialogChange(true)
                 }}
                 brandName={brand.name}
+                fallbackSubtitle={navigationMode === 'admin' ? 'admin' : 'Workspace'}
+                fallbackImageUrl={brand.logoUrl ?? brand.faviconUrl ?? '/favicon/favicon.ico'}
               />
             </SidebarHeader>
             <SidebarContent>
@@ -565,6 +347,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
                 canManageTeam={canManageTeam}
+                systemNavigation={systemNavigation}
               />
             </SidebarFooter>
             <SidebarRail />
@@ -572,7 +355,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
           <SidebarInset className='flex h-full min-h-0 flex-1 overflow-hidden bg-background'>
             <div className='flex h-full min-h-0 flex-col bg-background'>
               <NavbarHeader
-                workspaceName={activeWorkspace?.name}
+                workspaceName={workspaceSwitcherActiveWorkspace?.name}
                 brandName={brand.name}
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
@@ -585,15 +368,15 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
         </SidebarProvider>
 
         <WorkspaceDialogs
-          inviteDialogOpen={inviteDialogOpen}
-          onInviteDialogChange={handleInviteDialogChange}
-          inviteWorkspace={inviteWorkspace}
-          deleteDialogOpen={deleteDialogOpen}
-          onDeleteDialogChange={handleDeleteDialogChange}
-          workspaceToDelete={workspaceToDelete}
-          deleteError={deleteError}
-          isDeletingWorkspace={isDeletingWorkspace}
-          onConfirmDelete={() => void handleConfirmDelete()}
+          inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
+          onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
+          inviteWorkspace={workspaceSwitcher.inviteWorkspace}
+          deleteDialogOpen={workspaceSwitcher.deleteDialogOpen}
+          onDeleteDialogChange={workspaceSwitcher.handleDeleteDialogChange}
+          workspaceToDelete={workspaceSwitcher.workspaceToDelete}
+          deleteError={workspaceSwitcher.deleteError}
+          isDeletingWorkspace={workspaceSwitcher.isDeletingWorkspace}
+          onConfirmDelete={() => void workspaceSwitcher.handleConfirmDelete()}
         />
         <SettingsDialog
           open={isSettingsModalOpen}

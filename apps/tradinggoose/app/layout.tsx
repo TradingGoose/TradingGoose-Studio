@@ -14,7 +14,6 @@ import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
 import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
-import { GlobalNavbar } from '@/global-navbar'
 
 const logger = createLogger('RootLayout')
 
@@ -91,7 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                   <BrandedLayout>
                     <ZoomPrevention />
-                    <GlobalNavbar>{children}</GlobalNavbar>
+                    {children}
                   </BrandedLayout>
                 </TooltipProvider>
               </SessionProvider>
