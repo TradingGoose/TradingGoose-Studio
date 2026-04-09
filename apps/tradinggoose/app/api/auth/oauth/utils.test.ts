@@ -36,10 +36,13 @@ describe('OAuth Utils', () => {
     }))
 
     vi.doMock('@/lib/oauth/oauth', () => ({
-      refreshOAuthToken: mockRefreshOAuthToken,
       getMicrosoftRefreshTokenExpiry: vi.fn(() => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)),
       isMicrosoftProvider: vi.fn((providerId: string) => providerId === 'outlook'),
       PROACTIVE_REFRESH_THRESHOLD_DAYS: 7,
+    }))
+
+    vi.doMock('@/lib/oauth/oauth.server', () => ({
+      refreshOAuthToken: mockRefreshOAuthToken,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({

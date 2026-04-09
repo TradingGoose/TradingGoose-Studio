@@ -1,39 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
-const { mockEnv } = vi.hoisted(() => ({
-  mockEnv: {
-    GOOGLE_CLIENT_ID: 'google_client_id',
-    GOOGLE_CLIENT_SECRET: 'google_client_secret',
-    GITHUB_CLIENT_ID: 'github_client_id',
-    GITHUB_CLIENT_SECRET: 'github_client_secret',
-    X_CLIENT_ID: 'x_client_id',
-    X_CLIENT_SECRET: 'x_client_secret',
-    CONFLUENCE_CLIENT_ID: 'confluence_client_id',
-    CONFLUENCE_CLIENT_SECRET: 'confluence_client_secret',
-    JIRA_CLIENT_ID: 'jira_client_id',
-    JIRA_CLIENT_SECRET: 'jira_client_secret',
-    AIRTABLE_CLIENT_ID: 'airtable_client_id',
-    AIRTABLE_CLIENT_SECRET: 'airtable_client_secret',
-    SUPABASE_CLIENT_ID: 'supabase_client_id',
-    SUPABASE_CLIENT_SECRET: 'supabase_client_secret',
-    NOTION_CLIENT_ID: 'notion_client_id',
-    NOTION_CLIENT_SECRET: 'notion_client_secret',
-    DISCORD_CLIENT_ID: 'discord_client_id',
-    DISCORD_CLIENT_SECRET: 'discord_client_secret',
-    MICROSOFT_CLIENT_ID: 'microsoft_client_id',
-    MICROSOFT_CLIENT_SECRET: 'microsoft_client_secret',
-    LINEAR_CLIENT_ID: 'linear_client_id',
-    LINEAR_CLIENT_SECRET: 'linear_client_secret',
-    SLACK_CLIENT_ID: 'slack_client_id',
-    SLACK_CLIENT_SECRET: 'slack_client_secret',
-    REDDIT_CLIENT_ID: 'reddit_client_id',
-    REDDIT_CLIENT_SECRET: 'reddit_client_secret',
-  } as Record<string, string | undefined>,
-}))
+type MockOAuthCredentials = {
+  clientId: string
+  clientSecret: string
+  fields: Record<string, string>
+}
 
-vi.mock('@/lib/env', () => ({
-  env: mockEnv,
-  getEnv: (key: string) => mockEnv[key],
+const mockCredentials: Record<string, MockOAuthCredentials> = {}
+
+vi.mock('@/lib/oauth/system-managed-config', () => ({
+  loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
+    Object.fromEntries(
+      providerIds.flatMap((providerId) =>
+        mockCredentials[providerId]?.clientId && mockCredentials[providerId]?.clientSecret
+          ? [[providerId, mockCredentials[providerId]]]
+          : []
+      )
+    )
+  ),
+  loadSystemOAuthClientCredentialsForProvider: vi.fn(async (providerId: string) =>
+    mockCredentials[providerId] ?? null
+  ),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -48,42 +35,155 @@ vi.mock('@/lib/logs/console/logger', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-import { getOAuthProviderAvailability, refreshOAuthToken } from '@/lib/oauth/oauth'
+import { getOAuthProviderSubjectId, getServiceIdFromScopes } from '@/lib/oauth/oauth'
+import { getOAuthProviderAvailability, refreshOAuthToken } from '@/lib/oauth/oauth.server'
+
+function setIntegration(providerIds: string[], clientId: string, clientSecret: string) {
+  for (const providerId of providerIds) {
+    mockCredentials[providerId] = {
+      clientId,
+      clientSecret,
+      fields: {
+        client_id: clientId,
+        client_secret: clientSecret,
+      },
+    }
+  }
+}
+
+function seedMockIntegrations() {
+  for (const key of Object.keys(mockCredentials)) {
+    delete mockCredentials[key]
+  }
+
+  setIntegration(
+    [
+      'google-drive',
+      'google-docs',
+      'google-email',
+      'google-sheets',
+      'google-calendar',
+      'google-vault',
+      'google-forms',
+    ],
+    'google_client_id',
+    'google_client_secret'
+  )
+  setIntegration(['github-repo'], 'github_repo_client_id', 'github_repo_client_secret')
+  setIntegration(
+    ['microsoft-excel', 'microsoft-teams', 'microsoft-planner', 'outlook', 'onedrive', 'sharepoint'],
+    'microsoft_client_id',
+    'microsoft_client_secret'
+  )
+  setIntegration(['x'], 'x_client_id', 'x_client_secret')
+  setIntegration(['confluence'], 'confluence_client_id', 'confluence_client_secret')
+  setIntegration(['jira'], 'jira_client_id', 'jira_client_secret')
+  setIntegration(['airtable'], 'airtable_client_id', 'airtable_client_secret')
+  setIntegration(['supabase'], 'supabase_client_id', 'supabase_client_secret')
+  setIntegration(['notion'], 'notion_client_id', 'notion_client_secret')
+  setIntegration(['discord'], 'discord_client_id', 'discord_client_secret')
+  setIntegration(['linear'], 'linear_client_id', 'linear_client_secret')
+  setIntegration(['slack'], 'slack_client_id', 'slack_client_secret')
+  setIntegration(['reddit'], 'reddit_client_id', 'reddit_client_secret')
+  setIntegration(['wealthbox'], 'wealthbox_client_id', 'wealthbox_client_secret')
+  setIntegration(['webflow'], 'webflow_client_id', 'webflow_client_secret')
+  setIntegration(['tradier'], 'tradier_client_id', 'tradier_client_secret')
+  setIntegration(['alpaca'], 'alpaca_client_id', 'alpaca_client_secret')
+}
 
 describe('OAuth Provider Availability', () => {
   beforeEach(() => {
-    delete mockEnv.GITHUB_REPO_CLIENT_ID
-    delete mockEnv.GITHUB_REPO_CLIENT_SECRET
+    vi.clearAllMocks()
+    seedMockIntegrations()
   })
 
-  it('requires direct credentials for integrations with their own OAuth app', () => {
-    expect(getOAuthProviderAvailability(['github-repo'])).toEqual({
+  it('marks system-managed integration providers available', async () => {
+    await expect(
+      getOAuthProviderAvailability([
+        'google-drive',
+        'github-repo',
+        'microsoft-teams',
+      ])
+    ).resolves.toEqual({
+      'google-drive': true,
+      'github-repo': true,
+      'microsoft-teams': true,
+    })
+  })
+
+  it('returns false when required credentials are missing', async () => {
+    mockCredentials['google-email'] = {
+      clientId: 'google_client_id',
+      clientSecret: '',
+      fields: {
+        client_id: 'google_client_id',
+        client_secret: '',
+      },
+    }
+    mockCredentials['github-repo'] = {
+      clientId: '',
+      clientSecret: 'github_repo_client_secret',
+      fields: {
+        client_id: '',
+        client_secret: 'github_repo_client_secret',
+      },
+    }
+
+    await expect(getOAuthProviderAvailability(['google-email', 'github-repo'])).resolves.toEqual({
+      'google-email': false,
       'github-repo': false,
     })
+  })
+})
 
-    mockEnv.GITHUB_REPO_CLIENT_ID = 'github_repo_client_id'
-    mockEnv.GITHUB_REPO_CLIENT_SECRET = 'github_repo_client_secret'
-
-    expect(getOAuthProviderAvailability(['github-repo'])).toEqual({
-      'github-repo': true,
-    })
+describe('OAuth Subject Normalization', () => {
+  it('prefers the service binding subject when a service id is present', () => {
+    expect(
+      getOAuthProviderSubjectId({
+        provider: 'microsoft',
+        serviceId: 'onedrive',
+      })
+    ).toBe('onedrive')
   })
 
-  it('uses shared credential groups for multi-service providers', () => {
+  it('derives the service binding subject from scopes when needed', () => {
     expect(
-      getOAuthProviderAvailability(['google-email', 'google-drive', 'microsoft-excel', 'outlook'])
-    ).toEqual({
-      'google-email': true,
-      'google-drive': true,
-      'microsoft-excel': true,
-      outlook: true,
-    })
+      getOAuthProviderSubjectId({
+        provider: 'google',
+        requiredScopes: ['https://www.googleapis.com/auth/gmail.send'],
+      })
+    ).toBe('google-email')
+  })
+
+  it('derives the microsoft teams service from base-provider scopes', () => {
+    expect(
+      getOAuthProviderSubjectId({
+        provider: 'microsoft',
+        requiredScopes: ['Chat.Read', 'offline_access'],
+      })
+    ).toBe('microsoft-teams')
+  })
+
+  it('normalizes plain provider declarations to the default service binding subject', () => {
+    expect(
+      getOAuthProviderSubjectId({
+        provider: 'github',
+      })
+    ).toBe('github-repo')
+  })
+
+  it('keeps direct service providers stable without re-entering scope branching', () => {
+    expect(getServiceIdFromScopes('google-drive', ['https://www.googleapis.com/auth/drive.file'])).toBe(
+      'google-drive'
+    )
   })
 })
 
 describe('OAuth Token Refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    seedMockIntegrations()
+
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -104,163 +204,195 @@ describe('OAuth Token Refresh', () => {
         name: 'Airtable',
         providerId: 'airtable',
         endpoint: 'https://airtable.com/oauth2/v1/token',
+        expectedClientId: 'airtable_client_id',
+        expectedClientSecret: 'airtable_client_secret',
       },
-      { name: 'X (Twitter)', providerId: 'x', endpoint: 'https://api.x.com/2/oauth2/token' },
+      {
+        name: 'X (Twitter)',
+        providerId: 'x',
+        endpoint: 'https://api.x.com/2/oauth2/token',
+        expectedClientId: 'x_client_id',
+        expectedClientSecret: 'x_client_secret',
+      },
       {
         name: 'Confluence',
         providerId: 'confluence',
         endpoint: 'https://auth.atlassian.com/oauth/token',
+        expectedClientId: 'confluence_client_id',
+        expectedClientSecret: 'confluence_client_secret',
       },
-      { name: 'Jira', providerId: 'jira', endpoint: 'https://auth.atlassian.com/oauth/token' },
+      {
+        name: 'Jira',
+        providerId: 'jira',
+        endpoint: 'https://auth.atlassian.com/oauth/token',
+        expectedClientId: 'jira_client_id',
+        expectedClientSecret: 'jira_client_secret',
+      },
       {
         name: 'Discord',
         providerId: 'discord',
         endpoint: 'https://discord.com/api/v10/oauth2/token',
+        expectedClientId: 'discord_client_id',
+        expectedClientSecret: 'discord_client_secret',
       },
-      { name: 'Linear', providerId: 'linear', endpoint: 'https://api.linear.app/oauth/token' },
+      {
+        name: 'Linear',
+        providerId: 'linear',
+        endpoint: 'https://api.linear.app/oauth/token',
+        expectedClientId: 'linear_client_id',
+        expectedClientSecret: 'linear_client_secret',
+      },
       {
         name: 'Reddit',
         providerId: 'reddit',
         endpoint: 'https://www.reddit.com/api/v1/access_token',
+        expectedClientId: 'reddit_client_id',
+        expectedClientSecret: 'reddit_client_secret',
       },
     ]
 
-    basicAuthProviders.forEach(({ name, providerId, endpoint }) => {
-      it(`should send ${name} request with Basic Auth header and no credentials in body`, async () => {
-        const refreshToken = 'test_refresh_token'
+    basicAuthProviders.forEach(
+      ({ name, providerId, endpoint, expectedClientId, expectedClientSecret }) => {
+        it(`sends ${name} refresh requests with Basic Auth and no credentials in the body`, async () => {
+          const refreshToken = 'test_refresh_token'
 
-        await refreshOAuthToken(providerId, refreshToken)
+          await refreshOAuthToken(providerId, refreshToken)
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          endpoint,
-          expect.objectContaining({
-            method: 'POST',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/x-www-form-urlencoded',
-              Authorization: expect.stringMatching(/^Basic /),
-            }),
-            body: expect.any(String),
-          })
-        )
+          expect(mockFetch).toHaveBeenCalledWith(
+            endpoint,
+            expect.objectContaining({
+              method: 'POST',
+              headers: expect.objectContaining({
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Authorization: expect.stringMatching(/^Basic /),
+              }),
+              body: expect.any(String),
+            })
+          )
 
-        const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+          const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+          const authHeader = requestOptions.headers.Authorization
+          const base64Credentials = authHeader.replace('Basic ', '')
+          const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
+          const [clientId, clientSecret] = credentials.split(':')
 
-        // Verify Basic Auth header
-        const authHeader = requestOptions.headers.Authorization
-        expect(authHeader).toMatch(/^Basic /)
+          expect(clientId).toBe(expectedClientId)
+          expect(clientSecret).toBe(expectedClientSecret)
 
-        // Decode and verify credentials
-        const base64Credentials = authHeader.replace('Basic ', '')
-        const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
-        const [clientId, clientSecret] = credentials.split(':')
+          const bodyParams = new URLSearchParams(requestOptions.body)
+          const bodyKeys = Array.from(bodyParams.keys())
 
-        expect(clientId).toBe(`${providerId}_client_id`)
-        expect(clientSecret).toBe(`${providerId}_client_secret`)
-
-        // Verify body contains only required parameters
-        const bodyParams = new URLSearchParams(requestOptions.body)
-        const bodyKeys = Array.from(bodyParams.keys())
-
-        expect(bodyKeys).toEqual(['grant_type', 'refresh_token'])
-        expect(bodyParams.get('grant_type')).toBe('refresh_token')
-        expect(bodyParams.get('refresh_token')).toBe(refreshToken)
-
-        // Verify client credentials are NOT in the body
-        expect(bodyParams.get('client_id')).toBeNull()
-        expect(bodyParams.get('client_secret')).toBeNull()
-      })
-    })
+          expect(bodyKeys).toEqual(['grant_type', 'refresh_token'])
+          expect(bodyParams.get('grant_type')).toBe('refresh_token')
+          expect(bodyParams.get('refresh_token')).toBe(refreshToken)
+          expect(bodyParams.get('client_id')).toBeNull()
+          expect(bodyParams.get('client_secret')).toBeNull()
+        })
+      }
+    )
   })
 
   describe('Body Credential Providers', () => {
     const bodyCredentialProviders = [
-      { name: 'Google', providerId: 'google', endpoint: 'https://oauth2.googleapis.com/token' },
       {
-        name: 'GitHub',
-        providerId: 'github',
-        endpoint: 'https://github.com/login/oauth/access_token',
+        name: 'Google Email',
+        providerId: 'google-email',
+        endpoint: 'https://oauth2.googleapis.com/token',
+        expectedClientId: 'google_client_id',
+        expectedClientSecret: 'google_client_secret',
       },
       {
-        name: 'Microsoft',
-        providerId: 'microsoft',
+        name: 'GitHub Repo',
+        providerId: 'github-repo',
+        endpoint: 'https://github.com/login/oauth/access_token',
+        expectedClientId: 'github_repo_client_id',
+        expectedClientSecret: 'github_repo_client_secret',
+      },
+      {
+        name: 'Microsoft Teams',
+        providerId: 'microsoft-teams',
         endpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        expectedClientId: 'microsoft_client_id',
+        expectedClientSecret: 'microsoft_client_secret',
       },
       {
         name: 'Outlook',
         providerId: 'outlook',
         endpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        expectedClientId: 'microsoft_client_id',
+        expectedClientSecret: 'microsoft_client_secret',
       },
       {
         name: 'Supabase',
         providerId: 'supabase',
         endpoint: 'https://api.supabase.com/v1/oauth/token',
+        expectedClientId: 'supabase_client_id',
+        expectedClientSecret: 'supabase_client_secret',
       },
-      { name: 'Slack', providerId: 'slack', endpoint: 'https://slack.com/api/oauth.v2.access' },
+      {
+        name: 'Slack',
+        providerId: 'slack',
+        endpoint: 'https://slack.com/api/oauth.v2.access',
+        expectedClientId: 'slack_client_id',
+        expectedClientSecret: 'slack_client_secret',
+      },
+      {
+        name: 'Tradier',
+        providerId: 'tradier',
+        endpoint: 'https://api.tradier.com/v1/oauth/token',
+        expectedClientId: 'tradier_client_id',
+        expectedClientSecret: 'tradier_client_secret',
+      },
+      {
+        name: 'Alpaca',
+        providerId: 'alpaca',
+        endpoint: 'https://api.alpaca.markets/oauth/token',
+        expectedClientId: 'alpaca_client_id',
+        expectedClientSecret: 'alpaca_client_secret',
+      },
     ]
 
-    bodyCredentialProviders.forEach(({ name, providerId, endpoint }) => {
-      it(`should send ${name} request with credentials in body and no Basic Auth`, async () => {
-        const refreshToken = 'test_refresh_token'
+    bodyCredentialProviders.forEach(
+      ({ name, providerId, endpoint, expectedClientId, expectedClientSecret }) => {
+        it(`sends ${name} refresh requests with credentials in the body`, async () => {
+          const refreshToken = 'test_refresh_token'
 
-        await refreshOAuthToken(providerId, refreshToken)
+          await refreshOAuthToken(providerId, refreshToken)
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          endpoint,
-          expect.objectContaining({
-            method: 'POST',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/x-www-form-urlencoded',
-            }),
-            body: expect.any(String),
-          })
-        )
+          expect(mockFetch).toHaveBeenCalledWith(
+            endpoint,
+            expect.objectContaining({
+              method: 'POST',
+              headers: expect.objectContaining({
+                'Content-Type': 'application/x-www-form-urlencoded',
+              }),
+              body: expect.any(String),
+            })
+          )
 
-        const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+          const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+          expect(requestOptions.headers.Authorization).toBeUndefined()
 
-        // Verify no Basic Auth header
-        expect(requestOptions.headers.Authorization).toBeUndefined()
+          const bodyParams = new URLSearchParams(requestOptions.body)
+          const bodyKeys = Array.from(bodyParams.keys()).sort()
 
-        // Verify body contains all required parameters
-        const bodyParams = new URLSearchParams(requestOptions.body)
-        const bodyKeys = Array.from(bodyParams.keys()).sort()
+          expect(bodyKeys).toEqual(['client_id', 'client_secret', 'grant_type', 'refresh_token'])
+          expect(bodyParams.get('grant_type')).toBe('refresh_token')
+          expect(bodyParams.get('refresh_token')).toBe(refreshToken)
+          expect(bodyParams.get('client_id')).toBe(expectedClientId)
+          expect(bodyParams.get('client_secret')).toBe(expectedClientSecret)
+        })
+      }
+    )
 
-        expect(bodyKeys).toEqual(['client_id', 'client_secret', 'grant_type', 'refresh_token'])
-        expect(bodyParams.get('grant_type')).toBe('refresh_token')
-        expect(bodyParams.get('refresh_token')).toBe(refreshToken)
-
-        // Verify client credentials are in the body
-        const expectedClientId =
-          providerId === 'outlook' ? 'microsoft_client_id' : `${providerId}_client_id`
-        const expectedClientSecret =
-          providerId === 'outlook' ? 'microsoft_client_secret' : `${providerId}_client_secret`
-
-        expect(bodyParams.get('client_id')).toBe(expectedClientId)
-        expect(bodyParams.get('client_secret')).toBe(expectedClientSecret)
-      })
-    })
-
-    it('should include Accept header for GitHub requests', async () => {
-      const refreshToken = 'test_refresh_token'
-
-      await refreshOAuthToken('github', refreshToken)
+    it('includes Accept header for GitHub requests', async () => {
+      await refreshOAuthToken('github-repo', 'test_refresh_token')
 
       const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
       expect(requestOptions.headers.Accept).toBe('application/json')
     })
 
-    it('should resolve service provider IDs to their base provider config', async () => {
-      const refreshToken = 'test_refresh_token'
-
-      await refreshOAuthToken('microsoft-teams', refreshToken)
-
-      const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
-      const bodyParams = new URLSearchParams(requestOptions.body)
-
-      expect(bodyParams.get('client_id')).toBe('microsoft_client_id')
-      expect(bodyParams.get('client_secret')).toBe('microsoft_client_secret')
-    })
-
-    it('should send Notion refresh requests as JSON with Basic Auth', async () => {
+    it('sends Notion refresh requests as JSON with Basic Auth', async () => {
       const refreshToken = 'test_refresh_token'
 
       await refreshOAuthToken('notion', refreshToken)
@@ -288,17 +420,24 @@ describe('OAuth Token Refresh', () => {
   })
 
   describe('Error Handling', () => {
-    it('should return null for unsupported provider', async () => {
-      const refreshToken = 'test_refresh_token'
-
-      const result = await refreshOAuthToken('unsupported', refreshToken)
-
-      expect(result).toBeNull()
+    it('returns null for unsupported provider', async () => {
+      await expect(refreshOAuthToken('unsupported', 'test_refresh_token')).resolves.toBeNull()
     })
 
-    it('should return null for API error responses', async () => {
-      const refreshToken = 'test_refresh_token'
+    it('returns null when the provider is missing credentials', async () => {
+      mockCredentials['google-email'] = {
+        clientId: '',
+        clientSecret: 'google_client_secret',
+        fields: {
+          client_id: '',
+          client_secret: 'google_client_secret',
+        },
+      }
 
+      await expect(refreshOAuthToken('google-email', 'test_refresh_token')).resolves.toBeNull()
+    })
+
+    it('returns null for API error responses', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
@@ -309,46 +448,35 @@ describe('OAuth Token Refresh', () => {
           }),
       })
 
-      const result = await refreshOAuthToken('google', refreshToken)
-
-      expect(result).toBeNull()
+      await expect(refreshOAuthToken('google-email', 'test_refresh_token')).resolves.toBeNull()
     })
 
-    it('should return null for network errors', async () => {
-      const refreshToken = 'test_refresh_token'
-
+    it('returns null for network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
-      const result = await refreshOAuthToken('google', refreshToken)
-
-      expect(result).toBeNull()
+      await expect(refreshOAuthToken('google-email', 'test_refresh_token')).resolves.toBeNull()
     })
   })
 
   describe('Token Response Handling', () => {
-    it('should handle providers that return new refresh tokens', async () => {
-      const refreshToken = 'old_refresh_token'
-      const newRefreshToken = 'new_refresh_token'
-
+    it('handles providers that return new refresh tokens', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'new_access_token',
           expires_in: 3600,
-          refresh_token: newRefreshToken,
+          refresh_token: 'new_refresh_token',
         }),
       })
 
-      const result = await refreshOAuthToken('airtable', refreshToken)
-
-      expect(result).toEqual({
+      await expect(refreshOAuthToken('airtable', 'old_refresh_token')).resolves.toEqual({
         accessToken: 'new_access_token',
         expiresIn: 3600,
-        refreshToken: newRefreshToken,
+        refreshToken: 'new_refresh_token',
       })
     })
 
-    it('should use original refresh token when new one is not provided', async () => {
+    it('uses the original refresh token when a new one is not provided', async () => {
       const refreshToken = 'original_refresh_token'
 
       mockFetch.mockResolvedValueOnce({
@@ -356,93 +484,42 @@ describe('OAuth Token Refresh', () => {
         json: async () => ({
           access_token: 'new_access_token',
           expires_in: 3600,
-          // No refresh_token in response
         }),
       })
 
-      const result = await refreshOAuthToken('google', refreshToken)
-
-      expect(result).toEqual({
+      await expect(refreshOAuthToken('google-email', refreshToken)).resolves.toEqual({
         accessToken: 'new_access_token',
         expiresIn: 3600,
-        refreshToken: refreshToken,
+        refreshToken,
       })
     })
 
-    it('should return null when access token is missing', async () => {
-      const refreshToken = 'test_refresh_token'
-
+    it('returns null when the access token is missing', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           expires_in: 3600,
-          // No access_token in response
         }),
       })
 
-      const result = await refreshOAuthToken('google', refreshToken)
-
-      expect(result).toBeNull()
+      await expect(refreshOAuthToken('google-email', 'test_refresh_token')).resolves.toBeNull()
     })
 
-    it('should use default expiration when not provided', async () => {
+    it('uses the default expiration when not provided', async () => {
       const refreshToken = 'test_refresh_token'
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'new_access_token',
-          // No expires_in in response
         }),
       })
 
-      const result = await refreshOAuthToken('google', refreshToken)
-
-      expect(result).toEqual({
+      await expect(refreshOAuthToken('google-email', refreshToken)).resolves.toEqual({
         accessToken: 'new_access_token',
         expiresIn: 3600,
-        refreshToken: refreshToken,
+        refreshToken,
       })
-    })
-  })
-
-  describe('Airtable Tests', () => {
-    it('should not have duplicate client ID issue', async () => {
-      const refreshToken = 'test_refresh_token'
-
-      await refreshOAuthToken('airtable', refreshToken)
-
-      const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
-
-      // Verify Authorization header is present and correct
-      expect(requestOptions.headers.Authorization).toMatch(/^Basic /)
-
-      // Parse body and verify client credentials are NOT present
-      const bodyParams = new URLSearchParams(requestOptions.body)
-      expect(bodyParams.get('client_id')).toBeNull()
-      expect(bodyParams.get('client_secret')).toBeNull()
-
-      // Verify only expected parameters are present
-      const bodyKeys = Array.from(bodyParams.keys())
-      expect(bodyKeys).toEqual(['grant_type', 'refresh_token'])
-    })
-
-    it('should handle Airtable refresh token rotation', async () => {
-      const refreshToken = 'old_refresh_token'
-      const newRefreshToken = 'rotated_refresh_token'
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'new_access_token',
-          expires_in: 3600,
-          refresh_token: newRefreshToken,
-        }),
-      })
-
-      const result = await refreshOAuthToken('airtable', refreshToken)
-
-      expect(result?.refreshToken).toBe(newRefreshToken)
     })
   })
 })

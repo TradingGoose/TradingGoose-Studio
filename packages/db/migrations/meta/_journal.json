@@ -127,6 +127,20 @@
       "when": 1775425889692,
       "tag": "0017_parched_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775689043608,
+      "tag": "0018_natural_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775715871799,
+      "tag": "0019_jazzy_sabra",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getOAuthProviderAvailability } from '@/lib/oauth/oauth'
+import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,5 +12,5 @@ export async function GET(request: NextRequest) {
         .filter(Boolean)
     : []
 
-  return NextResponse.json(getOAuthProviderAvailability(providers))
+  return NextResponse.json(await getOAuthProviderAvailability(providers))
 }

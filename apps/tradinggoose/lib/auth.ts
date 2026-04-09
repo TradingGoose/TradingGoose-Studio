@@ -55,6 +55,7 @@ import {
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
+import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
@@ -85,9 +86,42 @@ const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
   ])
 )
 
+type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
+
+function toSystemManagedGenericOAuthConfig(
+  config: SystemManagedGenericOAuthConfig
+): GenericOAuthConfig {
+  const providerConfig = {
+    ...config,
+    clientId: '',
+    clientSecret: '',
+  } satisfies GenericOAuthConfig
+
+  Object.defineProperties(providerConfig, {
+    clientId: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
+      },
+    },
+    clientSecret: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientSecret
+      },
+    },
+  })
+
+  return providerConfig
+}
+
+function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
+  return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+}
+
 const MICROSOFT_OAUTH_BASE_CONFIG = {
-  clientId: env.MICROSOFT_CLIENT_ID as string,
-  clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
   authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
   tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
   userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
@@ -422,11 +456,9 @@ export const auth = betterAuth({
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
     genericOAuth({
-      config: [
+      config: toSystemManagedGenericOAuthConfigs([
         {
           providerId: 'alpaca',
-          clientId: env.ALPACA_CLIENT_ID as string,
-          clientSecret: env.ALPACA_CLIENT_SECRET as string,
           authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
           tokenUrl: 'https://api.alpaca.markets/oauth/token',
           scopes: [
@@ -456,8 +488,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'github-repo',
-          clientId: env.GITHUB_REPO_CLIENT_ID as string,
-          clientSecret: env.GITHUB_REPO_CLIENT_SECRET as string,
           authorizationUrl: 'https://github.com/login/oauth/authorize',
           accessType: 'offline',
           prompt: 'consent',
@@ -533,8 +563,6 @@ export const auth = betterAuth({
         // Google providers
         {
           providerId: 'google-email',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -549,8 +577,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-calendar',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -563,8 +589,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-drive',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -578,8 +602,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-docs',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -593,8 +615,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-sheets',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -609,8 +629,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'google-forms',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -624,8 +642,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'google-vault',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -642,8 +658,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'wealthbox',
-          clientId: env.WEALTHBOX_CLIENT_ID as string,
-          clientSecret: env.WEALTHBOX_CLIENT_SECRET as string,
           authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
           tokenUrl: 'https://app.crmworkspace.com/oauth/token',
           userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
@@ -675,8 +689,6 @@ export const auth = betterAuth({
         // Supabase provider
         {
           providerId: 'supabase',
-          clientId: env.SUPABASE_CLIENT_ID as string,
-          clientSecret: env.SUPABASE_CLIENT_SECRET as string,
           authorizationUrl: 'https://api.supabase.com/v1/oauth/authorize',
           tokenUrl: 'https://api.supabase.com/v1/oauth/token',
           userInfoUrl: 'https://dummy-not-used.supabase.co',
@@ -725,8 +737,6 @@ export const auth = betterAuth({
         // X provider
         {
           providerId: 'x',
-          clientId: env.X_CLIENT_ID as string,
-          clientSecret: env.X_CLIENT_SECRET as string,
           authorizationUrl: 'https://x.com/i/oauth2/authorize',
           tokenUrl: 'https://api.x.com/2/oauth2/token',
           userInfoUrl: 'https://api.x.com/2/users/me',
@@ -784,8 +794,6 @@ export const auth = betterAuth({
         // Confluence provider
         {
           providerId: 'confluence',
-          clientId: env.CONFLUENCE_CLIENT_ID as string,
-          clientSecret: env.CONFLUENCE_CLIENT_SECRET as string,
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
           userInfoUrl: 'https://api.atlassian.com/me',
@@ -835,8 +843,6 @@ export const auth = betterAuth({
         // Discord provider
         {
           providerId: 'discord',
-          clientId: env.DISCORD_CLIENT_ID as string,
-          clientSecret: env.DISCORD_CLIENT_SECRET as string,
           authorizationUrl: 'https://discord.com/api/oauth2/authorize',
           tokenUrl: 'https://discord.com/api/oauth2/token',
           userInfoUrl: 'https://discord.com/api/users/@me',
@@ -886,8 +892,6 @@ export const auth = betterAuth({
         // Jira provider
         {
           providerId: 'jira',
-          clientId: env.JIRA_CLIENT_ID as string,
-          clientSecret: env.JIRA_CLIENT_SECRET as string,
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
           userInfoUrl: 'https://api.atlassian.com/me',
@@ -956,8 +960,6 @@ export const auth = betterAuth({
         // Airtable provider
         {
           providerId: 'airtable',
-          clientId: env.AIRTABLE_CLIENT_ID as string,
-          clientSecret: env.AIRTABLE_CLIENT_SECRET as string,
           authorizationUrl: 'https://airtable.com/oauth2/v1/authorize',
           tokenUrl: 'https://airtable.com/oauth2/v1/token',
           userInfoUrl: 'https://api.airtable.com/v0/meta/whoami',
@@ -1005,8 +1007,6 @@ export const auth = betterAuth({
         // Notion provider
         {
           providerId: 'notion',
-          clientId: env.NOTION_CLIENT_ID as string,
-          clientSecret: env.NOTION_CLIENT_SECRET as string,
           authorizationUrl: 'https://api.notion.com/v1/oauth/authorize',
           tokenUrl: 'https://api.notion.com/v1/oauth/token',
           userInfoUrl: 'https://api.notion.com/v1/users/me',
@@ -1055,8 +1055,6 @@ export const auth = betterAuth({
         // Reddit provider
         {
           providerId: 'reddit',
-          clientId: env.REDDIT_CLIENT_ID as string,
-          clientSecret: env.REDDIT_CLIENT_SECRET as string,
           authorizationUrl: 'https://www.reddit.com/api/v1/authorize?duration=permanent',
           tokenUrl: 'https://www.reddit.com/api/v1/access_token',
           userInfoUrl: 'https://oauth.reddit.com/api/v1/me',
@@ -1105,8 +1103,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'linear',
-          clientId: env.LINEAR_CLIENT_ID as string,
-          clientSecret: env.LINEAR_CLIENT_SECRET as string,
           authorizationUrl: 'https://linear.app/oauth/authorize',
           tokenUrl: 'https://api.linear.app/oauth/token',
           scopes: ['read', 'write'],
@@ -1178,8 +1174,6 @@ export const auth = betterAuth({
         // Slack provider
         {
           providerId: 'slack',
-          clientId: env.SLACK_CLIENT_ID as string,
-          clientSecret: env.SLACK_CLIENT_SECRET as string,
           authorizationUrl: 'https://slack.com/oauth/v2/authorize',
           tokenUrl: 'https://slack.com/api/oauth.v2.access',
           userInfoUrl: 'https://slack.com/api/users.identity',
@@ -1239,8 +1233,6 @@ export const auth = betterAuth({
         // Webflow provider
         {
           providerId: 'webflow',
-          clientId: env.WEBFLOW_CLIENT_ID as string,
-          clientSecret: env.WEBFLOW_CLIENT_SECRET as string,
           authorizationUrl: 'https://webflow.com/oauth/authorize',
           tokenUrl: 'https://api.webflow.com/oauth/access_token',
           userInfoUrl: 'https://api.webflow.com/v2/token/introspect',
@@ -1285,7 +1277,7 @@ export const auth = betterAuth({
             }
           },
         },
-      ],
+      ] as SystemManagedGenericOAuthConfig[]),
     }),
     // Include SSO plugin when enabled
     ...(env.SSO_ENABLED ? [sso()] : []),
