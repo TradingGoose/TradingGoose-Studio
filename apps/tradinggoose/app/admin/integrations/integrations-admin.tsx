@@ -243,154 +243,154 @@ export function AdminIntegrations() {
 
                               <div className='mt-4 grid gap-3 md:grid-cols-2'>
                                 {visibleSecretFields.map((secret) => {
-                                    const isRevealed = Boolean(revealedSecretIds[secret.id])
-                                    const credentialField = getCredentialFieldConfig(
-                                      bundle.id,
-                                      secret.credentialKey
-                                    )
-                                    const isSecretConfigured = Boolean(secret.value.trim())
-                                    const isEditingSecret = editingSecretId === secret.id
-                                    const shouldMaskValue =
-                                      credentialField.isSensitive && !isRevealed
-                                    const displayValue = secret.value
-                                      ? shouldMaskValue
-                                        ? maskCredentialValue(secret.value)
-                                        : secret.value
-                                      : 'Not set'
+                                  const isRevealed = Boolean(revealedSecretIds[secret.id])
+                                  const credentialField = getCredentialFieldConfig(
+                                    bundle.id,
+                                    secret.credentialKey
+                                  )
+                                  const isSecretConfigured = Boolean(secret.value.trim())
+                                  const isEditingSecret = editingSecretId === secret.id
+                                  const shouldMaskValue =
+                                    credentialField.isSensitive && !isRevealed
+                                  const displayValue = secret.value
+                                    ? shouldMaskValue
+                                      ? maskCredentialValue(secret.value)
+                                      : secret.value
+                                    : 'Not set'
 
-                                    return (
-                                      <div
-                                        key={secret.id}
-                                        className='rounded-lg border border-border/60 bg-background/80 p-3 shadow-sm'
-                                      >
-                                        <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
-                                          <div className='flex min-w-0 items-center gap-2'>
-                                            <div className='whitespace-nowrap font-medium text-sm'>
-                                              {credentialField.label}
-                                            </div>
-                                            <div className='min-w-0 truncate text-muted-foreground text-xs'>
-                                              {credentialField.note}
-                                            </div>
+                                  return (
+                                    <div
+                                      key={secret.id}
+                                      className='rounded-lg border border-border/60 bg-background/80 p-3 shadow-sm'
+                                    >
+                                      <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
+                                        <div className='flex min-w-0 items-center gap-2'>
+                                          <div className='whitespace-nowrap font-medium text-sm'>
+                                            {credentialField.label}
                                           </div>
-                                          <Badge
-                                            variant={isSecretConfigured ? 'default' : 'secondary'}
-                                            className={ADMIN_STATUS_BADGE_CLASSNAME}
-                                          >
-                                            {isSecretConfigured ? 'Configured' : 'Incomplete'}
-                                          </Badge>
+                                          <div className='min-w-0 truncate text-muted-foreground text-xs'>
+                                            {credentialField.note}
+                                          </div>
                                         </div>
-                                        <div className='flex items-center gap-2'>
-                                          {isEditingSecret ? (
-                                            <>
+                                        <Badge
+                                          variant={isSecretConfigured ? 'default' : 'secondary'}
+                                          className={ADMIN_STATUS_BADGE_CLASSNAME}
+                                        >
+                                          {isSecretConfigured ? 'Configured' : 'Incomplete'}
+                                        </Badge>
+                                      </div>
+                                      <div className='flex items-center gap-2'>
+                                        {isEditingSecret ? (
+                                          <>
+                                            <Button
+                                              variant='ghost'
+                                              size='icon'
+                                              className='h-8 w-8 text-muted-foreground'
+                                              disabled={isSavingBundle}
+                                              onClick={() => {
+                                                void saveEditingSecret(secret)
+                                              }}
+                                            >
+                                              <Check className='h-4 w-4' />
+                                              <span className='sr-only'>
+                                                Save {credentialField.label}
+                                              </span>
+                                            </Button>
+                                            <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-muted px-2 py-2'>
+                                              <Input
+                                                id={`system-config-${secret.id}`}
+                                                name={`system-config-${secret.id}`}
+                                                className='h-4 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                                                type={credentialField.isSensitive ? 'password' : 'text'}
+                                                value={editingSecretValue}
+                                                onChange={(event) =>
+                                                  setEditingSecretValue(event.target.value)
+                                                }
+                                                onKeyDown={(event) => {
+                                                  if (event.key === 'Enter') {
+                                                    event.preventDefault()
+                                                    void saveEditingSecret(secret)
+                                                  }
+
+                                                  if (event.key === 'Escape') {
+                                                    event.preventDefault()
+                                                    cancelEditingSecret()
+                                                  }
+                                                }}
+                                                placeholder={credentialField.placeholder}
+                                                autoComplete={
+                                                  credentialField.isSensitive
+                                                    ? 'new-password'
+                                                    : 'off'
+                                                }
+                                                data-1p-ignore='true'
+                                                data-lpignore='true'
+                                                data-bwignore='true'
+                                                data-form-type='other'
+                                              />
+                                            </div>
+                                            <Button
+                                              type='button'
+                                              variant='ghost'
+                                              size='icon'
+                                              className='h-8 w-8 text-muted-foreground'
+                                              onClick={cancelEditingSecret}
+                                            >
+                                              <X className='h-4 w-4' />
+                                              <span className='sr-only'>
+                                                Cancel editing {credentialField.label}
+                                              </span>
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          <>
+                                            {credentialField.isSensitive ? (
                                               <Button
+                                                type='button'
                                                 variant='ghost'
                                                 size='icon'
                                                 className='h-8 w-8 text-muted-foreground'
-                                                disabled={isSavingBundle}
                                                 onClick={() => {
-                                                  void saveEditingSecret(secret)
+                                                  setRevealedSecretIds((current) => ({
+                                                    ...current,
+                                                    [secret.id]: !current[secret.id],
+                                                  }))
                                                 }}
                                               >
-                                                <Check className='h-4 w-4' />
+                                                {isRevealed ? (
+                                                  <EyeOff className='h-4 w-4' />
+                                                ) : (
+                                                  <Eye className='h-4 w-4' />
+                                                )}
                                                 <span className='sr-only'>
-                                                  Save {credentialField.label}
+                                                  {isRevealed ? 'Hide value' : 'Reveal value'}
                                                 </span>
                                               </Button>
-                                              <div className='flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-2'>
-                                                <Input
-                                                  id={`system-config-${secret.id}`}
-                                                  name={`system-config-${secret.id}`}
-                                                  className='h-8 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                                                  type={credentialField.isSensitive ? 'password' : 'text'}
-                                                  value={editingSecretValue}
-                                                  onChange={(event) =>
-                                                    setEditingSecretValue(event.target.value)
-                                                  }
-                                                  onKeyDown={(event) => {
-                                                    if (event.key === 'Enter') {
-                                                      event.preventDefault()
-                                                      void saveEditingSecret(secret)
-                                                    }
-
-                                                    if (event.key === 'Escape') {
-                                                      event.preventDefault()
-                                                      cancelEditingSecret()
-                                                    }
-                                                  }}
-                                                  placeholder={credentialField.placeholder}
-                                                  autoComplete={
-                                                    credentialField.isSensitive
-                                                      ? 'new-password'
-                                                      : 'off'
-                                                  }
-                                                  data-1p-ignore='true'
-                                                  data-lpignore='true'
-                                                  data-bwignore='true'
-                                                  data-form-type='other'
-                                                />
-                                              </div>
-                                              <Button
-                                                type='button'
-                                                variant='ghost'
-                                                size='icon'
-                                                className='h-8 w-8 text-muted-foreground'
-                                                onClick={cancelEditingSecret}
-                                              >
-                                                <X className='h-4 w-4' />
-                                                <span className='sr-only'>
-                                                  Cancel editing {credentialField.label}
-                                                </span>
-                                              </Button>
-                                            </>
-                                          ) : (
-                                            <>
-                                              {credentialField.isSensitive ? (
-                                                <Button
-                                                  type='button'
-                                                  variant='ghost'
-                                                  size='icon'
-                                                  className='h-8 w-8 text-muted-foreground'
-                                                  onClick={() => {
-                                                    setRevealedSecretIds((current) => ({
-                                                      ...current,
-                                                      [secret.id]: !current[secret.id],
-                                                    }))
-                                                  }}
-                                                >
-                                                  {isRevealed ? (
-                                                    <EyeOff className='h-4 w-4' />
-                                                  ) : (
-                                                    <Eye className='h-4 w-4' />
-                                                  )}
-                                                  <span className='sr-only'>
-                                                    {isRevealed ? 'Hide value' : 'Reveal value'}
-                                                  </span>
-                                                </Button>
-                                              ) : null}
-                                              <div className='min-w-0 flex-1 rounded-md bg-muted/70 px-3 py-2'>
-                                                <code className='block truncate font-mono text-xs text-foreground'>
-                                                  {displayValue}
-                                                </code>
-                                              </div>
-                                              <Button
-                                                type='button'
-                                                variant='ghost'
-                                                size='icon'
-                                                className='h-8 w-8 text-muted-foreground'
-                                                disabled={isSavingBundle}
-                                                onClick={() => startEditingSecret(secret)}
-                                              >
-                                                <Pencil className='h-4 w-4' />
-                                                <span className='sr-only'>
-                                                  Edit {credentialField.label}
-                                                </span>
-                                              </Button>
-                                            </>
-                                          )}
-                                        </div>
+                                            ) : null}
+                                            <div className='min-w-0 flex-1 px-3 py-2'>
+                                              <code className='block truncate font-mono text-xs text-foreground'>
+                                                {displayValue}
+                                              </code>
+                                            </div>
+                                            <Button
+                                              type='button'
+                                              variant='ghost'
+                                              size='icon'
+                                              className='h-8 w-8 text-muted-foreground'
+                                              disabled={isSavingBundle}
+                                              onClick={() => startEditingSecret(secret)}
+                                            >
+                                              <Pencil className='h-4 w-4' />
+                                              <span className='sr-only'>
+                                                Edit {credentialField.label}
+                                              </span>
+                                            </Button>
+                                          </>
+                                        )}
                                       </div>
-                                    )
-                                  })}
+                                    </div>
+                                  )
+                                })}
                               </div>
                             </div>
 
