@@ -153,7 +153,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
       // Get current copilot chat ID (if available)
       const { currentChat, messages } = getCopilotStore().getState()
 
-      if (!currentChat?.id) {
+      if (!currentChat?.conversationId) {
         logger.warn('No active copilot chat for checkpoint creation')
         return { success: false }
       }
@@ -169,7 +169,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: activeWorkflowId,
-          chatId: currentChat.id,
+          chatId: currentChat.conversationId,
           messageId: lastUserMessage?.id,
           workflowState: JSON.stringify(currentState),
         }),
