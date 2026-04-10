@@ -23,7 +23,7 @@ The Watchlist widget lets you create, organize, and monitor lists of trading sym
 - **Drag-and-drop reorder** -- Reorder symbols and sections using mouse, touch, or keyboard (arrow keys with the sortable keyboard sensor). Items can be moved between sections.
 - **Inline symbol editing** -- Double-click a row to open an inline listing selector and change the symbol for that entry without removing and re-adding it.
 - **Symbol search and add** -- The center header control provides a listing search field. Select a symbol and click the check button to append it to the active watchlist.
-- **Import / export** -- Import symbols from a JSON file or export the current watchlist to JSON through the list actions menu.
+- **Import / export** -- Import or export the current watchlist through the list actions menu using the shared TradingGoose export JSON format. Sections and symbol order are preserved.
 - **Provider selection** -- Choose a market data provider from the left header control. Provider-specific parameters and API credentials can be configured through the settings popover.
 - **Pair color linking** -- When the widget is assigned a pair color, clicking a row broadcasts the selected listing to other widgets sharing the same color (e.g. a [Data Chart](/widgets/data-chart)), and the currently linked symbol is highlighted.
 
@@ -33,7 +33,7 @@ Add the Watchlist to a workspace panel. The header is organized into three group
 
 - **Left** -- Provider settings button, provider selector dropdown, and a manual refresh button.
 - **Center** -- Listing search input and an add button to append the selected symbol.
-- **Right** -- Watchlist selector dropdown (switch between lists, rename, or delete) and a list actions menu (create watchlist, add section, import, export, delete).
+- **Right** -- Watchlist selector dropdown (switch between lists, rename, or delete) and a list actions menu (create watchlist, add section, import/export, delete).
 
 Click a row to select it. When the widget shares a pair color with a Data Chart, that click also loads the symbol in the chart. Double-click to enter edit mode and change the symbol inline. Right-side controls on each row let you remove individual items, and section headers have rename and delete actions.
 

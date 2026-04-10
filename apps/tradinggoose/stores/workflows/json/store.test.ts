@@ -1,54 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockGetWorkflowWithValues = vi.hoisted(() => vi.fn())
+const mockGetSnapshotForWorkflow = vi.hoisted(() => vi.fn())
+const mockWorkflowRegistryState = vi.hoisted(() => ({
+  workflows: {
+    'workflow-1': {
+      id: 'workflow-1',
+      name: 'Primary Workflow',
+      description: 'Workflow imported from the unified schema',
+      color: '#3972F6',
+      workspaceId: 'workspace-1',
+    },
+  },
+  getActiveWorkflowId: vi.fn(() => 'workflow-1'),
+}))
 
-vi.mock('@/stores/workflows', () => ({
-  getWorkflowWithValues: mockGetWorkflowWithValues,
+vi.mock('@/lib/yjs/workflow-session-registry', () => ({
+  getSnapshotForWorkflow: mockGetSnapshotForWorkflow,
+}))
+
+vi.mock('@/stores/workflows/registry/store', () => ({
+  useWorkflowRegistry: {
+    getState: () => mockWorkflowRegistryState,
+  },
 }))
 
 import { useWorkflowJsonStore } from './store'
 
 describe('workflow json store', () => {
   beforeEach(() => {
-    mockGetWorkflowWithValues.mockReset()
+    mockGetSnapshotForWorkflow.mockReset()
     useWorkflowJsonStore.setState({
       json: '',
       lastGenerated: undefined,
     })
 
-    mockGetWorkflowWithValues.mockReturnValue({
-      id: 'workflow-1',
-      name: 'Primary Workflow',
-      description: 'Workflow imported from the unified schema',
-      color: '#3972F6',
-      workspaceId: 'workspace-1',
-      state: {
-        blocks: {
-          block_1: {
-            id: 'block_1',
-            type: 'agent',
-            name: 'Agent 1',
-            position: { x: 0, y: 0 },
-            subBlocks: {
-              skills: {
-                id: 'skills',
-                type: 'skill-input',
-                value: [
-                  {
-                    skillId: 'skill-1',
-                    name: 'Market Research',
-                  },
-                ],
-              },
+    mockGetSnapshotForWorkflow.mockReturnValue({
+      blocks: {
+        block_1: {
+          id: 'block_1',
+          type: 'agent',
+          name: 'Agent 1',
+          position: { x: 0, y: 0 },
+          subBlocks: {
+            skills: {
+              id: 'skills',
+              type: 'skill-input',
+              value: [
+                {
+                  skillId: 'skill-1',
+                  name: 'Market Research',
+                },
+              ],
             },
-            outputs: {},
-            enabled: true,
           },
+          outputs: {},
+          enabled: true,
         },
-        edges: [],
-        loops: {},
-        parallels: {},
       },
+      edges: [],
+      loops: {},
+      parallels: {},
+      lastSaved: undefined,
+      isDeployed: false,
+      deployedAt: undefined,
     })
   })
 

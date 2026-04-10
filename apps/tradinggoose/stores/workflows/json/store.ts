@@ -2,9 +2,9 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createWorkflowExportFile } from '@/lib/workflows/import-export'
+import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { SkillDefinition } from '@/stores/skills/types'
-import { getWorkflowWithValues } from '@/stores/workflows'
 import { useWorkflowRegistry } from '../registry/store'
 
 const logger = createLogger('WorkflowJsonStore')
@@ -31,34 +31,49 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
       lastGenerated: undefined,
 
       generateJson: (scope) => {
+        const clearJson = () =>
+          set({
+            json: '',
+            lastGenerated: Date.now(),
+          })
+
         const scopedWorkflowId =
           typeof scope?.workflowId === 'string' && scope.workflowId.trim().length > 0
             ? scope.workflowId
             : null
+        const registryState = useWorkflowRegistry.getState()
         const activeWorkflowId =
-          scopedWorkflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId(scope?.channelId)
+          scopedWorkflowId ?? registryState.getActiveWorkflowId(scope?.channelId)
 
         if (!activeWorkflowId) {
           logger.warn('No active workflow to generate JSON for')
+          clearJson()
           return
         }
 
         try {
-          // Get the workflow state with merged subblock values
-          const workflow = getWorkflowWithValues(activeWorkflowId, scope?.channelId)
+          const currentWorkflow = registryState.workflows[activeWorkflowId]
 
-          if (!workflow || !workflow.state) {
-            logger.warn('No workflow state found for ID:', activeWorkflowId)
+          if (!currentWorkflow) {
+            logger.warn('No workflow metadata found for ID:', activeWorkflowId)
+            clearJson()
             return
           }
 
-          const workflowState = workflow.state
+          const workflowSnapshot = getSnapshotForWorkflow(activeWorkflowId)
+
+          if (!workflowSnapshot) {
+            logger.warn('No workflow state found for ID:', activeWorkflowId)
+            clearJson()
+            return
+          }
+
           const workspaceSkills =
             scope?.workspaceSkills ??
-            (workflow.workspaceId
+            (currentWorkflow.workspaceId
               ? useSkillsStore
                   .getState()
-                  .getAllSkills(workflow.workspaceId)
+                  .getAllSkills(currentWorkflow.workspaceId)
                   .map((skill) => ({
                     id: skill.id,
                     name: skill.name,
@@ -69,10 +84,10 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
 
           const exportFile = createWorkflowExportFile({
             workflow: {
-              name: workflow.name,
-              description: workflow.description ?? '',
-              color: workflow.color ?? '',
-              state: workflowState,
+              name: currentWorkflow.name,
+              description: currentWorkflow.description ?? '',
+              color: currentWorkflow.color ?? '',
+              state: workflowSnapshot,
             },
             skills: workspaceSkills,
           })
@@ -95,6 +110,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
           })
         } catch (error) {
           logger.error('Failed to generate JSON:', error)
+          clearJson()
         }
       },
 

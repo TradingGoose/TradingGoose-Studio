@@ -232,18 +232,6 @@ function computeLayoutPositions(
   return positions
 }
 
-function getBounds(positions: Map<string, { x: number; y: number }>) {
-  let minX = Number.POSITIVE_INFINITY
-  let minY = Number.POSITIVE_INFINITY
-
-  for (const pos of positions.values()) {
-    minX = Math.min(minX, pos.x)
-    minY = Math.min(minY, pos.y)
-  }
-
-  return { minX, minY }
-}
-
 function updateContainerDimensions(
   parentBlock: BlockState,
   childIds: string[],
@@ -305,48 +293,4 @@ function hasPosition(block: BlockState): boolean {
   if (!block.position) return false
   const { x, y } = block.position
   return Number.isFinite(x) && Number.isFinite(y)
-}
-
-/**
- * Estimate block heights for diff view by using current workflow measurements
- * This provides better height estimates than using default values
- */
-export function transferBlockHeights(
-  sourceBlocks: Record<string, BlockState>,
-  targetBlocks: Record<string, BlockState>
-): void {
-  // Build a map of block type+name to heights from source
-  const heightMap = new Map<string, { height: number; width: number; isWide: boolean }>()
-
-  for (const [id, block] of Object.entries(sourceBlocks)) {
-    const key = `${block.type}:${block.name}`
-    heightMap.set(key, {
-      height: block.height || 100,
-      width: block.layout?.measuredWidth || (block.isWide ? 480 : 350),
-      isWide: block.isWide || false,
-    })
-  }
-
-  // Transfer heights to target blocks
-  for (const block of Object.values(targetBlocks)) {
-    const key = `${block.type}:${block.name}`
-    const measurements = heightMap.get(key)
-
-    if (measurements) {
-      block.height = measurements.height
-      block.isWide = measurements.isWide
-
-      if (!block.layout) {
-        block.layout = {}
-      }
-      block.layout.measuredHeight = measurements.height
-      block.layout.measuredWidth = measurements.width
-    }
-  }
-
-  logger.debug('Transferred block heights from source workflow', {
-    sourceCount: Object.keys(sourceBlocks).length,
-    targetCount: Object.keys(targetBlocks).length,
-    heightsMapped: heightMap.size,
-  })
 }

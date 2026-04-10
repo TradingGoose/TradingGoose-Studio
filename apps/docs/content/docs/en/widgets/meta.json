@@ -9,10 +9,13 @@
     "copilot",
     "workflow-variables",
     "editor-indicator",
+    "list-indicator",
     "data-chart",
     "watchlist",
     "editor-skill",
+    "list-skill",
     "editor-mcp",
-    "editor-custom-tool"
+    "editor-custom-tool",
+    "list-custom-tool"
   ]
 }
