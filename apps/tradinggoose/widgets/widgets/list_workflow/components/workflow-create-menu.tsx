@@ -12,8 +12,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
+import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useImportSkills } from '@/hooks/queries/skills'
 import { useFolderStore } from '@/stores/folders/store'
+import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
@@ -23,6 +26,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import { buildImportedWorkflowSkillsLookup } from './workflow-create-menu.utils'
 
 const logger = createLogger('DashboardWorkflowCreateMenu')
 
@@ -42,6 +46,7 @@ export function DashboardWorkflowCreateMenu({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const createFolder = useFolderStore((state) => state.createFolder)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
+  const importSkillsMutation = useImportSkills()
 
   const isWorkspaceReady = Boolean(workspaceId)
   const isMenuDisabled = !isWorkspaceReady || !permissions.canEdit
@@ -54,6 +59,9 @@ export function DashboardWorkflowCreateMenu({
     setIsCreatingWorkflow(true)
 
     try {
+      const { clearDiff } = useWorkflowDiffStore.getState()
+      clearDiff()
+
       const workflowId = await createWorkflow({ workspaceId })
 
       if (workflowId) {
@@ -99,41 +107,84 @@ export function DashboardWorkflowCreateMenu({
       setIsImporting(true)
 
       try {
-        const { data: workflowData, errors: parseErrors } = parseWorkflowJson(content)
+        const { clearDiff } = useWorkflowDiffStore.getState()
+        clearDiff()
 
-        if (!workflowData || parseErrors.length > 0) {
-          logger.error('Failed to parse JSON:', { errors: parseErrors })
+        const parsedWorkflow = parseWorkflowJson(content, false)
+
+        if (!parsedWorkflow.data || parsedWorkflow.errors.length > 0) {
+          throw new Error(parsedWorkflow.errors[0] ?? 'Failed to parse workflow import file')
+        }
+
+        const parsedFile = JSON.parse(content) as unknown
+        const existingWorkflowNames = Object.values(useWorkflowRegistry.getState().workflows)
+          .filter((workflow) => workflow.workspaceId === workspaceId)
+          .map((workflow) => workflow.name)
+
+        if (parsedWorkflow.data.skills.length > 0) {
+          const importResult = await importSkillsMutation.mutateAsync({
+            workspaceId,
+            file: parsedFile,
+          })
+
+          const importedSkillsBySourceName = buildImportedWorkflowSkillsLookup({
+            expectedSkills: parsedWorkflow.data.skills,
+            importedSkills: importResult?.importedSkills,
+          })
+
+          const newWorkflowId = await importWorkflowFromJsonContent({
+            content,
+            filename,
+            workspaceId,
+            existingWorkflowNames,
+            importedSkillsBySourceName,
+            createWorkflow,
+            persistWorkflowState: async (workflowId, state) => {
+              const response = await fetch(`/api/workflows/${workflowId}/state`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(state),
+              })
+
+              if (!response.ok) {
+                logger.error('Failed to persist imported workflow to database')
+                throw new Error('Failed to save workflow')
+              }
+            },
+          })
+
+          logger.info('Workflow imported successfully from dashboard widget')
+
+          if (newWorkflowId) {
+            onWorkflowCreated?.(newWorkflowId)
+          }
+
           return
         }
 
-        const getWorkflowName = () => {
-          if (filename) {
-            const nameWithoutExtension = filename.replace(/\.json$/i, '')
-            return (
-              nameWithoutExtension.trim() || `Imported Workflow - ${new Date().toLocaleString()}`
-            )
-          }
-          return `Imported Workflow - ${new Date().toLocaleString()}`
-        }
-
-        const newWorkflowId = await createWorkflow({
-          name: getWorkflowName(),
-          description: 'Workflow imported from JSON',
+        const newWorkflowId = await importWorkflowFromJsonContent({
+          content,
+          filename,
           workspaceId,
-        })
+          existingWorkflowNames,
+          createWorkflow,
+          persistWorkflowState: async (workflowId, state) => {
+            const response = await fetch(`/api/workflows/${workflowId}/state`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(state),
+            })
 
-        const response = await fetch(`/api/workflows/${newWorkflowId}/state`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
+            if (!response.ok) {
+              logger.error('Failed to persist imported workflow to database')
+              throw new Error('Failed to save workflow')
+            }
           },
-          body: JSON.stringify(workflowData),
         })
-
-        if (!response.ok) {
-          logger.error('Failed to persist imported workflow to database')
-          throw new Error('Failed to save workflow')
-        }
 
         logger.info('Workflow imported successfully from dashboard widget')
 
@@ -146,7 +197,7 @@ export function DashboardWorkflowCreateMenu({
         setIsImporting(false)
       }
     },
-    [workspaceId, createWorkflow, onWorkflowCreated]
+    [workspaceId, createWorkflow, importSkillsMutation, onWorkflowCreated]
   )
 
   const handleImportWorkflow = useCallback(() => {

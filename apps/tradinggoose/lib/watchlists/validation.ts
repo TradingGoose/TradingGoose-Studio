@@ -58,7 +58,7 @@ export const normalizeWatchlistSettings = (value: unknown): WatchlistSettings =>
   }
 }
 
-const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
+export const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   if (!isPlainRecord(value)) return null
   return toListingValueObject(value as ListingInputValue) ?? null
 }

@@ -59,23 +59,35 @@ describe('Watchlist import API route', () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
-      items: [
-        {
-          type: 'section',
-          label: 'Tech',
-          items: [
-            {
-              type: 'listing',
-              listing: {
-                listing_id: 'aapl-id',
-                base_id: '',
-                quote_id: '',
-                listing_type: 'default',
+      file: {
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-06T12:00:00.000Z',
+        exportedFrom: 'watchlistWidget',
+        resourceTypes: ['watchlists'],
+        watchlists: [
+          {
+            name: 'Imported Watchlist',
+            items: [
+              {
+                type: 'section',
+                label: 'Tech',
+                items: [
+                  {
+                    type: 'listing',
+                    listing: {
+                      listing_id: 'aapl-id',
+                      base_id: '',
+                      quote_id: '',
+                      listing_type: 'default',
+                    },
+                  },
+                ],
               },
-            },
-          ],
-        },
-      ],
+            ],
+          },
+        ],
+      },
     })
 
     const response = await POST(request, {
@@ -116,14 +128,26 @@ describe('Watchlist import API route', () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
-      items: [
-        {
-          id: 'legacy-section-id',
-          type: 'section',
-          label: 'Tech',
-          items: [],
-        },
-      ],
+      file: {
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-06T12:00:00.000Z',
+        exportedFrom: 'watchlistWidget',
+        resourceTypes: ['watchlists'],
+        watchlists: [
+          {
+            name: 'Imported Watchlist',
+            items: [
+              {
+                id: 'legacy-section-id',
+                type: 'section',
+                label: 'Tech',
+                items: [],
+              },
+            ],
+          },
+        ],
+      },
     })
 
     const response = await POST(request, {

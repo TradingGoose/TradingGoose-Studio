@@ -98,6 +98,38 @@ describe('Skills API Routes', () => {
     expect(body.error).toBe('workspaceId is required')
   })
 
+  it('POST should accept human-readable skill names', async () => {
+    mockUpsertSkills.mockResolvedValue([
+      {
+        id: 'skill-1',
+        name: 'Market Research',
+        description: 'Example',
+        content: 'Example content',
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/skills', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspaceId: 'ws-1',
+        skills: [
+          {
+            name: 'Market Research',
+            description: 'Example',
+            content: 'Example content',
+          },
+        ],
+      }),
+    })
+
+    const { POST } = await import('@/app/api/skills/route')
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+  })
+
   it('DELETE should require workspaceId query parameter', async () => {
     const req = new NextRequest('http://localhost:3000/api/skills?id=skill-1', {
       method: 'DELETE',

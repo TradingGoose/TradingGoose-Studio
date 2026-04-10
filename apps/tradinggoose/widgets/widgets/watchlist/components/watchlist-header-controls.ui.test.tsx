@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -73,11 +73,7 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-actions-button', 
     createSectionDisabled?: boolean
     onCreateSection: () => void
   }) => (
-    <button
-      type='button'
-      disabled={props.createSectionDisabled}
-      onClick={props.onCreateSection}
-    >
+    <button type='button' disabled={props.createSectionDisabled} onClick={props.onCreateSection}>
       Create Section
     </button>
   ),
@@ -173,13 +169,15 @@ describe('watchlist header controls', () => {
         <WatchlistHeaderCenterControls
           workspaceId='workspace-1'
           panelId='panel-2'
-          widget={{
-            key: 'watchlist-widget',
-            params: {
-              watchlistId: 'default-watchlist',
-              provider: 'alpaca',
-            },
-          } as any}
+          widget={
+            {
+              key: 'watchlist-widget',
+              params: {
+                watchlistId: 'default-watchlist',
+                provider: 'alpaca',
+              },
+            } as any
+          }
         />
       )
     })
@@ -237,10 +235,12 @@ describe('watchlist header controls', () => {
         <WatchlistHeaderRightControls
           workspaceId='workspace-1'
           panelId='panel-1'
-          widget={{
-            key: 'watchlist',
-            params: { watchlistId: 'default-watchlist' },
-          } as any}
+          widget={
+            {
+              key: 'watchlist',
+              params: { watchlistId: 'default-watchlist' },
+            } as any
+          }
         />
       )
     })
@@ -280,10 +280,12 @@ describe('watchlist header controls', () => {
         <WatchlistHeaderRightControls
           workspaceId='workspace-1'
           panelId='panel-4'
-          widget={{
-            key: 'watchlist-widget',
-            params: { watchlistId: 'default-watchlist' },
-          } as any}
+          widget={
+            {
+              key: 'watchlist-widget',
+              params: { watchlistId: 'default-watchlist' },
+            } as any
+          }
         />
       )
     })
@@ -293,23 +295,35 @@ describe('watchlist header controls', () => {
 
     const file = {
       text: vi.fn().mockResolvedValue(
-        JSON.stringify([
-          {
-            type: 'section',
-            label: 'Tech',
-            items: [
-              {
-                type: 'listing',
-                listing: {
-                  listing_id: 'aapl-id',
-                  base_id: '',
-                  quote_id: '',
-                  listing_type: 'default',
+        JSON.stringify({
+          version: '1',
+          fileType: 'tradingGooseExport',
+          exportedAt: '2026-04-06T12:00:00.000Z',
+          exportedFrom: 'watchlistWidget',
+          resourceTypes: ['watchlists'],
+          watchlists: [
+            {
+              name: 'Default',
+              items: [
+                {
+                  type: 'section',
+                  label: 'Tech',
+                  items: [
+                    {
+                      type: 'listing',
+                      listing: {
+                        listing_id: 'aapl-id',
+                        base_id: '',
+                        quote_id: '',
+                        listing_type: 'default',
+                      },
+                    },
+                  ],
                 },
-              },
-            ],
-          },
-        ])
+              ],
+            },
+          ],
+        })
       ),
     } as unknown as File
 
@@ -326,23 +340,35 @@ describe('watchlist header controls', () => {
     expect(mutateAsync).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       watchlistId: 'default-watchlist',
-      items: [
-        {
-          type: 'section',
-          label: 'Tech',
-          items: [
-            {
-              type: 'listing',
-              listing: {
-                listing_id: 'aapl-id',
-                base_id: '',
-                quote_id: '',
-                listing_type: 'default',
+      file: {
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-06T12:00:00.000Z',
+        exportedFrom: 'watchlistWidget',
+        resourceTypes: ['watchlists'],
+        watchlists: [
+          {
+            name: 'Default',
+            items: [
+              {
+                type: 'section',
+                label: 'Tech',
+                items: [
+                  {
+                    type: 'listing',
+                    listing: {
+                      listing_id: 'aapl-id',
+                      base_id: '',
+                      quote_id: '',
+                      listing_type: 'default',
+                    },
+                  },
+                ],
               },
-            },
-          ],
-        },
-      ],
+            ],
+          },
+        ],
+      },
     })
   })
 })

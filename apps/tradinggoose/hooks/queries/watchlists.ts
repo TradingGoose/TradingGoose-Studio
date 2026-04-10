@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type {
-  WatchlistImportFileItem,
+  WatchlistImportFile,
   WatchlistRecord,
   WatchlistSettings,
 } from '@/lib/watchlists/types'
@@ -447,18 +447,18 @@ export function useImportWatchlist() {
     mutationFn: async ({
       workspaceId,
       watchlistId,
-      items,
+      file,
     }: {
       workspaceId: string
       watchlistId: string
-      items: WatchlistImportFileItem[]
+      file: WatchlistImportFile
     }) => {
       const response = await fetch(`/api/watchlists/${watchlistId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          items,
+          file,
         }),
       })
 

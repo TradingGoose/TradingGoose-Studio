@@ -1,122 +1,129 @@
 'use client'
 
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { ENTITY_KIND_INDICATOR, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
-import {
-  useEntitySession,
-} from '@/lib/copilot/review-sessions/entity-session-host'
+import { useIndicators } from '@/hooks/queries/indicators'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
-import {
-  buildPersistedPairContext,
-  buildPersistedReviewParams,
-  readEntitySelectionState,
-} from '@/widgets/widgets/editor_indicator/utils'
-import {
-  EntityEditorShell,
-  type EntityEditorShellConfig,
-} from '@/widgets/widgets/components/entity-editor-shell'
-import { useGuardedUndoRedo } from '@/widgets/widgets/entity_review/use-guarded-undo-redo'
-
-const INDICATOR_SHELL_CONFIG: EntityEditorShellConfig = {
-  entityKind: ENTITY_KIND_INDICATOR,
-  fallbackWidgetKey: 'editor_indicator',
-  legacyIdKey: 'indicatorId',
-  buildWidgetParams: buildPersistedReviewParams,
-  buildPairContext: buildPersistedPairContext,
-  readEntitySelectionState,
-  noWorkspaceMessage: 'Select a workspace to edit indicators.',
-  noSelectionMessage: 'Select an indicator to edit.',
-}
+import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
 type EditorIndicatorWidgetBodyProps = WidgetComponentProps
 
-export function EditorIndicatorWidgetBody(props: EditorIndicatorWidgetBodyProps) {
-  return (
-    <EntityEditorShell
-      {...props}
-      config={INDICATOR_SHELL_CONFIG}
-      useSelectionPersistence={({
-        resolvedPairColor,
-        isLinkedToColorPair,
-        pairContext,
-        setPairContext,
-        onWidgetParamsChange,
-        panelId,
-        params,
-      }) => {
-        useIndicatorSelectionPersistence({
-          onWidgetParamsChange,
-          panelId,
-          params,
-          pairColor: resolvedPairColor,
-          onIndicatorSelect: (indicatorId) => {
-            if (!isLinkedToColorPair) {
-              return
-            }
-
-            if (pairContext?.indicatorId === indicatorId) {
-              return
-            }
-
-            setPairContext(
-              resolvedPairColor,
-              buildPersistedPairContext({
-                existing: pairContext,
-                legacyIdKey: 'indicatorId',
-                descriptor: null,
-                legacyEntityId: indicatorId,
-              })
-            )
-          },
-        })
-      }}
-    >
-      {({ workspaceId, descriptor, persistDescriptor, panelId, widget }) => (
-        <IndicatorEditorSession
-          workspaceId={workspaceId}
-          panelId={panelId}
-          widget={widget}
-          descriptor={descriptor}
-          onReviewTargetChange={persistDescriptor}
-        />
-      )}
-    </EntityEditorShell>
-  )
-}
-
-function IndicatorEditorSession({
-  workspaceId,
+export function EditorIndicatorWidgetBody({
+  params,
+  context,
+  pairColor = 'gray',
   panelId,
   widget,
-  descriptor,
-  onReviewTargetChange,
-}: {
-  workspaceId: string
-  panelId?: string
-  widget?: WidgetComponentProps['widget']
-  descriptor: ReviewTargetDescriptor
-  onReviewTargetChange: (descriptor: ReviewTargetDescriptor | null) => void
-}) {
-  const saveRef = useRef<() => void>(() => {})
-  const verifyRef = useRef<() => void>(() => {})
-  const { doc, isLoading, error, undo, redo, runtime, canUndo, canRedo } = useEntitySession()
-  const { handleUndo, handleRedo } = useGuardedUndoRedo({ runtime, undo, redo, canUndo, canRedo })
+  onWidgetParamsChange,
+}: EditorIndicatorWidgetBodyProps) {
+  const workspaceId = context?.workspaceId ?? null
+  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
+
+  const paramsIndicatorId = getIndicatorIdFromParams(params)
+  const requestedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.indicatorId ?? paramsIndicatorId)
+    : paramsIndicatorId
+
+  const workspaceIndicators = workspaceId
+    ? indicators.filter((indicator) => indicator.workspaceId === workspaceId)
+    : []
+  const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
+  const hasRequestedIndicator =
+    normalizedRequestedIndicatorId.length > 0 &&
+    workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
+  const indicatorId = hasRequestedIndicator
+    ? normalizedRequestedIndicatorId
+    : (workspaceIndicators[0]?.id ?? null)
+  const indicator = indicatorId
+    ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
+    : null
+
+  useEffect(() => {
+    if (!indicatorId) {
+      return
+    }
+
+    if (isLinkedToColorPair) {
+      if (pairContext?.indicatorId === indicatorId) {
+        return
+      }
+
+      setPairContext(resolvedPairColor, { indicatorId })
+      return
+    }
+
+    if (!onWidgetParamsChange || paramsIndicatorId === indicatorId) {
+      return
+    }
+
+    onWidgetParamsChange({
+      ...(params ?? {}),
+      indicatorId,
+    })
+  }, [
+    indicatorId,
+    isLinkedToColorPair,
+    onWidgetParamsChange,
+    pairContext?.indicatorId,
+    params,
+    paramsIndicatorId,
+    resolvedPairColor,
+    setPairContext,
+  ])
+
+  useIndicatorSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    params,
+    pairColor: resolvedPairColor,
+    onIndicatorSelect: (nextId) => {
+      if (!isLinkedToColorPair) return
+      if (pairContext?.indicatorId === nextId) return
+      setPairContext(resolvedPairColor, { indicatorId: nextId })
+    },
+  })
+
+  const codeSaveRef = useRef<() => void>(() => {})
+  const codeVerifyRef = useRef<() => void>(() => {})
+
+  const handleSave = useCallback(() => {
+    codeSaveRef.current()
+  }, [])
+
+  const handleVerify = useCallback(() => {
+    codeVerifyRef.current()
+  }, [])
 
   useIndicatorEditorActions({
     panelId,
     widget,
-    save: () => saveRef.current(),
-    verify: () => verifyRef.current(),
-    undo: handleUndo,
-    redo: handleRedo,
+    onSave: handleSave,
+    onVerify: handleVerify,
   })
 
-  if (isLoading || !doc) {
+  if (!workspaceId) {
+    return <WidgetStateMessage message='Select a workspace to edit indicators.' />
+  }
+
+  if (error) {
+    return (
+      <WidgetStateMessage
+        message={error instanceof Error ? error.message : 'Failed to load indicators.'}
+      />
+    )
+  }
+
+  if (isLoading && workspaceIndicators.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -124,19 +131,24 @@ function IndicatorEditorSession({
     )
   }
 
-  if (error) {
-    return <WidgetStateMessage message={error} />
+  if (!indicatorId) {
+    return <WidgetStateMessage message='Select an indicator to edit.' />
+  }
+
+  if (!indicator) {
+    return <WidgetStateMessage message='Indicator not found.' />
   }
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <IndicatorCodePanel
+        indicator={indicator}
+        indicatorId={indicatorId}
         workspaceId={workspaceId}
-        descriptor={descriptor}
-        saveRef={saveRef}
-        verifyRef={verifyRef}
-        yjsDoc={doc}
-        onReviewTargetChange={onReviewTargetChange}
+        saveRef={codeSaveRef}
+        verifyRef={codeVerifyRef}
+        panelId={panelId}
+        widgetKey={widget?.key}
       />
     </div>
   )

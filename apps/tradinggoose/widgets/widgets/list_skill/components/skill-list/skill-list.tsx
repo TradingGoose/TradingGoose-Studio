@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -12,15 +13,15 @@ import {
   emitSkillSelectionChange,
   useSkillSelectionPersistence,
 } from '@/widgets/utils/skill-selection'
-import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
-  normalizeSkillName,
   buildPersistedPairContext,
+  normalizeSkillName,
   resolveSkillId,
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 export const SkillListMessage = WidgetStateMessage
 
@@ -153,7 +154,11 @@ export function SkillList({
 
       const normalizedName = normalizeSkillName(name)
       if (!normalizedName) {
-        throw new Error('Skill name must contain letters or numbers')
+        throw new Error('Skill name is required')
+      }
+
+      if (normalizedName.length > SKILL_NAME_MAX_LENGTH) {
+        throw new Error(`Skill name must be ${SKILL_NAME_MAX_LENGTH} characters or fewer`)
       }
 
       await updateMutation.mutateAsync({

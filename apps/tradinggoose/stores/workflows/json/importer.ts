@@ -1,5 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  parseImportedWorkflowFile,
+  type WorkflowTransferRecord,
+} from '@/lib/workflows/import-export'
 import type { WorkflowState } from '../workflow/types'
 
 const logger = createLogger('WorkflowJsonImporter')
@@ -104,16 +108,16 @@ function regenerateIds(workflowState: WorkflowState): WorkflowState {
 
 export function parseWorkflowJson(
   jsonContent: string,
-  regenerateIdsFlag = true
+  regenerateIdsFlag = true,
+  options: { fallbackName?: string } = {}
 ): {
-  data: WorkflowState | null
+  data: WorkflowTransferRecord | null
   errors: string[]
 } {
   const errors: string[] = []
 
   try {
-    // Parse JSON content
-    let data: any
+    let data: unknown
     try {
       data = JSON.parse(jsonContent)
     } catch (parseError) {
@@ -123,108 +127,46 @@ export function parseWorkflowJson(
       return { data: null, errors }
     }
 
-    // Validate top-level structure
     if (!data || typeof data !== 'object') {
       errors.push('Invalid JSON: Root must be an object')
       return { data: null, errors }
     }
 
-    // Require canonical versioned format.
-    if (
-      !Object.hasOwn(data, 'version') ||
-      !Object.hasOwn(data, 'state') ||
-      !data.state ||
-      typeof data.state !== 'object'
-    ) {
-      errors.push(
-        'Unsupported JSON format: expected a versioned workflow export with `version` and `state` fields'
-      )
-      return { data: null, errors }
-    }
-    logger.info('Parsing workflow JSON with version', {
-      version: data.version,
-      exportedAt: data.exportedAt,
-    })
-    const workflowData = data.state
-
-    // Validate required fields
-    if (!workflowData.blocks || typeof workflowData.blocks !== 'object') {
-      errors.push('Missing or invalid field: blocks')
-      return { data: null, errors }
-    }
-
-    if (!Array.isArray(workflowData.edges)) {
-      errors.push('Missing or invalid field: edges (must be an array)')
-      return { data: null, errors }
-    }
-
-    // Validate blocks have required fields
-    Object.entries(workflowData.blocks).forEach(([blockId, block]: [string, any]) => {
-      if (!block || typeof block !== 'object') {
-        errors.push(`Invalid block ${blockId}: must be an object`)
-        return
-      }
-
-      if (!block.id) {
-        errors.push(`Block ${blockId} missing required field: id`)
-      }
-      if (!block.type) {
-        errors.push(`Block ${blockId} missing required field: type`)
-      }
-      if (
-        !block.position ||
-        typeof block.position.x !== 'number' ||
-        typeof block.position.y !== 'number'
-      ) {
-        errors.push(`Block ${blockId} missing or invalid position`)
-      }
+    logger.info('Parsing workflow JSON', {
+      version: (data as Record<string, unknown>).version,
+      fileType: (data as Record<string, unknown>).fileType,
+      exportedFrom: (data as Record<string, unknown>).exportedFrom,
     })
 
-    // Validate edges have required fields
-    workflowData.edges.forEach((edge: any, index: number) => {
-      if (!edge || typeof edge !== 'object') {
-        errors.push(`Invalid edge at index ${index}: must be an object`)
-        return
-      }
-
-      if (!edge.id) {
-        errors.push(`Edge at index ${index} missing required field: id`)
-      }
-      if (!edge.source) {
-        errors.push(`Edge at index ${index} missing required field: source`)
-      }
-      if (!edge.target) {
-        errors.push(`Edge at index ${index} missing required field: target`)
-      }
+    const parsed = parseImportedWorkflowFile(data, {
+      fallbackName: options.fallbackName,
     })
 
-    // If there are errors, return null
-    if (errors.length > 0) {
-      return { data: null, errors }
+    if (!parsed.data || parsed.errors.length > 0) {
+      return parsed
     }
 
-    // Construct the workflow state with defaults
-    let workflowState: WorkflowState = {
-      blocks: workflowData.blocks || {},
-      edges: workflowData.edges || [],
-      loops: workflowData.loops || {},
-      parallels: workflowData.parallels || {},
-    }
+    let workflowData: WorkflowTransferRecord = parsed.data
 
-    // Regenerate IDs if requested (default: true)
     if (regenerateIdsFlag) {
-      workflowState = regenerateIds(workflowState)
+      workflowData = {
+        ...workflowData,
+        state: regenerateIds(workflowData.state),
+      }
       logger.info('Regenerated IDs for imported workflow to avoid conflicts')
     }
 
     logger.info('Successfully parsed workflow JSON', {
-      blocksCount: Object.keys(workflowState.blocks).length,
-      edgesCount: workflowState.edges.length,
-      loopsCount: Object.keys(workflowState.loops).length,
-      parallelsCount: Object.keys(workflowState.parallels).length,
+      name: workflowData.name,
+      description: workflowData.description,
+      color: workflowData.color,
+      blocksCount: Object.keys(workflowData.state.blocks).length,
+      edgesCount: workflowData.state.edges.length,
+      loopsCount: Object.keys(workflowData.state.loops).length,
+      parallelsCount: Object.keys(workflowData.state.parallels).length,
     })
 
-    return { data: workflowState, errors: [] }
+    return { data: workflowData, errors: [] }
   } catch (error) {
     logger.error('Failed to parse workflow JSON:', error)
     errors.push(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`)

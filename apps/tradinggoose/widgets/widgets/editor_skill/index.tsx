@@ -3,11 +3,15 @@
 import { ToolCase } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
-  SkillEditorHeaderActions,
+  getSkillIdFromParams,
+  SKILL_EDITOR_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
+import {
+  SkillEditorExportButton,
+  SkillEditorSaveButton,
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
-import { getSkillIdFromParams, SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 
 export const editorSkillWidget: DashboardWidgetDefinition = {
   key: SKILL_EDITOR_WIDGET_KEY,
@@ -35,14 +39,23 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
         />
       ),
       right: (
-        <SkillEditorHeaderActions
-          workspaceId={context?.workspaceId}
-          skillId={skillId}
-          panelId={panelId}
-          widgetKey={widget?.key}
-          pairColor={widget?.pairColor}
-          params={params}
-        />
+        <div className='flex items-center gap-1'>
+          <SkillEditorExportButton
+            workspaceId={context?.workspaceId}
+            skillId={skillId}
+            panelId={panelId}
+            widgetKey={widget?.key}
+            pairColor={widget?.pairColor}
+          />
+          <SkillEditorSaveButton
+            workspaceId={context?.workspaceId}
+            skillId={skillId}
+            panelId={panelId}
+            widgetKey={widget?.key}
+            pairColor={widget?.pairColor}
+            params={params}
+          />
+        </div>
       ),
     }
   },

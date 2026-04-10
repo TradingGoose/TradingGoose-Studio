@@ -3,23 +3,31 @@ import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import {
+  SKILL_CONTENT_MAX_LENGTH,
+  SKILL_DESCRIPTION_MAX_LENGTH,
+  SKILL_NAME_MAX_LENGTH,
+} from '@/lib/skills/import-export'
 import { deleteSkill, listSkills, upsertSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SkillsAPI')
 
 const SkillSchema = z.object({
-  workspaceId: z.string().min(1, 'workspaceId is required'),
+  workspaceId: z.string().trim().min(1, 'workspaceId is required'),
   skills: z.array(
     z.object({
       id: z.string().optional(),
-      name: z
+      name: z.string().trim().min(1, 'Skill name is required').max(SKILL_NAME_MAX_LENGTH),
+      description: z
         .string()
-        .min(1, 'Skill name is required')
-        .max(64)
-        .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Name must be kebab-case (e.g. my-skill)'),
-      description: z.string().min(1, 'Description is required').max(1024),
-      content: z.string().min(1, 'Content is required').max(50000, 'Content is too large'),
+        .trim()
+        .min(1, 'Description is required')
+        .max(SKILL_DESCRIPTION_MAX_LENGTH),
+      content: z
+        .string()
+        .max(SKILL_CONTENT_MAX_LENGTH, 'Content is too large')
+        .refine((value) => value.trim().length > 0, 'Content is required'),
     })
   ),
 })
