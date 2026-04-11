@@ -19,14 +19,10 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useRegistrationState } from '@/hooks/queries/registration'
-import {
-  DEFAULT_REGISTRATION_MODE,
-  getRegistrationPrimaryHref,
-  getRegistrationPrimaryLabel,
-} from '@/lib/registration/shared'
+import { getRegistrationPrimaryHref, getRegistrationPrimaryLabel } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { useRegistrationState } from '@/hooks/queries/registration'
 
 const logger = createLogger('nav')
 
@@ -40,14 +36,15 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   const router = useRouter()
   const brand = useBrandConfig()
   const registrationQuery = useRegistrationState()
-  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
-  const registrationPrimaryDisabled = registrationMode === 'disabled'
-  const registrationPrimaryHref = registrationPrimaryDisabled
-    ? null
-    : getRegistrationPrimaryHref(registrationMode)
-  const registrationPrimaryLabel = registrationPrimaryDisabled
-    ? 'Coming soon'
-    : getRegistrationPrimaryLabel(registrationMode)
+  const registrationMode = registrationQuery.data?.registrationMode ?? null
+  const hasResolvedRegistrationMode = registrationQuery.status === 'success' && !!registrationMode
+  const registrationPrimaryHref = registrationMode
+    ? getRegistrationPrimaryHref(registrationMode)
+    : null
+  const registrationPrimaryLabel = registrationMode
+    ? getRegistrationPrimaryLabel(registrationMode)
+    : null
+  const showStandaloneLogin = hasResolvedRegistrationMode && registrationMode !== 'disabled'
 
   useEffect(() => {
     if (variant !== 'landing') return
@@ -67,12 +64,16 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
     return () => clearTimeout(timeoutId)
   }, [variant])
 
+  const navigateToLogin = useCallback(() => {
+    router.push('/login?reauth=1')
+  }, [router])
+
   const handleLoginClick = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault()
-      router.push('/login?reauth=1')
+      navigateToLogin()
     },
-    [router]
+    [navigateToLogin]
   )
 
   const handleEnterpriseClick = useCallback(() => {
@@ -90,11 +91,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Docs
       </Link>
-      <Link
-        href='/blog'
-        className='transition-colors hover:text-foreground'
-        prefetch={false}
-      >
+      <Link href='/blog' className='transition-colors hover:text-foreground' prefetch={false}>
         Blog
       </Link>
       {/*
@@ -135,7 +132,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           href='/?from=nav'
           aria-label={`${brand.name} home`}
           itemProp='url'
-          className='flex items-center gap-2 h-9'
+          className='flex h-9 items-center gap-2'
           prefetch={false}
         >
           <span itemProp='name' className='sr-only'>
@@ -161,32 +158,38 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
 
         <div className='flex items-center gap-3 sm:gap-4'>
           {desktopNavLinks}
-          {variant === 'landing' && (
+          {variant === 'landing' && !hideAuthButtons && hasResolvedRegistrationMode && (
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           )}
 
-          {!hideAuthButtons && (
-            <div className='hidden items-center gap-2 md:flex'>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={handleLoginClick}
-                className='rounded-md text-base'
-              >
-                Login
-              </Button>
-              <Button
-                size='sm'
-                disabled={registrationPrimaryDisabled}
-                onClick={
-                  registrationPrimaryHref ? () => router.push(registrationPrimaryHref) : undefined
-                }
-                className='rounded-md text-base'
-              >
-                {registrationPrimaryLabel}
-              </Button>
-            </div>
-          )}
+          {!hideAuthButtons &&
+            hasResolvedRegistrationMode &&
+            registrationPrimaryHref &&
+            registrationPrimaryLabel && (
+              <div className='hidden items-center gap-2 md:flex'>
+                {showStandaloneLogin ? (
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={handleLoginClick}
+                    className='rounded-md text-base'
+                  >
+                    Login
+                  </Button>
+                ) : null}
+                <Button
+                  size='sm'
+                  onClick={
+                    registrationPrimaryHref === '/login'
+                      ? navigateToLogin
+                      : () => router.push(registrationPrimaryHref)
+                  }
+                  className='rounded-md text-base'
+                >
+                  {registrationPrimaryLabel}
+                </Button>
+              </div>
+            )}
 
           {variant === 'landing' && (
             <DropdownMenu>
@@ -233,35 +236,39 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                  {!hideAuthButtons && (
+                  {!hideAuthButtons &&
+                  hasResolvedRegistrationMode &&
+                  registrationPrimaryHref &&
+                  registrationPrimaryLabel ? (
                     <>
                       <DropdownMenuSeparator />
+                      {showStandaloneLogin ? (
+                        <DropdownMenuItem className='!bg-transparent'>
+                          <Button
+                            variant='ghost'
+                            className='w-full justify-start rounded-lg'
+                            size='sm'
+                            onClick={handleLoginClick}
+                          >
+                            Login
+                          </Button>
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem className='!bg-transparent'>
                         <Button
-                          variant='ghost'
                           className='w-full justify-start rounded-lg'
                           size='sm'
-                          onClick={handleLoginClick}
-                        >
-                          Login
-                        </Button>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className='!bg-transparent'>
-                        <Button
-                          className='w-full justify-start rounded-lg'
-                          size='sm'
-                          disabled={registrationPrimaryDisabled}
                           onClick={
-                            registrationPrimaryHref
-                              ? () => router.push(registrationPrimaryHref)
-                              : undefined
+                            registrationPrimaryHref === '/login'
+                              ? navigateToLogin
+                              : () => router.push(registrationPrimaryHref)
                           }
                         >
                           {registrationPrimaryLabel}
                         </Button>
                       </DropdownMenuItem>
                     </>
-                  )}
+                  ) : null}
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>

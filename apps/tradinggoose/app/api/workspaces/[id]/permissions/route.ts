@@ -1,15 +1,30 @@
 import crypto from 'crypto'
-import { db } from '@tradinggoose/db'
-import { permissions, type permissionTypeEnum } from '@tradinggoose/db/schema'
+import { db, permissions, permissionTypeEnum, workspace } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUsersWithPermissions, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import {
+  assertActiveWorkspaceAccess,
+  getUsersWithPermissions,
+  hasWorkspaceAdminAccess,
+} from '@/lib/permissions/utils'
+import { assertWorkspaceBillingOwnerRetainsAdminAccess } from '../../../../../lib/workspaces/billing-owner'
 
 const logger = createLogger('WorkspacesPermissionsAPI')
 
 type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
+const permissionTypeValues = permissionTypeEnum.enumValues as [PermissionType, ...PermissionType[]]
+
+const updatePermissionsSchema = z.object({
+  updates: z.array(
+    z.object({
+      userId: z.string().min(1),
+      permissions: z.enum(permissionTypeValues),
+    })
+  ),
+})
 
 interface UpdatePermissionsRequest {
   updates: Array<{
@@ -36,20 +51,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const userPermission = await db
-      .select()
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.entityId, workspaceId),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.userId, session.user.id)
-        )
-      )
-      .limit(1)
+    try {
+      await assertActiveWorkspaceAccess(workspaceId, session.user.id)
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Active workspace access denied:')) {
+        return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+      }
 
-    if (userPermission.length === 0) {
-      return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+      throw error
     }
 
     const result = await getUsersWithPermissions(workspaceId)
@@ -92,7 +101,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       )
     }
 
-    const body: UpdatePermissionsRequest = await request.json()
+    const bodyParse = updatePermissionsSchema.safeParse(await request.json().catch(() => null))
+    if (!bodyParse.success) {
+      return NextResponse.json({ error: 'Invalid permissions update payload' }, { status: 400 })
+    }
+
+    const body: UpdatePermissionsRequest = bodyParse.data
 
     const selfUpdate = body.updates.find((update) => update.userId === session.user.id)
     if (selfUpdate && selfUpdate.permissions !== 'admin') {
@@ -100,6 +114,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         { error: 'Cannot remove your own admin permissions' },
         { status: 400 }
       )
+    }
+
+    const workspaceRow = await db
+      .select({
+        billingOwnerType: workspace.billingOwnerType,
+        billingOwnerUserId: workspace.billingOwnerUserId,
+      })
+      .from(workspace)
+      .where(eq(workspace.id, workspaceId))
+      .limit(1)
+
+    if (workspaceRow.length === 0) {
+      return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+    }
+
+    try {
+      assertWorkspaceBillingOwnerRetainsAdminAccess({
+        billingOwnerType: workspaceRow[0].billingOwnerType,
+        billingOwnerUserId: workspaceRow[0].billingOwnerUserId,
+        updates: body.updates,
+      })
+    } catch (error) {
+      if (error instanceof Error) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
+      throw error
     }
 
     await db.transaction(async (tx) => {

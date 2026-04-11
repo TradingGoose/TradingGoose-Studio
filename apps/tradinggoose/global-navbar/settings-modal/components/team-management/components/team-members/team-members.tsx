@@ -38,6 +38,7 @@ interface InvitationItem extends BaseItem {
 }
 
 type TeamMemberItem = MemberItem | InvitationItem
+type MemberUsageMode = 'individual' | 'pooled'
 
 export function TeamMembers({
   organization,
@@ -47,13 +48,20 @@ export function TeamMembers({
   onCancelInvitation,
 }: TeamMembersProps) {
   const [memberUsageData, setMemberUsageData] = useState<Record<string, number>>({})
+  const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
+  const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
   const [isLoadingUsage, setIsLoadingUsage] = useState(false)
   const [cancellingInvitations, setCancellingInvitations] = useState<Set<string>>(new Set())
 
   // Fetch member usage data when organization changes and user is admin
   useEffect(() => {
     const fetchMemberUsage = async () => {
-      if (!organization?.id || !isAdminOrOwner) return
+      if (!organization?.id || !isAdminOrOwner) {
+        setMemberUsageData({})
+        setMemberUsageMode('individual')
+        setSharedUsageTotal(null)
+        return
+      }
 
       setIsLoadingUsage(true)
       try {
@@ -61,6 +69,14 @@ export function TeamMembers({
         if (response.ok) {
           const result = await response.json()
           const usageMap: Record<string, number> = {}
+          const usageMode =
+            result.usageScope === 'pooled' || result.usageScope === 'individual'
+              ? result.usageScope
+              : 'individual'
+          const pooledUsageTotal =
+            typeof result.sharedCurrentPeriodCost === 'number'
+              ? result.sharedCurrentPeriodCost
+              : null
 
           if (result.data) {
             result.data.forEach((member: any) => {
@@ -71,9 +87,14 @@ export function TeamMembers({
           }
 
           setMemberUsageData(usageMap)
+          setMemberUsageMode(usageMode)
+          setSharedUsageTotal(pooledUsageTotal)
         }
       } catch (error) {
         logger.error('Failed to fetch member usage data', { error })
+        setMemberUsageData({})
+        setMemberUsageMode('individual')
+        setSharedUsageTotal(null)
       } finally {
         setIsLoadingUsage(false)
       }
@@ -91,6 +112,7 @@ export function TeamMembers({
       const userId = member.user?.id
       const usageAmount = userId ? (memberUsageData[userId] ?? 0) : 0
       const name = member.user?.name || 'Unknown'
+      const usage = memberUsageMode === 'pooled' ? 'Shared pool' : `$${usageAmount.toFixed(2)}`
 
       const memberItem: MemberItem = {
         type: 'member',
@@ -99,7 +121,7 @@ export function TeamMembers({
         email: member.user?.email || '',
         avatarInitial: name.charAt(0).toUpperCase(),
         avatarUrl: member.user?.image ?? null,
-        usage: `$${usageAmount.toFixed(2)}`,
+        usage,
         role: member.role,
         member,
       }
@@ -159,6 +181,11 @@ export function TeamMembers({
       {/* Header - simple like account page */}
       <div>
         <h4 className='font-medium text-sm'>Team Members</h4>
+        {isAdminOrOwner && memberUsageMode === 'pooled' && sharedUsageTotal !== null && (
+          <p className='mt-1 text-muted-foreground text-xs'>
+            Shared billed usage: ${sharedUsageTotal.toFixed(2)}
+          </p>
+        )}
       </div>
 
       {/* Members list - clean like account page */}
@@ -177,7 +204,7 @@ export function TeamMembers({
                   />
                 )}
                 <AvatarFallback
-                  className={`border-0 text-sm font-medium ${
+                  className={`border-0 font-medium text-sm ${
                     item.type === 'member'
                       ? 'bg-[var(--primary)]/10 text-muted-foreground'
                       : 'bg-muted text-muted-foreground'
@@ -215,7 +242,9 @@ export function TeamMembers({
               {isAdminOrOwner && (
                 <div className='hidden items-center text-xs tabular-nums sm:flex'>
                   <div className='text-center'>
-                    <div className='text-muted-foreground'>Usage</div>
+                    <div className='text-muted-foreground'>
+                      {memberUsageMode === 'pooled' ? 'Billing' : 'Usage'}
+                    </div>
                     <div className='font-medium'>
                       {isLoadingUsage && item.type === 'member' ? (
                         <span className='inline-block h-3 w-12 animate-pulse rounded bg-muted' />

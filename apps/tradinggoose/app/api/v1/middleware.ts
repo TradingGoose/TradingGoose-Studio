@@ -1,11 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
+import { getTierRateLimits, requireDefaultBillingTier } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
 import { RateLimiter } from '@/services/queue/RateLimiter'
 import { authenticateV1Request } from './auth'
 
 const logger = createLogger('V1Middleware')
 const rateLimiter = new RateLimiter()
+
+async function getDefaultApiEndpointRateLimit(): Promise<number> {
+  const defaultTier = await requireDefaultBillingTier()
+  return getTierRateLimits(defaultTier).apiEndpointPerMinute
+}
 
 export interface RateLimitResult {
   allowed: boolean
@@ -23,17 +29,18 @@ export async function checkRateLimit(
   try {
     const auth = await authenticateV1Request(request)
     if (!auth.authenticated) {
+      const limit = await getDefaultApiEndpointRateLimit()
       return {
         allowed: false,
         remaining: 0,
-        limit: 10, // Default to free tier limit
+        limit,
         resetAt: new Date(),
         error: auth.error,
       }
     }
 
     const userId = auth.userId!
-    const subscription = await getHighestPrioritySubscription(userId)
+    const subscription = await getPersonalEffectiveSubscription(userId)
 
     // Use api-endpoint trigger type for external API rate limiting
     const result = await rateLimiter.checkRateLimitWithSubscription(
@@ -51,7 +58,7 @@ export async function checkRateLimit(
       })
     }
 
-    // Get the actual rate limit for this user's plan
+    // Get the actual rate limit for this user's tier
     const rateLimitStatus = await rateLimiter.getRateLimitStatusWithSubscription(
       userId,
       subscription,
@@ -66,10 +73,11 @@ export async function checkRateLimit(
     }
   } catch (error) {
     logger.error('Rate limit check error', { error })
+    const limit = await getDefaultApiEndpointRateLimit().catch(() => 0)
     return {
       allowed: false,
       remaining: 0,
-      limit: 10,
+      limit,
       resetAt: new Date(Date.now() + 60000),
       error: 'Rate limit check failed',
     }

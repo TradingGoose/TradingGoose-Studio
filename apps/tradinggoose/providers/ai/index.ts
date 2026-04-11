@@ -1,4 +1,3 @@
-import { getCostMultiplier } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { anthropicProvider } from '@/providers/ai/anthropic'
@@ -11,7 +10,6 @@ import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
-import { xAIProvider } from '@/providers/ai/xai'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
@@ -19,6 +17,7 @@ import {
   shouldBillModelUsage,
   supportsTemperature,
 } from '@/providers/ai/utils'
+import { xAIProvider } from '@/providers/ai/xai'
 
 const logger = createLogger('Providers')
 
@@ -57,7 +56,9 @@ function sanitizeRequest(request: ProviderRequest): ProviderRequest {
 
   if (!hasMessages && !hasContext && !hasSystemPrompt) {
     sanitizedRequest.messages = [{ role: 'user', content: 'Hello' }]
-    logger.warn('Empty provider request detected. Added fallback user message to avoid empty input.')
+    logger.warn(
+      'Empty provider request detected. Added fallback user message to avoid empty input.'
+    )
   }
 
   return sanitizedRequest
@@ -129,15 +130,7 @@ export async function executeProviderRequest(
     const useCachedInput = !!request.context && request.context.length > 0
 
     if (shouldBillModelUsage(response.model)) {
-      const costMultiplier = getCostMultiplier()
-      response.cost = calculateCost(
-        response.model,
-        promptTokens,
-        completionTokens,
-        useCachedInput,
-        costMultiplier,
-        costMultiplier
-      )
+      response.cost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
     } else {
       response.cost = {
         input: 0,

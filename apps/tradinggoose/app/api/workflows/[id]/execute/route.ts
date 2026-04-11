@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { env } from '@/lib/env'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { processExecutionFiles } from '@/lib/execution/files'
@@ -13,7 +13,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret, generateRequestId } from '@/lib/utils'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import {
@@ -21,6 +20,7 @@ import {
   updateWorkflowRunCounts,
   workflowHasResponseBlock,
 } from '@/lib/workflows/utils'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { Executor } from '@/executor'
@@ -135,14 +135,24 @@ export async function executeWorkflow(
   const triggerType: TriggerType = streamConfig?.workflowTriggerType || 'api'
   const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
 
-  const usageCheck = await checkServerSideUsageLimits(actorUserId)
+  const billingContext = await resolveWorkspaceBillingContext({
+    workspaceId: workflow.workspaceId,
+    actorUserId,
+  })
+  const usageCheck = await checkServerSideUsageLimits({
+    userId: actorUserId,
+    workflowId,
+    workspaceId: workflow.workspaceId,
+  })
   if (usageCheck.isExceeded) {
-    logger.warn(`[${requestId}] User ${workflow.userId} has exceeded usage limits`, {
+    logger.warn(`[${requestId}] Workspace billing subject has exceeded usage limits`, {
+      actorUserId,
+      billingUserId: billingContext.billingUserId,
       currentUsage: usageCheck.currentUsage,
       limit: usageCheck.limit,
     })
     throw new UsageLimitError(
-      usageCheck.message || 'Usage limit exceeded. Please upgrade your plan to continue.'
+      usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
     )
   }
 
@@ -315,6 +325,7 @@ export async function executeWorkflow(
     const contextExtensions: any = {
       executionId,
       workspaceId: workflow.workspaceId,
+      userId: actorUserId,
       isDeployedContext: true,
     }
 
@@ -431,13 +442,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           void updateApiKeyLastUsed(auth.keyId).catch(() => {})
         }
 
-        const userSubscription = await getHighestPrioritySubscription(actorUserId)
+        const billingContext = await resolveWorkspaceBillingContext({
+          workspaceId: validation.workflow.workspaceId,
+          actorUserId,
+        })
+        const billingScope = {
+          scopeType: billingContext.scopeType,
+          scopeId: billingContext.scopeId,
+          organizationId:
+            billingContext.scopeType === 'organization_member' ||
+            billingContext.scopeType === 'organization'
+              ? billingContext.billingOwner.type === 'organization'
+                ? billingContext.billingOwner.organizationId
+                : null
+              : null,
+          userId:
+            billingContext.scopeType === 'organization_member'
+              ? actorUserId
+              : billingContext.scopeType === 'user'
+                ? billingContext.billingUserId
+                : null,
+        }
         const rateLimiter = new RateLimiter()
         const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-          actorUserId,
-          userSubscription,
+          billingContext.billingUserId,
+          billingContext.subscription,
           'api',
-          false
+          false,
+          billingScope
         )
         if (!rateLimitCheck.allowed) {
           throw new RateLimitError(
@@ -669,16 +701,37 @@ export async function POST(
       }
     }
 
-    const userSubscription = await getHighestPrioritySubscription(authenticatedUserId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId: validation.workflow.workspaceId,
+      actorUserId: authenticatedUserId,
+    })
+    const billingScope = {
+      scopeType: billingContext.scopeType,
+      scopeId: billingContext.scopeId,
+      organizationId:
+        billingContext.scopeType === 'organization_member' ||
+        billingContext.scopeType === 'organization'
+          ? billingContext.billingOwner.type === 'organization'
+            ? billingContext.billingOwner.organizationId
+            : null
+          : null,
+      userId:
+        billingContext.scopeType === 'organization_member'
+          ? authenticatedUserId
+          : billingContext.scopeType === 'user'
+            ? billingContext.billingUserId
+            : null,
+    }
 
     if (isAsync) {
       try {
         const rateLimiter = new RateLimiter()
         const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-          authenticatedUserId,
-          userSubscription,
+          billingContext.billingUserId,
+          billingContext.subscription,
           'api',
-          true
+          true,
+          billingScope
         )
 
         if (!rateLimitCheck.allowed) {
@@ -738,10 +791,11 @@ export async function POST(
     try {
       const rateLimiter = new RateLimiter()
       const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-        authenticatedUserId,
-        userSubscription,
+        billingContext.billingUserId,
+        billingContext.subscription,
         triggerType,
-        false
+        false,
+        billingScope
       )
 
       if (!rateLimitCheck.allowed) {

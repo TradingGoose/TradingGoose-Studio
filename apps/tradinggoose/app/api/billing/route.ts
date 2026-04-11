@@ -5,9 +5,60 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getSimplifiedBillingSummary } from '@/lib/billing/core/billing'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UnifiedBillingAPI')
+
+type OrganizationBillingPayload = NonNullable<
+  Awaited<ReturnType<typeof getOrganizationBillingData>>
+>
+type SessionWithActiveOrganization = {
+  activeOrganizationId?: string | null
+}
+
+async function getOrganizationMemberRole(organizationId: string, userId: string) {
+  const memberRecord = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
+    .limit(1)
+
+  return memberRecord[0]?.role ?? null
+}
+
+function toOrganizationBillingPayload(
+  rawBillingData: OrganizationBillingPayload,
+  billingEnabled: boolean
+) {
+  return {
+    organizationId: rawBillingData.organizationId,
+    organizationName: rawBillingData.organizationName,
+    billingEnabled,
+    subscriptionTier: rawBillingData.subscriptionTier,
+    subscriptionStatus: rawBillingData.subscriptionStatus,
+    seatPriceUsd: rawBillingData.seatPriceUsd,
+    seatCount: rawBillingData.seatCount,
+    seatMaximum: rawBillingData.seatMaximum,
+    seatMode: rawBillingData.seatMode,
+    totalSeats: rawBillingData.totalSeats,
+    usedSeats: rawBillingData.usedSeats,
+    seatsCount: rawBillingData.seatsCount,
+    totalCurrentUsage: rawBillingData.totalCurrentUsage,
+    totalUsageLimit: rawBillingData.totalUsageLimit,
+    warningThresholdPercent: rawBillingData.warningThresholdPercent,
+    minimumUsageLimit: rawBillingData.minimumUsageLimit,
+    averageUsagePerMember: rawBillingData.averageUsagePerMember,
+    billingPeriodStart: rawBillingData.billingPeriodStart?.toISOString() || null,
+    billingPeriodEnd: rawBillingData.billingPeriodEnd?.toISOString() || null,
+    members: rawBillingData.members.map((member) => ({
+      ...member,
+      joinedAt: member.joinedAt.toISOString(),
+      lastActive: member.lastActive?.toISOString() || null,
+    })),
+    billingBlocked: rawBillingData.billingBlocked,
+  }
+}
 
 /**
  * Unified Billing Endpoint
@@ -40,12 +91,36 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const { billingEnabled } = await getResolvedBillingSettings()
     let billingData
 
     if (context === 'user') {
-      // Get user billing (may include organization if they're part of one)
-      billingData = await getSimplifiedBillingSummary(session.user.id, contextId || undefined)
-      // Attach billingBlocked status for the current user
+      const activeOrganizationId = (session.session as SessionWithActiveOrganization | undefined)
+        ?.activeOrganizationId
+
+      if (activeOrganizationId) {
+        const [userRole, rawOrganizationBillingData] = await Promise.all([
+          getOrganizationMemberRole(activeOrganizationId, session.user.id),
+          getOrganizationBillingData(activeOrganizationId),
+        ])
+
+        if (userRole && rawOrganizationBillingData) {
+          billingData = toOrganizationBillingPayload(rawOrganizationBillingData, billingEnabled)
+
+          return NextResponse.json({
+            success: true,
+            context,
+            billingEnabled,
+            data: billingData,
+            userRole,
+            billingBlocked: billingData.billingBlocked,
+          })
+        }
+      }
+
+      // Fall back to the caller's personal billing account when no active organization
+      // billing subscription applies to the current session.
+      billingData = await getSimplifiedBillingSummary(session.user.id)
       const stats = await db
         .select({ blocked: userStats.billingBlocked })
         .from(userStats)
@@ -53,17 +128,13 @@ export async function GET(request: NextRequest) {
         .limit(1)
       billingData = {
         ...billingData,
+        billingEnabled,
         billingBlocked: stats.length > 0 ? !!stats[0].blocked : false,
       }
     } else {
-      // Get user role in organization for permission checks first
-      const memberRecord = await db
-        .select({ role: member.role })
-        .from(member)
-        .where(and(eq(member.organizationId, contextId!), eq(member.userId, session.user.id)))
-        .limit(1)
+      const userRole = await getOrganizationMemberRole(contextId!, session.user.id)
 
-      if (memberRecord.length === 0) {
+      if (!userRole) {
         return NextResponse.json(
           { error: 'Access denied - not a member of this organization' },
           { status: 403 }
@@ -80,46 +151,12 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Transform data to match component expectations
-      billingData = {
-        organizationId: rawBillingData.organizationId,
-        organizationName: rawBillingData.organizationName,
-        subscriptionPlan: rawBillingData.subscriptionPlan,
-        subscriptionStatus: rawBillingData.subscriptionStatus,
-        totalSeats: rawBillingData.totalSeats,
-        usedSeats: rawBillingData.usedSeats,
-        seatsCount: rawBillingData.seatsCount,
-        totalCurrentUsage: rawBillingData.totalCurrentUsage,
-        totalUsageLimit: rawBillingData.totalUsageLimit,
-        minimumBillingAmount: rawBillingData.minimumBillingAmount,
-        averageUsagePerMember: rawBillingData.averageUsagePerMember,
-        billingPeriodStart: rawBillingData.billingPeriodStart?.toISOString() || null,
-        billingPeriodEnd: rawBillingData.billingPeriodEnd?.toISOString() || null,
-        members: rawBillingData.members.map((member) => ({
-          ...member,
-          joinedAt: member.joinedAt.toISOString(),
-          lastActive: member.lastActive?.toISOString() || null,
-        })),
-      }
-
-      const userRole = memberRecord[0].role
-
-      // Include the requesting user's blocked flag as well so UI can reflect it
-      const stats = await db
-        .select({ blocked: userStats.billingBlocked })
-        .from(userStats)
-        .where(eq(userStats.userId, session.user.id))
-        .limit(1)
-
-      // Merge blocked flag into data for convenience
-      billingData = {
-        ...billingData,
-        billingBlocked: stats.length > 0 ? !!stats[0].blocked : false,
-      }
+      billingData = toOrganizationBillingPayload(rawBillingData, billingEnabled)
 
       return NextResponse.json({
         success: true,
         context,
+        billingEnabled,
         data: billingData,
         userRole,
         billingBlocked: billingData.billingBlocked,
@@ -129,6 +166,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       context,
+      billingEnabled,
       data: billingData,
     })
   } catch (error) {

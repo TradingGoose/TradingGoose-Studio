@@ -16,7 +16,6 @@ vi.mock('@/lib/environment', () => ({
   isProd: vi.fn().mockReturnValue(false),
   isDev: vi.fn().mockReturnValue(true),
   isTest: vi.fn().mockReturnValue(false),
-  getCostMultiplier: vi.fn().mockReturnValue(1),
 }))
 
 vi.mock('@/providers/ai/utils', () => ({

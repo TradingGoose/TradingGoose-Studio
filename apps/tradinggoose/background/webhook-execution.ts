@@ -4,6 +4,7 @@ import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
+import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { processExecutionFiles } from '@/lib/execution/files'
 import { IdempotencyService, webhookIdempotency } from '@/lib/idempotency'
@@ -180,11 +181,21 @@ async function executeWebhookJobInternal(
   const loggingSession = new LoggingSession(payload.workflowId, executionId, 'webhook', requestId)
 
   try {
-    const usageCheck = await checkServerSideUsageLimits(payload.userId)
+    const billingContext = await resolveWorkflowBillingContext({
+      workflowId: payload.workflowId,
+      actorUserId: payload.userId,
+    })
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: payload.userId,
+      workflowId: payload.workflowId,
+      workspaceId: billingContext.workspaceId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${payload.userId} has exceeded usage limits. Skipping webhook execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping webhook execution.`,
         {
+          actorUserId: payload.userId,
+          billingUserId: billingContext.billingUserId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
@@ -192,7 +203,7 @@ async function executeWebhookJobInternal(
       )
       throw new Error(
         usageCheck.message ||
-          'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
+          'Usage limit exceeded. Please upgrade your billing tier to continue using webhooks.'
       )
     }
 
@@ -309,6 +320,7 @@ async function executeWebhookJobInternal(
           contextExtensions: {
             executionId,
             workspaceId: workspaceId || '',
+            userId: payload.userId,
             isDeployedContext: !payload.testMode,
           },
         })

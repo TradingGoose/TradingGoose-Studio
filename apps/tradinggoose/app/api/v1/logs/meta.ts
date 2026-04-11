@@ -1,6 +1,5 @@
-import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
-import { getEffectiveCurrentPeriodCost } from '@/lib/billing/core/usage'
+import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
+import type { BillingTierSummary } from '@/lib/billing/types'
 import { RateLimiter } from '@/services/queue'
 
 export interface UserLimits {
@@ -19,22 +18,30 @@ export interface UserLimits {
   usage: {
     currentPeriodCost: number
     limit: number
-    plan: string
+    tier: BillingTierSummary
     isExceeded: boolean
   }
 }
 
 export async function getUserLimits(userId: string): Promise<UserLimits> {
-  const [userSubscription, usageCheck, effectiveCost, rateLimiter] = await Promise.all([
-    getHighestPrioritySubscription(userId),
-    checkServerSideUsageLimits(userId),
-    getEffectiveCurrentPeriodCost(userId),
+  const [billingSnapshot, rateLimiter] = await Promise.all([
+    getPersonalBillingSnapshot(userId),
     Promise.resolve(new RateLimiter()),
   ])
 
   const [syncStatus, asyncStatus] = await Promise.all([
-    rateLimiter.getRateLimitStatusWithSubscription(userId, userSubscription, 'api', false),
-    rateLimiter.getRateLimitStatusWithSubscription(userId, userSubscription, 'api', true),
+    rateLimiter.getRateLimitStatusWithSubscription(
+      userId,
+      billingSnapshot.subscription,
+      'api',
+      false
+    ),
+    rateLimiter.getRateLimitStatusWithSubscription(
+      userId,
+      billingSnapshot.subscription,
+      'api',
+      true
+    ),
   ])
 
   return {
@@ -51,10 +58,10 @@ export async function getUserLimits(userId: string): Promise<UserLimits> {
       },
     },
     usage: {
-      currentPeriodCost: effectiveCost,
-      limit: usageCheck.limit,
-      plan: userSubscription?.plan || 'free',
-      isExceeded: usageCheck.isExceeded,
+      currentPeriodCost: billingSnapshot.currentPeriodCost,
+      limit: billingSnapshot.limit,
+      tier: billingSnapshot.tier,
+      isExceeded: billingSnapshot.isExceeded,
     },
   }
 }

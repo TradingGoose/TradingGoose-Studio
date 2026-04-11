@@ -16,7 +16,7 @@ export const workspaceKeys = {
 /**
  * Fetch workspace settings
  */
-async function fetchWorkspaceSettings(workspaceId: string) {
+async function fetchWorkspaceSettings(workspaceId: string): Promise<WorkspaceSettingsResponse> {
   const [settingsResponse, permissionsResponse] = await Promise.all([
     fetch(`/api/workspaces/${workspaceId}`),
     fetch(`/api/workspaces/${workspaceId}/permissions`),
@@ -41,7 +41,7 @@ async function fetchWorkspaceSettings(workspaceId: string) {
  * Hook to fetch workspace settings
  */
 export function useWorkspaceSettings(workspaceId: string) {
-  return useQuery({
+  return useQuery<WorkspaceSettingsResponse>({
     queryKey: workspaceKeys.settings(workspaceId),
     queryFn: () => fetchWorkspaceSettings(workspaceId),
     enabled: !!workspaceId,
@@ -53,10 +53,42 @@ export function useWorkspaceSettings(workspaceId: string) {
 /**
  * Update workspace settings mutation
  */
+export type WorkspaceBillingOwner =
+  | {
+      type: 'user'
+      userId: string
+    }
+  | {
+      type: 'organization'
+      organizationId: string
+    }
+
+export interface WorkspaceSettingsUser {
+  userId: string
+  name: string
+  email: string
+  permissionType: 'admin' | 'write' | 'read'
+}
+
+export interface WorkspaceSettingsResponse {
+  settings: {
+    workspace: {
+      id: string
+      ownerId: string
+      billingOwner: WorkspaceBillingOwner
+      permissions: 'admin' | 'write' | 'read' | null
+    }
+  } | null
+  permissions: {
+    users: WorkspaceSettingsUser[]
+  } | null
+}
+
 interface UpdateWorkspaceSettingsParams {
   workspaceId: string
-  billedAccountUserId?: string
-  billingAccountUserEmail?: string
+  name?: string
+  allowPersonalApiKeys?: boolean
+  billingOwner?: WorkspaceBillingOwner
 }
 
 export function useUpdateWorkspaceSettings() {
@@ -72,7 +104,7 @@ export function useUpdateWorkspaceSettings() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || 'Failed to update workspace settings')
+        throw new Error(error.error || error.message || 'Failed to update workspace settings')
       }
 
       return response.json()
@@ -80,6 +112,9 @@ export function useUpdateWorkspaceSettings() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: workspaceKeys.settings(variables.workspaceId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.adminLists(),
       })
     },
   })
@@ -93,6 +128,7 @@ export interface AdminWorkspace {
   name: string
   isOwner: boolean
   ownerId?: string
+  billingOwner?: WorkspaceBillingOwner
   canInvite: boolean
 }
 
@@ -113,7 +149,13 @@ async function fetchAdminWorkspaces(userId: string | undefined): Promise<AdminWo
   const allUserWorkspaces = workspacesData.workspaces || []
 
   const permissionPromises = allUserWorkspaces.map(
-    async (workspace: { id: string; name: string; isOwner?: boolean; ownerId?: string }) => {
+    async (workspace: {
+      id: string
+      name: string
+      isOwner?: boolean
+      ownerId?: string
+      billingOwner?: WorkspaceBillingOwner
+    }) => {
       try {
         const permissionResponse = await fetch(`/api/workspaces/${workspace.id}/permissions`)
         if (!permissionResponse.ok) {
@@ -152,6 +194,7 @@ async function fetchAdminWorkspaces(userId: string | undefined): Promise<AdminWo
         name: workspace.name,
         isOwner,
         ownerId: workspace.ownerId,
+        billingOwner: workspace.billingOwner,
         canInvite: true,
       })
     }

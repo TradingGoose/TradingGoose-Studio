@@ -30,14 +30,24 @@ export interface Organization {
 
 export interface Subscription {
   id: string
-  plan: string
+  billingEnabled?: boolean
   status: string
   seats?: number
+  referenceType?: 'user' | 'organization'
   referenceId: string
   cancelAtPeriodEnd?: boolean
   periodEnd?: number | Date
   trialEnd?: number | Date
   metadata?: any
+  tier?: {
+    id?: string | null
+    displayName: string
+    ownerType: 'user' | 'organization'
+    seatMode: 'fixed' | 'adjustable'
+    monthlyPriceUsd?: number | null
+    seatCount?: number | null
+    seatMaximum?: number | null
+  } | null
   [key: string]: unknown
 }
 
@@ -50,6 +60,7 @@ export interface Workspace {
   id: string
   name: string
   ownerId: string
+  billingOwner?: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
   isOwner: boolean
   canInvite: boolean
 }
@@ -76,14 +87,28 @@ export interface MemberUsageData {
 export interface OrganizationBillingData {
   organizationId: string
   organizationName: string
-  subscriptionPlan: string
+  billingEnabled?: boolean
+  subscriptionTier: {
+    id?: string | null
+    displayName: string
+    ownerType: 'organization'
+    seatMode: 'fixed' | 'adjustable'
+    monthlyPriceUsd: number
+    seatCount: number | null
+    seatMaximum: number | null
+  } | null
   subscriptionStatus: string
+  seatPriceUsd: number
+  seatCount: number | null
+  seatMaximum: number | null
+  seatMode: 'fixed' | 'adjustable'
   totalSeats: number
   usedSeats: number
   seatsCount: number
   totalCurrentUsage: number
   totalUsageLimit: number
-  minimumBillingAmount: number
+  warningThresholdPercent: number
+  minimumUsageLimit: number
   averageUsagePerMember: number
   billingPeriodStart: string | null
   billingPeriodEnd: string | null
@@ -128,9 +153,8 @@ export interface OrganizationState {
   lastSubscriptionFetched: number | null
   lastOrgBillingFetched: number | null
 
-  // User permissions
-  hasTeamPlan: boolean
-  hasEnterprisePlan: boolean
+  // Billing-derived workspace access
+  billingEnabled: boolean
 }
 
 export interface OrganizationStore extends OrganizationState {
@@ -153,8 +177,6 @@ export interface OrganizationStore extends OrganizationState {
   // Seat management
   addSeats: (newSeatCount: number) => Promise<void>
   reduceSeats: (newSeatCount: number) => Promise<void>
-
-  transferSubscriptionToOrganization: (orgId: string) => Promise<void>
 
   getUserRole: (userEmail?: string) => string
   isAdminOrOwner: (userEmail?: string) => boolean

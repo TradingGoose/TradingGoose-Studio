@@ -1,12 +1,13 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
+import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
   // Format the response with permission information
   const workspacesWithPermissions = userWorkspaces.map(
     ({ workspace: workspaceDetails, permissionType }) => ({
-      ...workspaceDetails,
+      ...toWorkspaceApiRecord(workspaceDetails),
       role: permissionType === 'admin' ? 'owner' : 'member', // Map admin to owner for compatibility
       permissions: permissionType,
     })
@@ -107,7 +108,9 @@ async function createWorkspace(userId: string, name: string) {
         id: workspaceId,
         name,
         ownerId: userId,
-        billedAccountUserId: userId,
+        billingOwnerType: 'user',
+        billingOwnerUserId: userId,
+        billingOwnerOrganizationId: null,
         allowPersonalApiKeys: true,
         createdAt: now,
         updatedAt: now,
@@ -157,14 +160,17 @@ async function createWorkspace(userId: string, name: string) {
 
     // Seed the Yjs doc and persist to normalized tables in parallel
     const [, seedResult] = await Promise.all([
-      tryApplyWorkflowState(workflowId, createWorkflowSnapshot({
-        blocks: workflowState.blocks,
-        edges: workflowState.edges,
-        loops: workflowState.loops,
-        parallels: workflowState.parallels,
-        lastSaved,
-        isDeployed: false,
-      })),
+      tryApplyWorkflowState(
+        workflowId,
+        createWorkflowSnapshot({
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+          lastSaved,
+          isDeployed: false,
+        })
+      ),
       saveWorkflowToNormalizedTables(workflowId, workflowState),
     ])
 
@@ -178,13 +184,17 @@ async function createWorkspace(userId: string, name: string) {
 
   // Return the workspace data directly instead of querying again
   return {
-    id: workspaceId,
-    name,
-    ownerId: userId,
-    billedAccountUserId: userId,
-    allowPersonalApiKeys: true,
-    createdAt: now,
-    updatedAt: now,
+    ...toWorkspaceApiRecord({
+      id: workspaceId,
+      name,
+      ownerId: userId,
+      billingOwnerType: 'user',
+      billingOwnerUserId: userId,
+      billingOwnerOrganizationId: null,
+      allowPersonalApiKeys: true,
+      createdAt: now,
+      updatedAt: now,
+    }),
     role: 'owner',
   }
 }

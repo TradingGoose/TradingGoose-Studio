@@ -29,6 +29,7 @@ import type {
   BlockHandler,
   BlockLog,
   ExecutionContext,
+  ExecutionContextExtensions,
   ExecutionResult,
   NormalizedBlockOutput,
   StreamingExecution,
@@ -105,7 +106,7 @@ export class Executor {
   private blockHandlers: BlockHandler[]
   private workflowInput: any
   private isDebugging = false
-  private contextExtensions: any = {}
+  private contextExtensions: ExecutionContextExtensions = {}
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
@@ -222,6 +223,7 @@ export class Executor {
           onBlockComplete?: (blockId: string, output: any) => Promise<void>
           executionId?: string
           workspaceId?: string
+          userId?: string
           isChildExecution?: boolean
           // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
           isDeployedContext?: boolean
@@ -773,6 +775,7 @@ export class Executor {
     const context: ExecutionContext = {
       workflowId,
       workspaceId: this.contextExtensions.workspaceId,
+      userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
       isDeployedContext: this.contextExtensions.isDeployedContext || false,
       blockStates: new Map(),

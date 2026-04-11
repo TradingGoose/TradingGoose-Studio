@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { invitation, systemSettings, waitlist, workspaceInvitation } from '@tradinggoose/db/schema'
+import { invitation, waitlist, workspaceInvitation } from '@tradinggoose/db/schema'
 import { and, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm'
 import {
   getEmailSubject,
@@ -10,14 +10,14 @@ import { sendEmail } from '@/lib/email/mailer'
 import { getFromEmailAddress } from '@/lib/email/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 import {
-  DEFAULT_REGISTRATION_MODE,
-  type RegistrationMode,
-  type WaitlistStatus,
-} from './shared'
+  getSystemSettingsRecord,
+  resolveSystemSettingsFlags,
+  upsertSystemSettings,
+} from '@/lib/system-settings/service'
+import { getBaseUrl } from '@/lib/urls/utils'
+import { DEFAULT_REGISTRATION_MODE, type RegistrationMode, type WaitlistStatus } from './shared'
 
-const SYSTEM_SETTINGS_ID = 'global'
 const logger = createLogger('RegistrationService')
 
 export type RegistrationEligibilityReason =
@@ -56,18 +56,16 @@ function waitlistEmailEquals(email: string) {
   return sql`lower(${waitlist.email}) = ${normalizeEmail(email)}`
 }
 
-function invitationEmailEquals(column: typeof invitation.email | typeof workspaceInvitation.email, email: string) {
+function invitationEmailEquals(
+  column: typeof invitation.email | typeof workspaceInvitation.email,
+  email: string
+) {
   return sql`lower(${column}) = ${normalizeEmail(email)}`
 }
 
 export async function getRegistrationMode(): Promise<RegistrationMode> {
-  const [row] = await db
-    .select({ registrationMode: systemSettings.registrationMode })
-    .from(systemSettings)
-    .where(eq(systemSettings.id, SYSTEM_SETTINGS_ID))
-    .limit(1)
-
-  return row?.registrationMode ?? DEFAULT_REGISTRATION_MODE
+  const settings = await getSystemSettingsRecord()
+  return resolveSystemSettingsFlags(settings).registrationMode
 }
 
 export async function getRegistrationModeForRender(): Promise<RegistrationMode> {
@@ -82,25 +80,8 @@ export async function getRegistrationModeForRender(): Promise<RegistrationMode> 
 }
 
 export async function setRegistrationMode(registrationMode: RegistrationMode) {
-  const now = new Date()
-
-  await db
-    .insert(systemSettings)
-    .values({
-      id: SYSTEM_SETTINGS_ID,
-      registrationMode,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: systemSettings.id,
-      set: {
-        registrationMode,
-        updatedAt: now,
-      },
-    })
-
-  return getRegistrationMode()
+  const settings = await upsertSystemSettings({ registrationMode })
+  return settings.registrationMode
 }
 
 export async function getWaitlistEntryByEmail(email: string): Promise<WaitlistRow | null> {

@@ -148,6 +148,20 @@
       "when": 1775763959628,
       "tag": "0020_breezy_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775881524840,
+      "tag": "0021_goofy_roxanne_simpson",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1775924527489,
+      "tag": "0022_loud_donald_blake",
+      "breakpoints": true
     }
   ]
 }

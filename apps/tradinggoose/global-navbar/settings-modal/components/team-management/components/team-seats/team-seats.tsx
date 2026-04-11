@@ -8,23 +8,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_TEAM_TIER_COST_LIMIT } from '@/lib/billing/constants'
-import { env } from '@/lib/env'
 
 interface TeamSeatsProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description: string
+  pricePerSeat: number
+  minimumSeats: number
+  maximumSeats: number | null
   currentSeats?: number
   initialSeats?: number
   isLoading: boolean
@@ -39,6 +34,9 @@ export function TeamSeats({
   onOpenChange,
   title,
   description,
+  pricePerSeat,
+  minimumSeats,
+  maximumSeats,
   currentSeats,
   initialSeats = 1,
   isLoading,
@@ -55,10 +53,8 @@ export function TeamSeats({
     }
   }, [open, initialSeats])
 
-  const costPerSeat = env.TEAM_TIER_COST_LIMIT ?? DEFAULT_TEAM_TIER_COST_LIMIT
-  const totalMonthlyCost = selectedSeats * costPerSeat
-  const costChange = currentSeats ? (selectedSeats - currentSeats) * costPerSeat : 0
-
+  const totalMonthlyCost = selectedSeats * pricePerSeat
+  const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
   const handleConfirm = async () => {
     await onConfirm(selectedSeats)
   }
@@ -73,25 +69,36 @@ export function TeamSeats({
 
         <div className='py-4'>
           <Label htmlFor='seats'>Number of seats</Label>
-          <Select
-            value={selectedSeats.toString()}
-            onValueChange={(value) => setSelectedSeats(Number.parseInt(value))}
-          >
-            <SelectTrigger id='seats' className='rounded-sm'>
-              <SelectValue placeholder='Select number of seats' />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50].map((num) => (
-                <SelectItem key={num} value={num.toString()}>
-                  {num} {num === 1 ? 'seat' : 'seats'} (${num * costPerSeat}/month)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            id='seats'
+            type='number'
+            min={minimumSeats}
+            max={maximumSeats ?? undefined}
+            value={selectedSeats}
+            onChange={(event) => {
+              const parsed = Number.parseInt(event.target.value, 10)
+              if (!Number.isFinite(parsed)) {
+                setSelectedSeats(minimumSeats)
+                return
+              }
+
+              const nextValue = Math.max(
+                minimumSeats,
+                maximumSeats === null ? parsed : Math.min(parsed, maximumSeats)
+              )
+              setSelectedSeats(nextValue)
+            }}
+            className='rounded-sm'
+          />
 
           <p className='mt-2 text-muted-foreground text-sm'>
             Your team will have {selectedSeats} {selectedSeats === 1 ? 'seat' : 'seats'} with a
             total of ${totalMonthlyCost} inference credits per month.
+          </p>
+          <p className='mt-1 text-muted-foreground text-xs'>
+            {maximumSeats === null
+              ? `Minimum ${minimumSeats} seats. No maximum seat cap applies to this tier.`
+              : `Choose between ${minimumSeats} and ${maximumSeats} seats for this tier.`}
           </p>
 
           {showCostBreakdown && currentSeats !== undefined && (

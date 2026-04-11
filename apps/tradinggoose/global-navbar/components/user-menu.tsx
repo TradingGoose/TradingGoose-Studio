@@ -21,14 +21,15 @@ import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
-import { isBillingEnabled, isHosted } from '@/lib/environment'
+import { canTierConfigureSso } from '@/lib/billing/tier-summary'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
-import { useOrganizations } from '@/hooks/queries/organization'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -103,13 +104,21 @@ export function UserMenu({
   const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
-  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
   const activeOrganizationId = activeOrganization?.id
-  const billingEnabled = isBillingEnabled
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
   const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const organizationBillingPayload =
+    (organizationBillingData as any)?.data ?? organizationBillingData ?? null
+  const billingEnabled =
+    organizationBillingPayload?.billingEnabled ??
+    billingPayload?.billingEnabled ??
+    organizationsData?.billingData?.data?.billingEnabled ??
+    true
   const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
+  const isOrganizationPlan =
+    organizationBillingPayload?.subscriptionTier?.ownerType === 'organization'
+  const canConfigureSso = canTierConfigureSso(organizationBillingPayload?.subscriptionTier)
   const userRole = useMemo(
     () => getUserRole(activeOrganization, userEmail),
     [activeOrganization, userEmail]
@@ -118,12 +127,12 @@ export function UserMenu({
   const isAdmin = userRole === 'admin'
   const hasOrganization = Boolean(activeOrganizationId)
   const canManageSSOSettings = useMemo(() => {
-    if (!hasOrganization || !hasEnterprisePlan) return false
+    if (!hasOrganization || !isOrganizationPlan || !canConfigureSso) return false
     if (isHosted) {
       return isOwner || isAdmin
     }
     return isSSOProviderOwner === true
-  }, [hasEnterprisePlan, hasOrganization, isAdmin, isOwner, isSSOProviderOwner])
+  }, [canConfigureSso, hasOrganization, isAdmin, isOrganizationPlan, isOwner, isSSOProviderOwner])
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -252,7 +261,7 @@ export function UserMenu({
     const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
     if (context === 'organization' && !activeOrganizationId) {
       logger.error('Cannot open billing portal without an active organization', {
-        plan: subscription.plan,
+        tier: subscription.tier.displayName,
       })
       alert('Select an organization to manage billing.')
       return
@@ -315,8 +324,8 @@ export function UserMenu({
               align='start'
             >
               <DropdownMenuGroup>
-                <div className='flex items-center gap-1.5 px-2 pb-1.5 pt-0.5'>
-                  <DropdownMenuItem className='flex items-center gap-2 text-sm font-medium text-muted-foreground'>
+                <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
+                  <DropdownMenuItem className='flex items-center gap-2 font-medium text-muted-foreground text-sm'>
                     {currentThemeLabel}
                   </DropdownMenuItem>
                   {THEME_OPTIONS.map(({ value, label, Icon }) => {
@@ -410,7 +419,7 @@ export function UserMenu({
                   </DropdownMenuGroup>
                 </>
               ) : null}
-              {(canManageTeam || canManageSSOSettings) ? (
+              {canManageTeam || canManageSSOSettings ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>

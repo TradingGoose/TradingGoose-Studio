@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
+import { tasks } from '@trigger.dev/sdk'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { checkServerSideUsageLimits } from '@/lib/billing'
+import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
+import { env, isTruthy } from '@/lib/env'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { withCodeExecutionConcurrencyLimit } from '@/lib/execution/concurrency-limit'
+import { IdempotencyService } from '@/lib/idempotency'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
   applyIndicatorTriggerPayloadBudget,
@@ -20,22 +25,20 @@ import {
   mapMarketSeriesToBarsMs,
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
+import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { acquireLock, getRedisClient, getRedisStorageMode, releaseLock } from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
-import {
-  checkRateLimits,
-  checkUsageLimits,
-  queueWebhookExecutionInternal,
-} from '@/lib/webhooks/processor'
 import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
+import { executeWorkflowJob } from '@/background/workflow-execution'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
+import { RateLimiter } from '@/services/queue'
 import { marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
@@ -108,6 +111,9 @@ type IndicatorMonitorSubscription = {
 }
 
 const logger = createLogger('IndicatorMonitorRuntime')
+const indicatorMonitorDispatchIdempotency = new IdempotencyService({
+  namespace: 'indicator-monitor',
+})
 
 const LOCK_KEY = 'indicator-monitor-runtime-lock'
 const LOCK_EXPIRY_SECONDS = 60 * 60
@@ -600,22 +606,26 @@ export class IndicatorMonitorRuntime {
         })
         .from(webhook)
         .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
-        .where(
-          and(
-            eq(webhook.provider, 'indicator'),
-            eq(webhook.isActive, true),
-            eq(workflow.isDeployed, true)
-          )
-        )
+        .where(and(eq(webhook.provider, 'indicator'), eq(webhook.isActive, true)))
 
       let skippedMissingWorkspace = 0
       let skippedInvalidConfig = 0
+      let disconnectedInvalidWorkflow = 0
       const monitors: MonitorRuntimeConfig[] = []
 
-      rows.forEach((row) => {
+      for (const row of rows) {
         if (!row.workflow.workspaceId) {
           skippedMissingWorkspace += 1
-          return
+          await this.disconnectMonitor(row.webhook.id, 'missing_workspace')
+          continue
+        }
+
+        if (!row.workflow.isDeployed) {
+          disconnectedInvalidWorkflow += 1
+          await this.disconnectMonitor(row.webhook.id, 'workflow_not_deployed', {
+            workflowId: row.workflow.id,
+          })
+          continue
         }
 
         const normalized = normalizeProviderConfig(
@@ -627,11 +637,14 @@ export class IndicatorMonitorRuntime {
 
         if (!normalized) {
           skippedInvalidConfig += 1
-          return
+          await this.disconnectMonitor(row.webhook.id, 'invalid_monitor_config', {
+            workflowId: row.workflow.id,
+          })
+          continue
         }
 
         monitors.push(normalized)
-      })
+      }
 
       if (rows.length > 0 && monitors.length === 0) {
         this.logger.warn(
@@ -641,6 +654,7 @@ export class IndicatorMonitorRuntime {
             totalRows: rows.length,
             skippedMissingWorkspace,
             skippedInvalidConfig,
+            disconnectedInvalidWorkflow,
           }
         )
       }
@@ -661,10 +675,56 @@ export class IndicatorMonitorRuntime {
           `${monitor.workspaceId}:${monitor.indicatorId}`
         )
         if (!nextIndicator) {
-          this.logger.warn('Indicator monitor skipped; indicator not found', {
+          await this.disconnectMonitor(monitor.id, 'indicator_not_found', {
             monitorId: monitor.id,
             workspaceId: monitor.workspaceId,
             indicatorId: monitor.indicatorId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        if (!isIndicatorTriggerCapable(nextIndicator.pineCode)) {
+          await this.disconnectMonitor(monitor.id, 'indicator_not_trigger_capable', {
+            monitorId: monitor.id,
+            workspaceId: monitor.workspaceId,
+            indicatorId: monitor.indicatorId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        if (!(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))) {
+          await this.disconnectMonitor(monitor.id, 'missing_trigger_block', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            blockId: monitor.blockId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
+        if (!actorUserId) {
+          await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        const usageCheck = await checkServerSideUsageLimits({
+          userId: actorUserId,
+          workflowId: monitor.workflowId,
+          workspaceId: monitor.workspaceId,
+        })
+        if (usageCheck.isExceeded) {
+          await this.disconnectMonitor(monitor.id, 'usage_limit_exceeded', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            currentUsage: usageCheck.currentUsage,
+            limit: usageCheck.limit,
           })
           this.skippedCount += 1
           continue
@@ -852,6 +912,32 @@ export class IndicatorMonitorRuntime {
     }
   }
 
+  private async disconnectMonitor(
+    monitorId: string,
+    reason: string,
+    metadata: Record<string, unknown> = {}
+  ) {
+    const subscription = this.subscriptions.get(monitorId)
+    if (subscription) {
+      this.stopSubscription(subscription)
+      this.subscriptions.delete(monitorId)
+    }
+
+    await db
+      .update(webhook)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(webhook.id, monitorId), eq(webhook.provider, 'indicator')))
+
+    this.logger.warn('Indicator monitor disconnected', {
+      monitorId,
+      reason,
+      ...metadata,
+    })
+  }
+
   private async handleIncomingBar(monitorId: string, bar: MarketBar) {
     const subscription = this.subscriptions.get(monitorId)
     if (!subscription) return
@@ -879,19 +965,15 @@ export class IndicatorMonitorRuntime {
     const monitor = subscription.config
 
     try {
-      const compiled = await withCodeExecutionConcurrencyLimit({
+      const compiled = await executeCompiledIndicator({
+        pineCode: subscription.indicator.pineCode,
+        barsMs: subscription.bars,
+        inputsMap: subscription.inputsMap,
+        listing: monitor.listing,
+        interval: monitor.interval,
+        intervalMs: monitor.intervalMs,
+        executionTimeoutMs: 15_000,
         userId: monitor.userId,
-        task: () =>
-          executeCompiledIndicator({
-            pineCode: subscription.indicator.pineCode,
-            barsMs: subscription.bars,
-            inputsMap: subscription.inputsMap,
-            listing: monitor.listing,
-            interval: monitor.interval,
-            intervalMs: monitor.intervalMs,
-            executionTimeoutMs: 15_000,
-            userId: monitor.userId,
-          }),
       })
 
       if (!compiled.output) return
@@ -970,62 +1052,131 @@ export class IndicatorMonitorRuntime {
         })
       }
 
-      const workflowRow = {
-        id: monitor.workflowId,
-        pinnedApiKeyId: monitor.pinnedApiKeyId,
-      }
-      const webhookRow = {
-        id: monitor.id,
-        path: monitor.path,
-        provider: 'indicator',
-        providerConfig: {
-          triggerId: INDICATOR_MONITOR_TRIGGER_ID,
-        },
-        blockId: monitor.blockId,
+      const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
+      if (!actorUserId) {
+        await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
+          monitorId: monitor.id,
+          workflowId: monitor.workflowId,
+        })
+        this.skippedCount += 1
+        return
       }
 
-      const rateLimitResult = await checkRateLimits(workflowRow, webhookRow, monitor.id)
+      let billingContext: Awaited<ReturnType<typeof resolveWorkflowBillingContext>>
+      try {
+        billingContext = await resolveWorkflowBillingContext({
+          workflowId: monitor.workflowId,
+          actorUserId,
+        })
+      } catch (error) {
+        await this.disconnectMonitor(monitor.id, 'invalid_billing_context', {
+          monitorId: monitor.id,
+          workflowId: monitor.workflowId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        this.skippedCount += 1
+        return
+      }
+      const billingScope = {
+        scopeType: billingContext.scopeType,
+        scopeId: billingContext.scopeId,
+        organizationId:
+          billingContext.scopeType === 'organization_member' ||
+          billingContext.scopeType === 'organization'
+            ? billingContext.billingOwner.type === 'organization'
+              ? billingContext.billingOwner.organizationId
+              : null
+            : null,
+        userId:
+          billingContext.scopeType === 'organization_member'
+            ? actorUserId
+            : billingContext.scopeType === 'user'
+              ? billingContext.billingUserId
+              : null,
+      }
+
+      const rateLimiter = new RateLimiter()
+      const rateLimitResult = await rateLimiter.checkRateLimitWithSubscription(
+        billingContext.billingUserId,
+        billingContext.subscription,
+        'webhook',
+        true,
+        billingScope
+      )
       if (!rateLimitResult.allowed) {
         this.skippedCount += 1
         return
       }
 
-      const usageLimitResult = await checkUsageLimits(workflowRow, webhookRow, monitor.id, false)
-      if (!usageLimitResult.allowed) {
+      const usageCheck = await checkServerSideUsageLimits({
+        userId: actorUserId,
+        workflowId: monitor.workflowId,
+        workspaceId: monitor.workspaceId,
+      })
+      if (usageCheck.isExceeded) {
+        await this.disconnectMonitor(monitor.id, 'usage_limit_exceeded', {
+          monitorId: monitor.id,
+          workflowId: monitor.workflowId,
+          currentUsage: usageCheck.currentUsage,
+          limit: usageCheck.limit,
+        })
         this.skippedCount += 1
         return
       }
 
       if (!(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))) {
-        this.skippedCount += 1
-        return
-      }
-
-      const queueResult = await queueWebhookExecutionInternal(
-        webhookRow,
-        workflowRow,
-        budgetResult.payload,
-        { kind: 'internal', headers: {} },
-        {
-          requestId: monitor.id,
-          path: monitor.path,
-          testMode: false,
-          executionTarget: 'deployed',
-          headerOverrides: {
-            'x-event-id': eventId,
-          },
-        }
-      )
-
-      if (!queueResult.queued) {
-        this.logger.warn('Indicator monitor queue dispatch failed', {
+        await this.disconnectMonitor(monitor.id, 'missing_trigger_block', {
           monitorId: monitor.id,
           workflowId: monitor.workflowId,
-          reason: queueResult.message,
+          blockId: monitor.blockId,
         })
         this.skippedCount += 1
         return
       }
+
+      const workflowPayload = {
+        workflowId: monitor.workflowId,
+        userId: actorUserId,
+        input: budgetResult.payload,
+        triggerType: 'webhook' as const,
+        startBlockId: monitor.blockId,
+        executionTarget: 'deployed' as const,
+        triggerData: {
+          source: 'indicator_trigger',
+          executionTarget: 'deployed',
+          monitor: {
+            id: monitor.id,
+            workflowId: monitor.workflowId,
+            blockId: monitor.blockId,
+            listing: monitor.listing,
+            providerId: monitor.providerId,
+            interval: monitor.interval,
+            indicatorId: monitor.indicatorId,
+          },
+        },
+        metadata: {
+          triggerType: 'webhook',
+          source: 'indicator_monitor',
+          eventId,
+          monitorId: monitor.id,
+        },
+      }
+
+      await indicatorMonitorDispatchIdempotency.executeWithIdempotency(
+        'workflow-execution',
+        eventId,
+        async () => {
+          if (isTruthy(env.TRIGGER_DEV_ENABLED)) {
+            return tasks.trigger('workflow-execution', workflowPayload)
+          }
+
+          return executeWorkflowJob(workflowPayload)
+        },
+        {
+          monitorId: monitor.id,
+          workflowId: monitor.workflowId,
+        }
+      )
 
       subscription.lastDispatchedBarBucketMs = barBucketMs
       this.dispatchedCount += 1

@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { env, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -95,7 +95,7 @@ export function mapDispatchGateResultToHttpResponse(
   if (provider === 'microsoftteams') {
     return NextResponse.json({
       type: 'message',
-      text: 'Usage limit exceeded. Please upgrade your plan to continue.',
+      text: 'Usage limit exceeded. Please upgrade your billing tier to continue.',
     })
   }
   return NextResponse.json({ message: 'Usage limit exceeded' }, { status: 200 })
@@ -355,19 +355,42 @@ export async function checkRateLimits(
       }
     }
 
-    const userSubscription = await getHighestPrioritySubscription(actorUserId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId: foundWorkflow.workspaceId,
+      actorUserId,
+    })
+    const billingScope = {
+      scopeType: billingContext.scopeType,
+      scopeId: billingContext.scopeId,
+      organizationId:
+        billingContext.scopeType === 'organization_member' ||
+        billingContext.scopeType === 'organization'
+          ? billingContext.billingOwner.type === 'organization'
+            ? billingContext.billingOwner.organizationId
+            : null
+          : null,
+      userId:
+        billingContext.scopeType === 'organization_member'
+          ? actorUserId
+          : billingContext.scopeType === 'user'
+            ? billingContext.billingUserId
+            : null,
+    }
 
     const rateLimiter = new RateLimiter()
     const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-      actorUserId,
-      userSubscription,
+      billingContext.billingUserId,
+      billingContext.subscription,
       'webhook',
-      true
+      true,
+      billingScope
     )
 
     if (!rateLimitCheck.allowed) {
-      logger.warn(`[${requestId}] Rate limit exceeded for webhook user ${actorUserId}`, {
+      logger.warn(`[${requestId}] Rate limit exceeded for webhook billing subject`, {
         provider: foundWebhook.provider,
+        actorUserId,
+        billingUserId: billingContext.billingUserId,
         remaining: rateLimitCheck.remaining,
         resetAt: rateLimitCheck.resetAt,
       })
@@ -414,11 +437,21 @@ export async function checkUsageLimits(
       }
     }
 
-    const usageCheck = await checkServerSideUsageLimits(actorUserId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId: foundWorkflow.workspaceId,
+      actorUserId,
+    })
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: actorUserId,
+      workflowId: foundWorkflow.id,
+      workspaceId: foundWorkflow.workspaceId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${actorUserId} has exceeded usage limits. Skipping webhook execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping webhook execution.`,
         {
+          actorUserId,
+          billingUserId: billingContext.billingUserId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: foundWorkflow.id,

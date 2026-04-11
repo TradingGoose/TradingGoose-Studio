@@ -1,19 +1,65 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
 import {
-  checkEnterprisePlan,
-  checkProPlan,
-  checkTeamPlan,
-  getFreeTierLimit,
-  getPerUserMinimumLimit,
-} from '@/lib/billing/subscriptions/utils'
-import type { UserSubscriptionState } from '@/lib/billing/types'
+  getSubscriptionUsageAllowanceUsd,
+  getTierDisplayName,
+  getTierUsageAllowanceUsd,
+  hydrateSubscriptionsWithTiers,
+  requireDefaultBillingTier,
+  selectEffectiveSubscription,
+  toBillingTierSummary,
+} from '@/lib/billing/tiers'
+import type { BillingTierSummary, UserSubscriptionState } from '@/lib/billing/types'
 import { isProd } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SubscriptionCore')
+
+type SubscriptionRecord = typeof subscription.$inferSelect
+
+export interface PersonalBillingSnapshot {
+  subscription: SubscriptionWithTier | null
+  tier: BillingTierSummary
+  currentPeriodCost: number
+  limit: number
+  isExceeded: boolean
+}
+
+function parseOptionalNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const parsed = Number.parseFloat(value.toString())
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function getGrantedOnboardingAllowance(value: string | number | null | undefined): number {
+  const parsed = parseOptionalNumber(value)
+  return parsed === null ? 0 : Math.max(parsed, 0)
+}
+
+function getFreeUserUsageLimit(
+  defaultTierLimit: number,
+  grantedOnboardingAllowanceUsd: string | number | null | undefined
+): number {
+  return Math.max(defaultTierLimit, getGrantedOnboardingAllowance(grantedOnboardingAllowanceUsd))
+}
+
+function getEffectivePersonalUsageLimit(
+  customUsageLimit: string | number | null | undefined,
+  minimumLimit: number
+): number {
+  const parsedCustomUsageLimit = parseOptionalNumber(customUsageLimit)
+  if (parsedCustomUsageLimit === null) {
+    return minimumLimit
+  }
+
+  return Math.max(parsedCustomUsageLimit, minimumLimit)
+}
 
 /**
  * Core subscription management - single source of truth
@@ -21,126 +67,121 @@ const logger = createLogger('SubscriptionCore')
  */
 
 /**
- * Get the highest priority active subscription for a user
- * Priority: Enterprise > Team > Pro > Free
+ * Get the active subscription that currently governs a billing reference.
  */
-export async function getHighestPrioritySubscription(userId: string) {
+export async function getActiveSubscriptionForReference(
+  reference: BillingReference
+): Promise<SubscriptionWithTier | null> {
+  const rows = await db
+    .select()
+    .from(subscription)
+    .where(
+      and(
+        eq(subscription.referenceType, reference.referenceType),
+        eq(subscription.referenceId, reference.referenceId),
+        eq(subscription.status, 'active')
+      )
+    )
+
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
+  return selectEffectiveSubscription(hydratedSubscriptions)
+}
+
+export async function getEffectiveSubscription(
+  userId: string
+): Promise<SubscriptionWithTier | null> {
+  return getPersonalEffectiveSubscription(userId)
+}
+
+async function getActivePersonalSubscriptions(userId: string): Promise<SubscriptionRecord[]> {
+  return db
+    .select()
+    .from(subscription)
+    .where(
+      and(
+        eq(subscription.referenceType, 'user'),
+        eq(subscription.referenceId, userId),
+        eq(subscription.status, 'active')
+      )
+    )
+}
+
+export async function getPersonalEffectiveSubscription(
+  userId: string
+): Promise<SubscriptionWithTier | null> {
   try {
-    // Get direct subscriptions
-    const personalSubs = await db
-      .select()
-      .from(subscription)
-      .where(and(eq(subscription.referenceId, userId), eq(subscription.status, 'active')))
-
-    // Get organization memberships
-    const memberships = await db
-      .select({ organizationId: member.organizationId })
-      .from(member)
-      .where(eq(member.userId, userId))
-
-    const orgIds = memberships.map((m: { organizationId: string }) => m.organizationId)
-
-    // Get organization subscriptions
-    let orgSubs: any[] = []
-    if (orgIds.length > 0) {
-      orgSubs = await db
-        .select()
-        .from(subscription)
-        .where(and(inArray(subscription.referenceId, orgIds), eq(subscription.status, 'active')))
-    }
-
-    const allSubs = [...personalSubs, ...orgSubs]
-
-    if (allSubs.length === 0) return null
-
-    // Return highest priority subscription
-    const enterpriseSub = allSubs.find((s) => checkEnterprisePlan(s))
-    if (enterpriseSub) return enterpriseSub
-
-    const teamSub = allSubs.find((s) => checkTeamPlan(s))
-    if (teamSub) return teamSub
-
-    const proSub = allSubs.find((s) => checkProPlan(s))
-    if (proSub) return proSub
-
+    const personalSubs = await getActivePersonalSubscriptions(userId)
+    const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
+    return selectEffectiveSubscription(hydratedSubscriptions)
+  } catch (error) {
+    logger.error('Error getting personal effective subscription', { error, userId })
     return null
-  } catch (error) {
-    logger.error('Error getting highest priority subscription', { error, userId })
-    return null
   }
 }
 
-/**
- * Check if user is on Pro plan (direct or via organization)
- */
-export async function isProPlan(userId: string): Promise<boolean> {
+export async function getPersonalBillingSnapshot(userId: string): Promise<PersonalBillingSnapshot> {
   try {
-    if (!isProd) {
-      return true
+    const [subscription, statsRecords] = await Promise.all([
+      getPersonalEffectiveSubscription(userId),
+      db
+        .select({
+          currentPeriodCost: userStats.currentPeriodCost,
+          totalCost: userStats.totalCost,
+          customUsageLimit: userStats.customUsageLimit,
+          grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+        })
+        .from(userStats)
+        .where(eq(userStats.userId, userId))
+        .limit(1),
+    ])
+
+    const effectiveTier = subscription?.tier ?? (await requireDefaultBillingTier())
+    const stats = statsRecords[0]
+
+    let currentPeriodCost = 0
+    if (stats) {
+      currentPeriodCost = Number.parseFloat(
+        (subscription ? stats.currentPeriodCost : stats.totalCost)?.toString() || '0'
+      )
     }
 
-    const subscription = await getHighestPrioritySubscription(userId)
-    const isPro =
-      subscription &&
-      (checkProPlan(subscription) ||
-        checkTeamPlan(subscription) ||
-        checkEnterprisePlan(subscription))
+    const minimumLimit = subscription
+      ? getSubscriptionUsageAllowanceUsd(subscription)
+      : getFreeUserUsageLimit(
+          getTierUsageAllowanceUsd(effectiveTier),
+          stats?.grantedOnboardingAllowanceUsd
+        )
+    const limit = subscription
+      ? getEffectivePersonalUsageLimit(stats?.customUsageLimit, minimumLimit)
+      : minimumLimit
 
-    if (isPro) {
-      logger.info('User has pro-level plan', { userId, plan: subscription.plan })
+    return {
+      subscription,
+      tier: toBillingTierSummary(effectiveTier),
+      currentPeriodCost,
+      limit,
+      isExceeded: currentPeriodCost >= limit,
     }
-
-    return !!isPro
   } catch (error) {
-    logger.error('Error checking pro plan status', { error, userId })
-    return false
-  }
-}
-
-/**
- * Check if user is on Team plan (direct or via organization)
- */
-export async function isTeamPlan(userId: string): Promise<boolean> {
-  try {
-    if (!isProd) {
-      return true
+    logger.error('Error getting personal billing snapshot', { error, userId })
+    try {
+      const defaultTier = await requireDefaultBillingTier()
+      return {
+        subscription: null,
+        tier: toBillingTierSummary(defaultTier),
+        currentPeriodCost: 0,
+        limit: getTierUsageAllowanceUsd(defaultTier),
+        isExceeded: true,
+      }
+    } catch {
+      return {
+        subscription: null,
+        tier: toBillingTierSummary(null),
+        currentPeriodCost: 0,
+        limit: 0,
+        isExceeded: true,
+      }
     }
-
-    const subscription = await getHighestPrioritySubscription(userId)
-    const isTeam =
-      subscription && (checkTeamPlan(subscription) || checkEnterprisePlan(subscription))
-
-    if (isTeam) {
-      logger.info('User has team-level plan', { userId, plan: subscription.plan })
-    }
-
-    return !!isTeam
-  } catch (error) {
-    logger.error('Error checking team plan status', { error, userId })
-    return false
-  }
-}
-
-/**
- * Check if user is on Enterprise plan (direct or via organization)
- */
-export async function isEnterprisePlan(userId: string): Promise<boolean> {
-  try {
-    if (!isProd) {
-      return true
-    }
-
-    const subscription = await getHighestPrioritySubscription(userId)
-    const isEnterprise = subscription && checkEnterprisePlan(subscription)
-
-    if (isEnterprise) {
-      logger.info('User has enterprise plan', { userId, plan: subscription.plan })
-    }
-
-    return !!isEnterprise
-  } catch (error) {
-    logger.error('Error checking enterprise plan status', { error, userId })
-    return false
   }
 }
 
@@ -153,34 +194,39 @@ export async function hasExceededCostLimit(userId: string): Promise<boolean> {
       return false
     }
 
-    const subscription = await getHighestPrioritySubscription(userId)
-
-    let limit = getFreeTierLimit() // Default free tier limit
+    const subscription = await getEffectiveSubscription(userId)
+    let limit: number
 
     if (subscription) {
-      // Team/Enterprise: Use organization limit
-      if (subscription.plan === 'team' || subscription.plan === 'enterprise') {
-        const { getUserUsageLimit } = await import('@/lib/billing/core/usage')
-        limit = await getUserUsageLimit(userId)
-        logger.info('Using organization limit', {
-          userId,
-          plan: subscription.plan,
-          limit,
-        })
-      } else {
-        // Pro/Free: Use individual limit
-        limit = getPerUserMinimumLimit(subscription)
-        logger.info('Using subscription-based limit', {
-          userId,
-          plan: subscription.plan,
-          limit,
-        })
-      }
+      const billingTier = subscription.tier.displayName
+      limit = getSubscriptionUsageAllowanceUsd(subscription)
+      logger.info('Using individual tier limit', {
+        userId,
+        billingTier,
+        limit,
+      })
     } else {
-      logger.info('Using free tier limit', { userId, limit })
+      const defaultTier = await requireDefaultBillingTier()
+      const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
+      const stats = statsRecords[0]
+      limit = getFreeUserUsageLimit(
+        getTierUsageAllowanceUsd(defaultTier),
+        stats?.grantedOnboardingAllowanceUsd
+      )
+      logger.info('Using default billing tier limit', { userId, limit })
+      if (statsRecords.length === 0) {
+        return false
+      }
+
+      const currentCost = Number.parseFloat(
+        stats.totalCost?.toString() || stats.currentPeriodCost?.toString() || '0'
+      )
+
+      logger.info('Checking cost limit', { userId, currentCost, limit })
+
+      return currentCost >= limit
     }
 
-    // Get user stats to check current period usage
     const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
 
     if (statsRecords.length === 0) {
@@ -214,121 +260,148 @@ export async function getUserSubscriptionState(userId: string): Promise<UserSubs
   try {
     // Get subscription and user stats in parallel to minimize DB calls
     const [subscription, statsRecords] = await Promise.all([
-      getHighestPrioritySubscription(userId),
+      getEffectiveSubscription(userId),
       db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
     ])
 
-    // Determine plan types based on subscription (avoid redundant DB calls)
-    const isPro =
-      !isProd ||
-      (subscription &&
-        (checkProPlan(subscription) ||
-          checkTeamPlan(subscription) ||
-          checkEnterprisePlan(subscription)))
-    const isTeam =
-      !isProd ||
-      (subscription && (checkTeamPlan(subscription) || checkEnterprisePlan(subscription)))
-    const isEnterprise = !isProd || (subscription && checkEnterprisePlan(subscription))
-    const isFree = !isPro && !isTeam && !isEnterprise
-
-    // Determine plan name
-    let planName = 'free'
-    if (isEnterprise) planName = 'enterprise'
-    else if (isTeam) planName = 'team'
-    else if (isPro) planName = 'pro'
+    const tier = subscription?.tier
+      ? toBillingTierSummary(subscription.tier)
+      : toBillingTierSummary(await requireDefaultBillingTier())
 
     // Check cost limit using already-fetched user stats
     let hasExceededLimit = false
     if (isProd && statsRecords.length > 0) {
-      let limit = getFreeTierLimit() // Default free tier limit
+      let limit: number
+      let currentCost: number
       if (subscription) {
-        // Team/Enterprise: Use organization limit
-        if (subscription.plan === 'team' || subscription.plan === 'enterprise') {
-          const { getUserUsageLimit } = await import('@/lib/billing/core/usage')
-          limit = await getUserUsageLimit(userId)
-        } else {
-          // Pro/Free: Use individual limit
-          limit = getPerUserMinimumLimit(subscription)
-        }
+        limit = getSubscriptionUsageAllowanceUsd(subscription)
+        currentCost = Number.parseFloat(
+          statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
+        )
+      } else {
+        limit = getFreeUserUsageLimit(
+          getTierUsageAllowanceUsd(await requireDefaultBillingTier()),
+          statsRecords[0].grantedOnboardingAllowanceUsd
+        )
+        currentCost = Number.parseFloat(
+          statsRecords[0].totalCost?.toString() ||
+            statsRecords[0].currentPeriodCost?.toString() ||
+            '0'
+        )
       }
-
-      const currentCost = Number.parseFloat(
-        statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
-      )
       hasExceededLimit = currentCost >= limit
     }
 
     return {
-      isPro,
-      isTeam,
-      isEnterprise,
-      isFree,
-      highestPrioritySubscription: subscription,
+      tier,
+      effectiveSubscription: subscription,
       hasExceededLimit,
-      planName,
     }
   } catch (error) {
     logger.error('Error getting user subscription state', { error, userId })
 
     // Return safe defaults in case of error
     return {
-      isPro: false,
-      isTeam: false,
-      isEnterprise: false,
-      isFree: true,
-      highestPrioritySubscription: null,
+      tier: toBillingTierSummary(null),
+      effectiveSubscription: null,
       hasExceededLimit: false,
-      planName: 'free',
     }
   }
 }
 
 /**
- * Send welcome email for Pro and Team plan subscriptions
+ * Send welcome email for active billing tiers
  */
-export async function sendPlanWelcomeEmail(subscription: any): Promise<void> {
+export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
+  id: string
+  referenceType: 'user' | 'organization'
+  referenceId: string
+  tier?: SubscriptionWithTier['tier'] | null
+}): Promise<void> {
   try {
-    const subPlan = subscription.plan
-    if (subPlan === 'pro' || subPlan === 'team') {
-      const userId = subscription.referenceId
+    const hydratedSubscription = subscriptionRecord?.tier
+      ? subscriptionRecord
+      : (
+          await hydrateSubscriptionsWithTiers(
+            await db
+              .select()
+              .from(subscription)
+              .where(eq(subscription.id, subscriptionRecord.id))
+              .limit(1)
+          )
+        )[0]
+    const tier = hydratedSubscription?.tier
+    if (!tier) {
+      return
+    }
+
+    const { getPlanWelcomeSubject, renderPlanWelcomeEmail } = await import(
+      '@/components/emails/render-email'
+    )
+    const { sendEmail } = await import('@/lib/email/mailer')
+    const baseUrl = getBaseUrl()
+
+    if (hydratedSubscription.referenceType === 'user') {
       const users = await db
         .select({ email: user.email, name: user.name })
         .from(user)
-        .where(eq(user.id, userId))
+        .where(eq(user.id, hydratedSubscription.referenceId))
         .limit(1)
 
-      if (users.length > 0 && users[0].email) {
-        const { getEmailSubject, renderPlanWelcomeEmail } = await import(
-          '@/components/emails/render-email'
-        )
-        const { sendEmail } = await import('@/lib/email/mailer')
-
-        const baseUrl = getBaseUrl()
-        const html = await renderPlanWelcomeEmail({
-          planName: subPlan === 'pro' ? 'Pro' : 'Team',
-          userName: users[0].name || undefined,
-          loginLink: `${baseUrl}/login`,
-        })
-
-        await sendEmail({
-          to: users[0].email,
-          subject: getEmailSubject(subPlan === 'pro' ? 'plan-welcome-pro' : 'plan-welcome-team'),
-          html,
-          emailType: 'updates',
-        })
-
-        logger.info('Plan welcome email sent successfully', {
-          userId,
-          email: users[0].email,
-          plan: subPlan,
-        })
+      if (users.length === 0 || !users[0].email) {
+        return
       }
+
+      const html = await renderPlanWelcomeEmail({
+        planName: getTierDisplayName(tier),
+        userName: users[0].name || undefined,
+        loginLink: `${baseUrl}/login`,
+      })
+
+      await sendEmail({
+        to: users[0].email,
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier)),
+        html,
+        emailType: 'updates',
+      })
+
+      logger.info('Billing tier welcome email sent successfully', {
+        userId: hydratedSubscription.referenceId,
+        email: users[0].email,
+        billingTier: tier.displayName,
+      })
+      return
+    }
+
+    const recipients = await db
+      .select({ email: user.email, name: user.name })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(eq(member.organizationId, hydratedSubscription.referenceId))
+
+    for (const recipient of recipients) {
+      if (!recipient.email) {
+        continue
+      }
+
+      const html = await renderPlanWelcomeEmail({
+        planName: getTierDisplayName(tier),
+        userName: recipient.name || undefined,
+        loginLink: `${baseUrl}/login`,
+      })
+
+      await sendEmail({
+        to: recipient.email,
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier)),
+        html,
+        emailType: 'updates',
+      })
     }
   } catch (error) {
-    logger.error('Failed to send plan welcome email', {
+    logger.error('Failed to send billing tier welcome email', {
       error,
-      subscriptionId: subscription.id,
-      plan: subscription.plan,
+      subscriptionId: subscriptionRecord.id,
+      billingTier: subscriptionRecord.tier?.displayName,
     })
     throw error
   }

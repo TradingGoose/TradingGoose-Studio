@@ -5,10 +5,9 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import {
@@ -17,6 +16,7 @@ import {
   getScheduleTimeValues,
   getSubBlockValue,
 } from '@/lib/schedules/utils'
+import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { decryptSecret } from '@/lib/utils'
 import { blockExistsInDeployment, loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
@@ -100,14 +100,35 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const userSubscription = await getHighestPrioritySubscription(actorUserId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId: workflowRecord.workspaceId,
+      actorUserId,
+    })
+    const billingScope = {
+      scopeType: billingContext.scopeType,
+      scopeId: billingContext.scopeId,
+      organizationId:
+        billingContext.scopeType === 'organization_member' ||
+        billingContext.scopeType === 'organization'
+          ? billingContext.billingOwner.type === 'organization'
+            ? billingContext.billingOwner.organizationId
+            : null
+          : null,
+      userId:
+        billingContext.scopeType === 'organization_member'
+          ? actorUserId
+          : billingContext.scopeType === 'user'
+            ? billingContext.billingUserId
+            : null,
+    }
 
     const rateLimiter = new RateLimiter()
     const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-      actorUserId,
-      userSubscription,
+      billingContext.billingUserId,
+      billingContext.subscription,
       'schedule',
-      false
+      false,
+      billingScope
     )
 
     if (!rateLimitCheck.allowed) {
@@ -140,11 +161,17 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const usageCheck = await checkServerSideUsageLimits(actorUserId)
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: actorUserId,
+      workflowId: payload.workflowId,
+      workspaceId: workflowRecord.workspaceId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${workflowRecord.userId} has exceeded usage limits. Skipping scheduled execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
         {
+          actorUserId,
+          billingUserId: billingContext.billingUserId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
@@ -336,12 +363,13 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
             envVarValues: decryptedEnvVars,
             workflowInput: input,
             workflowVariables,
-            contextExtensions: {
-              executionId,
-              workspaceId: workflowRecord.workspaceId || '',
-              isDeployedContext: true,
-            },
-          })
+          contextExtensions: {
+            executionId,
+            workspaceId: workflowRecord.workspaceId || '',
+            userId: actorUserId,
+            isDeployedContext: true,
+          },
+        })
 
           loggingSession.setupExecutor(executor)
 
@@ -407,7 +435,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       if (executionSuccess.success) {
         logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
 
-        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          executionSuccess.blocks,
+          payload.timezone
+        )
 
         logger.debug(
           `[${requestId}] Calculated next run time: ${nextRunAt.toISOString()} for workflow ${payload.workflowId}`
@@ -435,7 +467,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
         const newFailedCount = (payload.failedCount || 0) + 1
         const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          executionSuccess.blocks,
+          payload.timezone
+        )
 
         if (shouldDisable) {
           logger.warn(

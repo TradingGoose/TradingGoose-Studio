@@ -1,4 +1,4 @@
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 import type { TrelloListListsParams, TrelloListListsResponse } from '@/tools/trello/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -33,7 +33,7 @@ export const trelloListListsTool: ToolConfig<TrelloListListsParams, TrelloListLi
       if (!params.boardId) {
         throw new Error('Board ID is required')
       }
-      const apiKey = env.TRELLO_API_KEY || ''
+      const apiKey = getEnv('TRELLO_API_KEY') || ''
       const token = params.accessToken
 
       if (!apiKey) {

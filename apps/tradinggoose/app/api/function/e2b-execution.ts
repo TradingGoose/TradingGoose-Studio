@@ -159,11 +159,19 @@ type ExecuteFunctionWithRuntimeGateArgs = {
 type RuntimeGateResult =
   | {
       engine: 'e2b'
-      success: boolean
+      success: true
       result: unknown
       stdout: string
       executionTime: number
-      error?: string
+      userCodeStartLine: number
+    }
+  | {
+      engine: 'e2b'
+      success: false
+      result: null
+      stdout: string
+      executionTime: number
+      error: string
       userCodeStartLine: number
     }
   | {
@@ -173,6 +181,16 @@ type RuntimeGateResult =
       stdout: string
       executionTime: number
       userCodeStartLine: number
+    }
+  | {
+      engine: 'local_vm'
+      success: false
+      result: null
+      stdout: string
+      executionTime: number
+      error: string
+      userCodeStartLine: number
+      rawError: unknown
     }
 
 export const executeFunctionWithRuntimeGate = async ({
@@ -210,14 +228,25 @@ export const executeFunctionWithRuntimeGate = async ({
         onSandboxResult,
       })
 
+      if (e2bExecution.success) {
+        return {
+          engine: 'e2b',
+          success: true,
+          result: e2bExecution.result,
+          stdout: e2bExecution.stdout,
+          executionTime: e2bExecution.executionTime,
+          userCodeStartLine: 3,
+        }
+      }
+
       return {
         engine: 'e2b',
-        success: e2bExecution.success,
-        result: e2bExecution.success ? e2bExecution.result : null,
+        success: false,
+        result: null,
         stdout: e2bExecution.stdout,
         executionTime: e2bExecution.executionTime,
         userCodeStartLine: 3,
-        ...(e2bExecution.success ? {} : { error: e2bExecution.error }),
+        error: e2bExecution.error,
       }
     } catch (error) {
       if (!isE2BWarmSandboxLimitError(error)) {
@@ -233,26 +262,45 @@ export const executeFunctionWithRuntimeGate = async ({
   }
 
   const localStart = Date.now()
-  const localExecution = await executeFunctionInLocalVm({
-    requestId,
-    transpiledCode,
-    timeout,
-    executionParams,
-    envVars,
-    contextVariables,
-    isCustomTool,
-    ownerKey: e2bUserScope ? `scope:${e2bUserScope}` : undefined,
-    onStdout,
-    onWarn,
-    onError,
-  })
+  try {
+    const localExecution = await executeFunctionInLocalVm({
+      requestId,
+      transpiledCode,
+      timeout,
+      executionParams,
+      envVars,
+      contextVariables,
+      isCustomTool,
+      ownerKey: e2bUserScope ? `scope:${e2bUserScope}` : undefined,
+      onStdout,
+      onWarn,
+      onError,
+    })
 
-  return {
-    engine: 'local_vm',
-    success: true,
-    result: localExecution.result,
-    stdout: '',
-    executionTime: Date.now() - localStart,
-    userCodeStartLine: localExecution.userCodeStartLine,
+    return {
+      engine: 'local_vm',
+      success: true,
+      result: localExecution.result,
+      stdout: '',
+      executionTime: Date.now() - localStart,
+      userCodeStartLine: localExecution.userCodeStartLine,
+    }
+  } catch (error) {
+    const userLineSource = error as { __userCodeStartLine?: number } | null
+    const userCodeStartLine =
+      error && typeof error === 'object' && typeof userLineSource?.__userCodeStartLine === 'number'
+        ? userLineSource.__userCodeStartLine
+        : 3
+
+    return {
+      engine: 'local_vm',
+      success: false,
+      result: null,
+      stdout: '',
+      executionTime: Date.now() - localStart,
+      userCodeStartLine,
+      error: error instanceof Error ? error.message : String(error),
+      rawError: error,
+    }
   }
 }

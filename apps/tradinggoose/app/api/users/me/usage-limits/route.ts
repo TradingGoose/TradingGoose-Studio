@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
-import { getEffectiveCurrentPeriodCost } from '@/lib/billing/core/usage'
+import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
 import { getUserStorageLimit, getUserStorageUsage } from '@/lib/billing/storage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createErrorResponse } from '@/app/api/workflows/utils'
@@ -19,33 +17,29 @@ export async function GET(request: NextRequest) {
     const authenticatedUserId = auth.userId
 
     // Rate limit info (sync + async), mirroring /users/me/rate-limit
-    const userSubscription = await getHighestPrioritySubscription(authenticatedUserId)
+    const billingSnapshot = await getPersonalBillingSnapshot(authenticatedUserId)
     const rateLimiter = new RateLimiter()
     const triggerType = auth.authType === 'api_key' ? 'api' : 'manual'
     const [syncStatus, asyncStatus] = await Promise.all([
       rateLimiter.getRateLimitStatusWithSubscription(
         authenticatedUserId,
-        userSubscription,
+        billingSnapshot.subscription,
         triggerType,
         false
       ),
       rateLimiter.getRateLimitStatusWithSubscription(
         authenticatedUserId,
-        userSubscription,
+        billingSnapshot.subscription,
         triggerType,
         true
       ),
     ])
 
     // Usage summary (current period cost + limit + plan)
-    const [usageCheck, effectiveCost, storageUsage, storageLimit] = await Promise.all([
-      checkServerSideUsageLimits(authenticatedUserId),
-      getEffectiveCurrentPeriodCost(authenticatedUserId),
+    const [storageUsage, storageLimit] = await Promise.all([
       getUserStorageUsage(authenticatedUserId),
       getUserStorageLimit(authenticatedUserId),
     ])
-
-    const currentPeriodCost = effectiveCost
 
     return NextResponse.json({
       success: true,
@@ -65,9 +59,9 @@ export async function GET(request: NextRequest) {
         authType: triggerType,
       },
       usage: {
-        currentPeriodCost,
-        limit: usageCheck.limit,
-        plan: userSubscription?.plan || 'free',
+        currentPeriodCost: billingSnapshot.currentPeriodCost,
+        limit: billingSnapshot.limit,
+        tier: billingSnapshot.tier,
       },
       storage: {
         usedBytes: storageUsage,

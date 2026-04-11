@@ -1,40 +1,91 @@
 import { db } from '@tradinggoose/db'
-import { member, organization, settings, user, userStats } from '@tradinggoose/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { member, settings, user, userStats } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import {
   getEmailSubject,
   renderFreeTierUpgradeEmail,
   renderUsageThresholdEmail,
 } from '@/components/emails/render-email'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import {
-  canEditUsageLimit,
-  getFreeTierLimit,
-  getPerUserMinimumLimit,
-} from '@/lib/billing/subscriptions/utils'
+  getPrimaryPublicUserUpgradeTier,
+  getSubscriptionUsageAllowanceUsd,
+  getTierBasePrice,
+  getTierUsageAllowanceUsd,
+  requireDefaultBillingTier,
+  toBillingTierSummary,
+} from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { sendEmail } from '@/lib/email/mailer'
 import { getEmailPreferences } from '@/lib/email/unsubscribe'
-import { isBillingEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('UsageManagement')
 
+async function getDefaultUserTierLimit(): Promise<number> {
+  const defaultTier = await requireDefaultBillingTier()
+  return getTierUsageAllowanceUsd(defaultTier)
+}
+
+function parseOptionalAmount(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const parsed = Number.parseFloat(value.toString())
+  return Number.isFinite(parsed) ? Math.max(parsed, 0) : null
+}
+
+function getGrantedOnboardingAllowance(value: string | number | null | undefined): number {
+  return parseOptionalAmount(value) ?? 0
+}
+
+function getFreeUserUsageLimit(params: {
+  tierLimit: number
+  grantedOnboardingAllowanceUsd: string | number | null | undefined
+}): number {
+  return Math.max(
+    params.tierLimit,
+    getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
+  )
+}
+
+function getEffectiveIndividualUsageLimit(params: {
+  customUsageLimit: string | number | null | undefined
+  minimumLimit: number
+}): number {
+  const customUsageLimit = params.customUsageLimit
+    ? Number.parseFloat(params.customUsageLimit.toString())
+    : null
+
+  if (customUsageLimit === null || Number.isNaN(customUsageLimit)) {
+    return params.minimumLimit
+  }
+
+  return Math.max(customUsageLimit, params.minimumLimit)
+}
+
 /**
- * Handle new user setup when they join the platform
- * Creates userStats record with default free credits
+ * Handle new user setup when they join the platform.
+ * Creates the billing usage row for a newly provisioned user.
  */
 export async function handleNewUser(userId: string): Promise<void> {
   try {
+    const { onboardingAllowanceUsd } = await getResolvedBillingSettings()
+
     await db.insert(userStats).values({
       id: crypto.randomUUID(),
       userId: userId,
-      currentUsageLimit: getFreeTierLimit().toString(),
-      usageLimitUpdatedAt: new Date(),
+      grantedOnboardingAllowanceUsd: onboardingAllowanceUsd.toString(),
     })
 
-    logger.info('User stats record created for new user', { userId })
+    logger.info('User stats record created for new user', {
+      userId,
+      onboardingAllowanceUsd,
+    })
   } catch (error) {
     logger.error('Failed to create user stats record for new user', {
       userId,
@@ -49,13 +100,13 @@ export async function handleNewUser(userId: string): Promise<void> {
  */
 export async function getUserUsageData(userId: string): Promise<UsageData> {
   try {
-    const [userStatsData, subscription] = await Promise.all([
+    const [{ usageWarningThresholdPercent }, userStatsData, subscription] = await Promise.all([
+      getResolvedBillingSettings(),
       db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
-      getHighestPrioritySubscription(userId),
+      getEffectiveSubscription(userId),
     ])
 
     if (userStatsData.length === 0) {
-      // Seed a default stats row for legacy users who don't have one yet
       logger.warn('User stats not found, initializing defaults', { userId })
       await handleNewUser(userId)
       const seeded = await db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1)
@@ -66,53 +117,25 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     }
 
     const stats = userStatsData[0]
-    let currentUsage = Number.parseFloat(stats.currentPeriodCost?.toString() ?? '0')
-
-    // For Pro users, include any snapshotted usage (from when they joined a team)
-    // This ensures they see their total Pro usage in the UI
-    if (subscription && subscription.plan === 'pro' && subscription.referenceId === userId) {
-      const snapshotUsage = Number.parseFloat(stats.proPeriodCostSnapshot?.toString() ?? '0')
-      if (snapshotUsage > 0) {
-        currentUsage += snapshotUsage
-        logger.info('Including Pro snapshot in usage display', {
-          userId,
-          currentPeriodCost: stats.currentPeriodCost,
-          proPeriodCostSnapshot: snapshotUsage,
-          totalUsage: currentUsage,
+    const currentUsage = Number.parseFloat(
+      (subscription ? stats.currentPeriodCost : stats.totalCost)?.toString() ?? '0'
+    )
+    const lastPeriodCost = Number.parseFloat(stats.lastPeriodCost?.toString() ?? '0')
+    const minimumLimit = subscription
+      ? getSubscriptionUsageAllowanceUsd(subscription)
+      : getFreeUserUsageLimit({
+          tierLimit: await getDefaultUserTierLimit(),
+          grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
         })
-      }
-    }
-
-    // Determine usage limit based on plan type
-    let limit: number
-
-    if (!subscription || subscription.plan === 'free' || subscription.plan === 'pro') {
-      // Free/Pro: Use individual user limit from userStats
-      limit = stats.currentUsageLimit
-        ? Number.parseFloat(stats.currentUsageLimit)
-        : getFreeTierLimit()
-    } else {
-      // Team/Enterprise: Use organization limit but never below minimum (seats × cost per seat)
-      const orgData = await db
-        .select({ orgUsageLimit: organization.orgUsageLimit })
-        .from(organization)
-        .where(eq(organization.id, subscription.referenceId))
-        .limit(1)
-
-      const { getPlanPricing } = await import('@/lib/billing/core/billing')
-      const { basePrice } = getPlanPricing(subscription.plan)
-      const minimum = (subscription.seats || 1) * basePrice
-
-      if (orgData.length > 0 && orgData[0].orgUsageLimit) {
-        const configured = Number.parseFloat(orgData[0].orgUsageLimit)
-        limit = Math.max(configured, minimum)
-      } else {
-        limit = minimum
-      }
-    }
+    const limit = subscription
+      ? getEffectiveIndividualUsageLimit({
+          customUsageLimit: stats.customUsageLimit,
+          minimumLimit,
+        })
+      : minimumLimit
 
     const percentUsed = limit > 0 ? Math.min((currentUsage / limit) * 100, 100) : 0
-    const isWarning = percentUsed >= 80
+    const isWarning = percentUsed >= usageWarningThresholdPercent
     const isExceeded = currentUsage >= limit
 
     // Derive billing period dates from subscription (source of truth).
@@ -128,12 +151,12 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
       isExceeded,
       billingPeriodStart,
       billingPeriodEnd,
-      lastPeriodCost: Number.parseFloat(stats.lastPeriodCost?.toString() || '0'),
+      lastPeriodCost,
     }
   } catch (error) {
     logger.error('Failed to get user usage data', { userId, error })
     // Gracefully return a default usage snapshot so UI can render instead of throwing
-    const fallbackLimit = getFreeTierLimit()
+    const fallbackLimit = await getDefaultUserTierLimit()
     return {
       currentUsage: 0,
       limit: fallbackLimit,
@@ -153,7 +176,7 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
 export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitInfo> {
   try {
     const [subscription, userStatsRecord] = await Promise.all([
-      getHighestPrioritySubscription(userId),
+      getEffectiveSubscription(userId),
       db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
     ])
 
@@ -163,46 +186,31 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
 
     const stats = userStatsRecord[0]
 
-    // Determine limits based on plan type
-    let currentLimit: number
-    let minimumLimit: number
-    let canEdit: boolean
-
-    if (!subscription || subscription.plan === 'free' || subscription.plan === 'pro') {
-      // Free/Pro: Use individual limits
-      currentLimit = stats.currentUsageLimit
-        ? Number.parseFloat(stats.currentUsageLimit)
-        : getFreeTierLimit()
-      minimumLimit = getPerUserMinimumLimit(subscription)
-      canEdit = canEditUsageLimit(subscription)
-    } else {
-      // Team/Enterprise: Use organization limits (users cannot edit)
-      const orgData = await db
-        .select({ orgUsageLimit: organization.orgUsageLimit })
-        .from(organization)
-        .where(eq(organization.id, subscription.referenceId))
-        .limit(1)
-
-      const { getPlanPricing } = await import('@/lib/billing/core/billing')
-      const { basePrice } = getPlanPricing(subscription.plan)
-      const minimum = (subscription.seats || 1) * basePrice
-
-      if (orgData.length > 0 && orgData[0].orgUsageLimit) {
-        const configured = Number.parseFloat(orgData[0].orgUsageLimit)
-        currentLimit = Math.max(configured, minimum)
-      } else {
-        currentLimit = minimum
-      }
-      minimumLimit = minimum
-      canEdit = false // Team/enterprise members cannot edit limits
-    }
+    const minimumLimitForTier = subscription
+      ? getSubscriptionUsageAllowanceUsd(subscription)
+      : getFreeUserUsageLimit({
+          tierLimit: await getDefaultUserTierLimit(),
+          grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
+        })
+    const currentLimit = subscription
+      ? getEffectiveIndividualUsageLimit({
+          customUsageLimit: stats.customUsageLimit,
+          minimumLimit: minimumLimitForTier,
+        })
+      : minimumLimitForTier
+    const minimumLimit = subscription
+      ? getSubscriptionUsageAllowanceUsd(subscription)
+      : minimumLimitForTier
+    const canEdit = canEditUsageLimit(subscription)
 
     return {
       currentLimit,
       canEdit,
       minimumLimit,
-      plan: subscription?.plan || 'free',
-      updatedAt: stats.usageLimitUpdatedAt,
+      tier: subscription?.tier
+        ? toBillingTierSummary(subscription.tier)
+        : toBillingTierSummary(await requireDefaultBillingTier()),
+      updatedAt: stats.customUsageLimitUpdatedAt,
     }
   } catch (error) {
     logger.error('Failed to get usage limit info', { userId, error })
@@ -210,80 +218,32 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
   }
 }
 
-/**
- * Initialize usage limits for a new user
- */
-export async function initializeUserUsageLimit(userId: string): Promise<void> {
-  // Check if user already has usage stats
-  const existingStats = await db
-    .select()
-    .from(userStats)
-    .where(eq(userStats.userId, userId))
-    .limit(1)
-
-  if (existingStats.length > 0) {
-    return // User already has usage stats
-  }
-
-  // Check user's subscription to determine initial limit
-  const subscription = await getHighestPrioritySubscription(userId)
-  const isTeamOrEnterprise =
-    subscription && (subscription.plan === 'team' || subscription.plan === 'enterprise')
-
-  // Create initial usage stats
-  await db.insert(userStats).values({
-    id: crypto.randomUUID(),
-    userId,
-    // Team/enterprise: null (use org limit), Free/Pro: individual limit
-    currentUsageLimit: isTeamOrEnterprise ? null : getFreeTierLimit().toString(),
-    usageLimitUpdatedAt: new Date(),
-  })
-
-  logger.info('Initialized user stats', {
-    userId,
-    plan: subscription?.plan || 'free',
-    hasIndividualLimit: !isTeamOrEnterprise,
-  })
-}
-
-/**
- * Update a user's custom usage limit
- */
 export async function updateUserUsageLimit(
   userId: string,
   newLimit: number,
   setBy?: string // For team admin tracking
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const subscription = await getHighestPrioritySubscription(userId)
+    const subscription = await getEffectiveSubscription(userId)
 
-    // Team/enterprise users don't have individual limits
-    if (subscription && (subscription.plan === 'team' || subscription.plan === 'enterprise')) {
-      return {
-        success: false,
-        error: 'Team and enterprise members use organization limits',
-      }
+    if (!canEditUsageLimit(subscription)) {
+      return { success: false, error: 'This billing tier cannot edit usage limits' }
     }
 
-    // Only pro users can edit limits (free users cannot)
-    if (!subscription || subscription.plan === 'free') {
-      return { success: false, error: 'Free plan users cannot edit usage limits' }
-    }
+    const minimumLimit = getSubscriptionUsageAllowanceUsd(subscription)
 
-    const minimumLimit = getPerUserMinimumLimit(subscription)
-
-    logger.info('Applying plan-based validation', {
+    logger.info('Applying tier minimum validation', {
       userId,
       newLimit,
       minimumLimit,
-      plan: subscription?.plan,
+      billingTier: subscription?.tier?.displayName,
     })
 
     // Validate new limit is not below minimum
     if (newLimit < minimumLimit) {
       return {
         success: false,
-        error: `Usage limit cannot be below plan minimum of $${minimumLimit}`,
+        error: `Usage limit cannot be below the billing tier minimum of $${minimumLimit}`,
       }
     }
 
@@ -312,8 +272,8 @@ export async function updateUserUsageLimit(
     await db
       .update(userStats)
       .set({
-        currentUsageLimit: newLimit.toString(),
-        usageLimitUpdatedAt: new Date(),
+        customUsageLimit: newLimit.toString(),
+        customUsageLimitUpdatedAt: new Date(),
       })
       .where(eq(userStats.userId, userId))
 
@@ -321,8 +281,8 @@ export async function updateUserUsageLimit(
       userId,
       newLimit,
       setBy: setBy || userId,
-      planMinimum: minimumLimit,
-      plan: subscription?.plan,
+      tierMinimum: minimumLimit,
+      billingTier: subscription?.tier?.displayName,
     })
 
     return { success: true }
@@ -333,59 +293,41 @@ export async function updateUserUsageLimit(
 }
 
 /**
- * Get usage limit for a user (used by checkUsageStatus for server-side checks)
- * Free/Pro: Individual user limit from userStats
- * Team/Enterprise: Organization limit
+ * Get usage limit for a user (used by checkUsageStatus for server-side checks).
  */
 export async function getUserUsageLimit(userId: string): Promise<number> {
-  const subscription = await getHighestPrioritySubscription(userId)
-
-  if (!subscription || subscription.plan === 'free' || subscription.plan === 'pro') {
-    // Free/Pro: Use individual limit from userStats
-    const userStatsQuery = await db
-      .select({ currentUsageLimit: userStats.currentUsageLimit })
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1)
-
-    if (userStatsQuery.length === 0) {
-      throw new Error(
-        `No user stats record found for userId: ${userId}. User must be properly initialized before execution.`
-      )
-    }
-
-    // Individual limits should never be null for free/pro users
-    if (!userStatsQuery[0].currentUsageLimit) {
-      throw new Error(
-        `Invalid null usage limit for ${subscription?.plan || 'free'} user: ${userId}. User stats must be properly initialized.`
-      )
-    }
-
-    return Number.parseFloat(userStatsQuery[0].currentUsageLimit)
-  }
-  // Team/Enterprise: Use organization limit but never below minimum
-  const orgData = await db
-    .select({ orgUsageLimit: organization.orgUsageLimit })
-    .from(organization)
-    .where(eq(organization.id, subscription.referenceId))
+  const subscription = await getEffectiveSubscription(userId)
+  const userStatsQuery = await db
+    .select({
+      customUsageLimit: userStats.customUsageLimit,
+      grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+    })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
     .limit(1)
 
-  if (orgData.length === 0) {
-    throw new Error(`Organization not found: ${subscription.referenceId} for user: ${userId}`)
+  if (userStatsQuery.length === 0) {
+    throw new Error(
+      `No user stats record found for userId: ${userId}. User must be properly initialized before execution.`
+    )
   }
 
-  if (orgData[0].orgUsageLimit) {
-    const configured = Number.parseFloat(orgData[0].orgUsageLimit)
-    const { getPlanPricing } = await import('@/lib/billing/core/billing')
-    const { basePrice } = getPlanPricing(subscription.plan)
-    const minimum = (subscription.seats || 1) * basePrice
-    return Math.max(configured, minimum)
-  }
+  const minimumLimit = subscription
+    ? getSubscriptionUsageAllowanceUsd(subscription)
+    : getFreeUserUsageLimit({
+        tierLimit: await getDefaultUserTierLimit(),
+        grantedOnboardingAllowanceUsd: userStatsQuery[0].grantedOnboardingAllowanceUsd,
+      })
 
-  // If org hasn't set a custom limit, use minimum (seats × cost per seat)
-  const { getPlanPricing } = await import('@/lib/billing/core/billing')
-  const { basePrice } = getPlanPricing(subscription.plan)
-  return (subscription.seats || 1) * basePrice
+  return subscription
+    ? getEffectiveIndividualUsageLimit({
+        customUsageLimit: userStatsQuery[0].customUsageLimit,
+        minimumLimit,
+      })
+    : getFreeUserUsageLimit({
+        tierLimit: minimumLimit,
+        grantedOnboardingAllowanceUsd: userStatsQuery[0].grantedOnboardingAllowanceUsd,
+      })
 }
 
 /**
@@ -419,68 +361,17 @@ export async function checkUsageStatus(userId: string): Promise<{
  * Sync usage limits based on subscription changes
  */
 export async function syncUsageLimitsFromSubscription(userId: string): Promise<void> {
-  const [subscription, currentUserStats] = await Promise.all([
-    getHighestPrioritySubscription(userId),
-    db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
-  ])
+  const currentUserStats = await db
+    .select()
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
 
   if (currentUserStats.length === 0) {
     throw new Error(`User stats not found for userId: ${userId}`)
   }
 
-  const currentStats = currentUserStats[0]
-
-  // Team/enterprise: Should have null individual limits
-  if (subscription && (subscription.plan === 'team' || subscription.plan === 'enterprise')) {
-    if (currentStats.currentUsageLimit !== null) {
-      await db
-        .update(userStats)
-        .set({
-          currentUsageLimit: null,
-          usageLimitUpdatedAt: new Date(),
-        })
-        .where(eq(userStats.userId, userId))
-
-      logger.info('Cleared individual limit for team/enterprise member', {
-        userId,
-        plan: subscription.plan,
-      })
-    }
-    return
-  }
-
-  // Free/Pro: Handle individual limits
-  const defaultLimit = getPerUserMinimumLimit(subscription)
-  const currentLimit = currentStats.currentUsageLimit
-    ? Number.parseFloat(currentStats.currentUsageLimit)
-    : 0
-
-  if (!subscription || subscription.status !== 'active') {
-    // Downgraded to free
-    await db
-      .update(userStats)
-      .set({
-        currentUsageLimit: getFreeTierLimit().toString(),
-        usageLimitUpdatedAt: new Date(),
-      })
-      .where(eq(userStats.userId, userId))
-
-    logger.info('Set limit to free tier', { userId })
-  } else if (currentLimit < defaultLimit) {
-    await db
-      .update(userStats)
-      .set({
-        currentUsageLimit: defaultLimit.toString(),
-        usageLimitUpdatedAt: new Date(),
-      })
-      .where(eq(userStats.userId, userId))
-
-    logger.info('Raised limit to plan minimum', {
-      userId,
-      newLimit: defaultLimit,
-    })
-  }
-  // Keep higher custom limits unchanged
+  logger.info('Verified user stats for tier-backed usage limits', { userId })
 }
 
 /**
@@ -503,7 +394,7 @@ export async function getTeamUsageLimits(organizationId: string): Promise<
         userId: member.userId,
         userName: user.name,
         userEmail: user.email,
-        currentLimit: userStats.currentUsageLimit,
+        currentLimit: userStats.customUsageLimit,
         currentPeriodCost: userStats.currentPeriodCost,
         totalCost: userStats.totalCost,
         lastActive: userStats.lastActive,
@@ -517,7 +408,7 @@ export async function getTeamUsageLimits(organizationId: string): Promise<
       userId: memberData.userId,
       userName: memberData.userName,
       userEmail: memberData.userEmail,
-      currentLimit: Number.parseFloat(memberData.currentLimit || getFreeTierLimit().toString()),
+      currentLimit: Number.parseFloat(memberData.currentLimit || '0'),
       currentUsage: Number.parseFloat(memberData.currentPeriodCost || '0'),
       totalCost: Number.parseFloat(memberData.totalCost || '0'),
       lastActive: memberData.lastActive,
@@ -529,44 +420,17 @@ export async function getTeamUsageLimits(organizationId: string): Promise<
 }
 
 /**
- * Returns the effective current period usage cost for a user.
- * - Free/Pro: user's own currentPeriodCost (fallback to totalCost)
- * - Team/Enterprise: pooled sum of all members' currentPeriodCost within the organization
+ * Returns the current billing-period usage cost for a user.
  */
 export async function getEffectiveCurrentPeriodCost(userId: string): Promise<number> {
-  const subscription = await getHighestPrioritySubscription(userId)
-
-  // If no team/org subscription, return the user's own usage
-  if (!subscription || subscription.plan === 'free' || subscription.plan === 'pro') {
-    const rows = await db
-      .select({ current: userStats.currentPeriodCost })
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1)
-
-    if (rows.length === 0) return 0
-    return rows[0].current ? Number.parseFloat(rows[0].current.toString()) : 0
-  }
-
-  // Team/Enterprise: pooled usage across org members
-  const teamMembers = await db
-    .select({ userId: member.userId })
-    .from(member)
-    .where(eq(member.organizationId, subscription.referenceId))
-
-  if (teamMembers.length === 0) return 0
-
-  const memberIds = teamMembers.map((m) => m.userId)
   const rows = await db
     .select({ current: userStats.currentPeriodCost })
     .from(userStats)
-    .where(inArray(userStats.userId, memberIds))
+    .where(eq(userStats.userId, userId))
+    .limit(1)
 
-  let pooled = 0
-  for (const r of rows) {
-    pooled += r.current ? Number.parseFloat(r.current.toString()) : 0
-  }
-  return pooled
+  if (rows.length === 0) return 0
+  return rows[0].current ? Number.parseFloat(rows[0].current.toString()) : 0
 }
 
 /**
@@ -616,7 +480,7 @@ export async function calculateBillingProjection(userId: string): Promise<Billin
 }
 
 /**
- * Send usage threshold notification when crossing from <80% to ≥80%.
+ * Send usage threshold notification when crossing the configured warning thresholds.
  * - Skips when billing is disabled.
  * - Respects user-level notifications toggle and unsubscribe preferences.
  * - For organization plans, emails owners/admins who have notifications enabled.
@@ -624,6 +488,7 @@ export async function calculateBillingProjection(userId: string): Promise<Billin
 export async function maybeSendUsageThresholdEmail(params: {
   scope: 'user' | 'organization'
   planName: string
+  isFreeTier: boolean
   percentBefore: number
   percentAfter: number
   userId?: string
@@ -634,22 +499,23 @@ export async function maybeSendUsageThresholdEmail(params: {
   limit: number
 }): Promise<void> {
   try {
-    if (!isBillingEnabled) return
-    if (params.limit <= 0 || params.currentUsageAfter <= 0) return
-
+    const { billingEnabled, usageWarningThresholdPercent, freeTierUpgradeThresholdPercent } =
+      await getResolvedBillingSettings()
+    if (!billingEnabled || params.limit <= 0 || params.currentUsageAfter <= 0) return
     const baseUrl = getBaseUrl()
-    const isFreeUser = params.planName === 'Free'
 
-    // Check for 80% threshold (all users)
-    const crosses80 = params.percentBefore < 80 && params.percentAfter >= 80
-    // Check for 90% threshold (free users only)
-    const crosses90 = params.percentBefore < 90 && params.percentAfter >= 90
+    const crossesWarningThreshold =
+      params.percentBefore < usageWarningThresholdPercent &&
+      params.percentAfter >= usageWarningThresholdPercent
+    const crossesFreeTierUpgradeThreshold =
+      params.isFreeTier &&
+      params.percentBefore < freeTierUpgradeThresholdPercent &&
+      params.percentAfter >= freeTierUpgradeThresholdPercent
 
     // Skip if no thresholds crossed
-    if (!crosses80 && !crosses90) return
+    if (!crossesWarningThreshold && !crossesFreeTierUpgradeThreshold) return
 
-    // For 80% threshold email (all users)
-    if (crosses80) {
+    if (crossesWarningThreshold) {
       const ctaLink = `${baseUrl}/workspace?billing=usage`
       const sendTo = async (email: string, name?: string) => {
         const prefs = await getEmailPreferences(email)
@@ -703,19 +569,26 @@ export async function maybeSendUsageThresholdEmail(params: {
       }
     }
 
-    // For 90% threshold email (free users only)
-    if (crosses90 && isFreeUser) {
+    if (crossesFreeTierUpgradeThreshold && params.isFreeTier) {
       const upgradeLink = `${baseUrl}/workspace?billing=upgrade`
+      const recommendedTier = await getPrimaryPublicUserUpgradeTier()
       const sendFreeTierEmail = async (email: string, name?: string) => {
         const prefs = await getEmailPreferences(email)
         if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
 
         const html = await renderFreeTierUpgradeEmail({
           userName: name,
+          currentTierName: params.planName,
           percentUsed: Math.min(100, Math.round(params.percentAfter)),
           currentUsage: params.currentUsageAfter,
           limit: params.limit,
           upgradeLink,
+          recommendedTierName: recommendedTier?.displayName ?? null,
+          recommendedTierPriceUsd: recommendedTier ? getTierBasePrice(recommendedTier) : null,
+          recommendedTierIncludedUsageLimitUsd: recommendedTier
+            ? getTierUsageAllowanceUsd(recommendedTier)
+            : null,
+          recommendedTierFeatures: recommendedTier?.pricingFeatures ?? [],
         })
 
         await sendEmail({

@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
+import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { sendEmail } from '@/lib/email/mailer'
@@ -74,13 +75,47 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           userName: user.name,
           userEmail: user.email,
           currentPeriodCost: userStats.currentPeriodCost,
-          currentUsageLimit: userStats.currentUsageLimit,
-          usageLimitUpdatedAt: userStats.usageLimitUpdatedAt,
+          customUsageLimit: userStats.customUsageLimit,
+          customUsageLimitUpdatedAt: userStats.customUsageLimitUpdatedAt,
         })
         .from(member)
         .innerJoin(user, eq(member.userId, user.id))
         .leftJoin(userStats, eq(user.id, userStats.userId))
         .where(eq(member.organizationId, organizationId))
+
+      const organizationBillingData = await getOrganizationBillingData(organizationId)
+
+      if (organizationBillingData) {
+        const usageScope = organizationBillingData.subscriptionTier.usageScope
+        const memberUsageByUserId = new Map(
+          organizationBillingData.members.map((organizationMember) => [
+            organizationMember.userId,
+            organizationMember.currentUsage,
+          ])
+        )
+        const billingPeriodStart = organizationBillingData.billingPeriodStart
+        const billingPeriodEnd = organizationBillingData.billingPeriodEnd
+        const sharedCurrentPeriodCost =
+          usageScope === 'pooled' ? organizationBillingData.totalCurrentUsage : null
+
+        const membersWithUsage = base.map((row) => ({
+          ...row,
+          currentPeriodCost:
+            usageScope === 'individual' ? (memberUsageByUserId.get(row.userId) ?? 0) : null,
+          billingPeriodStart,
+          billingPeriodEnd,
+        }))
+
+        return NextResponse.json({
+          success: true,
+          data: membersWithUsage,
+          total: membersWithUsage.length,
+          userRole,
+          hasAdminAccess,
+          usageScope,
+          sharedCurrentPeriodCost,
+        })
+      }
 
       const membersWithUsage = await Promise.all(
         base.map(async (row) => {

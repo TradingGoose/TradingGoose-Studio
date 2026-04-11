@@ -64,7 +64,7 @@ export async function uploadWorkspaceFile(
     throw new Error(`A file named "${fileName}" already exists in this workspace`)
   }
 
-  const quotaCheck = await checkStorageQuota(userId, fileBuffer.length)
+  const quotaCheck = await checkStorageQuota(userId, fileBuffer.length, workspaceId)
 
   if (!quotaCheck.allowed) {
     throw new Error(quotaCheck.error || 'Storage limit exceeded')
@@ -101,7 +101,7 @@ export async function uploadWorkspaceFile(
     logger.info(`Successfully uploaded workspace file: ${fileName} with key: ${uploadResult.key}`)
 
     try {
-      await incrementStorageUsage(userId, fileBuffer.length)
+      await incrementStorageUsage(userId, fileBuffer.length, workspaceId)
     } catch (storageError) {
       logger.error(`Failed to update storage tracking:`, storageError)
     }
@@ -258,7 +258,7 @@ export async function deleteWorkspaceFile(workspaceId: string, fileId: string): 
       .where(and(eq(workspaceFile.id, fileId), eq(workspaceFile.workspaceId, workspaceId)))
 
     try {
-      await decrementStorageUsage(fileRecord.uploadedBy, fileRecord.size)
+      await decrementStorageUsage(fileRecord.uploadedBy, fileRecord.size, workspaceId)
     } catch (storageError) {
       logger.error(`Failed to update storage tracking:`, storageError)
     }

@@ -12,8 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 interface NoOrganizationViewProps {
-  hasTeamPlan: boolean
-  hasEnterprisePlan: boolean
+  hasOrganizationWorkspaceAccess: boolean
   orgName: string
   setOrgName: (name: string) => void
   orgSlug: string
@@ -27,8 +26,7 @@ interface NoOrganizationViewProps {
 }
 
 export function NoOrganizationView({
-  hasTeamPlan,
-  hasEnterprisePlan,
+  hasOrganizationWorkspaceAccess,
   orgName,
   setOrgName,
   orgSlug,
@@ -40,7 +38,7 @@ export function NoOrganizationView({
   createOrgDialogOpen,
   setCreateOrgDialogOpen,
 }: NoOrganizationViewProps) {
-  if (hasTeamPlan || hasEnterprisePlan) {
+  if (hasOrganizationWorkspaceAccess) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='flex flex-col gap-6'>
@@ -48,8 +46,8 @@ export function NoOrganizationView({
           <div>
             <h4 className='font-medium text-sm'>Create Your Team Workspace</h4>
             <p className='mt-1 text-muted-foreground text-xs'>
-              You're subscribed to a {hasEnterprisePlan ? 'enterprise' : 'team'} plan. Create your
-              workspace to start collaborating with your team.
+              You're subscribed to an organization tier. Create your workspace to start
+              collaborating with your team.
             </p>
           </div>
 
@@ -181,8 +179,8 @@ export function NoOrganizationView({
       <div className='space-y-6'>
         <h3 className='font-medium text-sm'>No Team Workspace</h3>
         <p className='text-muted-foreground text-sm'>
-          You don't have a team workspace yet. To collaborate with others, first upgrade to a team
-          or enterprise plan.
+          You don't have a team workspace yet. To collaborate with others, first upgrade to an
+          organization tier.
         </p>
 
         <Button
@@ -195,7 +193,7 @@ export function NoOrganizationView({
           }}
           className='h-9 rounded-sm'
         >
-          Upgrade to Team Plan
+          Upgrade to Organization Tier
         </Button>
       </div>
     </div>

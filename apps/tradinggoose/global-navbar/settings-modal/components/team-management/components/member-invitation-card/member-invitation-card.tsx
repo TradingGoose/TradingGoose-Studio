@@ -30,9 +30,7 @@ const PermissionSelector = React.memo<PermissionSelectorProps>(
     )
 
     return (
-      <div
-        className={cn('inline-flex rounded-lg border border-input bg-background', className)}
-      >
+      <div className={cn('inline-flex rounded-lg border border-input bg-background', className)}>
         {permissionOptions.map((option, index) => (
           <button
             key={option.value}
@@ -72,6 +70,7 @@ interface MemberInvitationCardProps {
   onLoadUserWorkspaces: () => Promise<void>
   onWorkspaceToggle: (workspaceId: string, permission: string) => void
   inviteSuccess: boolean
+  seatLimited: boolean
   availableSeats?: number
   maxSeats?: number
 }
@@ -94,11 +93,12 @@ export function MemberInvitationCard({
   onLoadUserWorkspaces,
   onWorkspaceToggle,
   inviteSuccess,
+  seatLimited,
   availableSeats = 0,
   maxSeats = 0,
 }: MemberInvitationCardProps) {
   const selectedCount = selectedWorkspaces.length
-  const hasAvailableSeats = availableSeats > 0
+  const hasAvailableSeats = seatLimited ? availableSeats > 0 : true
   const [emailError, setEmailError] = useState<string>('')
 
   // Email validation function using existing lib

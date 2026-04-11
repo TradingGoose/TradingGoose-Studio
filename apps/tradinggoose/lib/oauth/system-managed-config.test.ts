@@ -5,12 +5,15 @@ const { mockResolveSystemIntegrationDefinitions } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/env', () => ({
-  env: {
-    GOOGLE_CLIENT_ID: 'google-env-client-id',
-    GOOGLE_CLIENT_SECRET: 'google-env-client-secret',
-    GITHUB_REPO_CLIENT_ID: 'github-env-client-id',
-    GITHUB_REPO_CLIENT_SECRET: 'github-env-client-secret',
-  },
+  getEnv: (key: string) =>
+    (
+      {
+        GOOGLE_CLIENT_ID: 'google-env-client-id',
+        GOOGLE_CLIENT_SECRET: 'google-env-client-secret',
+        GITHUB_REPO_CLIENT_ID: 'github-env-client-id',
+        GITHUB_REPO_CLIENT_SECRET: 'github-env-client-secret',
+      } as Record<string, string>
+    )[key],
 }))
 
 vi.mock('@/lib/system-integrations/resolver', () => ({

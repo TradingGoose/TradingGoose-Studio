@@ -1,4 +1,12 @@
+import { getPublicBillingCatalog } from '@/lib/billing/catalog'
+import { buildHostedPricingSentence } from '@/lib/billing/public-catalog'
+
 export async function GET() {
+  const billingCatalog = await getPublicBillingCatalog()
+  const hostedPricingSentence = billingCatalog.billingEnabled
+    ? buildHostedPricingSentence(billingCatalog)
+    : ''
+
   const llmsContent = `# TradingGoose - Visual Workflow Platform for Technical LLM Trading
 
 TradingGoose is an open-source visual workflow platform built for technical LLM-driven trading.
@@ -8,8 +16,11 @@ rebalances, or any action you define.
 
 TradingGoose Studio is the open-source core, maintained at
 https://github.com/tradinggoose/tradinggoose-studio. Self-hosting is supported.
-The hosted edition at tradinggoose.ai offers Community (free), Pro ($20/mo),
-Team ($40/mo), and Enterprise tiers.
+${
+  billingCatalog.billingEnabled
+    ? `The hosted edition at tradinggoose.ai offers ${hostedPricingSentence || 'managed cloud tiers'}.`
+    : 'Hosted billing is currently disabled.'
+}
 
 ## What it is
 - Visual workflow canvas for trading strategies (drag-and-drop blocks and tools)

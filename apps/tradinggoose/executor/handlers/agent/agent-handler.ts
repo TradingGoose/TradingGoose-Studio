@@ -254,6 +254,7 @@ export class AgentBlockHandler implements BlockHandler {
             _context: {
               workflowId: context.workflowId,
               workspaceId: context.workspaceId,
+              userId: context.userId,
             },
           },
           false, // skipPostProcess
@@ -284,7 +285,7 @@ export class AgentBlockHandler implements BlockHandler {
       if (typeof window === 'undefined') {
         try {
           const { generateInternalToken } = await import('@/lib/auth/internal')
-          const internalToken = await generateInternalToken()
+          const internalToken = await generateInternalToken(context.userId)
           headers.Authorization = `Bearer ${internalToken}`
         } catch (error) {
           logger.error(`Failed to generate internal token for MCP tool discovery:`, error)
@@ -354,7 +355,7 @@ export class AgentBlockHandler implements BlockHandler {
           if (typeof window === 'undefined') {
             try {
               const { generateInternalToken } = await import('@/lib/auth/internal')
-              const internalToken = await generateInternalToken()
+              const internalToken = await generateInternalToken(context.userId)
               headers.Authorization = `Bearer ${internalToken}`
             } catch (error) {
               logger.error(`Failed to generate internal token for MCP tool ${toolName}:`, error)
@@ -407,7 +408,7 @@ export class AgentBlockHandler implements BlockHandler {
       selectedOperation: tool.operation,
       getAllBlocks,
       getToolAsync: (toolId: string) =>
-        getToolAsync(toolId, context.workflowId, context.workspaceId),
+        getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
       getTool,
     })
 

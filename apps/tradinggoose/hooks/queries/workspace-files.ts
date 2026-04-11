@@ -22,7 +22,20 @@ export interface StorageInfo {
   usedBytes: number
   limitBytes: number
   percentUsed: number
-  plan?: string
+  tierDisplayName?: string
+  isPaidTier?: boolean
+}
+
+function isPaidTierFromUsageTier(
+  tier:
+    | {
+        monthlyPriceUsd?: number | null
+        yearlyPriceUsd?: number | null
+      }
+    | null
+    | undefined
+) {
+  return Math.max(tier?.monthlyPriceUsd ?? 0, tier?.yearlyPriceUsd ?? 0) > 0
 }
 
 /**
@@ -74,7 +87,8 @@ async function fetchStorageInfo(): Promise<StorageInfo | null> {
       usedBytes: data.storage.usedBytes,
       limitBytes: data.storage.limitBytes,
       percentUsed: data.storage.percentUsed,
-      plan: data.usage?.plan || 'free',
+      tierDisplayName: data.usage?.tier?.displayName || 'Billing tier',
+      isPaidTier: isPaidTierFromUsageTier(data.usage?.tier),
     }
   }
 

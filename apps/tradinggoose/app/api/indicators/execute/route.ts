@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
 
     const results = await withCodeExecutionConcurrencyLimit({
       userId: auth.userId,
+      workspaceId,
       task: async () => {
         const results: ExecuteResult[] = []
         for (const indicatorId of indicatorIds) {

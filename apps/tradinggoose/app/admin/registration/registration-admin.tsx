@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
+import { CheckCheck, ShieldCheck, UserCheck2, X } from 'lucide-react'
 import {
   Alert,
   AlertDescription,
   Badge,
   Button,
-  Checkbox,
-  Input,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -16,20 +15,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
-import { GlobalNavbarHeader } from '@/global-navbar'
+import type { AdminWaitlistEntry } from '@/lib/admin/registration/types'
+import {
+  REGISTRATION_MODE_VALUES,
+  type RegistrationMode,
+  WAITLIST_STATUS_VALUES,
+  type WaitlistStatus,
+} from '@/lib/registration/shared'
+import { ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
+import { AdminPageShell } from '@/app/admin/page-shell'
+import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {
   useAdminRegistrationSnapshot,
   useSaveRegistrationMode,
   useUpdateWaitlistStatuses,
 } from '@/hooks/queries/admin-registration'
-import { type AdminWaitlistEntry } from '@/lib/admin/registration/types'
-import {
-  REGISTRATION_MODE_VALUES,
-  WAITLIST_STATUS_VALUES,
-  type RegistrationMode,
-  type WaitlistStatus,
-} from '@/lib/registration/shared'
-import { CheckCheck, Search, ShieldCheck, UserCheck2, X } from 'lucide-react'
 
 const TIME_RANGE_OPTIONS = [
   { value: 'all', label: 'All time' },
@@ -163,14 +163,8 @@ export function AdminRegistration() {
 
   const allStatusesSelected = statusFilters.length === WAITLIST_STATUS_VALUES.length
   const selectedVisibleCount = selectedIds.length
-  const bulkSelectionState =
-    selectableIds.length === 0
-      ? false
-      : selectedVisibleCount === selectableIds.length
-        ? true
-        : selectedVisibleCount > 0
-          ? 'indeterminate'
-          : false
+  const bulkSelectionChecked =
+    selectableIds.length > 0 && selectedVisibleCount === selectableIds.length
 
   function toggleStatusFilter(status: WaitlistStatus) {
     setStatusFilters((current) => {
@@ -182,7 +176,11 @@ export function AdminRegistration() {
     })
   }
 
-  function updateEntries(ids: string[], status: Extract<WaitlistStatus, 'approved' | 'rejected'>, clearSelection = false) {
+  function updateEntries(
+    ids: string[],
+    status: Extract<WaitlistStatus, 'approved' | 'rejected'>,
+    clearSelection = false
+  ) {
     if (ids.length === 0) {
       return
     }
@@ -206,15 +204,12 @@ export function AdminRegistration() {
         <span className='font-medium text-sm'>Admin registration</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
-        <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
-          <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
-          <Input
-            placeholder='Search waitlist entries...'
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-          />
-        </div>
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder='Search waitlist entries...'
+          className='w-full'
+        />
       </div>
     </div>
   )
@@ -265,244 +260,241 @@ export function AdminRegistration() {
   )
 
   return (
-    <>
-      <GlobalNavbarHeader left={headerLeft} center={headerCenter} right={headerRight} />
-      <div className='flex h-full min-h-0 flex-col'>
-        <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4'>
-          {snapshotQuery.isError ? (
-            <Alert variant='destructive'>
-              <AlertDescription>{getErrorMessage(snapshotQuery.error)}</AlertDescription>
-            </Alert>
-          ) : null}
+    <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
+      <div className='flex h-full min-h-0 flex-col gap-4'>
+        {snapshotQuery.isError ? (
+          <Alert variant='destructive'>
+            <AlertDescription>{getErrorMessage(snapshotQuery.error)}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          {saveModeMutation.isError ? (
-            <Alert variant='destructive'>
-              <AlertDescription>{getErrorMessage(saveModeMutation.error)}</AlertDescription>
-            </Alert>
-          ) : null}
+        {saveModeMutation.isError ? (
+          <Alert variant='destructive'>
+            <AlertDescription>{getErrorMessage(saveModeMutation.error)}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          {updateWaitlistMutation.isError ? (
-            <Alert variant='destructive'>
-              <AlertDescription>{getErrorMessage(updateWaitlistMutation.error)}</AlertDescription>
-            </Alert>
-          ) : null}
+        {updateWaitlistMutation.isError ? (
+          <Alert variant='destructive'>
+            <AlertDescription>{getErrorMessage(updateWaitlistMutation.error)}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          {!snapshot && snapshotQuery.isPending ? (
-            <div className='flex flex-1 items-center justify-center rounded-lg border bg-background'>
-              <p className='text-muted-foreground text-sm'>Loading registration settings...</p>
-            </div>
-          ) : null}
+        {!snapshot && snapshotQuery.isPending ? (
+          <div className='flex flex-1 items-center justify-center rounded-lg border bg-background'>
+            <p className='text-muted-foreground text-sm'>Loading registration settings...</p>
+          </div>
+        ) : null}
 
-          {snapshot ? (
-            <div className='min-h-0 flex-1 overflow-hidden rounded-lg border bg-background'>
-              <div className='flex flex-col gap-3 border-b bg-muted/10 px-4 py-3 lg:flex-row lg:items-center'>
-                <div className='flex flex-1 flex-wrap items-center gap-3 lg:min-w-0 lg:flex-nowrap'>
-                  <p className='text-muted-foreground text-sm lg:flex-shrink-0'>
-                    <span className='font-medium text-foreground'>{selectedIds.length}</span> selected
-                  </p>
+        {snapshot ? (
+          <div className='min-h-0 flex-1 overflow-hidden rounded-lg border bg-background'>
+            <div className='flex flex-col gap-3 border-b bg-muted/10 px-4 py-3 lg:flex-row lg:items-center'>
+              <div className='flex flex-1 flex-wrap items-center gap-3 lg:min-w-0 lg:flex-nowrap'>
+                <p className='text-muted-foreground text-sm lg:flex-shrink-0'>
+                  <span className='font-medium text-foreground'>{selectedIds.length}</span> selected
+                </p>
 
-                  <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
-                    <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
-                      Submitted
-                    </span>
-                    {TIME_RANGE_OPTIONS.map((option) => (
-                      <Button
-                        key={option.value}
-                        size='sm'
-                        variant={submittedRange === option.value ? 'default' : 'ghost'}
-                        className='h-7 rounded-md px-2 text-[11px]'
-                        onClick={() => setSubmittedRange(option.value)}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </div>
-
-                  <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
-                    <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
-                      Status
-                    </span>
+                <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
+                  <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
+                    Submitted
+                  </span>
+                  {TIME_RANGE_OPTIONS.map((option) => (
                     <Button
+                      key={option.value}
                       size='sm'
-                      variant={allStatusesSelected ? 'default' : 'ghost'}
+                      variant={submittedRange === option.value ? 'default' : 'ghost'}
                       className='h-7 rounded-md px-2 text-[11px]'
-                      onClick={() => setStatusFilters([...WAITLIST_STATUS_VALUES])}
+                      onClick={() => setSubmittedRange(option.value)}
                     >
-                      All
+                      {option.label}
                     </Button>
-                    {WAITLIST_STATUS_VALUES.map((status) => (
-                      <Button
-                        key={status}
-                        size='sm'
-                        variant={statusFilters.includes(status) ? 'default' : 'ghost'}
-                        className='h-7 rounded-md px-2 text-[11px] capitalize'
-                        onClick={() => toggleStatusFilter(status)}
-                      >
-                        {getStatusLabel(status)}
-                      </Button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
 
-                <div className='flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:justify-end'>
+                <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
+                  <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
+                    Status
+                  </span>
                   <Button
                     size='sm'
-                    variant='outline'
-                    disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
-                    onClick={() => updateEntries(selectedIds, 'approved', true)}
-                    className='min-w-[88px] flex-1 sm:flex-none'
+                    variant={allStatusesSelected ? 'default' : 'ghost'}
+                    className='h-7 rounded-md px-2 text-[11px]'
+                    onClick={() => setStatusFilters([...WAITLIST_STATUS_VALUES])}
                   >
-                    <CheckCheck className='mr-2 h-4 w-4' />
-                    Approve
+                    All
                   </Button>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
-                    onClick={() => updateEntries(selectedIds, 'rejected', true)}
-                    className='min-w-[88px] flex-1 sm:flex-none'
-                  >
-                    <UserCheck2 className='mr-2 h-4 w-4' />
-                    Reject
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant='ghost'
-                    disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
-                    onClick={() => setSelectedIds([])}
-                    className='min-w-[88px] flex-1 sm:flex-none'
-                  >
-                    <X className='mr-2 h-4 w-4' />
-                    Clear
-                  </Button>
+                  {WAITLIST_STATUS_VALUES.map((status) => (
+                    <Button
+                      key={status}
+                      size='sm'
+                      variant={statusFilters.includes(status) ? 'default' : 'ghost'}
+                      className='h-7 rounded-md px-2 text-[11px] capitalize'
+                      onClick={() => toggleStatusFilter(status)}
+                    >
+                      {getStatusLabel(status)}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              <div className='min-h-0 overflow-auto'>
-                <Table>
-                  <TableHeader className='sticky top-0 z-10 bg-background'>
-                    <TableRow>
-                      <TableHead className='w-10 bg-background'>
-                        <Checkbox
-                          checked={bulkSelectionState}
-                          disabled={selectableIds.length === 0 || updateWaitlistMutation.isPending}
-                          onCheckedChange={(checked) =>
-                            setSelectedIds(checked === true ? selectableIds : [])
-                          }
-                          aria-label='Select visible waitlist entries'
-                        />
-                      </TableHead>
-                      <TableHead className='bg-background'>Email</TableHead>
-                      <TableHead className='bg-background'>Status</TableHead>
-                      <TableHead className='bg-background'>Submitted</TableHead>
-                      <TableHead className='bg-background'>Last activity</TableHead>
-                      <TableHead className='bg-background'>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredWaitlist.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className='py-10 text-center text-muted-foreground'>
-                          No waitlist entries match the current search.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredWaitlist.map((entry) => {
-                        const isUpdating =
-                          updateWaitlistMutation.isPending &&
-                          updateWaitlistMutation.variables?.ids?.includes(entry.id)
-                        const isSelectable = entry.status !== 'signed_up'
-                        const submittedAt = formatTimestamp(entry.createdAt)
-                        const lastActivityAt = formatTimestamp(getLastActivityAt(entry))
-
-                        return (
-                          <TableRow key={entry.id}>
-                            <TableCell>
-                              {isSelectable ? (
-                                <Checkbox
-                                  checked={selectedIds.includes(entry.id)}
-                                  disabled={updateWaitlistMutation.isPending}
-                                  onCheckedChange={(checked) =>
-                                    setSelectedIds((current) =>
-                                      checked === true
-                                        ? Array.from(new Set([...current, entry.id]))
-                                        : current.filter((id) => id !== entry.id)
-                                    )
-                                  }
-                                  aria-label={`Select ${entry.email}`}
-                                />
-                              ) : null}
-                            </TableCell>
-                            <TableCell className='font-medium'>
-                              <span
-                                className='block max-w-[140px] truncate sm:max-w-[220px] lg:max-w-none'
-                                title={entry.email}
-                              >
-                                {entry.email}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={getStatusVariant(entry.status)}
-                                className={ADMIN_STATUS_BADGE_CLASSNAME}
-                              >
-                                {getStatusLabel(entry.status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className='block max-w-[112px] truncate sm:max-w-[160px] lg:max-w-none'
-                                title={submittedAt}
-                              >
-                                {submittedAt}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className='block max-w-[112px] truncate sm:max-w-[160px] lg:max-w-none'
-                                title={lastActivityAt}
-                              >
-                                {lastActivityAt}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className='flex items-center gap-2'>
-                                {entry.status !== 'approved' && entry.status !== 'signed_up' ? (
-                                  <Button
-                                    size='sm'
-                                    variant='outline'
-                                    disabled={isUpdating}
-                                    onClick={() => updateEntries([entry.id], 'approved')}
-                                  >
-                                    <CheckCheck className='mr-2 h-4 w-4' />
-                                    Approve
-                                  </Button>
-                                ) : null}
-
-                                {entry.status !== 'rejected' && entry.status !== 'signed_up' ? (
-                                  <Button
-                                    size='sm'
-                                    variant='outline'
-                                    disabled={isUpdating}
-                                    onClick={() => updateEntries([entry.id], 'rejected')}
-                                  >
-                                    <UserCheck2 className='mr-2 h-4 w-4' />
-                                    Reject
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+              <div className='flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:justify-end'>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  onClick={() => updateEntries(selectedIds, 'approved', true)}
+                  className='min-w-[88px] flex-1 sm:flex-none'
+                >
+                  <CheckCheck className='mr-2 h-4 w-4' />
+                  Approve
+                </Button>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  onClick={() => updateEntries(selectedIds, 'rejected', true)}
+                  className='min-w-[88px] flex-1 sm:flex-none'
+                >
+                  <UserCheck2 className='mr-2 h-4 w-4' />
+                  Reject
+                </Button>
+                <Button
+                  size='sm'
+                  variant='ghost'
+                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  onClick={() => setSelectedIds([])}
+                  className='min-w-[88px] flex-1 sm:flex-none'
+                >
+                  <X className='mr-2 h-4 w-4' />
+                  Clear
+                </Button>
               </div>
             </div>
-          ) : null}
-        </div>
+
+            <div className='min-h-0 overflow-auto'>
+              <Table>
+                <TableHeader className='sticky top-0 z-10 bg-background'>
+                  <TableRow>
+                    <TableHead className='w-10 bg-background'>
+                      <Switch
+                        checked={bulkSelectionChecked}
+                        disabled={selectableIds.length === 0 || updateWaitlistMutation.isPending}
+                        onCheckedChange={(checked) =>
+                          setSelectedIds(checked === true ? selectableIds : [])
+                        }
+                        aria-label='Select visible waitlist entries'
+                      />
+                    </TableHead>
+                    <TableHead className='bg-background'>Email</TableHead>
+                    <TableHead className='bg-background'>Status</TableHead>
+                    <TableHead className='bg-background'>Submitted</TableHead>
+                    <TableHead className='bg-background'>Last activity</TableHead>
+                    <TableHead className='bg-background'>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredWaitlist.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className='py-10 text-center text-muted-foreground'>
+                        No waitlist entries match the current search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredWaitlist.map((entry) => {
+                      const isUpdating =
+                        updateWaitlistMutation.isPending &&
+                        updateWaitlistMutation.variables?.ids?.includes(entry.id)
+                      const isSelectable = entry.status !== 'signed_up'
+                      const submittedAt = formatTimestamp(entry.createdAt)
+                      const lastActivityAt = formatTimestamp(getLastActivityAt(entry))
+
+                      return (
+                        <TableRow key={entry.id}>
+                          <TableCell>
+                            {isSelectable ? (
+                              <Switch
+                                checked={selectedIds.includes(entry.id)}
+                                disabled={updateWaitlistMutation.isPending}
+                                onCheckedChange={(checked) =>
+                                  setSelectedIds((current) =>
+                                    checked === true
+                                      ? Array.from(new Set([...current, entry.id]))
+                                      : current.filter((id) => id !== entry.id)
+                                  )
+                                }
+                                aria-label={`Select ${entry.email}`}
+                              />
+                            ) : null}
+                          </TableCell>
+                          <TableCell className='font-medium'>
+                            <span
+                              className='block max-w-[140px] truncate sm:max-w-[220px] lg:max-w-none'
+                              title={entry.email}
+                            >
+                              {entry.email}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={getStatusVariant(entry.status)}
+                              className={ADMIN_STATUS_BADGE_CLASSNAME}
+                            >
+                              {getStatusLabel(entry.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className='block max-w-[112px] truncate sm:max-w-[160px] lg:max-w-none'
+                              title={submittedAt}
+                            >
+                              {submittedAt}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className='block max-w-[112px] truncate sm:max-w-[160px] lg:max-w-none'
+                              title={lastActivityAt}
+                            >
+                              {lastActivityAt}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className='flex items-center gap-2'>
+                              {entry.status !== 'approved' && entry.status !== 'signed_up' ? (
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  disabled={isUpdating}
+                                  onClick={() => updateEntries([entry.id], 'approved')}
+                                >
+                                  <CheckCheck className='mr-2 h-4 w-4' />
+                                  Approve
+                                </Button>
+                              ) : null}
+
+                              {entry.status !== 'rejected' && entry.status !== 'signed_up' ? (
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  disabled={isUpdating}
+                                  onClick={() => updateEntries([entry.id], 'rejected')}
+                                >
+                                  <UserCheck2 className='mr-2 h-4 w-4' />
+                                  Reject
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        ) : null}
       </div>
-    </>
+    </AdminPageShell>
   )
 }

@@ -1,5 +1,12 @@
 import { db } from '@tradinggoose/db'
-import { invitation, member, organization, subscription, user, userStats } from '@tradinggoose/db/schema'
+import {
+  invitation,
+  member,
+  organization,
+  subscription,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
 import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -21,7 +28,7 @@ interface OrganizationSeatInfo {
   currentSeats: number
   maxSeats: number
   availableSeats: number
-  subscriptionPlan: string
+  subscriptionTierName: string
   canAddSeats: boolean
 }
 
@@ -46,17 +53,6 @@ export async function validateSeatAvailability(
       }
     }
 
-    // Free and Pro plans don't support organizations
-    if (['free', 'pro'].includes(subscription.plan)) {
-      return {
-        canInvite: false,
-        reason: 'Organization features require Team or Enterprise plan',
-        currentSeats: 0,
-        maxSeats: 0,
-        availableSeats: 0,
-      }
-    }
-
     // Get current member count
     const memberCount = await db
       .select({ count: count() })
@@ -65,10 +61,17 @@ export async function validateSeatAvailability(
 
     const currentSeats = memberCount[0]?.count || 0
 
-    // Determine seat limits based on subscription
-    // Team: seats from Stripe subscription quantity
-    // Enterprise: seats from metadata (stored in subscription.seats)
-    const maxSeats = subscription.seats || 1
+    if (subscription.tier.ownerType !== 'organization') {
+      return {
+        canInvite: false,
+        reason: 'Seat limits are only available for organization subscriptions',
+        currentSeats,
+        maxSeats: 0,
+        availableSeats: 0,
+      }
+    }
+
+    const maxSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
 
     const availableSeats = Math.max(0, maxSeats - currentSeats)
     const canInvite = availableSeats >= additionalSeats
@@ -140,9 +143,10 @@ export async function getOrganizationSeatInfo(
 
     const currentSeats = memberCount[0]?.count || 0
 
-    const maxSeats = subscription.seats || 1
+    const maxSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
 
-    const canAddSeats = subscription.plan !== 'enterprise'
+    const canAddSeats =
+      subscription.tier.ownerType === 'organization' && subscription.tier.seatMode === 'adjustable'
 
     const availableSeats = Math.max(0, maxSeats - currentSeats)
 
@@ -152,7 +156,7 @@ export async function getOrganizationSeatInfo(
       currentSeats,
       maxSeats,
       availableSeats,
-      subscriptionPlan: subscription.plan,
+      subscriptionTierName: subscription.tier.displayName,
       canAddSeats,
     }
   } catch (error) {
@@ -252,6 +256,13 @@ export async function updateOrganizationSeats(
 
     if (!subscriptionRecord) {
       return { success: false, error: 'No active subscription found' }
+    }
+
+    if (
+      subscriptionRecord.tier.ownerType !== 'organization' ||
+      subscriptionRecord.tier.seatMode !== 'adjustable'
+    ) {
+      return { success: false, error: 'Seat changes are only available for adjustable organization tiers' }
     }
 
     const memberCount = await db

@@ -1,4 +1,3 @@
-import { BASE_EXECUTION_CHARGE } from '@/lib/billing/constants'
 import type { ExecutionEnvironment, ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
 import {
   loadDeployedWorkflowState,
@@ -52,7 +51,11 @@ export async function loadWorkflowStateForExecution(workflowId: string): Promise
   }
 }
 
-export function calculateCostSummary(traceSpans: any[]): {
+export function calculateCostSummary(
+  traceSpans: any[],
+  workflowExecutionChargeUsd = 0,
+  workflowModelCostMultiplier = 1
+): {
   totalCost: number
   totalInputCost: number
   totalOutputCost: number
@@ -73,13 +76,13 @@ export function calculateCostSummary(traceSpans: any[]): {
 } {
   if (!traceSpans || traceSpans.length === 0) {
     return {
-      totalCost: BASE_EXECUTION_CHARGE,
+      totalCost: workflowExecutionChargeUsd,
       totalInputCost: 0,
       totalOutputCost: 0,
       totalTokens: 0,
       totalPromptTokens: 0,
       totalCompletionTokens: 0,
-      baseExecutionCharge: BASE_EXECUTION_CHARGE,
+      baseExecutionCharge: workflowExecutionChargeUsd,
       modelCost: 0,
       models: {},
     }
@@ -103,6 +106,10 @@ export function calculateCostSummary(traceSpans: any[]): {
   }
 
   const costSpans = collectCostSpans(traceSpans)
+  const modelCostMultiplier =
+    Number.isFinite(workflowModelCostMultiplier) && workflowModelCostMultiplier >= 0
+      ? workflowModelCostMultiplier
+      : 1
 
   let totalCost = 0
   let totalInputCost = 0
@@ -121,9 +128,13 @@ export function calculateCostSummary(traceSpans: any[]): {
   > = {}
 
   for (const span of costSpans) {
-    totalCost += span.cost.total || 0
-    totalInputCost += span.cost.input || 0
-    totalOutputCost += span.cost.output || 0
+    const scaledInputCost = (span.cost.input || 0) * modelCostMultiplier
+    const scaledOutputCost = (span.cost.output || 0) * modelCostMultiplier
+    const scaledTotalCost = (span.cost.total || 0) * modelCostMultiplier
+
+    totalCost += scaledTotalCost
+    totalInputCost += scaledInputCost
+    totalOutputCost += scaledOutputCost
     // Tokens are at span.tokens, not span.cost.tokens
     totalTokens += span.tokens?.total || 0
     totalPromptTokens += span.tokens?.prompt || 0
@@ -140,9 +151,9 @@ export function calculateCostSummary(traceSpans: any[]): {
           tokens: { prompt: 0, completion: 0, total: 0 },
         }
       }
-      models[model].input += span.cost.input || 0
-      models[model].output += span.cost.output || 0
-      models[model].total += span.cost.total || 0
+      models[model].input += scaledInputCost
+      models[model].output += scaledOutputCost
+      models[model].total += scaledTotalCost
       models[model].tokens.prompt += span.tokens?.prompt || 0
       models[model].tokens.completion += span.tokens?.completion || 0
       models[model].tokens.total += span.tokens?.total || 0
@@ -150,7 +161,7 @@ export function calculateCostSummary(traceSpans: any[]): {
   }
 
   const modelCost = totalCost
-  totalCost += BASE_EXECUTION_CHARGE
+  totalCost += workflowExecutionChargeUsd
 
   return {
     totalCost,
@@ -159,7 +170,7 @@ export function calculateCostSummary(traceSpans: any[]): {
     totalTokens,
     totalPromptTokens,
     totalCompletionTokens,
-    baseExecutionCharge: BASE_EXECUTION_CHARGE,
+    baseExecutionCharge: workflowExecutionChargeUsd,
     modelCost,
     models,
   }

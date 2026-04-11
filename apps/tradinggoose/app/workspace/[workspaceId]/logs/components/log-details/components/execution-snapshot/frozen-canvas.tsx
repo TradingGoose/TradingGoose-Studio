@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn, redactApiKeys } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
+import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/logs/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('FrozenCanvas')
@@ -90,7 +91,7 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
   )
 }
 
-function formatExecutionData(executionData: any) {
+function formatExecutionData(executionData: any, costMultiplier = 1) {
   const {
     inputData,
     outputData,
@@ -103,6 +104,7 @@ function formatExecutionData(executionData: any) {
     errorMessage,
     errorStackTrace,
   } = executionData
+  const scaledCost = scaleLogCostBreakdown(cost, costMultiplier)
 
   return {
     blockName: blockName || 'Unknown Block',
@@ -113,19 +115,19 @@ function formatExecutionData(executionData: any) {
     output: redactApiKeys(outputData || {}),
     errorMessage,
     errorStackTrace,
-    cost: cost
+    cost: scaledCost
       ? {
-        input: cost.input || 0,
-        output: cost.output || 0,
-        total: cost.total || 0,
-      }
+          input: scaledCost.input || 0,
+          output: scaledCost.output || 0,
+          total: scaledCost.total || 0,
+        }
       : null,
     tokens: tokens
       ? {
-        prompt: tokens.prompt || 0,
-        completion: tokens.completion || 0,
-        total: tokens.total || 0,
-      }
+          prompt: tokens.prompt || 0,
+          completion: tokens.completion || 0,
+          total: tokens.total || 0,
+        }
       : null,
   }
 }
@@ -153,11 +155,13 @@ function PinnedLogs({
   executionData,
   blockId,
   workflowState,
+  costMultiplier = 1,
   onClose,
 }: {
   executionData: any | null
   blockId: string
   workflowState: any
+  costMultiplier?: number
   onClose: () => void
 }) {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
@@ -221,7 +225,7 @@ function PinnedLogs({
     currentIteration: currentIterationIndex,
   })
 
-  const formatted = formatExecutionData(iterationInfo.executionData)
+  const formatted = formatExecutionData(iterationInfo.executionData, costMultiplier)
   const totalIterations = executionData.iterations?.length || 1
 
   const goToPreviousIteration = () => {
@@ -354,27 +358,14 @@ function PinnedLogs({
 }
 
 interface FrozenCanvasData {
-  executionId: string
   workflowId: string
   workflowState: WorkflowState
-  executionMetadata: {
-    trigger: string
-    startedAt: string
-    endedAt?: string
-    totalDurationMs?: number
-
-    cost: {
-      total: number | null
-      input: number | null
-      output: number | null
-    }
-    totalTokens: number | null
-  }
 }
 
 interface FrozenCanvasProps {
   executionId: string
   traceSpans?: any[]
+  costMultiplier?: number
   className?: string
   height?: string | number
   width?: string | number
@@ -383,6 +374,7 @@ interface FrozenCanvasProps {
 export function FrozenCanvas({
   executionId,
   traceSpans,
+  costMultiplier = 1,
   className,
   height = '100%',
   width = '100%',
@@ -608,6 +600,7 @@ export function FrozenCanvas({
           executionData={blockExecutions[pinnedBlockId] || null}
           blockId={pinnedBlockId}
           workflowState={data.workflowState}
+          costMultiplier={costMultiplier}
           onClose={() => setPinnedBlockId(null)}
         />
       )}

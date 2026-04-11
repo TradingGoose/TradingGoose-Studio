@@ -1107,7 +1107,7 @@ function applyPairDataToWidget(
       ? { ...(widget.params as Record<string, unknown>) }
       : {}
   const hadLegacyPineIndicatorId = 'pineIndicatorId' in baseParams
-  delete baseParams.pineIndicatorId
+  baseParams.pineIndicatorId = undefined
 
   const pairKeys = [
     'workflowId',

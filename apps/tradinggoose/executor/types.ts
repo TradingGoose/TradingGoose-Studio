@@ -103,6 +103,7 @@ export interface BlockState {
 export interface ExecutionContext {
   workflowId: string // Unique identifier for this workflow execution
   workspaceId?: string // Workspace ID for file storage scoping
+  userId?: string // Authenticated acting user for internal server-to-server calls
   executionId?: string // Unique execution ID for file storage scoping
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
   // Manual executions in the builder should leave this undefined/false
@@ -176,6 +177,23 @@ export interface ExecutionContext {
   // New context extensions
   onStream?: (streamingExecution: StreamingExecution) => Promise<string>
   onBlockComplete?: (blockId: string, output: any) => Promise<void>
+}
+
+/**
+ * Optional context values that are threaded into executor-created requests.
+ */
+export interface ExecutionContextExtensions {
+  stream?: boolean // Whether to use streaming responses when available
+  selectedOutputs?: string[] // IDs of blocks selected for streaming output
+  edges?: Array<{ source: string; target: string }> // Workflow edge connections
+  onStream?: (streamingExecution: StreamingExecution) => Promise<void>
+  onBlockComplete?: (blockId: string, output: any) => Promise<void>
+  executionId?: string
+  workspaceId?: string
+  userId?: string
+  isChildExecution?: boolean
+  // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
+  isDeployedContext?: boolean
 }
 
 /**

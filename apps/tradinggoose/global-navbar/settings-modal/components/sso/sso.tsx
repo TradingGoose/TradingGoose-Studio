@@ -5,12 +5,12 @@ import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
-import { isBillingEnabled } from '@/lib/environment'
-import { getUserRole } from '@/lib/organization/helpers'
+import { canTierConfigureSso } from '@/lib/billing/tier-summary'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserRole } from '@/lib/organization/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
-import { useOrganizations } from '@/hooks/queries/organization'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 
 const logger = createLogger('SSO')
 
@@ -73,7 +73,13 @@ export function SSO() {
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
-  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganization?.id || '')
+  const billingData = (organizationBillingData as any)?.data ?? organizationBillingData ?? null
+  const billingEnabled = billingData?.billingEnabled ?? true
+  const canUseSso = Boolean(
+    billingData?.subscriptionTier?.ownerType === 'organization' &&
+      canTierConfigureSso(billingData.subscriptionTier)
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showClientSecret, setShowClientSecret] = useState(false)
@@ -138,7 +144,7 @@ export function SSO() {
         const data = await response.json()
         setProviders(data.providers || [])
 
-        if (!isBillingEnabled && userId) {
+        if (!billingEnabled && userId) {
           const ownsProvider = data.providers.some((p: any) => p.userId === userId)
           setIsSSOProviderOwner(ownsProvider)
         } else {
@@ -153,18 +159,16 @@ export function SSO() {
       }
     }
 
-    const shouldFetch = !isBillingEnabled
-      ? true
-      : canManageSSO && activeOrganization && hasEnterprisePlan
+    const shouldFetch = !billingEnabled ? true : canManageSSO && activeOrganization && canUseSso
 
     if (shouldFetch) {
       fetchProviders()
     } else {
       setIsLoadingProviders(false)
     }
-  }, [canManageSSO, activeOrganization, hasEnterprisePlan, userId, isBillingEnabled])
+  }, [canManageSSO, activeOrganization, canUseSso, userId, billingEnabled])
 
-  if (isBillingEnabled) {
+  if (billingEnabled) {
     if (!activeOrganization) {
       return (
         <div className='flex h-full items-center justify-center p-6'>
@@ -177,14 +181,12 @@ export function SSO() {
       )
     }
 
-    if (!hasEnterprisePlan) {
+    if (!canUseSso) {
       return (
         <div className='flex h-full items-center justify-center p-6'>
           <Alert>
             <AlertDescription>
-              Single Sign-On is available on Enterprise plans only.
-              <br />
-              Contact your admin to upgrade your plan.
+              Single Sign-On is not enabled for this billing tier.
             </AlertDescription>
           </Alert>
         </div>
@@ -394,7 +396,7 @@ export function SSO() {
         const providersData = await providersResponse.json()
         setProviders(providersData.providers || [])
 
-        if (!isBillingEnabled && userId) {
+        if (!billingEnabled && userId) {
           const ownsProvider = providersData.providers.some((p: any) => p.userId === userId)
           setIsSSOProviderOwner(ownsProvider)
         }
@@ -451,7 +453,7 @@ export function SSO() {
       await navigator.clipboard.writeText(callbackUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch { }
+    } catch {}
   }
 
   const handleReconfigure = (provider: SSOProvider) => {
@@ -646,8 +648,8 @@ export function SSO() {
                     className={cn(
                       'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                      errors.providerId.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        errors.providerId.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   >
                     <option value=''>Select a provider ID</option>
@@ -684,8 +686,8 @@ export function SSO() {
                     className={cn(
                       'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                      errors.issuerUrl.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        errors.issuerUrl.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   />
                   {showErrors && errors.issuerUrl.length > 0 && (
@@ -713,8 +715,8 @@ export function SSO() {
                     className={cn(
                       'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                      errors.domain.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        errors.domain.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   />
                   {showErrors && errors.domain.length > 0 && (
@@ -744,8 +746,8 @@ export function SSO() {
                         className={cn(
                           'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                          errors.clientId.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            errors.clientId.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.clientId.length > 0 && (
@@ -777,8 +779,8 @@ export function SSO() {
                           className={cn(
                             'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                             showErrors &&
-                            errors.clientSecret.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                              errors.clientSecret.length > 0 &&
+                              'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                           )}
                         />
                         <button
@@ -813,8 +815,8 @@ export function SSO() {
                         className={cn(
                           'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                          errors.scopes.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            errors.scopes.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.scopes.length > 0 && (
@@ -843,8 +845,8 @@ export function SSO() {
                         className={cn(
                           'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                          errors.entryPoint.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            errors.entryPoint.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.entryPoint.length > 0 && (
@@ -868,8 +870,8 @@ export function SSO() {
                         className={cn(
                           'min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                          errors.cert.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            errors.cert.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                         rows={4}
                       />

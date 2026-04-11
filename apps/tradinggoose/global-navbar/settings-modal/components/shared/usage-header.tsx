@@ -55,9 +55,7 @@ export function UsageHeader({
             <span
               className={cn(
                 'font-bold text-sm',
-                gradientTitle
-                  ? 'text-primary'
-                  : 'text-foreground'
+                gradientTitle ? 'text-primary' : 'text-foreground'
               )}
             >
               {title}
@@ -73,15 +71,15 @@ export function UsageHeader({
           </div>
           <div className='flex items-center gap-[4px] text-xs tabular-nums'>
             {isBlocked ? (
-              <span className='text-muted-foreground text-[12px]'>Payment required</span>
+              <span className='text-[12px] text-muted-foreground'>Payment required</span>
             ) : (
               <>
-                <span className='text-muted-foreground text-[12px] tabular-nums'>
+                <span className='text-[12px] text-muted-foreground tabular-nums'>
                   ${current.toFixed(2)}
                 </span>
-                <span className='text-muted-foreground text-[12px]'>/</span>
+                <span className='text-[12px] text-muted-foreground'>/</span>
                 {rightContent ?? (
-                  <span className='text-muted-foreground text-[12px] tabular-nums'>${limit}</span>
+                  <span className='text-[12px] text-muted-foreground tabular-nums'>${limit}</span>
                 )}
               </>
             )}
@@ -132,7 +130,9 @@ export function UsageHeader({
         {!isBlocked && status === 'warning' && (
           <div className='rounded-sm bg-yellow-900/10 px-2 py-1'>
             <span className='text-xs text-yellow-600'>
-              {typeof percentUsed === 'number' ? `${percentUsed}%` : '80%+'} of your limit used.
+              {typeof percentUsed === 'number'
+                ? `${percentUsed}% of your limit used.`
+                : 'Usage is nearing your configured limit.'}
             </span>
           </div>
         )}

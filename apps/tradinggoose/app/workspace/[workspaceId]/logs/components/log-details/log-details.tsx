@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BASE_EXECUTION_CHARGE } from '@/lib/billing/constants'
 import { FrozenCanvasModal } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/execution-snapshot/frozen-canvas-modal'
 import { FileDownload } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/file-download/file-download'
 import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans/trace-spans'
-import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import {
+  formatDate,
+  getTraceSpanDisplayCostMultiplier,
+} from '@/app/workspace/[workspaceId]/logs/utils'
 import { formatCost } from '@/providers/ai/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
@@ -51,20 +53,9 @@ export function LogDetails({
   hasNext = false,
   hasPrev = false,
 }: LogDetailsProps) {
-  const [_currentLogId, setCurrentLogId] = useState<string | null>(null)
-  const [isTraceExpanded, setIsTraceExpanded] = useState(false)
   const [isModelsExpanded, setIsModelsExpanded] = useState(false)
   const [isFrozenCanvasOpen, setIsFrozenCanvasOpen] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-
-  // Update currentLogId when log changes
-  useEffect(() => {
-    if (log?.id) {
-      setCurrentLogId(log.id)
-      // Reset trace expanded state when log changes
-      setIsTraceExpanded(false)
-    }
-  }, [log?.id])
 
   const isLoadingDetails = useMemo(() => {
     if (!log) return false
@@ -94,17 +85,18 @@ export function LogDetails({
     )
   }, [log])
 
-  const hasCostInfo = useMemo(() => {
-    return isWorkflowExecutionLog && log?.cost
-  }, [log, isWorkflowExecutionLog])
+  const hasCostInfo = useMemo(
+    () => Boolean(isWorkflowExecutionLog && log?.cost),
+    [log, isWorkflowExecutionLog]
+  )
+  const baseExecutionCharge = Number(log?.cost?.baseExecutionCharge || 0)
+  const traceSpanCostMultiplier = useMemo(() => {
+    if (!isWorkflowExecutionLog) {
+      return 1
+    }
 
-  const isWorkflowWithCost = useMemo(() => {
-    return isWorkflowExecutionLog && hasCostInfo
-  }, [isWorkflowExecutionLog, hasCostInfo])
-
-  const handleTraceSpanToggle = (expanded: boolean) => {
-    setIsTraceExpanded(expanded)
-  }
+    return getTraceSpanDisplayCostMultiplier(log?.executionData?.traceSpans, log?.cost)
+  }, [isWorkflowExecutionLog, log?.cost, log?.executionData?.traceSpans])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,12 +107,12 @@ export function LogDetails({
       if (isOpen) {
         if (e.key === 'ArrowUp' && hasPrev && onNavigatePrev) {
           e.preventDefault()
-          handleNavigate(onNavigatePrev)
+          onNavigatePrev()
         }
 
         if (e.key === 'ArrowDown' && hasNext && onNavigateNext) {
           e.preventDefault()
-          handleNavigate(onNavigateNext)
+          onNavigateNext()
         }
       }
     }
@@ -128,10 +120,6 @@ export function LogDetails({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose, hasPrev, hasNext, onNavigatePrev, onNavigateNext])
-
-  const handleNavigate = (navigateFunction: () => void) => {
-    navigateFunction()
-  }
 
   if (!isOpen) {
     return null
@@ -159,7 +147,7 @@ export function LogDetails({
                     variant='ghost'
                     size='icon'
                     className='h-7 w-7 p-0'
-                    onClick={() => hasPrev && handleNavigate(onNavigatePrev!)}
+                    onClick={onNavigatePrev}
                     disabled={!hasPrev}
                     aria-label='Previous log'
                   >
@@ -177,7 +165,7 @@ export function LogDetails({
                     variant='ghost'
                     size='icon'
                     className='h-7 w-7 p-0'
-                    onClick={() => hasNext && handleNavigate(onNavigateNext!)}
+                    onClick={onNavigateNext}
                     disabled={!hasNext}
                     aria-label='Next log'
                   >
@@ -217,7 +205,13 @@ export function LogDetails({
                 <div className='flex min-w-0 flex-1 flex-col gap-2'>
                   <span className='font-medium text-muted-foreground text-xs'>Workflow</span>
                   <div className='group relative flex min-w-0 items-center gap-2 pr-8'>
-                    <span className='min-w-0 truncate font-medium text-foreground text-sm px-1 rounded-sm' style={{ backgroundColor: `${log.workflow?.color}20`, color: log.workflow?.color }}>
+                    <span
+                      className='min-w-0 truncate rounded-sm px-1 font-medium text-foreground text-sm'
+                      style={{
+                        backgroundColor: `${log.workflow?.color}20`,
+                        color: log.workflow?.color,
+                      }}
+                    >
                       {log.workflow?.name || 'Unknown'}
                     </span>
                   </div>
@@ -303,7 +297,7 @@ export function LogDetails({
                     <TraceSpans
                       traceSpans={log.executionData.traceSpans}
                       totalDuration={log.executionData.totalDuration}
-                      onExpansionChange={handleTraceSpanToggle}
+                      costMultiplier={traceSpanCostMultiplier}
                     />
                   </div>
                 </div>
@@ -364,7 +358,7 @@ export function LogDetails({
                       <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>Base Execution:</span>
                         <span className='text-foreground text-xs'>
-                          {formatCost(BASE_EXECUTION_CHARGE)}
+                          {formatCost(baseExecutionCharge)}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
@@ -453,14 +447,12 @@ export function LogDetails({
                       </div>
                     )}
 
-                    {isWorkflowWithCost && (
-                      <div className='border-t bg-muted/40 p-2 text-[11px] text-muted-foreground'>
-                        <p>
-                          Total cost includes a base execution charge of{' '}
-                          {formatCost(BASE_EXECUTION_CHARGE)} plus any model usage costs.
-                        </p>
-                      </div>
-                    )}
+                    <div className='border-t bg-muted/40 p-2 text-[11px] text-muted-foreground'>
+                      <p>
+                        Total cost includes a base execution charge of{' '}
+                        {formatCost(baseExecutionCharge)} plus any model usage costs.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -474,6 +466,7 @@ export function LogDetails({
             workflowName={log.workflow?.name}
             trigger={log.trigger || undefined}
             traceSpans={log.executionData?.traceSpans}
+            costMultiplier={traceSpanCostMultiplier}
             isOpen={isFrozenCanvasOpen}
             onClose={() => setIsFrozenCanvasOpen(false)}
           />

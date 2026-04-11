@@ -9,10 +9,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
+import { generateInternalToken } from '@/lib/auth/internal'
 import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
 import { getTool } from '@/tools/utils'
+
+vi.mock('@/lib/auth/internal', () => ({
+  generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
+}))
 
 // Helper function to create mock ExecutionContext
 const createMockExecutionContext = (overrides?: Partial<ExecutionContext>): ExecutionContext => ({
@@ -237,6 +242,37 @@ describe('executeTool Function', () => {
       expect.stringContaining('/api/function/execute'),
       expect.anything()
     )
+  })
+
+  it('should sign internal function execution requests with the acting user id', async () => {
+    const mockContext = createMockExecutionContext({ userId: 'user-123' })
+    const originalWindow = global.window
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      await executeTool(
+        'function_execute',
+        {
+          code: 'return { result: "hello world" }',
+          language: 'javascript',
+        },
+        false,
+        mockContext
+      )
+    } finally {
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
+
+    expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
   })
 
   it('should load skill content through the skills API', async () => {
@@ -753,6 +789,14 @@ describe('MCP Tool Execution', () => {
   })
 
   it('should execute MCP tool with valid tool ID', async () => {
+    const originalWindow = global.window
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url, options) => {
         expect(url).toBe('http://localhost:3000/api/mcp/tools/execute')
@@ -781,14 +825,23 @@ describe('MCP Tool Execution', () => {
       { preconnect: vi.fn() }
     ) as typeof fetch
 
-    const mockContext = createMockExecutionContext()
+    const mockContext = createMockExecutionContext({ userId: 'user-123' })
 
-    const result = await executeTool('mcp-123-list_files', { path: '/test' }, false, mockContext)
+    try {
+      const result = await executeTool('mcp-123-list_files', { path: '/test' }, false, mockContext)
 
-    expect(result.success).toBe(true)
-    expect(result.output).toBeDefined()
-    expect(result.output.content).toBeDefined()
-    expect(result.timing).toBeDefined()
+      expect(result.success).toBe(true)
+      expect(result.output).toBeDefined()
+      expect(result.output.content).toBeDefined()
+      expect(result.timing).toBeDefined()
+      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
+    } finally {
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
   })
 
   it('should handle MCP tool ID parsing correctly', async () => {

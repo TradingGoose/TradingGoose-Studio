@@ -31,8 +31,38 @@ describe('Function Execute API Route', () => {
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn().mockReturnValue(mockLogger),
     }))
+    vi.doMock('@/lib/permissions/utils', () => ({
+      getUserEntityPermissions: vi.fn().mockResolvedValue('admin'),
+    }))
+    vi.doMock('@/lib/billing', () => ({
+      checkServerSideUsageLimits: vi.fn().mockResolvedValue({
+        isExceeded: false,
+        currentUsage: 0,
+        limit: 100,
+      }),
+    }))
+    vi.doMock('@/lib/billing/workspace-billing', () => ({
+      resolveWorkspaceBillingContext: vi.fn().mockResolvedValue({
+        tier: { id: 'tier_user_fixed' },
+      }),
+      resolveWorkflowBillingContext: vi.fn().mockResolvedValue({
+        tier: { id: 'tier_org_adjustable' },
+      }),
+    }))
+    vi.doMock('@/lib/billing/settings', () => ({
+      getResolvedBillingSettings: vi.fn().mockResolvedValue({
+        workflowExecutionChargeUsd: 0,
+        functionExecutionChargeUsd: 0.25,
+      }),
+    }))
+    vi.doMock('@/lib/billing/tiers', () => ({
+      getTierFunctionExecutionDurationMultiplier: vi.fn(() => 0.5),
+    }))
+    vi.doMock('@/lib/billing/usage-accrual', () => ({
+      accrueUserUsageCost: vi.fn().mockResolvedValue(true),
+    }))
     vi.doMock('@/lib/auth/hybrid', () => ({
-      checkHybridAuth: vi.fn().mockResolvedValue({
+      checkSessionOrInternalAuth: vi.fn().mockResolvedValue({
         success: true,
         userId: 'test-user-id',
         authType: 'session',
@@ -89,35 +119,8 @@ describe('Function Execute API Route', () => {
       'should reject unauthenticated function execution requests',
       { timeout: 10_000 },
       async () => {
-      vi.doMock('@/lib/utils', () => ({
-        generateRequestId: vi.fn(() => 'request-1'),
-      }))
-      vi.doMock('@/app/api/function/code-resolution', () => ({
-        resolveCodeVariables: vi.fn((code: string) => ({
-          resolvedCode: code,
-          contextVariables: {},
-        })),
-      }))
-      vi.doMock('@/app/api/function/e2b-execution', () => ({
-        executeFunctionWithRuntimeGate: vi.fn(),
-      }))
-      vi.doMock('@/app/api/function/error-formatting', () => ({
-        createUserFriendlyErrorMessage: vi.fn(() => 'error'),
-        extractEnhancedError: vi.fn(() => ({
-          line: null,
-          column: null,
-          name: 'Error',
-          lineContent: null,
-          stack: '',
-        })),
-      }))
-      vi.doMock('@/app/api/function/typescript-utils', () => ({
-        findFunctionPineDisallowedReason: vi.fn(async () => null),
-        transpileTypeScriptCode: vi.fn(async (code: string) => code),
-      }))
-
-      const { checkHybridAuth } = await import('@/lib/auth/hybrid')
-      vi.mocked(checkHybridAuth).mockResolvedValueOnce({ success: false })
+      const { checkSessionOrInternalAuth } = await import('@/lib/auth/hybrid')
+      vi.mocked(checkSessionOrInternalAuth).mockResolvedValueOnce({ success: false })
 
       const req = createMockRequest('POST', {
         code: 'return "test"',

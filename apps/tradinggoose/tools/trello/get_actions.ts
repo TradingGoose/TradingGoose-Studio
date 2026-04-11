@@ -1,4 +1,4 @@
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 import type { TrelloGetActionsParams, TrelloGetActionsResponse } from '@/tools/trello/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -57,7 +57,7 @@ export const trelloGetActionsTool: ToolConfig<TrelloGetActionsParams, TrelloGetA
 
       const id = params.boardId || params.cardId
       const type = params.boardId ? 'boards' : 'cards'
-      const apiKey = env.TRELLO_API_KEY || ''
+      const apiKey = getEnv('TRELLO_API_KEY') || ''
       const token = params.accessToken
 
       let url = `https://api.trello.com/1/${type}/${id}/actions?key=${apiKey}&token=${token}&fields=id,type,date,memberCreator,data`

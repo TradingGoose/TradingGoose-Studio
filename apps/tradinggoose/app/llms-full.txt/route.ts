@@ -1,4 +1,28 @@
+import { getPublicBillingCatalog } from '@/lib/billing/catalog'
+import {
+  buildHostedPricingMarkdownTable,
+  buildHostedPricingNarrative,
+  buildHostedPricingSentence,
+} from '@/lib/billing/public-catalog'
+
 export async function GET() {
+  const billingCatalog = await getPublicBillingCatalog()
+  const hostedPricingSentence = billingCatalog.billingEnabled
+    ? buildHostedPricingSentence(billingCatalog)
+    : ''
+  const hostedPricingTable = billingCatalog.billingEnabled
+    ? buildHostedPricingMarkdownTable(billingCatalog)
+    : '| Tier | Price | Best for | Key limits |\n|---|---|---|---|'
+  const hostedPricingNarrative = billingCatalog.billingEnabled
+    ? buildHostedPricingNarrative(billingCatalog)
+    : ''
+  const enterpriseContactUrl = billingCatalog.billingEnabled
+    ? (billingCatalog.enterprisePlaceholder?.contactUrl ?? billingCatalog.enterpriseContactUrl)
+    : null
+  const enterpriseContactLine = enterpriseContactUrl
+    ? `- Enterprise contact: ${enterpriseContactUrl}`
+    : ''
+
   const llmsFullContent = `# TradingGoose - Visual Workflow Platform for Technical LLM Trading (Full Reference)
 
 > Extended, AI-readable reference for TradingGoose. This file is a superset of
@@ -67,17 +91,16 @@ TradingGoose ships in two forms:
 - Self-hosting supported
 - Community-maintained
 
-**TradingGoose Hosted (https://tradinggoose.ai)** — four tiers:
+**TradingGoose Hosted (https://tradinggoose.ai)** — current managed cloud tiers:
 
-| Tier | Price | Best for | Key limits |
-|---|---|---|---|
-| Community | Free | Individuals exploring indicators, AI workflows, strategy prototyping | $10 usage limit, 5 GB file storage, public template access, limited log retention, CLI/SDK access |
-| Pro | $20 / month | Active users who need higher throughput and unlimited workspaces | 25 runs/min (sync), 200 runs/min (async), 50 GB file storage, unlimited workspaces, unlimited invites, unlimited log retention |
-| Team | $40 / month | Teams sharing workflows, pooled storage, dedicated support channel | 75 runs/min (sync), 500 runs/min (async), 500 GB pooled storage, everything in Pro, dedicated Slack channel |
-| Enterprise | Custom | Organisations needing custom rate limits, self-hosting, dedicated support | Custom rate limits, custom storage, enterprise hosting, dedicated support |
+${hostedPricingTable}
 
-Every hosted plan includes the full platform — workspace, charting, workflows,
-AI agents, and integrations. Enterprise contact: https://form.typeform.com/to/jqCO12pF
+${
+  billingCatalog.billingEnabled
+    ? `Every hosted plan includes the full platform — workspace, charting, workflows,
+AI agents, and integrations.${enterpriseContactUrl ? ` Enterprise contact: ${enterpriseContactUrl}` : ''}`
+    : 'Hosted billing is currently disabled.'
+}
 
 ## 5. Primary use cases
 
@@ -156,14 +179,13 @@ Calendly, Webflow, WordPress, Firecrawl, BrowserUse.
 **Is TradingGoose free?**
 Yes. TradingGoose Studio is open source under the license at
 https://tradinggoose.ai/licenses and can be self-hosted at no cost. The hosted
-edition at tradinggoose.ai has a free Community tier with a $10 usage limit and
-5 GB of file storage; paid tiers start at $20/month (Pro).
+edition at tradinggoose.ai ${hostedPricingSentence ? `currently offers ${hostedPricingSentence}.` : 'does not currently expose public billing tiers.'}
+Paid tiers start above the default free tier.
 
 **Can I self-host TradingGoose?**
 Yes. TradingGoose Studio is the open-source core at
 https://github.com/TradingGoose/TradingGoose-Studio and supports self-hosting.
-Enterprise hosting with custom rate limits and dedicated support is also
-available.
+Enterprise hosting with custom rate limits and dedicated support is also available.
 
 **Which LLM providers does TradingGoose support?**
 OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Mistral, Perplexity,
@@ -189,13 +211,8 @@ analysis feeding a single AI decision, indicator alerting to Slack/Discord/email
 strategy prototyping and backtesting, and custom dashboards that combine charts,
 indicators, and live order flow.
 
-**What is the difference between Community, Pro, Team, and Enterprise?**
-Community is free with a $10 usage cap and 5 GB storage. Pro ($20/mo) adds 25
-sync / 200 async runs per minute, 50 GB storage, unlimited workspaces, unlimited
-invites, and unlimited log retention. Team ($40/mo) adds 75 sync / 500 async
-runs per minute, 500 GB pooled storage, everything in Pro, and a dedicated
-Slack channel. Enterprise is custom — custom rate limits, custom storage,
-enterprise hosting, and dedicated support.
+**What is the difference between the hosted tiers?**
+${hostedPricingNarrative || 'Hosted billing is currently disabled.'}
 
 **Does TradingGoose support backtesting?**
 Yes. You can replay historical candle data against any workflow or indicator.
@@ -229,7 +246,7 @@ any market data provider and stream live prices into the workspace.
 - GitHub (open source): https://github.com/TradingGoose/TradingGoose-Studio
 - Sign up (hosted, free tier): https://tradinggoose.ai/signup
 - Changelog: https://tradinggoose.ai/changelog
-- Enterprise contact: https://form.typeform.com/to/jqCO12pF
+${enterpriseContactLine}
 
 ## 13. Community
 

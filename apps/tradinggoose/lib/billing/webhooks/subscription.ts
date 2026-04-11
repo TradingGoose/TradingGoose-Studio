@@ -4,6 +4,10 @@ import { and, eq, ne } from 'drizzle-orm'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
+  type BillingTierRecord,
+  isPaidBillingTier,
+} from '@/lib/billing/tiers'
+import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
 } from '@/lib/billing/webhooks/invoices'
@@ -11,21 +15,29 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('StripeSubscriptionWebhooks')
 
+type TieredSubscriptionLifecycleRecord = {
+  id: string
+  referenceType: 'user' | 'organization'
+  referenceId: string
+  status: string | null
+  stripeSubscriptionId?: string | null
+  seats?: number | null
+  tier?: BillingTierRecord | null
+}
+
 /**
  * Handle new subscription creation - reset usage if transitioning from free to paid
  */
-export async function handleSubscriptionCreated(subscriptionData: {
-  id: string
-  referenceId: string
-  plan: string | null
-  status: string
-}) {
+export async function handleSubscriptionCreated(
+  subscriptionData: TieredSubscriptionLifecycleRecord
+) {
   try {
     const otherActiveSubscriptions = await db
       .select()
       .from(subscription)
       .where(
         and(
+          eq(subscription.referenceType, subscriptionData.referenceType),
           eq(subscription.referenceId, subscriptionData.referenceId),
           eq(subscription.status, 'active'),
           ne(subscription.id, subscriptionData.id) // Exclude current subscription
@@ -33,33 +45,33 @@ export async function handleSubscriptionCreated(subscriptionData: {
       )
 
     const wasFreePreviously = otherActiveSubscriptions.length === 0
-    const isPaidPlan =
-      subscriptionData.plan === 'pro' ||
-      subscriptionData.plan === 'team' ||
-      subscriptionData.plan === 'enterprise'
+    const isPaidPlan = isPaidBillingTier(subscriptionData.tier)
 
     if (wasFreePreviously && isPaidPlan) {
       logger.info('Detected free -> paid transition, resetting usage', {
         subscriptionId: subscriptionData.id,
+        referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
-        plan: subscriptionData.plan,
+        billingTier: subscriptionData.tier?.displayName,
       })
 
       await resetUsageForSubscription({
-        plan: subscriptionData.plan,
         referenceId: subscriptionData.referenceId,
+        tier: subscriptionData.tier,
       })
 
       logger.info('Successfully reset usage for free -> paid transition', {
         subscriptionId: subscriptionData.id,
+        referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
-        plan: subscriptionData.plan,
+        billingTier: subscriptionData.tier?.displayName,
       })
     } else {
       logger.info('No usage reset needed', {
         subscriptionId: subscriptionData.id,
+        referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
-        plan: subscriptionData.plan,
+        billingTier: subscriptionData.tier?.displayName,
         wasFreePreviously,
         isPaidPlan,
         otherActiveSubscriptionsCount: otherActiveSubscriptions.length,
@@ -68,6 +80,7 @@ export async function handleSubscriptionCreated(subscriptionData: {
   } catch (error) {
     logger.error('Failed to handle subscription creation usage reset', {
       subscriptionId: subscriptionData.id,
+      referenceType: subscriptionData.referenceType,
       referenceId: subscriptionData.referenceId,
       error,
     })
@@ -79,13 +92,7 @@ export async function handleSubscriptionCreated(subscriptionData: {
  * Handle subscription deletion/cancellation - bill for final period overages
  * This fires when a subscription reaches its cancel_at_period_end date or is cancelled immediately
  */
-export async function handleSubscriptionDeleted(subscription: {
-  id: string
-  plan: string | null
-  referenceId: string
-  stripeSubscriptionId: string | null
-  seats?: number | null
-}) {
+export async function handleSubscriptionDeleted(subscription: TieredSubscriptionLifecycleRecord) {
   try {
     const stripeSubscriptionId = subscription.stripeSubscriptionId || ''
 
@@ -97,15 +104,6 @@ export async function handleSubscriptionDeleted(subscription: {
     // Calculate overage for the final billing period
     const totalOverage = await calculateSubscriptionOverage(subscription)
     const stripe = requireStripeClient()
-
-    // Enterprise plans have no overages - just reset usage
-    if (subscription.plan === 'enterprise') {
-      await resetUsageForSubscription({
-        plan: subscription.plan,
-        referenceId: subscription.referenceId,
-      })
-      return
-    }
 
     // Get already-billed overage from threshold billing
     const billedOverage = await getBilledOverageForSubscription(subscription)
@@ -140,7 +138,7 @@ export async function handleSubscriptionDeleted(subscription: {
             customer: customerId,
             collection_method: 'charge_automatically',
             auto_advance: true, // Auto-finalize and attempt payment
-            description: `Final overage charges for ${subscription.plan} subscription (${billingPeriod})`,
+            description: `Final overage charges for ${subscription.tier?.displayName || 'subscription'} (${billingPeriod})`,
             metadata: {
               type: 'final_overage_billing',
               billingPeriod,
@@ -158,7 +156,7 @@ export async function handleSubscriptionDeleted(subscription: {
             invoice: overageInvoice.id,
             amount: cents,
             currency: 'usd',
-            description: `Usage overage for ${subscription.plan} plan (Final billing period)`,
+            description: `Usage overage for ${subscription.tier?.displayName || 'subscription'} (Final billing period)`,
             metadata: {
               type: 'final_usage_overage',
               usage: remainingOverage.toFixed(2),
@@ -199,15 +197,12 @@ export async function handleSubscriptionDeleted(subscription: {
     } else {
       logger.info('No overage to bill for cancelled subscription', {
         subscriptionId: subscription.id,
-        plan: subscription.plan,
+        billingTier: subscription.tier?.displayName,
       })
     }
 
     // Reset usage after billing
-    await resetUsageForSubscription({
-      plan: subscription.plan,
-      referenceId: subscription.referenceId,
-    })
+    await resetUsageForSubscription(subscription)
 
     // Note: better-auth's Stripe plugin already updates status to 'canceled' before calling this handler
     // We only need to handle overage billing and usage reset

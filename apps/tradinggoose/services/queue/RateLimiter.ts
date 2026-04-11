@@ -1,47 +1,59 @@
 import { db } from '@tradinggoose/db'
 import { userRateLimits } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import {
+  type BillingScope,
+  type BillingTierRecord,
+  getSubscriptionBillingScope,
+  getTierRateLimits,
+  requireDefaultBillingTier,
+} from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   MANUAL_EXECUTION_LIMIT,
   RATE_LIMIT_WINDOW_MS,
-  RATE_LIMITS,
   type RateLimitCounterType,
-  type SubscriptionPlan,
   type TriggerType,
 } from '@/services/queue/types'
 
 const logger = createLogger('RateLimiter')
-
 interface SubscriptionInfo {
-  plan: string
+  referenceType: 'user' | 'organization'
   referenceId: string
+  tier?: BillingTierRecord | null
 }
 
 export class RateLimiter {
   /**
    * Determine the rate limit key based on subscription
-   * For team/enterprise plans via organization, use the organization ID
-   * For direct user subscriptions (including direct team), use the user ID
+   * Pooled tiers share a single rate-limit key across the subscription scope.
+   * Individual tiers always use the user ID as the rate-limit key.
    */
-  private getRateLimitKey(userId: string, subscription: SubscriptionInfo | null): string {
-    if (!subscription) {
-      return userId
+  private getRateLimitKey(
+    userId: string,
+    subscription: SubscriptionInfo | null,
+    billingScope?: BillingScope | null
+  ): string {
+    return this.getResolvedRateLimitScope(userId, subscription, billingScope).scopeId
+  }
+
+  private getResolvedRateLimitScope(
+    userId: string,
+    subscription: SubscriptionInfo | null,
+    billingScope?: BillingScope | null
+  ): BillingScope {
+    if (billingScope?.scopeId) {
+      return billingScope
     }
 
-    const plan = subscription.plan as SubscriptionPlan
-
-    // Check if this is an organization subscription (referenceId !== userId)
-    // If referenceId === userId, it's a direct user subscription
-    if ((plan === 'team' || plan === 'enterprise') && subscription.referenceId !== userId) {
-      // This is an organization subscription
-      // All organization members share the same rate limit pool
-      return subscription.referenceId
+    const resolvedScope = getSubscriptionBillingScope(userId, subscription)
+    return {
+      scopeType: resolvedScope.scopeType,
+      scopeId: resolvedScope.scopeId,
+      organizationId: resolvedScope.organizationId,
+      userId: resolvedScope.userId,
     }
-
-    // For direct user subscriptions (free/pro/team/enterprise where referenceId === userId)
-    return userId
   }
 
   /**
@@ -58,16 +70,20 @@ export class RateLimiter {
    * Get the rate limit for a specific counter type
    */
   private getRateLimitForCounter(
-    config: (typeof RATE_LIMITS)[SubscriptionPlan],
+    config: {
+      syncPerMinute: number
+      asyncPerMinute: number
+      apiEndpointPerMinute: number
+    },
     counterType: RateLimitCounterType
   ): number {
     switch (counterType) {
       case 'api-endpoint':
-        return config.apiEndpointRequestsPerMinute
+        return config.apiEndpointPerMinute
       case 'async':
-        return config.asyncApiExecutionsPerMinute
+        return config.asyncPerMinute
       case 'sync':
-        return config.syncApiExecutionsPerMinute
+        return config.syncPerMinute
     }
   }
 
@@ -96,7 +112,8 @@ export class RateLimiter {
     userId: string,
     subscription: SubscriptionInfo | null,
     triggerType: TriggerType = 'manual',
-    isAsync = false
+    isAsync = false,
+    billingScope?: BillingScope | null
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
     try {
       if (triggerType === 'manual') {
@@ -107,12 +124,14 @@ export class RateLimiter {
         }
       }
 
-      const subscriptionPlan = (subscription?.plan || 'free') as SubscriptionPlan
-      const rateLimitKey = this.getRateLimitKey(userId, subscription)
-      const limit = RATE_LIMITS[subscriptionPlan]
+      const defaultTier = await requireDefaultBillingTier()
+      const effectiveTier = subscription?.tier ?? defaultTier
+      const rateLimits = getTierRateLimits(effectiveTier)
+      const rateLimitKey = this.getRateLimitKey(userId, subscription, billingScope)
+      const resolvedScope = this.getResolvedRateLimitScope(userId, subscription, billingScope)
 
       const counterType = this.getCounterType(triggerType, isAsync)
-      const execLimit = this.getRateLimitForCounter(limit, counterType)
+      const execLimit = this.getRateLimitForCounter(rateLimits, counterType)
 
       const now = new Date()
       const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS)
@@ -175,14 +194,19 @@ export class RateLimiter {
             .where(eq(userRateLimits.referenceId, rateLimitKey))
 
           logger.info(
-            `Rate limit exceeded - request ${actualCount} > limit ${execLimit} for ${rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
+            `Rate limit exceeded - request ${actualCount} > limit ${execLimit} for ${
+              resolvedScope.scopeType === 'organization'
+                ? `organization ${resolvedScope.scopeId}`
+                : resolvedScope.scopeType === 'organization_member'
+                  ? `organization member ${resolvedScope.scopeId}`
+                  : `user ${resolvedScope.scopeId}`
             }`,
             {
               execLimit,
               isAsync,
               actualCount,
               rateLimitKey,
-              plan: subscriptionPlan,
+              billingTier: effectiveTier.displayName,
             }
           )
 
@@ -228,14 +252,19 @@ export class RateLimiter {
         )
 
         logger.info(
-          `Rate limit exceeded - request ${actualNewRequests} > limit ${execLimit} for ${rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
+          `Rate limit exceeded - request ${actualNewRequests} > limit ${execLimit} for ${
+            resolvedScope.scopeType === 'organization'
+              ? `organization ${resolvedScope.scopeId}`
+              : resolvedScope.scopeType === 'organization_member'
+                ? `organization member ${resolvedScope.scopeId}`
+                : `user ${resolvedScope.scopeId}`
           }`,
           {
             execLimit,
             isAsync,
             actualNewRequests,
             rateLimitKey,
-            plan: subscriptionPlan,
+            billingTier: effectiveTier.displayName,
           }
         )
 
@@ -271,18 +300,12 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Legacy method - for backward compatibility
-   * @deprecated Use checkRateLimitWithSubscription instead
-   */
   async checkRateLimit(
     userId: string,
-    subscriptionPlan: SubscriptionPlan = 'free',
     triggerType: TriggerType = 'manual',
     isAsync = false
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
-    // For backward compatibility, fetch the subscription
-    const subscription = await getHighestPrioritySubscription(userId)
+    const subscription = await getEffectiveSubscription(userId)
     return this.checkRateLimitWithSubscription(userId, subscription, triggerType, isAsync)
   }
 
@@ -294,7 +317,8 @@ export class RateLimiter {
     userId: string,
     subscription: SubscriptionInfo | null,
     triggerType: TriggerType = 'manual',
-    isAsync = false
+    isAsync = false,
+    billingScope?: BillingScope | null
   ): Promise<{ used: number; limit: number; remaining: number; resetAt: Date }> {
     try {
       if (triggerType === 'manual') {
@@ -306,12 +330,13 @@ export class RateLimiter {
         }
       }
 
-      const subscriptionPlan = (subscription?.plan || 'free') as SubscriptionPlan
-      const rateLimitKey = this.getRateLimitKey(userId, subscription)
-      const limit = RATE_LIMITS[subscriptionPlan]
+      const defaultTier = await requireDefaultBillingTier()
+      const effectiveTier = subscription?.tier ?? defaultTier
+      const rateLimits = getTierRateLimits(effectiveTier)
+      const rateLimitKey = this.getRateLimitKey(userId, subscription, billingScope)
 
       const counterType = this.getCounterType(triggerType, isAsync)
-      const execLimit = this.getRateLimitForCounter(limit, counterType)
+      const execLimit = this.getRateLimitForCounter(rateLimits, counterType)
 
       const now = new Date()
       const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS)
@@ -340,31 +365,21 @@ export class RateLimiter {
       }
     } catch (error) {
       logger.error('Error getting rate limit status:', error)
-      const execLimit = isAsync
-        ? RATE_LIMITS[(subscription?.plan || 'free') as SubscriptionPlan]
-          .asyncApiExecutionsPerMinute
-        : RATE_LIMITS[(subscription?.plan || 'free') as SubscriptionPlan].syncApiExecutionsPerMinute
       return {
         used: 0,
-        limit: execLimit,
-        remaining: execLimit,
+        limit: 0,
+        remaining: 0,
         resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
       }
     }
   }
 
-  /**
-   * Legacy method - for backward compatibility
-   * @deprecated Use getRateLimitStatusWithSubscription instead
-   */
   async getRateLimitStatus(
     userId: string,
-    subscriptionPlan: SubscriptionPlan = 'free',
     triggerType: TriggerType = 'manual',
     isAsync = false
   ): Promise<{ used: number; limit: number; remaining: number; resetAt: Date }> {
-    // For backward compatibility, fetch the subscription
-    const subscription = await getHighestPrioritySubscription(userId)
+    const subscription = await getEffectiveSubscription(userId)
     return this.getRateLimitStatusWithSubscription(userId, subscription, triggerType, isAsync)
   }
 

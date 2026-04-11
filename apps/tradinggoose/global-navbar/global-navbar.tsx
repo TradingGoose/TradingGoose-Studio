@@ -14,7 +14,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
-import { isBillingEnabled } from '@/lib/environment'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -25,13 +24,13 @@ import { GlobalNavbarHeaderProvider } from './header-context'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
 import type { NavSection } from './types'
+import { useWorkspaceSwitcher } from './use-workspace-switcher'
 import {
   createAdminNav,
   createNavSections,
   createWorkspaceNav,
   getWorkspaceIdFromPath,
 } from './utils'
-import { useWorkspaceSwitcher } from './use-workspace-switcher'
 
 const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
 const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
@@ -73,7 +72,7 @@ export function GlobalNavbar({
   const { data: organizationsData } = useOrganizations({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
   })
-  const billingEnabled = isBillingEnabled
+  const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
   const [activeSettingsSection, setActiveSettingsSection] =

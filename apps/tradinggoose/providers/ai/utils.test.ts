@@ -23,6 +23,7 @@ import {
   MODELS_WITH_TEMPERATURE_SUPPORT,
   MODELS_WITH_VERBOSITY,
   PROVIDERS_WITH_TOOL_USAGE_CONTROL,
+  prepareToolExecution,
   prepareToolsWithUsageControl,
   supportsTemperature,
   supportsToolUsageControl,
@@ -719,6 +720,75 @@ describe('Tool Management', () => {
     it.concurrent('should return array of transformed custom tools', () => {
       const result = getCustomTools()
       expect(Array.isArray(result)).toBe(true)
+    })
+  })
+
+  describe('prepareToolExecution', () => {
+    it.concurrent('should preserve workspace-only execution context', () => {
+      const { toolParams, executionParams } = prepareToolExecution(
+        {
+          params: {
+            llmOnly: 'overridden',
+            toolOnly: 'tool-value',
+          },
+        },
+        {
+          llmOnly: 'llm-value',
+          argOnly: 'arg-value',
+        },
+        {
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        }
+      )
+
+      expect(toolParams).toEqual({
+        llmOnly: 'overridden',
+        toolOnly: 'tool-value',
+        argOnly: 'arg-value',
+      })
+      expect(executionParams).toMatchObject({
+        llmOnly: 'overridden',
+        toolOnly: 'tool-value',
+        argOnly: 'arg-value',
+        _context: {
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        },
+      })
+      expect(executionParams._context).not.toHaveProperty('workflowId')
+    })
+
+    it.concurrent('should include workflow and execution metadata when available', () => {
+      const { executionParams } = prepareToolExecution(
+        { params: {} },
+        {},
+        {
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+          environmentVariables: { API_KEY: 'secret' },
+          workflowVariables: { symbol: 'AAPL' },
+          blockData: { blockA: { output: 1 } },
+          blockNameMapping: { source: 'blockA' },
+        }
+      )
+
+      expect(executionParams).toEqual({
+        _context: {
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        },
+        envVars: { API_KEY: 'secret' },
+        workflowVariables: { symbol: 'AAPL' },
+        blockData: { blockA: { output: 1 } },
+        blockNameMapping: { source: 'blockA' },
+      })
     })
   })
 

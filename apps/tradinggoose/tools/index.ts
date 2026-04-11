@@ -35,6 +35,25 @@ const MAX_REQUEST_BODY_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 const BODY_SIZE_LIMIT_ERROR_MESSAGE =
   'Request body size limit exceeded (10MB). The workflow data is too large to process. Try reducing the size of variables, inputs, or data being passed between blocks.'
 
+function resolveExecutionScope(
+  params: Record<string, any>,
+  executionContext?: ExecutionContext
+): {
+  workflowId?: string
+  workspaceId?: string
+  userId?: string
+  executionId?: string
+} {
+  const context = params._context || {}
+
+  return {
+    workflowId: context.workflowId ?? executionContext?.workflowId,
+    workspaceId: context.workspaceId ?? executionContext?.workspaceId,
+    userId: context.userId ?? executionContext?.userId,
+    executionId: context.executionId ?? executionContext?.executionId,
+  }
+}
+
 /**
  * Validates request body size and throws a user-friendly error if exceeded
  */
@@ -198,22 +217,14 @@ export async function executeTool(
   const startTime = new Date()
   const startTimeISO = startTime.toISOString()
   const requestId = generateRequestId()
+  const scope = resolveExecutionScope(params, executionContext)
 
   try {
     let tool: ToolConfig | undefined
 
     if (isSkillLoaderExecution(params)) {
       const skillName = typeof params.skill_name === 'string' ? params.skill_name : null
-      const workspaceId =
-        typeof params._context?.workspaceId === 'string'
-          ? params._context.workspaceId
-          : executionContext?.workspaceId
-      const workflowId =
-        typeof params._context?.workflowId === 'string'
-          ? params._context.workflowId
-          : executionContext?.workflowId
-
-      if (!skillName || !workspaceId) {
+      if (!skillName || !scope.workspaceId) {
         return {
           success: false,
           output: { error: 'Missing skill_name or workspace context' },
@@ -221,7 +232,7 @@ export async function executeTool(
         }
       }
 
-      const content = await resolveSkillContent(skillName, workspaceId, workflowId)
+      const content = await resolveSkillContent(skillName, scope.workspaceId, scope.workflowId)
       if (!content) {
         return {
           success: false,
@@ -238,14 +249,19 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {
-      const workflowId = params._context?.workflowId || executionContext?.workflowId
-      const workspaceId = params._context?.workspaceId || executionContext?.workspaceId
-      tool = await getToolAsync(toolId, workflowId, workspaceId)
+      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
     } else if (toolId.startsWith('mcp-')) {
-      return await executeMcpTool(toolId, params, executionContext, requestId, startTimeISO)
+      return await executeMcpTool(
+        toolId,
+        params,
+        executionContext,
+        requestId,
+        startTimeISO,
+        scope.userId
+      )
     } else {
       // For built-in tools, use the synchronous version
       tool = getTool(toolId)
@@ -260,9 +276,10 @@ export async function executeTool(
       const existingContext = (contextParams as any)._context || {}
       const mergedContext = {
         ...existingContext,
-        workflowId: existingContext.workflowId ?? executionContext.workflowId,
-        workspaceId: existingContext.workspaceId ?? executionContext.workspaceId,
-        executionId: existingContext.executionId ?? executionContext.executionId,
+        workflowId: existingContext.workflowId ?? scope.workflowId,
+        workspaceId: existingContext.workspaceId ?? scope.workspaceId,
+        userId: existingContext.userId ?? scope.userId,
+        executionId: existingContext.executionId ?? scope.executionId,
       }
       if (mergedContext.workflowId || mergedContext.workspaceId || mergedContext.executionId) {
         ;(contextParams as any)._context = mergedContext
@@ -303,10 +320,7 @@ export async function executeTool(
         }
 
         // Add workflowId if it exists in params, context, or executionContext
-        const workflowId =
-          contextParams.workflowId ||
-          contextParams._context?.workflowId ||
-          executionContext?.workflowId
+        const workflowId = contextParams.workflowId || contextParams._context?.workflowId || scope.workflowId
         if (workflowId) {
           tokenPayload.workflowId = workflowId
         }
@@ -323,7 +337,7 @@ export async function executeTool(
         const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
         if (typeof window === 'undefined') {
           try {
-            const internalToken = await generateInternalToken()
+            const internalToken = await generateInternalToken(scope.userId)
             tokenHeaders.Authorization = `Bearer ${internalToken}`
           } catch (_e) {
             // Swallow token generation errors; the request will fail and be reported upstream
@@ -418,7 +432,7 @@ export async function executeTool(
       await hydrateAlpacaOrderListing(contextParams)
     }
 
-    const result = await executeToolRequest(toolId, tool, contextParams)
+    const result = await executeToolRequest(toolId, tool, contextParams, executionContext)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
@@ -581,12 +595,13 @@ async function addInternalAuthIfNeeded(
   headers: Headers | Record<string, string>,
   isInternalRoute: boolean,
   requestId: string,
-  context: string
+  context: string,
+  userId?: string
 ): Promise<void> {
   if (typeof window === 'undefined') {
     if (isInternalRoute) {
       try {
-        const internalToken = await generateInternalToken()
+        const internalToken = await generateInternalToken(userId)
         if (headers instanceof Headers) {
           headers.set('Authorization', `Bearer ${internalToken}`)
         } else {
@@ -610,9 +625,11 @@ async function addInternalAuthIfNeeded(
 async function executeToolRequest(
   toolId: string,
   tool: ToolConfig,
-  params: Record<string, any>
+  params: Record<string, any>,
+  executionContext?: ExecutionContext
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
+  const scope = resolveExecutionScope(params, executionContext)
 
   const requestParams = formatRequestParams(tool, params)
 
@@ -652,7 +669,7 @@ async function executeToolRequest(
     }
 
     const headers = new Headers(requestParams.headers)
-    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId)
+    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope.userId)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)
@@ -901,7 +918,8 @@ async function executeMcpTool(
   params: Record<string, any>,
   executionContext?: ExecutionContext,
   requestId?: string,
-  startTimeISO?: string
+  startTimeISO?: string,
+  userId?: string
 ): Promise<ToolResponse> {
   const actualRequestId = requestId || generateRequestId()
   const actualStartTime = startTimeISO || new Date().toISOString()
@@ -917,7 +935,7 @@ async function executeMcpTool(
 
     if (typeof window === 'undefined') {
       try {
-        const internalToken = await generateInternalToken()
+        const internalToken = await generateInternalToken(userId ?? executionContext?.userId)
         headers.Authorization = `Bearer ${internalToken}`
       } catch (error) {
         logger.error(`[${actualRequestId}] Failed to generate internal token:`, error)

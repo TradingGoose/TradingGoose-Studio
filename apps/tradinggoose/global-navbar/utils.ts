@@ -4,6 +4,7 @@ import {
   KeyRound,
   LayoutTemplate,
   LibraryBig,
+  Receipt,
   Scroll,
   ShieldCheck,
   UserRoundPlus,
@@ -68,6 +69,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
 export function createAdminNav(): NavItemLink[] {
   return [
     { title: 'Overview', url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
+    { title: 'Billing', url: '/admin/billing', icon: Receipt, section: 'admin' },
     { title: 'Integrations', url: '/admin/integrations', icon: Waypoints, section: 'admin' },
     { title: 'Registration', url: '/admin/registration', icon: UserRoundPlus, section: 'admin' },
   ]

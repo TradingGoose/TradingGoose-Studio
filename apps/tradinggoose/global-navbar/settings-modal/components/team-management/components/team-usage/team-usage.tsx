@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveOrganization } from '@/lib/auth-client'
-import { getSubscriptionStatus } from '@/lib/subscription/helpers'
+import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import {
@@ -9,7 +9,6 @@ import {
   type UsageLimitRef,
 } from '@/global-navbar/settings-modal/components/subscription/components'
 import { useOrganizationBilling } from '@/hooks/queries/organization'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 
 interface TeamUsageProps {
   hasAdminAccess: boolean
@@ -17,9 +16,6 @@ interface TeamUsageProps {
 
 export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
   const { data: activeOrg } = useActiveOrganization()
-  const { data: subscriptionData } = useSubscriptionData()
-  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
-  const subscription = getSubscriptionStatus(billingPayload)
   const {
     data: billingData,
     isLoading: isLoadingOrgBilling,
@@ -67,31 +63,29 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
 
   const currentUsage = organizationBillingPayload.totalCurrentUsage || 0
   const currentCap =
-    organizationBillingPayload.totalUsageLimit ||
-    organizationBillingPayload.minimumBillingAmount ||
-    0
-  const minimumBilling = organizationBillingPayload.minimumBillingAmount || 0
+    organizationBillingPayload.totalUsageLimit || organizationBillingPayload.minimumUsageLimit || 0
+  const minimumUsageLimit = organizationBillingPayload.minimumUsageLimit || 0
   const seatsCount = organizationBillingPayload.seatsCount || 1
   const percentUsed =
     currentCap > 0 ? Math.round(Math.min((currentUsage / currentCap) * 100, 100)) : 0
+  const warningThresholdPercent =
+    typeof organizationBillingPayload.warningThresholdPercent === 'number'
+      ? organizationBillingPayload.warningThresholdPercent
+      : 100
   const status: 'ok' | 'warning' | 'exceeded' =
-    percentUsed >= 100 ? 'exceeded' : percentUsed >= 80 ? 'warning' : 'ok'
+    percentUsed >= 100 ? 'exceeded' : percentUsed >= warningThresholdPercent ? 'warning' : 'ok'
 
-  const title = subscription.isEnterprise
-    ? 'Enterprise'
-    : subscription.isTeam
-      ? 'Team'
-      : (subscription.plan || 'Free').charAt(0).toUpperCase() +
-        (subscription.plan || 'Free').slice(1)
+  const title = organizationBillingPayload.subscriptionTier.displayName
+  const canEditUsageLimit = canTierEditUsageLimit(organizationBillingPayload.subscriptionTier)
 
   return (
     <UsageHeader
       title={title}
-      gradientTitle={!subscription.isFree}
-      showBadge={!!(hasAdminAccess && activeOrg?.id && !subscription.isEnterprise)}
-      badgeText={subscription.isEnterprise ? undefined : 'Increase Limit'}
+      gradientTitle
+      showBadge={!!(hasAdminAccess && activeOrg?.id && canEditUsageLimit)}
+      badgeText={canEditUsageLimit ? 'Increase Limit' : undefined}
       onBadgeClick={() => {
-        if (!subscription.isEnterprise) usageLimitRef.current?.startEdit()
+        if (canEditUsageLimit) usageLimitRef.current?.startEdit()
       }}
       seatsText={`${seatsCount} seats`}
       current={currentUsage}
@@ -119,13 +113,13 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
         }
       }}
       rightContent={
-        hasAdminAccess && activeOrg?.id && !subscription.isEnterprise ? (
+        hasAdminAccess && activeOrg?.id && canEditUsageLimit ? (
           <UsageLimit
             ref={usageLimitRef}
             currentLimit={currentCap}
             currentUsage={currentUsage}
-            canEdit={hasAdminAccess && !subscription.isEnterprise}
-            minimumLimit={minimumBilling}
+            canEdit={hasAdminAccess && canEditUsageLimit}
+            minimumLimit={minimumUsageLimit}
             context='organization'
             organizationId={activeOrg.id}
           />

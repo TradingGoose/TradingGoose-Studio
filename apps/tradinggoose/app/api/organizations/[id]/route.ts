@@ -1,5 +1,4 @@
-import { db } from '@tradinggoose/db'
-import { member, organization } from '@tradinggoose/db/schema'
+import { db, member, organization } from '@tradinggoose/db'
 import { and, eq, ne } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -9,6 +8,7 @@ import {
   updateOrganizationSeats,
 } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
+import { assertOrganizationCanBeDeleted } from '@/lib/workspaces/billing-owner'
 
 const logger = createLogger('OrganizationAPI')
 
@@ -243,6 +243,70 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-// DELETE method removed - organization deletion not implemented
-// If deletion is needed in the future, it should be implemented with proper
-// cleanup of subscriptions, members, workspaces, and billing data
+/**
+ * DELETE /api/organizations/[id]
+ * Delete an organization when it no longer owns any billing responsibilities.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: organizationId } = await params
+
+    const memberEntry = await db
+      .select()
+      .from(member)
+      .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
+      .limit(1)
+
+    if (memberEntry.length === 0) {
+      return NextResponse.json(
+        { error: 'Forbidden - Not a member of this organization' },
+        { status: 403 }
+      )
+    }
+
+    if (!['owner', 'admin'].includes(memberEntry[0].role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+    }
+
+    try {
+      await assertOrganizationCanBeDeleted(organizationId)
+    } catch (error) {
+      if (error instanceof Error) {
+        return NextResponse.json({ error: error.message }, { status: 409 })
+      }
+      throw error
+    }
+
+    const deleted = await db
+      .delete(organization)
+      .where(eq(organization.id, organizationId))
+      .returning()
+
+    if (deleted.length === 0) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+
+    logger.info('Organization deleted', {
+      organizationId,
+      deletedBy: session.user.id,
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    logger.error('Failed to delete organization', {
+      organizationId: (await params).id,
+      error,
+    })
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

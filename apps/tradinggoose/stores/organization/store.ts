@@ -1,14 +1,8 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { client } from '@/lib/auth-client'
-import { checkEnterprisePlan } from '@/lib/billing/subscriptions/utils'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import type {
-  OrganizationStore,
-  Subscription,
-  WorkspaceInvitation,
-} from '@/stores/organization/types'
+import type { OrganizationStore, WorkspaceInvitation } from '@/stores/organization/types'
 import {
   calculateSeatUsage,
   generateSlug,
@@ -17,8 +11,6 @@ import {
 } from '@/stores/organization/utils'
 
 const logger = createLogger('OrganizationStore')
-
-const isBillingEnabled = isTruthy(getEnv('NEXT_PUBLIC_BILLING_ENABLED'))
 
 const CACHE_DURATION = 30 * 1000
 
@@ -48,24 +40,9 @@ export const useOrganizationStore = create<OrganizationStore>()(
       lastFetched: null,
       lastSubscriptionFetched: null,
       lastOrgBillingFetched: null,
-      hasTeamPlan: false,
-      hasEnterprisePlan: false,
+      billingEnabled: true,
 
       loadData: async () => {
-        if (!isBillingEnabled) {
-          logger.debug('Billing disabled, skipping organization data loading')
-          set({
-            organizations: [],
-            activeOrganization: null,
-            hasTeamPlan: false,
-            hasEnterprisePlan: false,
-            isLoading: false,
-            error: null,
-            lastFetched: Date.now(),
-          })
-          return
-        }
-
         const state = get()
 
         if (state.lastFetched && Date.now() - state.lastFetched < CACHE_DURATION) {
@@ -91,21 +68,18 @@ export const useOrganizationStore = create<OrganizationStore>()(
           const organizations = orgsResponse.data || []
           const activeOrganization = activeOrgResponse.data || null
 
-          let hasTeamPlan = false
-          let hasEnterprisePlan = false
+          let billingEnabled = true
 
           if (billingResponse.ok) {
             const billingResult = await billingResponse.json()
             const billingData = billingResult.data
-            hasTeamPlan = billingData.isTeam
-            hasEnterprisePlan = billingData.isEnterprise
+            billingEnabled = billingData?.billingEnabled ?? true
           }
 
           set({
             organizations,
             activeOrganization,
-            hasTeamPlan,
-            hasEnterprisePlan,
+            billingEnabled,
             isLoading: false,
             error: null,
             lastFetched: Date.now(),
@@ -114,8 +88,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
           logger.debug('Organization data loaded successfully', {
             organizationCount: organizations.length,
             activeOrganizationId: activeOrganization?.id,
-            hasTeamPlan,
-            hasEnterprisePlan,
+            billingEnabled,
           })
 
           // Load subscription data for the active organization
@@ -155,27 +128,38 @@ export const useOrganizationStore = create<OrganizationStore>()(
         try {
           logger.info('Loading subscription for organization', { orgId })
 
-          const { data, error } = await client.subscription.list({
-            query: { referenceId: orgId },
-          })
+          const response = await fetch(`/api/billing?context=organization&id=${orgId}`)
 
-          if (error) {
-            logger.error('Error fetching organization subscription', { error })
+          if (!response.ok) {
+            logger.error('Error fetching organization subscription', { status: response.status })
             set({ error: 'Failed to load subscription data' })
             return
           }
 
-          // Find active team or enterprise subscription
-          const teamSubscription = data?.find(
-            (sub) => sub.status === 'active' && sub.plan === 'team'
-          )
-          const enterpriseSubscription = data?.find((sub) => checkEnterprisePlan(sub))
-          const activeSubscription = enterpriseSubscription || teamSubscription
+          const payload = await response.json()
+          const billingData = payload?.data ?? payload
+          const activeSubscription = billingData
+            ? {
+                id: billingData.organizationId,
+                billingEnabled: billingData.billingEnabled,
+                status: billingData.subscriptionStatus,
+                seats: billingData.totalSeats,
+                referenceType: 'organization' as const,
+                referenceId: orgId,
+                tier: {
+                  ...billingData.subscriptionTier,
+                  seatMode:
+                    billingData.subscriptionTier?.seatMode === 'adjustable'
+                      ? 'adjustable'
+                      : 'fixed',
+                },
+              }
+            : null
 
           if (activeSubscription) {
             logger.info('Found active subscription', {
               id: activeSubscription.id,
-              plan: activeSubscription.plan,
+              tier: activeSubscription.tier?.displayName,
               seats: activeSubscription.seats,
             })
             set({
@@ -245,7 +229,36 @@ export const useOrganizationStore = create<OrganizationStore>()(
           const data = result.data
 
           set({
-            organizationBillingData: { ...data, userRole: result.userRole },
+            organizationBillingData: data
+              ? {
+                  organizationId: data.organizationId,
+                  organizationName: data.organizationName,
+                  billingEnabled: data.billingEnabled,
+                  subscriptionTier: {
+                    ...data.subscriptionTier,
+                    seatMode:
+                      data.subscriptionTier?.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
+                  },
+                  subscriptionStatus: data.subscriptionStatus,
+                  seatPriceUsd: data.seatPriceUsd,
+                  seatCount: data.seatCount,
+                  seatMaximum: data.seatMaximum,
+                  seatMode: data.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
+                  totalSeats: data.totalSeats,
+                  usedSeats: data.usedSeats,
+                  seatsCount: data.seatsCount,
+                  totalCurrentUsage: data.totalCurrentUsage,
+                  totalUsageLimit: data.totalUsageLimit,
+                  warningThresholdPercent: data.warningThresholdPercent,
+                  minimumUsageLimit: data.minimumUsageLimit,
+                  averageUsagePerMember: data.averageUsagePerMember,
+                  billingPeriodStart: data.billingPeriodStart,
+                  billingPeriodEnd: data.billingPeriodEnd,
+                  members: data.members,
+                  userRole: result.userRole,
+                  billingBlocked: data.billingBlocked,
+                }
+              : null,
             isLoadingOrgBilling: false,
             lastOrgBillingFetched: Date.now(),
           })
@@ -319,7 +332,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
       },
 
       refreshOrganization: async () => {
-        if (!isBillingEnabled) {
+        if (!get().billingEnabled) {
           logger.debug('Billing disabled, skipping organization refresh')
           return
         }
@@ -355,36 +368,25 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
       // Organization management
       createOrganization: async (name: string, slug: string) => {
-        if (!isBillingEnabled) {
-          logger.debug('Billing disabled, skipping organization creation')
-          set({
-            error: 'Organizations are only available when billing is enabled',
-            isCreatingOrg: false,
-          })
-          return
-        }
-
         set({ isCreatingOrg: true, error: null })
 
         try {
-          logger.info('Creating team organization', { name, slug })
+          logger.info('Creating organization', { name, slug })
 
-          const result = await client.organization.create({ name, slug })
-          if (!result.data?.id) {
+          const response = await client.organization.create({
+            name,
+            slug,
+          })
+
+          const orgId = response.data?.id
+          if (!orgId) {
             throw new Error('Failed to create organization')
           }
 
-          const orgId = result.data.id
           logger.info('Organization created', { orgId })
 
           // Set as active organization
           await client.organization.setActive({ organizationId: orgId })
-
-          // Handle subscription transfer if needed
-          const { hasTeamPlan, hasEnterprisePlan } = get()
-          if (hasTeamPlan || hasEnterprisePlan) {
-            await get().transferSubscriptionToOrganization(orgId)
-          }
 
           // Refresh data
           await get().loadData()
@@ -491,16 +493,20 @@ export const useOrganizationStore = create<OrganizationStore>()(
         const { activeOrganization, subscriptionData } = get()
         if (!activeOrganization) return
 
+        const isOrganizationTier = subscriptionData?.tier?.ownerType === 'organization'
+
         set({ isInviting: true, error: null, inviteSuccess: false })
 
         try {
-          const { used: totalCount } = calculateSeatUsage(activeOrganization)
-          const seatLimit = subscriptionData?.seats || 0
+          if (isOrganizationTier) {
+            const { used: totalCount } = calculateSeatUsage(activeOrganization)
+            const seatLimit = subscriptionData?.seats || 0
 
-          if (totalCount >= seatLimit) {
-            throw new Error(
-              `You've reached your team seat limit of ${seatLimit}. Please upgrade your plan for more seats.`
-            )
+            if (totalCount >= seatLimit) {
+              throw new Error(
+                `You've reached your seat limit of ${seatLimit}. Upgrade to a larger billing tier for more seats.`
+              )
+            }
           }
 
           if (!validateEmail(email)) {
@@ -558,7 +564,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
       },
 
       removeMember: async (memberId: string, shouldReduceSeats = false) => {
-        const { activeOrganization, subscriptionData } = get()
+        const { activeOrganization } = get()
         if (!activeOrganization) return
 
         logger.info('Removing member', {
@@ -645,11 +651,25 @@ export const useOrganizationStore = create<OrganizationStore>()(
         const { activeOrganization, subscriptionData } = get()
         if (!activeOrganization || !subscriptionData) return
 
+        if (
+          subscriptionData.tier?.ownerType !== 'organization' ||
+          subscriptionData.tier?.seatMode !== 'adjustable'
+        ) {
+          set({ error: 'Seat changes are only available for adjustable organization tiers' })
+          return
+        }
+
         set({ isLoading: true, error: null })
 
         try {
+          const billingTierId = subscriptionData.tier?.id
+          if (!billingTierId) {
+            throw new Error('Organization subscription tier is missing')
+          }
+
           const { error } = await client.subscription.upgrade({
-            plan: 'team',
+            plan: billingTierId,
+            customerType: 'organization',
             referenceId: activeOrganization.id,
             subscriptionId: subscriptionData.id,
             seats: newSeatCount,
@@ -674,9 +694,11 @@ export const useOrganizationStore = create<OrganizationStore>()(
         const { activeOrganization, subscriptionData } = get()
         if (!activeOrganization || !subscriptionData) return
 
-        // Don't allow enterprise users to modify seats
-        if (checkEnterprisePlan(subscriptionData)) {
-          set({ error: 'Enterprise plan seats can only be modified by contacting support' })
+        if (
+          subscriptionData.tier?.ownerType !== 'organization' ||
+          subscriptionData.tier?.seatMode !== 'adjustable'
+        ) {
+          set({ error: 'Seat changes are only available for adjustable organization tiers' })
           return
         }
 
@@ -696,8 +718,14 @@ export const useOrganizationStore = create<OrganizationStore>()(
         set({ isLoading: true, error: null })
 
         try {
+          const billingTierId = subscriptionData.tier?.id
+          if (!billingTierId) {
+            throw new Error('Organization subscription tier is missing')
+          }
+
           const { error } = await client.subscription.upgrade({
-            plan: 'team',
+            plan: billingTierId,
+            customerType: 'organization',
             referenceId: activeOrganization.id,
             subscriptionId: subscriptionData.id,
             seats: newSeatCount,
@@ -717,69 +745,6 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ isLoading: false })
         }
       },
-
-      // Private helper method for subscription transfer
-      transferSubscriptionToOrganization: async (orgId: string) => {
-        const { hasTeamPlan, hasEnterprisePlan } = get()
-
-        try {
-          const userSubResponse = await client.subscription.list()
-          let teamSubscription: Subscription | null =
-            (userSubResponse.data?.find(
-              (sub) => (sub.plan === 'team' || sub.plan === 'enterprise') && sub.status === 'active'
-            ) as Subscription | undefined) || null
-
-          // If no subscription found through client API but user has enterprise plan
-          if (!teamSubscription && hasEnterprisePlan) {
-            const billingResponse = await fetch('/api/billing?context=user')
-            if (billingResponse.ok) {
-              const billingData = await billingResponse.json()
-              if (billingData.success && billingData.data.isEnterprise && billingData.data.status) {
-                teamSubscription = {
-                  id: `subscription_${Date.now()}`,
-                  plan: billingData.data.plan,
-                  status: billingData.data.status,
-                  seats: billingData.data.seats,
-                  referenceId: billingData.data.organizationId || 'unknown',
-                }
-              }
-            }
-          }
-
-          if (teamSubscription) {
-            const transferResponse = await fetch(
-              `/api/users/me/subscription/${teamSubscription.id}/transfer`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  organizationId: orgId,
-                }),
-              }
-            )
-
-            if (!transferResponse.ok) {
-              const errorText = await transferResponse.text()
-              let errorMessage = 'Failed to transfer subscription'
-
-              try {
-                if (errorText?.trim().startsWith('{')) {
-                  const errorData = JSON.parse(errorText)
-                  errorMessage = errorData.error || errorMessage
-                }
-              } catch (_e) {
-                errorMessage = errorText || errorMessage
-              }
-
-              throw new Error(errorMessage)
-            }
-          }
-        } catch (error) {
-          logger.error('Subscription transfer failed', { error })
-          throw error
-        }
-      },
-
       // Computed getters (keep only those that are used)
       getUserRole: (userEmail?: string) => {
         const { activeOrganization } = get()
@@ -849,8 +814,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
           lastFetched: null,
           lastSubscriptionFetched: null,
           lastOrgBillingFetched: null,
-          hasTeamPlan: false,
-          hasEnterprisePlan: false,
+          billingEnabled: true,
         })
       },
     }),

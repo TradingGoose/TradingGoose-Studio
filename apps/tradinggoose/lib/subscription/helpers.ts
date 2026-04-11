@@ -3,12 +3,19 @@
  * These are pure functions that compute values from subscription data
  */
 
-import { DEFAULT_FREE_CREDITS } from '@/lib/billing/constants'
-import type { BillingStatus, SubscriptionData, UsageData } from '@/lib/subscription/types'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import type {
+  BillingStatus,
+  SubscriptionData,
+  SubscriptionStatusData,
+  UsageData,
+} from '@/lib/subscription/types'
+
+const defaultTier = EMPTY_BILLING_TIER_SUMMARY
 
 const defaultUsage: UsageData = {
   current: 0,
-  limit: DEFAULT_FREE_CREDITS,
+  limit: 0,
   percentUsed: 0,
   isWarning: false,
   isExceeded: false,
@@ -20,17 +27,20 @@ const defaultUsage: UsageData = {
 /**
  * Get subscription status flags from subscription data
  */
-export function getSubscriptionStatus(subscriptionData: SubscriptionData | null | undefined) {
+export function getSubscriptionStatus(
+  subscriptionData: SubscriptionData | null | undefined
+): SubscriptionStatusData {
+  const tier = subscriptionData?.tier ?? defaultTier
+  const recurringPrice = Math.max(tier.monthlyPriceUsd ?? 0, tier.yearlyPriceUsd ?? 0)
+  const isPaid = subscriptionData?.isPaid ?? recurringPrice > 0
+
   return {
-    isPaid: subscriptionData?.isPaid ?? false,
-    isPro: subscriptionData?.isPro ?? false,
-    isTeam: subscriptionData?.isTeam ?? false,
-    isEnterprise: subscriptionData?.isEnterprise ?? false,
-    isFree: !(subscriptionData?.isPaid ?? false),
-    plan: subscriptionData?.plan ?? 'free',
+    isPaid,
+    isFree: !isPaid,
     status: subscriptionData?.status ?? null,
     seats: subscriptionData?.seats ?? null,
     metadata: subscriptionData?.metadata ?? null,
+    tier,
   }
 }
 
@@ -81,25 +91,9 @@ export function getDaysRemainingInPeriod(
 }
 
 /**
- * Check if subscription is at least Pro tier
- */
-export function isAtLeastPro(subscriptionData: SubscriptionData | null | undefined): boolean {
-  const status = getSubscriptionStatus(subscriptionData)
-  return status.isPro || status.isTeam || status.isEnterprise
-}
-
-/**
- * Check if subscription is at least Team tier
- */
-export function isAtLeastTeam(subscriptionData: SubscriptionData | null | undefined): boolean {
-  const status = getSubscriptionStatus(subscriptionData)
-  return status.isTeam || status.isEnterprise
-}
-
-/**
  * Check if user can upgrade
  */
 export function canUpgrade(subscriptionData: SubscriptionData | null | undefined): boolean {
   const status = getSubscriptionStatus(subscriptionData)
-  return status.plan === 'free' || status.plan === 'pro'
+  return status.isFree || status.tier.ownerType === 'user'
 }

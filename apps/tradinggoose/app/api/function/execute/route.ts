@@ -1,5 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { checkServerSideUsageLimits } from '@/lib/billing'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getTierFunctionExecutionDurationMultiplier } from '@/lib/billing/tiers'
+import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
+import {
+  resolveWorkflowBillingContext,
+  resolveWorkspaceBillingContext,
+} from '@/lib/billing/workspace-billing'
 import {
   getCodeExecutionConcurrencyLimitMessage,
   isCodeExecutionConcurrencyBackendUnavailableError,
@@ -11,6 +19,7 @@ import {
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { resolveCodeVariables } from '../code-resolution'
 import { executeFunctionWithRuntimeGate } from '../e2b-execution'
@@ -22,6 +31,19 @@ export const runtime = 'nodejs'
 export const maxDuration = 210
 
 const logger = createLogger('FunctionExecuteAPI')
+
+function calculateFunctionExecutionCost(params: {
+  executionTimeMs: number
+  functionExecutionChargeUsd: number
+  functionExecutionDurationMultiplier: number
+}): number {
+  const executionSeconds = Math.max(params.executionTimeMs, 0) / 1000
+  const totalCost =
+    Math.max(params.functionExecutionChargeUsd, 0) +
+    executionSeconds * Math.max(params.functionExecutionDurationMultiplier, 0)
+
+  return Number(totalCost.toFixed(6))
+}
 
 export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
@@ -66,13 +88,46 @@ export async function POST(req: NextRequest) {
       blockNameMapping = {},
       workflowVariables = {},
       workflowId,
+      workspaceId,
       isCustomTool = false,
     } = body
-    const auth = await checkHybridAuth(req, { requireWorkflowId: false })
+    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
     if (!auth.success || !auth.userId) {
       return respondFailure('Unauthorized', Date.now() - startTime, 401)
     }
     const e2bUserScope = auth.userId
+
+    if (workspaceId) {
+      const workspacePermission = await getUserEntityPermissions(
+        auth.userId,
+        'workspace',
+        workspaceId
+      )
+
+      if (!workspacePermission) {
+        return respondFailure('Workspace access denied', Date.now() - startTime, 403)
+      }
+    }
+
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: auth.userId,
+      workspaceId,
+      workflowId,
+    })
+
+    if (usageCheck.isExceeded) {
+      logger.warn(`[${requestId}] Function execution blocked by usage limits`, {
+        userId: auth.userId,
+        workflowId,
+        currentUsage: usageCheck.currentUsage,
+        limit: usageCheck.limit,
+      })
+      return respondFailure(
+        usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.',
+        Date.now() - startTime,
+        402
+      )
+    }
 
     const executionParams = { ...params }
     executionParams._context = undefined
@@ -82,6 +137,7 @@ export async function POST(req: NextRequest) {
       paramsCount: Object.keys(executionParams).length,
       timeout,
       workflowId,
+      workspaceId,
       isCustomTool,
     })
 
@@ -103,6 +159,8 @@ export async function POST(req: NextRequest) {
     const transpiledCode = await transpileTypeScriptCode(resolvedCode)
     const runtimeExecution = await withCodeExecutionConcurrencyLimit({
       userId: auth.userId,
+      workspaceId,
+      workflowId,
       task: () =>
         executeFunctionWithRuntimeGate({
           requestId,
@@ -136,15 +194,82 @@ export async function POST(req: NextRequest) {
         }),
     })
 
-    stdout = runtimeExecution.stdout || stdout
+    const runtimeStdout = runtimeExecution.stdout || stdout
+    stdout = runtimeStdout
     userCodeStartLine = runtimeExecution.userCodeStartLine
+    const billingContext = workflowId
+      ? await resolveWorkflowBillingContext({
+          workflowId,
+          actorUserId: auth.userId,
+        })
+      : await resolveWorkspaceBillingContext({
+          workspaceId,
+          actorUserId: auth.userId,
+        })
+    const billingSettings = await getResolvedBillingSettings()
+    const functionExecutionCost = calculateFunctionExecutionCost({
+      executionTimeMs: runtimeExecution.executionTime,
+      functionExecutionChargeUsd: billingSettings.functionExecutionChargeUsd,
+      functionExecutionDurationMultiplier: getTierFunctionExecutionDurationMultiplier(
+        billingContext.tier
+      ),
+    })
+    if (functionExecutionCost > 0) {
+      await accrueUserUsageCost({
+        userId: auth.userId,
+        workspaceId,
+        workflowId,
+        cost: functionExecutionCost,
+        reason: 'function_execution',
+      })
+    }
 
     if (!runtimeExecution.success) {
+      logger.warn(`[${requestId}] Function execution failed after runtime attempt`, {
+        engine: runtimeExecution.engine,
+        executionTime: runtimeExecution.executionTime,
+        functionExecutionCost,
+        error: runtimeExecution.error,
+      })
+
+      if ('rawError' in runtimeExecution) {
+        const enhancedError = extractEnhancedError(
+          runtimeExecution.rawError,
+          userCodeStartLine,
+          resolvedCode
+        )
+        const userFriendlyErrorMessage = createUserFriendlyErrorMessage(enhancedError, resolvedCode)
+
+        logger.error(`[${requestId}] Enhanced error details`, {
+          originalMessage: runtimeExecution.error,
+          enhancedMessage: userFriendlyErrorMessage,
+          line: enhancedError.line,
+          column: enhancedError.column,
+          lineContent: enhancedError.lineContent,
+          errorType: enhancedError.name,
+          userCodeStartLine,
+          functionExecutionCost,
+        })
+
+        return respondFailure(
+          userFriendlyErrorMessage,
+          runtimeExecution.executionTime,
+          500,
+          runtimeStdout,
+          {
+            line: enhancedError.line,
+            column: enhancedError.column,
+            errorType: enhancedError.name,
+            lineContent: enhancedError.lineContent,
+          }
+        )
+      }
+
       return respondFailure(
-        runtimeExecution.error ?? 'Function execution failed',
+        runtimeExecution.error || 'Function execution failed',
         runtimeExecution.executionTime,
         500,
-        runtimeExecution.stdout
+        runtimeStdout
       )
     }
 
@@ -152,6 +277,7 @@ export async function POST(req: NextRequest) {
     logger.info(`[${requestId}] Function executed successfully`, {
       executionTime,
       engine: runtimeExecution.engine,
+      functionExecutionCost,
     })
 
     return respondSuccess(runtimeExecution.result, executionTime)

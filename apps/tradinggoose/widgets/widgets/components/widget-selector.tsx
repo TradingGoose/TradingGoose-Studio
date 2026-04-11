@@ -41,11 +41,11 @@ function WidgetSelectorComponent({
   disabled,
   renderTrigger,
 }: WidgetSelectorProps) {
-  const categories = getWidgetCategories()
-  const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(() => {
-    if (!currentKey) return getWidgetDefinition('empty')
-    return getWidgetDefinition(currentKey) ?? getWidgetDefinition('empty')
-  }, [currentKey])
+  const categories = useMemo(() => getWidgetCategories(), [])
+  const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(
+    () => getWidgetDefinition(currentKey ?? 'empty') ?? getWidgetDefinition('empty'),
+    [currentKey]
+  )
 
   const CurrentIcon = currentDefinition?.icon
   const triggerDisabled = Boolean(disabled)

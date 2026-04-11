@@ -38,8 +38,24 @@ interface UsageResponse {
   success: boolean
   storage?: StorageInfo
   usage?: {
-    plan?: string
+    tier?: {
+      displayName?: string
+      monthlyPriceUsd?: number | null
+      yearlyPriceUsd?: number | null
+    } | null
   }
+}
+
+function isPaidTierFromUsageTier(
+  tier:
+    | {
+        monthlyPriceUsd?: number | null
+        yearlyPriceUsd?: number | null
+      }
+    | null
+    | undefined
+) {
+  return Math.max(tier?.monthlyPriceUsd ?? 0, tier?.yearlyPriceUsd ?? 0) > 0
 }
 
 interface FilesResponse {
@@ -55,7 +71,8 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ completed: 0, total: 0 })
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
-  const [planName, setPlanName] = useState<string>('free')
+  const [tierDisplayName, setTierDisplayName] = useState<string>('Billing tier')
+  const [isPaidTier, setIsPaidTier] = useState(false)
   const [storageLoading, setStorageLoading] = useState(true)
 
   const loadFiles = useCallback(async () => {
@@ -82,9 +99,8 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
 
       if (data.success && data.storage) {
         setStorageInfo(data.storage)
-        if (data.usage?.plan) {
-          setPlanName(data.usage.plan)
-        }
+        setTierDisplayName(data.usage?.tier?.displayName || 'Billing tier')
+        setIsPaidTier(isPaidTierFromUsageTier(data.usage?.tier))
       }
     } catch (error) {
       logger.error('Error loading storage info:', error)
@@ -236,7 +252,8 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
     uploadProgress,
     storageInfo,
     storageLoading,
-    planName,
+    tierDisplayName,
+    isPaidTier,
     loadFiles,
     loadStorageInfo,
     uploadFiles,

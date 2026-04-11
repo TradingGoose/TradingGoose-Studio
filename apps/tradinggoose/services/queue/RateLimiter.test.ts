@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RateLimiter } from '@/services/queue/RateLimiter'
-import { MANUAL_EXECUTION_LIMIT, RATE_LIMITS } from '@/services/queue/types'
+import { MANUAL_EXECUTION_LIMIT } from '@/services/queue/types'
+
+const TEST_RATE_LIMITS = {
+  syncPerMinute: 10,
+  asyncPerMinute: 50,
+  apiEndpointPerMinute: 10,
+} as const
 
 // Mock the database module
 vi.mock('@tradinggoose/db', () => ({
@@ -19,9 +25,63 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions) => ({ and: conditions })),
 }))
 
-// Mock getHighestPrioritySubscription
+// Mock getEffectiveSubscription
 vi.mock('@/lib/billing/core/subscription', () => ({
-  getHighestPrioritySubscription: vi.fn().mockResolvedValue(null),
+  getEffectiveSubscription: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('@/lib/billing/tiers', () => ({
+  getSubscriptionBillingScope: vi.fn(
+    (
+      userId: string,
+      subscription: {
+        referenceId: string
+        tier?: { usageScope?: string; ownerType?: string }
+      } | null
+    ) => ({
+      scopeId:
+        subscription?.tier?.usageScope === 'pooled' && subscription.referenceId
+          ? subscription.referenceId
+          : userId,
+      scopeType:
+        subscription?.tier?.usageScope === 'pooled' &&
+        subscription?.tier?.ownerType === 'organization'
+          ? 'organization'
+          : 'user',
+    })
+  ),
+  getTierRateLimits: vi.fn(
+    (
+      tier: {
+        syncRateLimitPerMinute?: number | null
+        asyncRateLimitPerMinute?: number | null
+        apiEndpointRateLimitPerMinute?: number | null
+      } | null
+    ) =>
+      tier
+        ? {
+            syncPerMinute: tier.syncRateLimitPerMinute ?? 0,
+            asyncPerMinute: tier.asyncRateLimitPerMinute ?? 0,
+            apiEndpointPerMinute: tier.apiEndpointRateLimitPerMinute ?? 0,
+          }
+        : {
+            syncPerMinute: 0,
+            asyncPerMinute: 0,
+            apiEndpointPerMinute: 0,
+          }
+  ),
+  requireDefaultBillingTier: vi.fn().mockResolvedValue({
+    id: 'tier_default',
+    displayName: 'Community',
+    ownerType: 'user',
+    usageScope: 'individual',
+    seatMode: 'fixed',
+    syncRateLimitPerMinute: 10,
+    asyncRateLimitPerMinute: 50,
+    apiEndpointRateLimitPerMinute: 10,
+    monthlyPriceUsd: null,
+    yearlyPriceUsd: null,
+  }),
 }))
 
 import { db } from '@tradinggoose/db'
@@ -36,7 +96,7 @@ describe('RateLimiter', () => {
 
   describe('checkRateLimit', () => {
     it('should allow unlimited requests for manual trigger type', async () => {
-      const result = await rateLimiter.checkRateLimit(testUserId, 'free', 'manual', false)
+      const result = await rateLimiter.checkRateLimit(testUserId, 'manual', false)
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(MANUAL_EXECUTION_LIMIT)
@@ -69,10 +129,10 @@ describe('RateLimiter', () => {
         }),
       } as any)
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'free', 'api', false)
+      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
 
       expect(result.allowed).toBe(true)
-      expect(result.remaining).toBe(RATE_LIMITS.free.syncApiExecutionsPerMinute - 1)
+      expect(result.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute - 1)
       expect(result.resetAt).toBeInstanceOf(Date)
     })
 
@@ -101,10 +161,10 @@ describe('RateLimiter', () => {
         }),
       } as any)
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'free', 'api', true)
+      const result = await rateLimiter.checkRateLimit(testUserId, 'api', true)
 
       expect(result.allowed).toBe(true)
-      expect(result.remaining).toBe(RATE_LIMITS.free.asyncApiExecutionsPerMinute - 1)
+      expect(result.remaining).toBe(TEST_RATE_LIMITS.asyncPerMinute - 1)
       expect(result.resetAt).toBeInstanceOf(Date)
     })
 
@@ -136,17 +196,17 @@ describe('RateLimiter', () => {
           }),
         } as any)
 
-        const result = await rateLimiter.checkRateLimit(testUserId, 'free', triggerType, false)
+        const result = await rateLimiter.checkRateLimit(testUserId, triggerType, false)
 
         expect(result.allowed).toBe(true)
-        expect(result.remaining).toBe(RATE_LIMITS.free.syncApiExecutionsPerMinute - 1)
+        expect(result.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute - 1)
       }
     })
   })
 
   describe('getRateLimitStatus', () => {
     it('should return unlimited for manual trigger type', async () => {
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'free', 'manual', false)
+      const status = await rateLimiter.getRateLimitStatus(testUserId, 'manual', false)
 
       expect(status.used).toBe(0)
       expect(status.limit).toBe(MANUAL_EXECUTION_LIMIT)
@@ -166,11 +226,11 @@ describe('RateLimiter', () => {
         limit: mockLimit,
       } as any)
 
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'free', 'api', false)
+      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
 
       expect(status.used).toBe(0)
-      expect(status.limit).toBe(RATE_LIMITS.free.syncApiExecutionsPerMinute)
-      expect(status.remaining).toBe(RATE_LIMITS.free.syncApiExecutionsPerMinute)
+      expect(status.limit).toBe(TEST_RATE_LIMITS.syncPerMinute)
+      expect(status.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute)
       expect(status.resetAt).toBeInstanceOf(Date)
     })
   })

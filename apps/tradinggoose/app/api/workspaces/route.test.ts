@@ -101,6 +101,9 @@ describe('Workspaces API Route', () => {
           id: 'workspace-1',
           name: 'Admin Visible Workspace',
           ownerId: 'user-1',
+          billingOwnerType: 'user',
+          billingOwnerUserId: 'user-1',
+          billingOwnerOrganizationId: null,
           createdAt: new Date('2026-04-09T00:00:00.000Z'),
           updatedAt: new Date('2026-04-09T00:00:00.000Z'),
         },
@@ -118,6 +121,10 @@ describe('Workspaces API Route', () => {
     expect(data.workspaces[0]).toMatchObject({
       id: 'workspace-1',
       name: 'Admin Visible Workspace',
+      billingOwner: {
+        type: 'user',
+        userId: 'user-1',
+      },
       role: 'owner',
       permissions: 'admin',
     })

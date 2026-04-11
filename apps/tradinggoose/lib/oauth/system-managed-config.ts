@@ -3,7 +3,7 @@ import {
   getCredentialProviderForService,
   getOAuthCredentialFields,
 } from '@/lib/oauth/oauth'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 import { resolveSystemIntegrationDefinitions } from '@/lib/system-integrations/resolver'
 
 export interface SystemOAuthClientCredentials {
@@ -106,8 +106,7 @@ function normalizeEnvKeySegment(value: string) {
 
 function readEnvironmentCredentialValue(prefix: string, key: string) {
   const envKey = `${prefix}_${normalizeEnvKeySegment(key)}`
-  const value = (env as Record<string, unknown>)[envKey]
-  return typeof value === 'string' ? value.trim() : ''
+  return getEnv(envKey)?.trim() ?? ''
 }
 
 export async function loadSystemOAuthClientCredentialsForProvider(providerId: string) {

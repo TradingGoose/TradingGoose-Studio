@@ -20,15 +20,93 @@ describe('Workflow Execution API Route', () => {
       endTime: new Date().toISOString(),
     },
   })
+  let resolveWorkspaceBillingContextMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
+    resolveWorkspaceBillingContextMock = vi.fn().mockResolvedValue({
+      workspaceId: null,
+      actorUserId: 'user-id',
+      billingUserId: 'user-id',
+      billingOwner: {
+        type: 'user',
+        userId: 'user-id',
+      },
+      subscription: {
+        id: 'subscription-id',
+        referenceId: 'user-id',
+        billingTierId: 'tier_default',
+        tier: {
+          id: 'tier_default',
+          displayName: 'Community',
+          ownerType: 'user',
+          usageScope: 'individual',
+          seatMode: 'fixed',
+          monthlyPriceUsd: null,
+          yearlyPriceUsd: null,
+          includedUsageLimitUsd: null,
+          storageLimitGb: null,
+          concurrencyLimit: 5,
+          seatCount: null,
+          seatMaximum: null,
+          stripeMonthlyPriceId: null,
+          stripeYearlyPriceId: null,
+          stripeProductId: null,
+          syncRateLimitPerMinute: 60,
+          asyncRateLimitPerMinute: 30,
+          apiEndpointRateLimitPerMinute: 60,
+          canEditUsageLimit: false,
+          canConfigureSso: false,
+          logRetentionDays: null,
+          workflowModelCostMultiplier: 1,
+          functionExecutionDurationMultiplier: 0,
+          copilotCostMultiplier: 1,
+          pricingFeatures: [],
+          isPublic: true,
+          isDefault: true,
+          displayOrder: 0,
+        },
+      },
+      tier: {
+        id: 'tier_default',
+        displayName: 'Community',
+        ownerType: 'user',
+        usageScope: 'individual',
+        seatMode: 'fixed',
+        monthlyPriceUsd: null,
+        yearlyPriceUsd: null,
+        includedUsageLimitUsd: null,
+        storageLimitGb: null,
+        concurrencyLimit: 5,
+        seatCount: null,
+        seatMaximum: null,
+        stripeMonthlyPriceId: null,
+        stripeYearlyPriceId: null,
+        stripeProductId: null,
+        syncRateLimitPerMinute: 60,
+        asyncRateLimitPerMinute: 30,
+        apiEndpointRateLimitPerMinute: 60,
+        canEditUsageLimit: false,
+        canConfigureSso: false,
+        logRetentionDays: null,
+        workflowModelCostMultiplier: 1,
+        functionExecutionDurationMultiplier: 0,
+        copilotCostMultiplier: 1,
+        pricingFeatures: [],
+        isPublic: true,
+        isDefault: true,
+        displayOrder: 0,
+      },
+      scopeId: 'user-id',
+      scopeType: 'user',
+    })
 
     vi.doMock('@/app/api/workflows/middleware', () => ({
       validateWorkflowAccess: vi.fn().mockResolvedValue({
         workflow: {
           id: 'workflow-id',
           userId: 'user-id',
+          workspaceId: null,
         },
       }),
     }))
@@ -71,11 +149,9 @@ describe('Workflow Execution API Route', () => {
       }),
     }))
 
-    vi.doMock('@/lib/billing/core/subscription', () => ({
-      getHighestPrioritySubscription: vi.fn().mockResolvedValue({
-        plan: 'free',
-        referenceId: 'user-id',
-      }),
+    vi.doMock('@/lib/billing/workspace-billing', () => ({
+      resolveWorkspaceBillingContext: (...args: any[]) =>
+        resolveWorkspaceBillingContextMock(...args),
     }))
 
     vi.doMock('@/lib/environment/utils', () => ({
@@ -91,7 +167,7 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@tradinggoose/db/schema', () => ({
       subscription: {
-        plan: 'plan',
+        billingTierId: 'billingTierId',
         referenceId: 'referenceId',
       },
       apiKey: {
@@ -227,8 +303,8 @@ describe('Workflow Execution API Route', () => {
           from: vi.fn().mockImplementation((table) => ({
             where: vi.fn().mockImplementation(() => ({
               limit: vi.fn().mockImplementation(() => {
-                if (table === 'subscription' || columns?.plan) {
-                  return [{ plan: 'free' }]
+                if (table === 'subscription' || columns?.billingTierId) {
+                  return [{ billingTierId: 'tier_default' }]
                 }
                 if (table === 'apiKey' || columns?.userId) {
                   return [{ userId: 'user-id' }]
@@ -375,16 +451,16 @@ describe('Workflow Execution API Route', () => {
 
     expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
 
-    expect(Executor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workflow: expect.any(Object), // serializedWorkflow
-        currentBlockStates: expect.any(Object), // processedBlockStates
-        envVarValues: expect.any(Object), // decryptedEnvVars
-        workflowInput: requestBody, // processedInput (direct input, not wrapped)
-        workflowVariables: expect.any(Object),
-        contextExtensions: expect.any(Object), // Allow any context extensions object
-      })
-    )
+      expect(Executor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflow: expect.any(Object), // serializedWorkflow
+          currentBlockStates: expect.any(Object), // processedBlockStates
+          envVarValues: expect.any(Object), // decryptedEnvVars
+          workflowInput: requestBody, // processedInput (direct input, not wrapped)
+          workflowVariables: expect.any(Object),
+          contextExtensions: expect.objectContaining({ userId: 'user-id' }),
+        })
+      )
   })
 
   /**
@@ -568,6 +644,7 @@ describe('Workflow Execution API Route', () => {
         workflow: {
           id: 'workflow-with-vars-id',
           userId: 'user-id',
+          workspaceId: null,
           variables: workflowVariables,
         },
       }),

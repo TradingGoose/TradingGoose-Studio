@@ -1,6 +1,11 @@
 import crypto, { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { document, embedding, knowledgeBase, knowledgeBaseTagDefinitions } from '@tradinggoose/db/schema'
+import {
+  document,
+  embedding,
+  knowledgeBase,
+  knowledgeBaseTagDefinitions,
+} from '@tradinggoose/db/schema'
 import { tasks } from '@trigger.dev/sdk'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
@@ -246,7 +251,9 @@ export async function processDocumentsWithQueue(
   // Priority 2: Queue-based processing (Redis or in-memory based on storage method)
   const queue = getDocumentQueue()
   const storageMethod = getStorageMethod()
-  logger.info(`[${requestId}] Using ${storageMethod} queue for ${createdDocuments.length} documents`)
+  logger.info(
+    `[${requestId}] Using ${storageMethod} queue for ${createdDocuments.length} documents`
+  )
 
   const jobPromises = createdDocuments.map((doc) =>
     queue.addJob<DocumentJobData>('process-document', {
@@ -328,7 +335,7 @@ export async function processDocumentAsync(
         if (processed.chunks.length > LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT) {
           throw new Error(
             `Document has ${processed.chunks.length.toLocaleString()} chunks, exceeding maximum of ${LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT.toLocaleString()}. ` +
-            `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
+              `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
           )
         }
 
@@ -537,7 +544,7 @@ export async function createDocumentRecords(
 
     // Get knowledge base owner
     const kb = await db
-      .select({ userId: knowledgeBase.userId })
+      .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
       .from(knowledgeBase)
       .where(eq(knowledgeBase.id, knowledgeBaseId))
       .limit(1)
@@ -547,7 +554,7 @@ export async function createDocumentRecords(
     }
 
     // Always meter the knowledge base owner
-    const quotaCheck = await checkStorageQuota(kb[0].userId, totalSize)
+    const quotaCheck = await checkStorageQuota(kb[0].userId, totalSize, kb[0].workspaceId)
 
     if (!quotaCheck.allowed) {
       throw new Error(quotaCheck.error || 'Storage limit exceeded')
@@ -628,7 +635,7 @@ export async function createDocumentRecords(
 
         // Get knowledge base owner
         const kb = await db
-          .select({ userId: knowledgeBase.userId })
+          .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
           .from(knowledgeBase)
           .where(eq(knowledgeBase.id, knowledgeBaseId))
           .limit(1)
@@ -636,7 +643,7 @@ export async function createDocumentRecords(
         if (kb.length > 0) {
           // Always meter the knowledge base owner
           try {
-            await incrementStorageUsage(kb[0].userId, totalSize)
+            await incrementStorageUsage(kb[0].userId, totalSize, kb[0].workspaceId)
             logger.info(
               `[${requestId}] Updated knowledge base owner storage usage for ${totalSize} bytes`
             )
@@ -874,7 +881,7 @@ export async function createSingleDocument(
   if (userId) {
     // Get knowledge base owner
     const kb = await db
-      .select({ userId: knowledgeBase.userId })
+      .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
       .from(knowledgeBase)
       .where(eq(knowledgeBase.id, knowledgeBaseId))
       .limit(1)
@@ -884,7 +891,11 @@ export async function createSingleDocument(
     }
 
     // Always meter the knowledge base owner
-    const quotaCheck = await checkStorageQuota(kb[0].userId, documentData.fileSize)
+    const quotaCheck = await checkStorageQuota(
+      kb[0].userId,
+      documentData.fileSize,
+      kb[0].workspaceId
+    )
 
     if (!quotaCheck.allowed) {
       throw new Error(quotaCheck.error || 'Storage limit exceeded')
@@ -940,7 +951,7 @@ export async function createSingleDocument(
   if (userId) {
     // Get knowledge base owner
     const kb = await db
-      .select({ userId: knowledgeBase.userId })
+      .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
       .from(knowledgeBase)
       .where(eq(knowledgeBase.id, knowledgeBaseId))
       .limit(1)
@@ -948,7 +959,7 @@ export async function createSingleDocument(
     if (kb.length > 0) {
       // Always meter the knowledge base owner
       try {
-        await incrementStorageUsage(kb[0].userId, documentData.fileSize)
+        await incrementStorageUsage(kb[0].userId, documentData.fileSize, kb[0].workspaceId)
         logger.info(
           `[${requestId}] Updated knowledge base owner storage usage for ${documentData.fileSize} bytes`
         )
@@ -1072,7 +1083,7 @@ export async function bulkDocumentOperation(
     if (userId && totalSize > 0) {
       // Get knowledge base owner
       const kb = await db
-        .select({ userId: knowledgeBase.userId })
+        .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
         .from(knowledgeBase)
         .where(eq(knowledgeBase.id, knowledgeBaseId))
         .limit(1)
@@ -1080,7 +1091,7 @@ export async function bulkDocumentOperation(
       if (kb.length > 0) {
         // Always meter the knowledge base owner
         try {
-          await decrementStorageUsage(kb[0].userId, totalSize)
+          await decrementStorageUsage(kb[0].userId, totalSize, kb[0].workspaceId)
           logger.info(
             `[${requestId}] Updated knowledge base owner storage usage for -${totalSize} bytes`
           )
@@ -1295,7 +1306,7 @@ export async function updateDocument(
   TAG_SLOTS.forEach((slot: TagSlot) => {
     const updateValue = (updateData as any)[slot]
     if (updateValue !== undefined) {
-      ; (dbUpdateData as any)[slot] = updateValue
+      ;(dbUpdateData as any)[slot] = updateValue
     }
   })
 

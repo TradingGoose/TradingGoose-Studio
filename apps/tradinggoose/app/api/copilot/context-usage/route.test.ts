@@ -44,15 +44,74 @@ describe('Copilot Context Usage API', () => {
       checkAndBillOverageThreshold: vi.fn(),
     }))
 
-    vi.doMock('@/lib/environment', () => ({
-      isBillingEnabled: false,
+    vi.doMock('@/lib/billing/settings', () => ({
+      isBillingEnabledForRuntime: vi.fn(() => Promise.resolve(false)),
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_PROVIDER: 'anthropic',
-        COPILOT_API_KEY: 'test-copilot-key',
-      },
+    vi.doMock('@/lib/billing/core/subscription', () => ({
+      getPersonalEffectiveSubscription: vi.fn().mockResolvedValue(null),
+    }))
+
+    vi.doMock('@/lib/billing/tiers', () => ({
+      requireDefaultBillingTier: vi.fn().mockResolvedValue({
+        id: 'tier_default',
+        displayName: 'Community',
+        ownerType: 'user',
+        usageScope: 'individual',
+        seatMode: 'fixed',
+        monthlyPriceUsd: null,
+        yearlyPriceUsd: null,
+        includedUsageLimitUsd: null,
+        storageLimitGb: null,
+        concurrencyLimit: null,
+        seatCount: null,
+        seatMaximum: null,
+        stripeMonthlyPriceId: null,
+        stripeYearlyPriceId: null,
+        stripeProductId: null,
+        syncRateLimitPerMinute: null,
+        asyncRateLimitPerMinute: null,
+        apiEndpointRateLimitPerMinute: null,
+        canEditUsageLimit: false,
+        canConfigureSso: false,
+        logRetentionDays: null,
+        workflowModelCostMultiplier: 1,
+        functionExecutionDurationMultiplier: 0,
+        copilotCostMultiplier: 1,
+        pricingFeatures: [],
+        isPublic: true,
+        isDefault: true,
+        displayOrder: 0,
+      }),
+      getTierCopilotCostMultiplier: vi.fn(() => 1),
+    }))
+
+    vi.doMock('@/lib/env', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@/lib/env')>()
+
+      return {
+        ...actual,
+        env: {
+          ...actual.env,
+          COPILOT_PROVIDER: 'anthropic',
+          COPILOT_API_KEY: 'test-copilot-key',
+        },
+        getEnv: vi.fn((key: string) => {
+          if (key === 'COPILOT_PROVIDER') return 'anthropic'
+          if (key === 'COPILOT_API_KEY') return 'test-copilot-key'
+          return actual.getEnv(key)
+        }),
+      }
+    })
+
+    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
+      buildCopilotRuntimeProviderConfig: vi.fn(() => ({
+        providerConfig: {
+          provider: 'openai',
+          model: 'gpt-5.4',
+          apiKey: 'test-copilot-key',
+        },
+      })),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({

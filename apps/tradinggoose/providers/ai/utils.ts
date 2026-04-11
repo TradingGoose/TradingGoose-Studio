@@ -925,19 +925,17 @@ export function prepareToolExecution(
     ...tool.params,
   }
 
+  const context = {
+    ...(request.workflowId ? { workflowId: request.workflowId } : {}),
+    ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+    ...(request.chatId ? { chatId: request.chatId } : {}),
+    ...(request.userId ? { userId: request.userId } : {}),
+  }
+
   // Add system parameters for execution
   const executionParams = {
     ...toolParams,
-    ...(request.workflowId
-      ? {
-          _context: {
-            workflowId: request.workflowId,
-            ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
-            ...(request.chatId ? { chatId: request.chatId } : {}),
-            ...(request.userId ? { userId: request.userId } : {}),
-          },
-        }
-      : {}),
+    ...(Object.keys(context).length > 0 ? { _context: context } : {}),
     ...(request.environmentVariables ? { envVars: request.environmentVariables } : {}),
     ...(request.workflowVariables ? { workflowVariables: request.workflowVariables } : {}),
     ...(request.blockData ? { blockData: request.blockData } : {}),

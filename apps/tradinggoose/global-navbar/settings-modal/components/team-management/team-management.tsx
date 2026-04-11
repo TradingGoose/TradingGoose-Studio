@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { DEFAULT_TEAM_TIER_COST_LIMIT } from '@/lib/billing/constants'
-import { checkEnterprisePlan } from '@/lib/billing/subscriptions/utils'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
+import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
+import {
+  useAssignWorkspaceToOrganization,
+  useAvailableOrganizationBillingWorkspaces,
+  useCancelInvitation,
+  useCreateOrganization,
+  useInviteMember,
+  useOrganization,
+  useOrganizationBilling,
+  useOrganizationBillingWorkspaces,
+  useOrganizations,
+  useReleaseWorkspaceFromOrganization,
+  useRemoveMember,
+  useUpdateSeats,
+} from '@/hooks/queries/organization'
+import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -14,55 +29,103 @@ import {
   TeamSeats,
   TeamSeatsOverview,
   TeamUsage,
+  WorkspaceBilling,
 } from './components'
-import {
-  useCancelInvitation,
-  useCreateOrganization,
-  useInviteMember,
-  useOrganization,
-  useOrganizationSubscription,
-  useOrganizations,
-  useRemoveMember,
-  useUpdateSeats,
-} from '@/hooks/queries/organization'
-import { useAdminWorkspaces } from '@/hooks/queries/workspace'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 
 const logger = createLogger('TeamManagement')
+const safeNumber = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0
+
+type TeamBillingTier = {
+  id?: string | null
+  displayName: string
+  ownerType: 'user' | 'organization'
+  seatMode: 'fixed' | 'adjustable'
+  monthlyPriceUsd: number | null
+  seatCount: number | null
+  seatMaximum: number | null
+  canEditUsageLimit: boolean
+  canConfigureSso: boolean
+}
+
+type TeamSubscriptionData = {
+  id: string
+  billingEnabled?: boolean
+  isPaid: boolean
+  status: string
+  seats?: number
+  referenceId: string
+  metadata: any
+  stripeSubscriptionId: string | null
+  periodEnd?: number | Date
+  cancelAtPeriodEnd: boolean
+  tier: TeamBillingTier | null
+  usage: {
+    current: number
+    limit: number
+    percentUsed: number
+    isWarning: boolean
+    isExceeded: boolean
+    billingPeriodStart: Date | null
+    billingPeriodEnd: Date | null
+    lastPeriodCost: number
+    lastPeriodCopilotCost: number
+    copilotCost: number
+  }
+  billingBlocked?: boolean
+}
 
 export function TeamManagement() {
   const { data: session } = useSession()
+  const { handleUpgrade } = useSubscriptionUpgrade()
 
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
-  const billingData = organizationsData?.billingData?.data
-  const hasTeamPlan = billingData?.isTeam ?? false
-  const hasEnterprisePlan = billingData?.isEnterprise ?? false
-
   const {
     data: organization,
     isLoading,
     error: orgError,
   } = useOrganization(activeOrganization?.id || '')
+  const displayOrganization = organization || activeOrganization || null
+  const activeOrgId = displayOrganization?.id
+  const userRole = getUserRole(displayOrganization, session?.user?.email)
+  const adminOrOwner = isAdminOrOwner(displayOrganization, session?.user?.email)
 
   const {
-    data: subscriptionData,
-    isLoading: isLoadingSubscription,
+    data: userSubscriptionData,
+    isLoading: isLoadingPersonalSubscription,
     error: subscriptionError,
-  } = useOrganizationSubscription(activeOrganization?.id || '')
-
-  const { data: userSubscriptionData } = useSubscriptionData()
+  } = useSubscriptionData()
+  const {
+    data: organizationBillingData,
+    isLoading: isLoadingOrganizationBilling,
+    error: organizationBillingError,
+  } = useOrganizationBilling(activeOrgId || '')
+  const { data: publicBillingCatalog } = usePublicBillingCatalog()
 
   const inviteMutation = useInviteMember()
   const removeMemberMutation = useRemoveMember()
   const updateSeatsMutation = useUpdateSeats()
   const createOrgMutation = useCreateOrganization()
+  const assignWorkspaceToOrganizationMutation = useAssignWorkspaceToOrganization()
   const cancelInvitationMutation = useCancelInvitation()
+  const releaseWorkspaceFromOrganizationMutation = useReleaseWorkspaceFromOrganization()
   const {
     data: adminWorkspaces = [],
     isLoading: isLoadingWorkspaces,
     refetch: refetchAdminWorkspaces,
   } = useAdminWorkspaces(session?.user?.id)
+  const {
+    data: organizationBillingWorkspaces = [],
+    isLoading: isLoadingOrganizationBillingWorkspaces,
+  } = useOrganizationBillingWorkspaces(activeOrgId || '', Boolean(activeOrgId && adminOrOwner))
+  const {
+    data: availableOrganizationBillingWorkspaces = [],
+    isLoading: isLoadingAvailableOrganizationBillingWorkspaces,
+  } = useAvailableOrganizationBillingWorkspaces(
+    activeOrgId || '',
+    Boolean(activeOrgId && adminOrOwner)
+  )
 
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -84,20 +147,95 @@ export function TeamManagement() {
   const [newSeatCount, setNewSeatCount] = useState(1)
   const [isUpdatingSeats, setIsUpdatingSeats] = useState(false)
 
-  const displayOrganization = organization || activeOrganization || null
-  const activeOrgId = displayOrganization?.id
+  const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
+  const organizationSubscriptionData: TeamSubscriptionData | null = organizationBillingData
+    ? {
+        id: organizationBillingData.organizationId,
+        billingEnabled: organizationBillingData.billingEnabled,
+        isPaid: (organizationBillingData.subscriptionTier.monthlyPriceUsd ?? 0) > 0,
+        status: organizationBillingData.subscriptionStatus,
+        seats: organizationBillingData.totalSeats,
+        referenceId: organizationBillingData.organizationId,
+        metadata: null,
+        stripeSubscriptionId: null,
+        periodEnd: organizationBillingData.billingPeriodEnd
+          ? new Date(organizationBillingData.billingPeriodEnd)
+          : undefined,
+        cancelAtPeriodEnd: false,
+        tier: {
+          id: organizationBillingData.subscriptionTier.id,
+          displayName: organizationBillingData.subscriptionTier.displayName,
+          ownerType: organizationBillingData.subscriptionTier.ownerType,
+          seatMode:
+            organizationBillingData.subscriptionTier.seatMode === 'adjustable'
+              ? 'adjustable'
+              : 'fixed',
+          monthlyPriceUsd: organizationBillingData.subscriptionTier.monthlyPriceUsd,
+          seatCount: organizationBillingData.subscriptionTier.seatCount,
+          seatMaximum: organizationBillingData.subscriptionTier.seatMaximum,
+          canEditUsageLimit: organizationBillingData.subscriptionTier.canEditUsageLimit,
+          canConfigureSso: organizationBillingData.subscriptionTier.canConfigureSso,
+        },
+        usage: {
+          current: organizationBillingData.totalCurrentUsage,
+          limit: organizationBillingData.totalUsageLimit,
+          percentUsed:
+            organizationBillingData.totalUsageLimit > 0
+              ? (organizationBillingData.totalCurrentUsage /
+                  organizationBillingData.totalUsageLimit) *
+                100
+              : 0,
+          isWarning:
+            organizationBillingData.totalUsageLimit > 0 &&
+            (organizationBillingData.totalCurrentUsage / organizationBillingData.totalUsageLimit) *
+              100 >=
+              organizationBillingData.warningThresholdPercent,
+          isExceeded:
+            organizationBillingData.totalUsageLimit > 0 &&
+            organizationBillingData.totalCurrentUsage >= organizationBillingData.totalUsageLimit,
+          billingPeriodStart: organizationBillingData.billingPeriodStart
+            ? new Date(organizationBillingData.billingPeriodStart)
+            : null,
+          billingPeriodEnd: organizationBillingData.billingPeriodEnd
+            ? new Date(organizationBillingData.billingPeriodEnd)
+            : null,
+          lastPeriodCost: organizationBillingData.lastPeriodCost ?? 0,
+          lastPeriodCopilotCost: organizationBillingData.lastPeriodCopilotCost ?? 0,
+          copilotCost: organizationBillingData.currentPeriodCopilotCost ?? 0,
+        },
+        billingBlocked: organizationBillingData.billingBlocked,
+      }
+    : null
+  const billingPayload = displayOrganization ? organizationSubscriptionData : personalBillingPayload
+  const subscriptionData = billingPayload as TeamSubscriptionData | null
+  const currentTier = subscriptionData?.tier ?? null
+  const personalTier = (personalBillingPayload as TeamSubscriptionData | null)?.tier ?? null
+  const hasOrganizationWorkspaceAccess = displayOrganization
+    ? currentTier?.ownerType === 'organization'
+    : personalTier?.ownerType === 'organization'
+  const isLoadingSubscription = displayOrganization
+    ? isLoadingOrganizationBilling
+    : isLoadingPersonalSubscription
+  const isAdjustableSeatTier =
+    currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
+  const adjustableSeatTier =
+    publicBillingCatalog?.publicTiers.find(
+      (tier) => tier.ownerType === 'organization' && tier.seatMode === 'adjustable'
+    ) ?? null
+  const seatPriceUsd =
+    safeNumber(currentTier?.monthlyPriceUsd) || safeNumber(adjustableSeatTier?.monthlyPriceUsd)
+  const seatCount = currentTier?.seatCount ?? adjustableSeatTier?.seatCount ?? 1
+  const seatMaximum = currentTier?.seatMaximum ?? adjustableSeatTier?.seatMaximum ?? null
 
-  const userRole = getUserRole(displayOrganization, session?.user?.email)
-  const adminOrOwner = isAdminOrOwner(displayOrganization, session?.user?.email)
   const usedSeats = getUsedSeats(displayOrganization)
 
   useEffect(() => {
-    if ((hasTeamPlan || hasEnterprisePlan) && session?.user?.name && !orgName) {
+    if (hasOrganizationWorkspaceAccess && session?.user?.name && !orgName) {
       const defaultName = `${session.user.name}'s Team`
       setOrgName(defaultName)
       setOrgSlug(generateSlug(defaultName))
     }
-  }, [hasTeamPlan, hasEnterprisePlan, session?.user?.name, orgName])
+  }, [hasOrganizationWorkspaceAccess, session?.user?.name, orgName])
 
   useEffect(() => {
     if (session?.user?.id && activeOrgId && adminOrOwner) {
@@ -161,6 +299,7 @@ export function TeamManagement() {
     inviteEmail,
     selectedWorkspaces,
     adminWorkspaces,
+    subscriptionData,
     inviteMutation,
   ])
 
@@ -216,7 +355,12 @@ export function TeamManagement() {
           orgId: activeOrgId,
           shouldReduceSeats,
         })
-        setRemoveMemberDialog({ open: false, memberId: '', memberName: '', shouldReduceSeats: false })
+        setRemoveMemberDialog({
+          open: false,
+          memberId: '',
+          memberName: '',
+          shouldReduceSeats: false,
+        })
       } catch (error) {
         logger.error('Failed to remove member', error)
       }
@@ -226,7 +370,12 @@ export function TeamManagement() {
 
   const handleReduceSeats = useCallback(async () => {
     if (!session?.user || !activeOrgId || !subscriptionData) return
-    if (checkEnterprisePlan(subscriptionData)) return
+    if (
+      subscriptionData.tier?.ownerType !== 'organization' ||
+      subscriptionData.tier?.seatMode !== 'adjustable'
+    ) {
+      return
+    }
 
     const currentSeats = subscriptionData.seats || 0
     if (currentSeats <= 1) return
@@ -244,15 +393,26 @@ export function TeamManagement() {
   }, [session?.user?.id, activeOrgId, subscriptionData, usedSeats.used, updateSeatsMutation])
 
   const handleAddSeatDialog = useCallback(() => {
-    if (subscriptionData) {
+    if (
+      subscriptionData &&
+      subscriptionData.tier?.ownerType === 'organization' &&
+      subscriptionData.tier?.seatMode === 'adjustable'
+    ) {
       setNewSeatCount((subscriptionData.seats || 1) + 1)
       setIsAddSeatDialogOpen(true)
     }
-  }, [subscriptionData?.seats])
+  }, [subscriptionData])
 
   const confirmAddSeats = useCallback(
     async (selectedSeats?: number) => {
-      if (!subscriptionData || !activeOrgId) return
+      if (
+        !subscriptionData ||
+        !activeOrgId ||
+        subscriptionData.tier?.ownerType !== 'organization' ||
+        subscriptionData.tier?.seatMode !== 'adjustable'
+      ) {
+        return
+      }
 
       const seatsToUse = selectedSeats || newSeatCount
       setIsUpdatingSeats(true)
@@ -272,19 +432,92 @@ export function TeamManagement() {
     [subscriptionData, activeOrgId, newSeatCount, updateSeatsMutation]
   )
 
-  const confirmTeamUpgrade = useCallback(
-    async (seats: number) => {
-      if (!session?.user || !activeOrgId) return
-      logger.info('Team upgrade requested', { seats, organizationId: activeOrgId })
-      alert(`Team upgrade to ${seats} seats - integration needed`)
+  const handleAssignWorkspaceBilling = useCallback(
+    async (workspaceId: string) => {
+      if (!activeOrgId) {
+        return
+      }
+
+      try {
+        await assignWorkspaceToOrganizationMutation.mutateAsync({
+          organizationId: activeOrgId,
+          workspaceId,
+        })
+      } catch (error) {
+        logger.error('Failed to assign workspace to organization billing', {
+          error,
+          organizationId: activeOrgId,
+          workspaceId,
+        })
+      }
     },
-    [session?.user?.id, activeOrgId]
+    [activeOrgId, assignWorkspaceToOrganizationMutation]
   )
 
-  const queryError = orgError || subscriptionError
-  const errorMessage = queryError instanceof Error ? queryError.message : null
+  const handleReleaseWorkspaceBilling = useCallback(
+    async (workspaceId: string) => {
+      if (!activeOrgId) {
+        return
+      }
 
-  if (isLoading && !displayOrganization && !(hasTeamPlan || hasEnterprisePlan)) {
+      try {
+        await releaseWorkspaceFromOrganizationMutation.mutateAsync({
+          organizationId: activeOrgId,
+          workspaceId,
+        })
+      } catch (error) {
+        logger.error('Failed to release workspace from organization billing', {
+          error,
+          organizationId: activeOrgId,
+          workspaceId,
+        })
+      }
+    },
+    [activeOrgId, releaseWorkspaceFromOrganizationMutation]
+  )
+
+  const confirmTeamUpgrade = useCallback(
+    async (seats: number) => {
+      if (!session?.user || !adjustableSeatTier) {
+        alert('No public adjustable organization tier is configured')
+        return
+      }
+
+      logger.info('Organization tier upgrade requested', {
+        seats,
+        organizationId: activeOrgId,
+        billingTier: adjustableSeatTier.displayName,
+      })
+
+      await handleUpgrade(
+        {
+          billingTierId: adjustableSeatTier.id,
+          displayName: adjustableSeatTier.displayName,
+          ownerType: adjustableSeatTier.ownerType,
+          usageScope: adjustableSeatTier.usageScope,
+          seatMode: adjustableSeatTier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
+          seatCount: adjustableSeatTier.seatCount,
+        },
+        {
+          seats,
+          organizationId: activeOrgId,
+        }
+      )
+    },
+    [session?.user, activeOrgId, adjustableSeatTier, handleUpgrade]
+  )
+
+  const queryError = orgError || organizationBillingError || subscriptionError
+  const errorMessage = queryError instanceof Error ? queryError.message : null
+  const workspaceBillingError =
+    (assignWorkspaceToOrganizationMutation.error instanceof Error
+      ? assignWorkspaceToOrganizationMutation.error.message
+      : null) ||
+    (releaseWorkspaceFromOrganizationMutation.error instanceof Error
+      ? releaseWorkspaceFromOrganizationMutation.error.message
+      : null)
+
+  if (isLoading && !displayOrganization && !hasOrganizationWorkspaceAccess) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='space-y-4'>
@@ -299,8 +532,7 @@ export function TeamManagement() {
   if (!displayOrganization) {
     return (
       <NoOrganizationView
-        hasTeamPlan={hasTeamPlan}
-        hasEnterprisePlan={hasEnterprisePlan}
+        hasOrganizationWorkspaceAccess={Boolean(hasOrganizationWorkspaceAccess)}
         orgName={orgName}
         setOrgName={setOrgName}
         orgSlug={orgSlug}
@@ -321,23 +553,17 @@ export function TeamManagement() {
         {/* Team Usage Overview */}
         <TeamUsage hasAdminAccess={adminOrOwner} />
 
-        {/* Team Billing Information (only show for Team Plan, not Enterprise) */}
-        {hasTeamPlan && !hasEnterprisePlan && (
+        {/* Organization billing information */}
+        {currentTier?.ownerType === 'organization' && (
           <div className='rounded-sm border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
             <div className='space-y-3'>
-              <h4 className='font-medium text-sm'>How Team Billing Works</h4>
+              <h4 className='font-medium text-sm'>How this team billing works</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
                 <li>
-                  Your team is billed a minimum of $
-                  {(subscriptionData?.seats || 0) *
-                    (env.TEAM_TIER_COST_LIMIT ?? DEFAULT_TEAM_TIER_COST_LIMIT)}
+                  Your team is billed a minimum of ${(subscriptionData?.seats || 0) * seatPriceUsd}
                   /month for {subscriptionData?.seats || 0} licensed seats
                 </li>
-                <li>All team member usage is pooled together from a shared limit</li>
-                <li>
-                  When pooled usage exceeds the limit, all members are blocked from using the
-                  service
-                </li>
+                <li>Usage is tracked against the active included allowance for this tier</li>
                 <li>You can increase the usage limit to allow for higher usage</li>
                 <li>
                   Any usage beyond the minimum seat cost is billed as overage at the end of the
@@ -348,14 +574,26 @@ export function TeamManagement() {
           </div>
         )}
 
+        <WorkspaceBilling
+          billedWorkspaces={organizationBillingWorkspaces}
+          availableWorkspaces={availableOrganizationBillingWorkspaces}
+          canManage={adminOrOwner}
+          hasOrganizationBilling={Boolean(currentTier?.ownerType === 'organization')}
+          isLoading={
+            isLoadingOrganizationBillingWorkspaces ||
+            isLoadingAvailableOrganizationBillingWorkspaces
+          }
+          isAssigning={assignWorkspaceToOrganizationMutation.isPending}
+          isReleasing={releaseWorkspaceFromOrganizationMutation.isPending}
+          error={workspaceBillingError}
+          onAssignWorkspace={handleAssignWorkspaceBilling}
+          onReleaseWorkspace={handleReleaseWorkspaceBilling}
+        />
+
         {/* Team Seats Overview */}
-        {adminOrOwner && (
+        {adminOrOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
-            subscriptionData={
-              subscriptionData ||
-              ((userSubscriptionData as any)?.data ?? userSubscriptionData) ||
-              null
-            }
+            subscriptionData={subscriptionData}
             isLoadingSubscription={isLoadingSubscription}
             usedSeats={usedSeats.used}
             isLoading={isLoading}
@@ -406,6 +644,7 @@ export function TeamManagement() {
             }}
             onWorkspaceToggle={handleWorkspaceToggle}
             inviteSuccess={inviteSuccess}
+            seatLimited={Boolean(currentTier?.ownerType === 'organization')}
             availableSeats={Math.max(0, (subscriptionData?.seats || 0) - usedSeats.used)}
             maxSeats={subscriptionData?.seats || 0}
           />
@@ -434,6 +673,7 @@ export function TeamManagement() {
         open={removeMemberDialog.open}
         memberName={removeMemberDialog.memberName}
         shouldReduceSeats={removeMemberDialog.shouldReduceSeats}
+        canReduceSeats={isAdjustableSeatTier}
         isSelfRemoval={removeMemberDialog.isSelfRemoval}
         onOpenChange={(open: boolean) => {
           if (!open) {
@@ -447,7 +687,9 @@ export function TeamManagement() {
               : { ...prev, shouldReduceSeats: shouldReduce }
           )
         }
-        onConfirmRemove={confirmRemoveMember}
+        onConfirmRemove={(shouldReduceSeats: boolean) =>
+          confirmRemoveMember(isAdjustableSeatTier ? shouldReduceSeats : false)
+        }
         onCancel={() =>
           setRemoveMemberDialog({
             open: false,
@@ -460,10 +702,13 @@ export function TeamManagement() {
       />
 
       <TeamSeats
-        open={isAddSeatDialogOpen}
+        open={isAddSeatDialogOpen && isAdjustableSeatTier}
         onOpenChange={setIsAddSeatDialogOpen}
         title='Add Team Seats'
-        description={`Each seat costs $${env.TEAM_TIER_COST_LIMIT ?? DEFAULT_TEAM_TIER_COST_LIMIT}/month and provides $${env.TEAM_TIER_COST_LIMIT ?? DEFAULT_TEAM_TIER_COST_LIMIT} in monthly inference credits. Adjust the number of licensed seats for your team.`}
+        description={`Each seat costs $${seatPriceUsd}/month and provides $${seatPriceUsd} in monthly inference credits. Adjust the number of licensed seats for your team.`}
+        pricePerSeat={seatPriceUsd}
+        minimumSeats={seatCount}
+        maximumSeats={seatMaximum}
         currentSeats={subscriptionData?.seats || 1}
         initialSeats={newSeatCount}
         isLoading={isUpdatingSeats || updateSeatsMutation.isPending}
