@@ -57,7 +57,7 @@ import {
 import { sendEmail } from '@/lib/email/mailer'
 import { getFromEmailAddress } from '@/lib/email/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env, getEnv } from '@/lib/env'
+import { env } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -121,6 +121,10 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
 }
 
 type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
+type SystemManagedSocialProviderConfig = {
+  clientId: string
+  clientSecret: string
+}
 
 function toSystemManagedGenericOAuthConfig(
   config: SystemManagedGenericOAuthConfig
@@ -153,6 +157,41 @@ function toSystemManagedGenericOAuthConfig(
 
 function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
   return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+}
+
+function toSystemManagedSocialProviderConfig<T extends SystemManagedSocialProviderConfig>(
+  providerId: string,
+  config: Omit<T, 'clientId' | 'clientSecret'>
+): T
+function toSystemManagedSocialProviderConfig<T extends Record<string, unknown>>(
+  providerId: string,
+  config: T
+): T & SystemManagedSocialProviderConfig
+function toSystemManagedSocialProviderConfig(providerId: string, config: Record<string, unknown>) {
+  const providerConfig = {
+    ...config,
+    clientId: '',
+    clientSecret: '',
+  }
+
+  Object.defineProperties(providerConfig, {
+    clientId: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(providerId).clientId
+      },
+    },
+    clientSecret: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(providerId).clientSecret
+      },
+    },
+  })
+
+  return providerConfig
 }
 
 const MICROSOFT_OAUTH_BASE_CONFIG = {
@@ -353,19 +392,15 @@ export const auth = betterAuth({
     },
   },
   socialProviders: {
-    github: {
-      clientId: getEnv('GITHUB_CLIENT_ID') as string,
-      clientSecret: getEnv('GITHUB_CLIENT_SECRET') as string,
+    github: toSystemManagedSocialProviderConfig('github', {
       scopes: ['user:email', 'repo'],
-    },
-    google: {
-      clientId: getEnv('GOOGLE_CLIENT_ID') as string,
-      clientSecret: getEnv('GOOGLE_CLIENT_SECRET') as string,
+    }),
+    google: toSystemManagedSocialProviderConfig('google', {
       scopes: [
         'https://www.googleapis.com/auth/userinfo.email',
         'https://www.googleapis.com/auth/userinfo.profile',
       ],
-    },
+    }),
   },
   emailAndPassword: {
     enabled: true,

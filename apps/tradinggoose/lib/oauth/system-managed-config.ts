@@ -1,9 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { getEnv } from '@/lib/env'
 import {
   getCredentialProviderForService,
   getOAuthCredentialFields,
+  getOAuthProviderSubjectId,
 } from '@/lib/oauth/oauth'
-import { getEnv } from '@/lib/env'
 import { resolveSystemIntegrationDefinitions } from '@/lib/system-integrations/resolver'
 
 export interface SystemOAuthClientCredentials {
@@ -12,7 +13,9 @@ export interface SystemOAuthClientCredentials {
   fields: Record<string, string>
 }
 
-const oauthCredentialStorage = new AsyncLocalStorage<ReadonlyMap<string, SystemOAuthClientCredentials>>()
+const oauthCredentialStorage = new AsyncLocalStorage<
+  ReadonlyMap<string, SystemOAuthClientCredentials>
+>()
 
 const EMPTY_CREDENTIALS: SystemOAuthClientCredentials = {
   clientId: '',
@@ -28,12 +31,21 @@ export async function loadSystemOAuthClientCredentials(providerIds: string[]) {
     return {}
   }
 
-  const definitions = await resolveSystemIntegrationDefinitions(normalizedProviderIds)
+  const subjectProviderIdsByRequestProviderId = new Map(
+    normalizedProviderIds.map((providerId) => [
+      providerId,
+      resolveSystemOAuthProviderSubjectId(providerId),
+    ])
+  )
+  const definitions = await resolveSystemIntegrationDefinitions(
+    Array.from(new Set(subjectProviderIdsByRequestProviderId.values()))
+  )
   const credentials: Record<string, SystemOAuthClientCredentials> = {}
 
   for (const providerId of normalizedProviderIds) {
-    const resolved = definitions[providerId]
-    const systemCredentials = getSystemManagedOAuthClientCredentials(providerId, resolved)
+    const subjectProviderId = subjectProviderIdsByRequestProviderId.get(providerId) ?? providerId
+    const resolved = definitions[subjectProviderId]
+    const systemCredentials = getSystemManagedOAuthClientCredentials(subjectProviderId, resolved)
     if (systemCredentials) {
       credentials[providerId] = systemCredentials
       continue
@@ -42,7 +54,7 @@ export async function loadSystemOAuthClientCredentials(providerIds: string[]) {
     if (resolved) {
       continue
     }
-    const envCredentials = getEnvironmentOAuthClientCredentials(providerId)
+    const envCredentials = getEnvironmentOAuthClientCredentials(subjectProviderId)
     if (envCredentials) {
       credentials[providerId] = envCredentials
     }
@@ -53,7 +65,10 @@ export async function loadSystemOAuthClientCredentials(providerIds: string[]) {
 
 function getSystemManagedOAuthClientCredentials(
   providerId: string,
-  resolved: Awaited<ReturnType<typeof resolveSystemIntegrationDefinitions>>[string] | null | undefined
+  resolved:
+    | Awaited<ReturnType<typeof resolveSystemIntegrationDefinitions>>[string]
+    | null
+    | undefined
 ) {
   if (!resolved?.isEnabled) {
     return null
@@ -90,10 +105,14 @@ function buildOAuthClientCredentials(providerId: string, values: Record<string, 
   const clientSecretField = credentialFields.find((field) => field.oauthProperty === 'clientSecret')
 
   return {
-    clientId: clientIdField ? fields[clientIdField.key] ?? '' : '',
-    clientSecret: clientSecretField ? fields[clientSecretField.key] ?? '' : '',
+    clientId: clientIdField ? (fields[clientIdField.key] ?? '') : '',
+    clientSecret: clientSecretField ? (fields[clientSecretField.key] ?? '') : '',
     fields,
   } satisfies SystemOAuthClientCredentials
+}
+
+function resolveSystemOAuthProviderSubjectId(providerId: string) {
+  return getOAuthProviderSubjectId({ provider: providerId }) ?? providerId
 }
 
 function normalizeEnvKeySegment(value: string) {
