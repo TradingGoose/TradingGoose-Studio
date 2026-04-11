@@ -1,3 +1,6 @@
+import { db } from '@tradinggoose/db'
+import { workflow } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
@@ -19,7 +22,7 @@ import {
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { resolveCodeVariables } from '../code-resolution'
 import { executeFunctionWithRuntimeGate } from '../e2b-execution'
@@ -96,6 +99,32 @@ export async function POST(req: NextRequest) {
       return respondFailure('Unauthorized', Date.now() - startTime, 401)
     }
     const e2bUserScope = auth.userId
+
+    if (workflowId) {
+      const [workflowData] = await db
+        .select({ userId: workflow.userId, workspaceId: workflow.workspaceId })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+
+      if (!workflowData) {
+        return respondFailure('Workflow not found', Date.now() - startTime, 404)
+      }
+
+      let hasWorkflowAccess = workflowData.userId === auth.userId
+
+      if (!hasWorkflowAccess && workflowData.workspaceId) {
+        const workflowWorkspaceAccess = await checkWorkspaceAccess(
+          workflowData.workspaceId,
+          auth.userId
+        )
+        hasWorkflowAccess = workflowWorkspaceAccess.hasAccess
+      }
+
+      if (!hasWorkflowAccess) {
+        return respondFailure('Workflow access denied', Date.now() - startTime, 403)
+      }
+    }
 
     if (workspaceId) {
       const workspacePermission = await getUserEntityPermissions(

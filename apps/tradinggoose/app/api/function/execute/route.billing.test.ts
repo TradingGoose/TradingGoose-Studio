@@ -6,10 +6,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
+const mockWorkflowQueryLimit = vi.fn()
+const mockCheckWorkspaceAccess = vi.fn()
+
 describe('Function Execute Billing', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.resetAllMocks()
+    mockWorkflowQueryLimit.mockReset()
+    mockWorkflowQueryLimit.mockResolvedValue([{ userId: 'test-user-id', workspaceId: null }])
+    mockCheckWorkspaceAccess.mockReset()
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
+      hasAccess: true,
+      canWrite: true,
+      workspace: { id: 'workspace-123', ownerId: 'workflow-owner' },
+    })
 
     vi.doMock('@/lib/auth/hybrid', () => ({
       checkSessionOrInternalAuth: vi.fn().mockResolvedValue({
@@ -39,7 +51,19 @@ describe('Function Execute Billing', () => {
       })),
     }))
     vi.doMock('@/lib/permissions/utils', () => ({
+      checkWorkspaceAccess: mockCheckWorkspaceAccess,
       getUserEntityPermissions: vi.fn().mockResolvedValue('admin'),
+    }))
+    vi.doMock('@tradinggoose/db', () => ({
+      db: {
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              limit: mockWorkflowQueryLimit,
+            })),
+          })),
+        })),
+      },
     }))
     vi.doMock('@/lib/utils', () => ({
       generateRequestId: vi.fn(() => 'request-1'),
@@ -171,12 +195,18 @@ describe('Function Execute Billing', () => {
       workflowId: 'workflow-123',
     })
 
+    mockWorkflowQueryLimit.mockResolvedValueOnce([
+      { userId: 'workflow-owner', workspaceId: 'workspace-123' },
+    ])
+
+    const { checkWorkspaceAccess } = await import('@/lib/permissions/utils')
     const { resolveWorkflowBillingContext } = await import('@/lib/billing/workspace-billing')
     const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(req)
 
     expect(response.status).toBe(200)
+    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-123', 'test-user-id')
     expect(resolveWorkflowBillingContext).toHaveBeenCalledWith({
       workflowId: 'workflow-123',
       actorUserId: 'test-user-id',
@@ -187,6 +217,91 @@ describe('Function Execute Billing', () => {
       cost: 0.75,
       reason: 'function_execution',
     })
+  })
+
+  it('allows workflow-scoped execution for a workspace owner without a permission row', async () => {
+    vi.doMock('@/app/api/function/e2b-execution', () => ({
+      executeFunctionWithRuntimeGate: vi.fn().mockResolvedValue({
+        engine: 'e2b',
+        success: true,
+        result: 'ok',
+        stdout: '',
+        executionTime: 1000,
+        userCodeStartLine: 3,
+      }),
+    }))
+
+    mockWorkflowQueryLimit.mockResolvedValueOnce([
+      { userId: 'workflow-owner', workspaceId: 'workspace-123' },
+    ])
+    mockCheckWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: true,
+      canWrite: true,
+      workspace: { id: 'workspace-123', ownerId: 'test-user-id' },
+    })
+
+    const { getUserEntityPermissions, checkWorkspaceAccess } = await import(
+      '@/lib/permissions/utils'
+    )
+    const { resolveWorkflowBillingContext } = await import('@/lib/billing/workspace-billing')
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "owner allowed"',
+        workflowId: 'workflow-123',
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-123', 'test-user-id')
+    expect(getUserEntityPermissions).not.toHaveBeenCalledWith(
+      'test-user-id',
+      'workspace',
+      'workspace-123'
+    )
+    expect(resolveWorkflowBillingContext).toHaveBeenCalledWith({
+      workflowId: 'workflow-123',
+      actorUserId: 'test-user-id',
+    })
+  })
+
+  it('denies workflow-scoped execution before usage and billing logic when workflow access is missing', async () => {
+    vi.doMock('@/app/api/function/e2b-execution', () => ({
+      executeFunctionWithRuntimeGate: vi.fn(),
+    }))
+
+    mockWorkflowQueryLimit.mockResolvedValueOnce([
+      { userId: 'workflow-owner', workspaceId: 'workspace-123' },
+    ])
+
+    mockCheckWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: false,
+      canWrite: false,
+      workspace: { id: 'workspace-123', ownerId: 'workflow-owner' },
+    })
+
+    const req = createMockRequest('POST', {
+      code: 'return "workflow blocked"',
+      workflowId: 'workflow-123',
+    })
+
+    const { checkServerSideUsageLimits } = await import('@/lib/billing')
+    const { resolveWorkflowBillingContext } = await import('@/lib/billing/workspace-billing')
+    const { withCodeExecutionConcurrencyLimit } = await import('@/lib/execution/concurrency-limit')
+    const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(req)
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Workflow access denied')
+    expect(checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(withCodeExecutionConcurrencyLimit).not.toHaveBeenCalled()
+    expect(resolveWorkflowBillingContext).not.toHaveBeenCalled()
+    expect(accrueUserUsageCost).not.toHaveBeenCalled()
   })
 
   it('uses workspace billing context for ad-hoc workspace-scoped function execution', async () => {
