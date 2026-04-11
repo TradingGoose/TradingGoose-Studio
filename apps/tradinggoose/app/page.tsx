@@ -4,6 +4,8 @@ import { buildHostedPricingSummary } from '@/lib/billing/public-catalog'
 import { Background } from '@/app/(landing)/components'
 import Landing from '@/app/(landing)/landing'
 
+export const dynamic = 'force-dynamic'
+
 const metadataBase: Metadata = {
   title: 'TradingGoose - Visual Workflow Platform for LLM Trading | Open Source',
   description:

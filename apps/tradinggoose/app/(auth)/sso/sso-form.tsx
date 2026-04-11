@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env, isFalsy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getAuthRegistrationHref,
@@ -169,9 +168,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         description='Enter your work email to continue'
       />
 
-      {registrationMode === 'waitlist' ? (
-        <AuthWaitlistNote />
-      ) : null}
+      {registrationMode === 'waitlist' ? <AuthWaitlistNote /> : null}
 
       <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
         <div className='space-y-6'>
@@ -193,8 +190,8 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showEmailValidationError &&
-                emailErrors.length > 0 &&
-                'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  emailErrors.length > 0 &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
@@ -212,38 +209,30 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         </Button>
       </form>
 
-      {/* Only show divider and email signin button if email/password is enabled */}
-      {!isFalsy(env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED) && (
-        <>
-          <div className={`${inter.className} relative my-6 font-light`}>
-            <div className='absolute inset-0 flex items-center'>
-              <div className='auth-divider w-full border-t' />
-            </div>
-            <div className='relative flex justify-center text-sm'>
-              <span className='bg-background px-4 font-[340] text-muted-foreground'>Or</span>
-            </div>
-          </div>
+      <div className={`${inter.className} relative my-6 font-light`}>
+        <div className='absolute inset-0 flex items-center'>
+          <div className='auth-divider w-full border-t' />
+        </div>
+        <div className='relative flex justify-center text-sm'>
+          <span className='bg-background px-4 font-[340] text-muted-foreground'>Or</span>
+        </div>
+      </div>
 
-          <div className={`${inter.className} space-y-3`}>
-            <Link
-              href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
-            >
-              <Button
-                variant='outline'
-                className='w-full rounded-md shadow-sm hover:bg-gray-50'
-                type='button'
-              >
-                Sign in with email
-              </Button>
-            </Link>
-          </div>
-        </>
-      )}
+      <div className={`${inter.className} space-y-3`}>
+        <Link
+          href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
+        >
+          <Button
+            variant='outline'
+            className='w-full rounded-md shadow-sm hover:bg-gray-50'
+            type='button'
+          >
+            Sign in with email
+          </Button>
+        </Link>
+      </div>
 
-      {/* Only show signup link if email/password signup is enabled */}
-      {!isFalsy(env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED) &&
-        registrationHref &&
-        registrationLabel && (
+      {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>Don't have an account? </span>
           <Link

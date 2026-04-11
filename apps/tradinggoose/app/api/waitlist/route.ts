@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError, z } from 'zod'
 import { addToWaitlist, getRegistrationMode } from '@/lib/registration/service'
 import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
@@ -16,6 +16,16 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const registrationMode = await getRegistrationMode()
+    if (registrationMode === 'open') {
+      return NextResponse.json(
+        { error: 'Registration is open. Sign up directly.' },
+        {
+          status: 409,
+          headers: NO_STORE_HEADERS,
+        }
+      )
+    }
+
     if (registrationMode === 'disabled') {
       return NextResponse.json(
         { error: REGISTRATION_DISABLED_MESSAGE },

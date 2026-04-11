@@ -1,14 +1,19 @@
 import Link from 'next/link'
-import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
+import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { WaitlistForm } from './waitlist-form'
 
 export const dynamic = 'force-dynamic'
 
 export default async function WaitlistPage() {
   const registrationMode = await getRegistrationModeForRender()
+
+  if (registrationMode === 'open') {
+    redirect('/signup')
+  }
 
   if (registrationMode === 'disabled') {
     return (

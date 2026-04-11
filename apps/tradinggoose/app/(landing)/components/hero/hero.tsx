@@ -17,14 +17,24 @@ import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
-import { useRegistrationState } from '@/hooks/queries/registration'
 import {
-  DEFAULT_REGISTRATION_MODE,
   getRegistrationPrimaryHref,
   getRegistrationPrimaryLabel,
+  type RegistrationMode,
 } from '@/lib/registration/shared'
 
-const Hero = () => {
+function getHeroBadgeText(registrationMode: RegistrationMode) {
+  switch (registrationMode) {
+    case 'disabled':
+      return 'Honk! TradingGoose-Studio coming soon'
+    case 'waitlist':
+      return 'Honk! Introducing TradingGoose-Studio'
+    case 'open':
+      return 'Honk! TradingGoose-Studio is here!'
+  }
+}
+
+const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const iconRef1 = useRef<HTMLDivElement>(null)
   const iconRef2 = useRef<HTMLDivElement>(null)
@@ -42,20 +52,19 @@ const Hero = () => {
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
 
-  const registrationQuery = useRegistrationState()
-  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
   const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
   const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
+  const isRegistrationDisabled = registrationMode === 'disabled'
 
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
         <div className='flex flex-col items-center gap-4 text-center'>
-          <Badge variant='outline' className='relative bg-background z-10 text-sm font-normal'>
-            Honk! TradingGoose-Studio comming soon 🚀
+          <Badge variant='outline' className='relative z-10 bg-background font-normal text-sm'>
+            {getHeroBadgeText(registrationMode)}
           </Badge>
 
-          <h1 className='relative z-10 text-2xl font-semibold sm:text-3xl lg:text-5xl lg:font-bold'>
+          <h1 className='relative z-10 font-semibold text-2xl sm:text-3xl lg:font-bold lg:text-5xl'>
             <WordRotate words={['Build', 'Test', 'Run']} duration={4000} /> your{' '}
             <WordRotate
               words={['Trading Analysis', 'Signal Detection', 'Risk Assessment']}
@@ -65,42 +74,49 @@ const Hero = () => {
             with TradingGoose
           </h1>
 
-          <p className='relative z-10 text-muted-foreground max-w-3xl text-lg leading-relaxed'>
+          <p className='relative z-10 max-w-3xl text-lg text-muted-foreground leading-relaxed'>
             Connect your own data providers, write custom indicators to monitor market prices, and
             wire them into workflows that trigger trade, sell, buy, or any action you define.
           </p>
 
           <div className='relative z-10 flex flex-wrap items-center justify-center gap-2'>
-            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <BotMessageSquareIcon className='size-3.5' />
               AI Agent Workflows
             </Badge>
-            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <ChartCandlestick className='size-3.5' />
               Custom Indicators
             </Badge>
-            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <ActivityIcon className='size-3.5' />
               Bring Your Own Data
             </Badge>
-            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <BlocksIcon className='size-3.5' />
               Integrations
             </Badge>
           </div>
 
           <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
-            <Button size='lg' className='text-lg font-semibold' asChild>
-              <Link href={registrationPrimaryHref} prefetch={false}>
-                {registrationPrimaryLabel}
-              </Link>
-            </Button>
-            <Button variant='outline' size='lg' className='bg-background text-lg font-semibold' asChild>
-              <Link
-                href='https://docs.tradinggoose.ai'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+            {isRegistrationDisabled ? (
+              <Button size='lg' className='font-semibold text-lg' disabled>
+                Coming soon
+              </Button>
+            ) : (
+              <Button size='lg' className='font-semibold text-lg' asChild>
+                <Link href={registrationPrimaryHref} prefetch={false}>
+                  {registrationPrimaryLabel}
+                </Link>
+              </Button>
+            )}
+            <Button
+              variant='outline'
+              size='lg'
+              className='bg-background font-semibold text-lg'
+              asChild
+            >
+              <Link href='https://docs.tradinggoose.ai' target='_blank' rel='noopener noreferrer'>
                 Learn More
               </Link>
             </Button>
@@ -112,7 +128,7 @@ const Hero = () => {
             <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
               <div
                 ref={iconRef1}
-                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+                className='flex size-12 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-md lg:size-[3.75rem]'
               >
                 <ChartCandlestick className='size-7 stroke-1 lg:size-10' />
               </div>
@@ -122,7 +138,7 @@ const Hero = () => {
               <span ref={spanRef2} className='size-0.5' />
               <div
                 ref={iconRef2}
-                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+                className='flex size-12 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-md lg:size-[3.75rem]'
               >
                 <LayoutDashboardIcon className='size-7 stroke-1 lg:size-8' />
               </div>
@@ -132,7 +148,7 @@ const Hero = () => {
           <div className='flex w-full items-center justify-between py-2.5'>
             <div
               ref={iconRef3}
-              className='bg-background flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
+              className='flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
             >
               <Workflow className='size-8 stroke-1 md:size-10 lg:size-[3.25rem]' />
             </div>
@@ -143,9 +159,9 @@ const Hero = () => {
               </div>
               <div
                 ref={iconRef4}
-                className='bg-secondary flex items-center justify-center rounded-xl border p-2'
+                className='flex items-center justify-center rounded-xl border bg-secondary p-2'
               >
-                <div className='bg-primary flex size-16 items-center justify-center rounded-lg border-[1.5px] shadow-xl md:size-[5.75rem]'>
+                <div className='flex size-16 items-center justify-center rounded-lg border-[1.5px] bg-primary shadow-xl md:size-[5.75rem]'>
                   <div className='flex size-12 items-center justify-center rounded-md bg-background md:size-20'>
                     <Image
                       src='/icon.svg'
@@ -165,7 +181,7 @@ const Hero = () => {
             </div>
             <div
               ref={iconRef5}
-              className='bg-background flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
+              className='flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
             >
               <BotMessageSquareIcon className='size-8 stroke-1 md:size-10 lg:size-[3.25rem]' />
             </div>
@@ -175,7 +191,7 @@ const Hero = () => {
             <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
               <div
                 ref={iconRef6}
-                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+                className='flex size-12 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-md lg:size-[3.75rem]'
               >
                 <CodeXmlIcon className='size-6 stroke-1 lg:size-8' />
               </div>
@@ -185,7 +201,7 @@ const Hero = () => {
               <span ref={spanRef8} className='size-0.5' />
               <div
                 ref={iconRef7}
-                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+                className='flex size-12 items-center justify-center rounded-xl border-[1.5px] bg-background shadow-md lg:size-[3.75rem]'
               >
                 <ChartLine className='size-7 stroke-1 lg:size-[2.75rem]' />
               </div>

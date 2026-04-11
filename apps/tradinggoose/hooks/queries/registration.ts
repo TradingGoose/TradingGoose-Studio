@@ -27,10 +27,11 @@ async function fetchRegistrationState(): Promise<RegistrationResponse> {
   }
 }
 
-export function useRegistrationState() {
+export function useRegistrationState(enabled = true) {
   return useQuery({
     queryKey: registrationKeys.state(),
     queryFn: fetchRegistrationState,
+    enabled,
     staleTime: 30 * 1000,
   })
 }

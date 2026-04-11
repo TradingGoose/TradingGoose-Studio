@@ -19,7 +19,11 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getRegistrationPrimaryHref, getRegistrationPrimaryLabel } from '@/lib/registration/shared'
+import {
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useRegistrationState } from '@/hooks/queries/registration'
@@ -29,15 +33,26 @@ const logger = createLogger('nav')
 interface NavProps {
   hideAuthButtons?: boolean
   variant?: 'landing' | 'auth' | 'legal'
+  registrationMode?: RegistrationMode | null
 }
 
-export default function Nav({ hideAuthButtons = false, variant = 'landing' }: NavProps = {}) {
+export default function Nav({
+  hideAuthButtons = false,
+  variant = 'landing',
+  registrationMode: registrationModeOverride,
+}: NavProps = {}) {
   const [githubStars, setGithubStars] = useState('0')
   const router = useRouter()
   const brand = useBrandConfig()
-  const registrationQuery = useRegistrationState()
-  const registrationMode = registrationQuery.data?.registrationMode ?? null
-  const hasResolvedRegistrationMode = registrationQuery.status === 'success' && !!registrationMode
+  const shouldQueryRegistrationState =
+    variant === 'landing' && !hideAuthButtons && registrationModeOverride === undefined
+  const registrationQuery = useRegistrationState(shouldQueryRegistrationState)
+  const queriedRegistrationMode = registrationQuery.data?.registrationMode ?? null
+  const registrationMode = registrationModeOverride ?? queriedRegistrationMode
+  const hasResolvedRegistrationMode =
+    registrationModeOverride !== undefined
+      ? registrationModeOverride !== null
+      : registrationQuery.status === 'success' && !!queriedRegistrationMode
   const registrationPrimaryHref = registrationMode
     ? getRegistrationPrimaryHref(registrationMode)
     : null

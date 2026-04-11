@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
+import { getRegistrationModeForRender } from '@/lib/registration/service'
 import Footer from '@/app/(landing)/components/footer/footer'
 import MonitorSection from '@/app/(landing)/components/monitor-preview/monitor-section'
 import Nav from '@/app/(landing)/components/nav/nav'
@@ -26,18 +27,20 @@ const CallToAction = dynamic(() => import('@/app/(landing)/components/cta/cta'),
   loading: () => <div className='h-[200px] animate-pulse bg-gray-50' />,
 })
 
-export default function Landing() {
+export default async function Landing() {
+  const registrationMode = await getRegistrationModeForRender()
+
   return (
     <>
       <StructuredData />
-      <Nav />
+      <Nav registrationMode={registrationMode} />
       <main className='relative border-border border-b pb-48'>
         <Suspense
           fallback={
             <div className='h-[600px] animate-pulse bg-gray-50' aria-label='Loading hero section' />
           }
         >
-          <Hero />
+          <Hero registrationMode={registrationMode} />
         </Suspense>
         <Suspense
           fallback={

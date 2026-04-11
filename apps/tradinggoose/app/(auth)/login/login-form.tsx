@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { client } from '@/lib/auth-client'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { getEnv, isFalsy, isTruthy } from '@/lib/env'
+import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getAuthRegistrationHref,
@@ -227,7 +227,7 @@ export default function LoginPage({
 
             // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
             if (status === 401) {
-              handleAuthError('login-unauthorized').catch(() => { })
+              handleAuthError('login-unauthorized').catch(() => {})
               errorMessage.push('Your session expired. Please try signing in again.')
             }
 
@@ -383,12 +383,9 @@ export default function LoginPage({
   }
 
   const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
-  const emailEnabled = !isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED'))
   const hasSocial = githubAvailable || googleAvailable
-  const hasOnlySSO = ssoEnabled && !emailEnabled && !hasSocial
-  const showTopSSO = hasOnlySSO
-  const showBottomSection = hasSocial || (ssoEnabled && !hasOnlySSO)
-  const showDivider = (emailEnabled || showTopSSO) && showBottomSection
+  const showBottomSection = hasSocial || ssoEnabled
+  const showDivider = showBottomSection
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
   const registrationHref = isInviteFlow
     ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}`
@@ -397,110 +394,94 @@ export default function LoginPage({
 
   return (
     <>
-      <AuthPageHeader
-        eyebrow='Sign in'
-        title='Welcome back'
-        description='Enter your credentials'
-      />
+      <AuthPageHeader eyebrow='Sign in' title='Welcome back' description='Enter your credentials' />
 
-      {showWaitlistNote ? (
-        <AuthWaitlistNote />
-      ) : null}
+      {showWaitlistNote ? <AuthWaitlistNote /> : null}
 
-      {/* SSO Login Button (primary top-only when it is the only method) */}
-      {showTopSSO && (
-        <div className={`${inter.className} mt-8`}>
-          <SSOLoginButton callbackURL={callbackUrl} variant='primary' />
-        </div>
-      )}
-
-      {/* Email/Password Form - show unless explicitly disabled */}
-      {!isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) && (
-        <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
-          <div className='space-y-6'>
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between'>
-                <Label htmlFor='email'>Email</Label>
-              </div>
-              <Input
-                id='email'
-                name='email'
-                placeholder='Enter your email'
-                required
-                autoCapitalize='none'
-                autoComplete='email'
-                autoCorrect='off'
-                value={email}
-                onChange={handleEmailChange}
-                className={cn(
-                  'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                  showEmailValidationError &&
+      <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
+        <div className='space-y-6'>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Label htmlFor='email'>Email</Label>
+            </div>
+            <Input
+              id='email'
+              name='email'
+              placeholder='Enter your email'
+              required
+              autoCapitalize='none'
+              autoComplete='email'
+              autoCorrect='off'
+              value={email}
+              onChange={handleEmailChange}
+              className={cn(
+                'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                showEmailValidationError &&
                   emailErrors.length > 0 &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
-                )}
-              />
-              {showEmailValidationError && emailErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {emailErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
               )}
-            </div>
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between'>
-                <Label htmlFor='password'>Password</Label>
-                <button
-                  type='button'
-                  onClick={() => setForgotPasswordOpen(true)}
-                  className='font-medium text-muted-foreground text-xs transition hover:text-foreground'
-                >
-                  Forgot password?
-                </button>
+            />
+            {showEmailValidationError && emailErrors.length > 0 && (
+              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+                {emailErrors.map((error, index) => (
+                  <p key={index}>{error}</p>
+                ))}
               </div>
-              <div className='relative'>
-                <Input
-                  id='password'
-                  name='password'
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  autoCapitalize='none'
-                  autoComplete='current-password'
-                  autoCorrect='off'
-                  placeholder='Enter your password'
-                  value={password}
-                  onChange={handlePasswordChange}
-                  className={cn(
-                    'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                    showValidationError &&
+            )}
+          </div>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Label htmlFor='password'>Password</Label>
+              <button
+                type='button'
+                onClick={() => setForgotPasswordOpen(true)}
+                className='font-medium text-muted-foreground text-xs transition hover:text-foreground'
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className='relative'>
+              <Input
+                id='password'
+                name='password'
+                required
+                type={showPassword ? 'text' : 'password'}
+                autoCapitalize='none'
+                autoComplete='current-password'
+                autoCorrect='off'
+                placeholder='Enter your password'
+                value={password}
+                onChange={handlePasswordChange}
+                className={cn(
+                  'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                  showValidationError &&
                     passwordErrors.length > 0 &&
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
-                  )}
-                />
-                <button
-                  type='button'
-                  onClick={() => setShowPassword(!showPassword)}
-                  className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {showValidationError && passwordErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {passwordErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+                )}
+              />
+              <button
+                type='button'
+                onClick={() => setShowPassword(!showPassword)}
+                className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+            {showValidationError && passwordErrors.length > 0 && (
+              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+                {passwordErrors.map((error, index) => (
+                  <p key={index}>{error}</p>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
 
-          <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign in'}
-          </Button>
-        </form>
-      )}
+        <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
+          {isLoading ? 'Signing in...' : 'Sign in'}
+        </Button>
+      </form>
 
       {/* Divider - show when we have multiple auth methods */}
       {showDivider && (
@@ -509,30 +490,27 @@ export default function LoginPage({
             <div className='divider w-full border-t' />
           </div>
           <div className='relative flex justify-center text-sm'>
-            <span className='bg-background px-4 font-[340] text-muted-foreground'>Or continue with</span>
+            <span className='bg-background px-4 font-[340] text-muted-foreground'>
+              Or continue with
+            </span>
           </div>
         </div>
       )}
 
       {showBottomSection && (
-        <div className={cn(inter.className, !emailEnabled ? 'mt-8' : undefined)}>
+        <div className={inter.className}>
           <SocialLoginButtons
             googleAvailable={googleAvailable}
             githubAvailable={githubAvailable}
             isProduction={isProduction}
             callbackURL={callbackUrl}
           >
-            {ssoEnabled && !hasOnlySSO && (
-              <SSOLoginButton callbackURL={callbackUrl} variant='outline' />
-            )}
+            {ssoEnabled && <SSOLoginButton callbackURL={callbackUrl} variant='outline' />}
           </SocialLoginButtons>
         </div>
       )}
 
-      {/* Only show signup link if email/password signup is enabled */}
-      {!isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) &&
-        registrationHref &&
-        registrationLabel && (
+      {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>Don't have an account? </span>
           <Link
@@ -593,7 +571,7 @@ export default function LoginPage({
                 className={cn(
                   'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   resetStatus.type === 'error' &&
-                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
               {resetStatus.type === 'error' && (
