@@ -27,6 +27,14 @@ export const workspaceBillingOwnerSchema = z.discriminatedUnion('type', [
 ])
 
 type WorkspaceBillingOwnerInput = z.infer<typeof workspaceBillingOwnerSchema>
+
+export class WorkspaceBillingOwnerUpdateError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WorkspaceBillingOwnerUpdateError'
+  }
+}
+
 export type WorkspaceBillingOwner =
   | {
       type: 'user'
@@ -238,7 +246,9 @@ export async function resolveWorkspaceBillingOwnerUpdate(args: {
   if (billingOwner.type === 'user') {
     const hasAdminAccess = await hasWorkspaceAdminAccess(billingOwner.userId, workspaceId)
     if (!hasAdminAccess) {
-      throw new Error('Workspace billing owner user must have admin access')
+      throw new WorkspaceBillingOwnerUpdateError(
+        'Workspace billing owner user must have admin access'
+      )
     }
 
     return {
@@ -254,7 +264,9 @@ export async function resolveWorkspaceBillingOwnerUpdate(args: {
   )
 
   if (!canManageOrganizationBilling) {
-    throw new Error('Only organization owners or admins can assign organization billing')
+    throw new WorkspaceBillingOwnerUpdateError(
+      'Only organization owners or admins can assign organization billing'
+    )
   }
 
   const ownerBelongsToOrganization = await isWorkspaceOwnerInOrganization(
@@ -263,12 +275,14 @@ export async function resolveWorkspaceBillingOwnerUpdate(args: {
   )
 
   if (!ownerBelongsToOrganization) {
-    throw new Error('Workspace owner must belong to the billing organization')
+    throw new WorkspaceBillingOwnerUpdateError(
+      'Workspace owner must belong to the billing organization'
+    )
   }
 
   const organizationSubscription = await getOrganizationSubscription(billingOwner.organizationId)
   if (!isOrganizationSubscription(organizationSubscription)) {
-    throw new Error(
+    throw new WorkspaceBillingOwnerUpdateError(
       'Organization must have an active organization billing tier before workspaces can bill to it'
     )
   }

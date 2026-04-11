@@ -4,10 +4,15 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess, getUserEntityPermissions, getWorkspaceById } from '@/lib/permissions/utils'
+import {
+  checkWorkspaceAccess,
+  getUserEntityPermissions,
+  getWorkspaceById,
+} from '@/lib/permissions/utils'
 import {
   resolveWorkspaceBillingOwnerUpdate,
   toWorkspaceApiRecord,
+  WorkspaceBillingOwnerUpdateError,
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
 
@@ -152,8 +157,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       })
       .where(eq(workspace.id, workspaceId))
 
-    // Get updated workspace
     const updatedWorkspace = await getWorkspaceById(workspaceId)
+    if (!updatedWorkspace) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
 
     return NextResponse.json({
       workspace: {
@@ -170,7 +177,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       )
     }
 
-    if (error instanceof Error) {
+    if (error instanceof WorkspaceBillingOwnerUpdateError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
