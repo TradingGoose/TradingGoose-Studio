@@ -175,7 +175,7 @@ export interface ExecutionContext {
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
 
   // New context extensions
-  onStream?: (streamingExecution: StreamingExecution) => Promise<string>
+  onStream?: (streamingExecution: StreamingExecution) => Promise<void>
   onBlockComplete?: (blockId: string, output: any) => Promise<void>
 }
 

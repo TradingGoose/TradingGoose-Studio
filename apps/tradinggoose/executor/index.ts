@@ -215,19 +215,7 @@ export class Executor {
         envVarValues?: Record<string, string>
         workflowInput?: any
         workflowVariables?: Record<string, any>
-        contextExtensions?: {
-          stream?: boolean
-          selectedOutputs?: string[]
-          edges?: Array<{ source: string; target: string }>
-          onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-          onBlockComplete?: (blockId: string, output: any) => Promise<void>
-          executionId?: string
-          workspaceId?: string
-          userId?: string
-          isChildExecution?: boolean
-          // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
-          isDeployedContext?: boolean
-        }
+        contextExtensions?: ExecutionContextExtensions
       },
     private initialBlockStates: Record<string, BlockOutput> = {},
     private environmentVariables: Record<string, string> = {},
