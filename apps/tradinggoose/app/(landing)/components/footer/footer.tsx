@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { DiscordIcon, GithubIcon } from '@/components/icons/icons'
+import { getBrandConfig } from '@/lib/branding/branding'
 import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -33,6 +34,7 @@ interface FooterProps {
 }
 
 export default function Footer({ fullWidth = false }: FooterProps) {
+  const brand = getBrandConfig()
   const maxWidthClass = fullWidth ? 'max-w-[90vw]' : 'max-w-7xl'
 
   return (
@@ -44,7 +46,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
           <div className='flex max-w-[30rem] flex-col gap-5 max-sm:items-center max-sm:text-center'>
             <Link
               href='/'
-              aria-label='TradingGoose Studio home'
+              aria-label={`${brand.name} home`}
               className='flex items-center gap-3'
               prefetch={false}
             >
@@ -57,7 +59,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 priority
                 quality={100}
               />
-              <span className='font-semibold text-foreground text-xl'>TradingGoose Studio</span>
+              <span className='font-semibold text-foreground text-xl'>{brand.name}</span>
             </Link>
 
             <p className='max-w-[28rem] text-balance text-sm leading-relaxed'>
@@ -86,11 +88,11 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             </div>
 
             <p className='max-w-[28rem] text-balance font-light text-xs leading-relaxed'>
-              {`© ${new Date().getFullYear()} TradingGoose Studio. Built for visual trading workflows.`}
+              {`© ${new Date().getFullYear()} ${brand.name}. Built for visual trading workflows.`}
             </p>
           </div>
 
-          <div className='order-first text-sm space-y-16 max-sm:text-center sm:max-w-[28rem] sm:self-start lg:order-none lg:items-end'>
+          <div className='order-first space-y-16 text-sm max-sm:text-center sm:max-w-[28rem] sm:self-start lg:order-none lg:items-end'>
             <div className='grid grid-cols-3 gap-x-8 gap-y-3 sm:grid-cols-4 sm:gap-x-12'>
               {productLinks.map((link) =>
                 link.external ? (
