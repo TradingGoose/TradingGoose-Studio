@@ -3,6 +3,11 @@ import { skill } from '@tradinggoose/db/schema'
 import { and, desc, eq, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  type ImportedSkillTransferRecord,
+  resolveImportedSkillName,
+  type SkillTransferRecord,
+} from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SkillsOperations')
@@ -14,6 +19,13 @@ interface UpsertSkillsParams {
     description: string
     content: string
   }>
+  workspaceId: string
+  userId: string
+  requestId?: string
+}
+
+interface ImportSkillsParams {
+  skills: SkillTransferRecord[]
   workspaceId: string
   userId: string
   requestId?: string
@@ -133,5 +145,66 @@ export async function upsertSkills({
       .from(skill)
       .where(eq(skill.workspaceId, workspaceId))
       .orderBy(desc(skill.createdAt))
+  })
+}
+
+export async function importSkills({
+  skills,
+  workspaceId,
+  userId,
+  requestId = generateRequestId(),
+}: ImportSkillsParams) {
+  return await db.transaction(async (tx) => {
+    const existingNames = await tx
+      .select({ name: skill.name })
+      .from(skill)
+      .where(eq(skill.workspaceId, workspaceId))
+
+    const usedNames = new Set(existingNames.map((currentSkill) => currentSkill.name))
+    const nowTime = new Date()
+    let renamedCount = 0
+    const importedSkills: ImportedSkillTransferRecord[] = []
+
+    const insertValues = skills.map((currentSkill) => {
+      const sourceName = currentSkill.name
+      const resolvedName = resolveImportedSkillName(sourceName, usedNames)
+      const skillId = nanoid()
+
+      if (resolvedName !== sourceName) {
+        renamedCount += 1
+      }
+
+      usedNames.add(resolvedName)
+      importedSkills.push({
+        sourceName,
+        skillId,
+        name: resolvedName,
+      })
+
+      return {
+        id: skillId,
+        workspaceId,
+        userId,
+        name: resolvedName,
+        description: currentSkill.description,
+        content: currentSkill.content,
+        createdAt: nowTime,
+        updatedAt: nowTime,
+      }
+    })
+
+    const persistedSkills = await tx.insert(skill).values(insertValues).returning()
+
+    logger.info(`[${requestId}] Imported ${persistedSkills.length} skill(s)`, {
+      workspaceId,
+      renamedCount,
+    })
+
+    return {
+      skills: persistedSkills,
+      importedSkills,
+      importedCount: persistedSkills.length,
+      renamedCount,
+    }
   })
 }

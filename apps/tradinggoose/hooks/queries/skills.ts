@@ -1,12 +1,23 @@
 import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
+import { type ImportedSkillTransferRecord, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { SkillDefinition } from '@/stores/skills/types'
 
 const logger = createLogger('SkillsQueries')
 const API_ENDPOINT = '/api/skills'
-const KEBAB_CASE_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const normalizeSkillNameInput = (value: string) => value.trim().replace(/\s+/g, ' ')
+
+export interface ImportSkillsResponse {
+  success: boolean
+  data: SkillDefinition[]
+  importedSkills: ImportedSkillTransferRecord[]
+  import: {
+    addedCount: number
+    renamedCount: number
+  }
+}
 
 export const skillsKeys = {
   all: ['skills'] as const,
@@ -181,6 +192,44 @@ interface UpdateSkillParams {
   }
 }
 
+interface ImportSkillsParams {
+  workspaceId: string
+  file: unknown
+}
+
+export function useImportSkills() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ImportSkillsResponse, Error, ImportSkillsParams>({
+    mutationFn: async ({
+      workspaceId,
+      file,
+    }: ImportSkillsParams): Promise<ImportSkillsResponse> => {
+      logger.info(`Importing skills into workspace ${workspaceId}`)
+
+      const response = await fetch(`${API_ENDPOINT}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          file,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import skills')
+      }
+
+      return data as ImportSkillsResponse
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
+    },
+  })
+}
+
 export function useUpdateSkill() {
   const queryClient = useQueryClient()
 
@@ -314,5 +363,6 @@ export function useDeleteSkill() {
 }
 
 export function isValidSkillName(name: string) {
-  return KEBAB_CASE_REGEX.test(name)
+  const normalizedName = normalizeSkillNameInput(name)
+  return normalizedName.length > 0 && normalizedName.length <= SKILL_NAME_MAX_LENGTH
 }

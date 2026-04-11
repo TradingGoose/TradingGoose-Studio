@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Wrench } from 'lucide-react'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Upload, Wrench } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
 import {
   useUserPermissionsContext,
@@ -19,6 +20,7 @@ import {
   useCreateCustomTool,
   useCustomTools,
   useDeleteCustomTool,
+  useImportCustomTools,
   useUpdateCustomTool,
 } from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -30,6 +32,13 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
+import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
+import {
+  buildPersistedPairContext,
+  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
+  CUSTOM_TOOL_LIST_WIDGET_KEY,
+  resolveCustomToolId,
+} from '@/widgets/widgets/_shared/custom_tool/utils'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
@@ -38,13 +47,6 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
-import {
-  buildPersistedPairContext,
-  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-  CUSTOM_TOOL_LIST_WIDGET_KEY,
-  resolveCustomToolId,
-} from '@/widgets/widgets/_shared/custom_tool/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'
@@ -91,44 +93,106 @@ const buildNewCustomToolDraft = (tools: CustomToolDefinition[]) => {
 
 function CustomToolCreateMenu({
   disabled = false,
+  canCreate = false,
+  canImport = false,
+  isImporting = false,
   onCreateCustomTool,
+  onImportCustomTools,
 }: {
   disabled?: boolean
+  canCreate?: boolean
+  canImport?: boolean
+  isImporting?: boolean
   onCreateCustomTool?: () => void
+  onImportCustomTools?: (content: string, filename?: string) => Promise<void> | void
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const handleCreateCustomTool = useCallback(() => {
     onCreateCustomTool?.()
   }, [onCreateCustomTool])
 
+  const handleImportSelection = useCallback(() => {
+    if (!canImport || isImporting) return
+    fileInputRef.current?.click()
+  }, [canImport, isImporting])
+
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      try {
+        const content = await file.text()
+        await onImportCustomTools?.(content, file.name)
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    },
+    [onImportCustomTools]
+  )
+
   return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={disabled}
-                className={widgetHeaderIconButtonClassName()}
-              >
-                <Plus className='h-4 w-4' />
-                <span className='sr-only'>Create custom tool</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side='top'>Create</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent sideOffset={6} className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
-        <DropdownMenuItem
-          className={widgetHeaderMenuItemClassName}
-          onSelect={handleCreateCustomTool}
+    <>
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className='inline-flex'>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type='button'
+                  disabled={disabled}
+                  className={widgetHeaderIconButtonClassName()}
+                >
+                  <Plus className='h-4 w-4' />
+                  <span className='sr-only'>Create custom tool</span>
+                </button>
+              </DropdownMenuTrigger>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side='top'>Create</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent
+          sideOffset={6}
+          className={cn(widgetHeaderMenuContentClassName, 'w-48')}
         >
-          <Plus className={widgetHeaderMenuIconClassName} />
-          <span className={widgetHeaderMenuTextClassName}>New custom tool</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem
+            className={widgetHeaderMenuItemClassName}
+            disabled={!canImport || isImporting}
+            onSelect={() => {
+              if (!canImport || isImporting) return
+              handleImportSelection()
+            }}
+          >
+            <Upload className={widgetHeaderMenuIconClassName} />
+            <span className={widgetHeaderMenuTextClassName}>
+              {isImporting ? 'Importing custom tools' : 'Import custom tools'}
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={widgetHeaderMenuItemClassName}
+            disabled={!canCreate}
+            onSelect={() => {
+              if (!canCreate) return
+              handleCreateCustomTool()
+            }}
+          >
+            <Plus className={widgetHeaderMenuIconClassName} />
+            <span className={widgetHeaderMenuTextClassName}>New custom tool</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <input
+        ref={fileInputRef}
+        type='file'
+        accept='.json,application/json'
+        className='hidden'
+        onChange={handleFileChange}
+      />
+    </>
   )
 }
 
@@ -143,6 +207,7 @@ function CustomToolListHeaderRight({
 }) {
   const permissions = useUserPermissionsContext()
   const createToolMutation = useCreateCustomTool()
+  const importMutation = useImportCustomTools()
   const storedTools = useCustomToolsStore((state) =>
     workspaceId ? state.getAllTools(workspaceId) : []
   )
@@ -207,10 +272,31 @@ function CustomToolListHeaderRight({
     workspaceId,
   ])
 
+  const handleImportCustomTools = useCallback(
+    async (content: string) => {
+      if (!workspaceId || importMutation.isPending || !permissions.canEdit) return
+
+      try {
+        const parsedFile = parseImportedCustomToolsFile(JSON.parse(content) as unknown)
+        await importMutation.mutateAsync({
+          workspaceId,
+          file: parsedFile,
+        })
+      } catch (error) {
+        console.error('Failed to import custom tools', error)
+      }
+    },
+    [importMutation, permissions.canEdit, workspaceId]
+  )
+
   return (
     <CustomToolCreateMenu
       disabled={!workspaceId || !permissions.canEdit || createToolMutation.isPending}
+      canCreate={!createToolMutation.isPending && permissions.canEdit}
+      canImport={Boolean(workspaceId && permissions.canEdit)}
+      isImporting={importMutation.isPending}
       onCreateCustomTool={handleCreateTool}
+      onImportCustomTools={handleImportCustomTools}
     />
   )
 }

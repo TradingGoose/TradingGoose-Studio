@@ -2,7 +2,7 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 /**
  * Canonical list of review-target field names shared between event spreading
- * and descriptor reading.  Defined once to keep the two in sync.
+ * and descriptor reading. Defined once to keep the two in sync.
  */
 export const REVIEW_TARGET_FIELDS = [
   'reviewSessionId',
@@ -43,10 +43,12 @@ export const WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT = 'workflow-widgets:select-wo
 export const DATA_CHART_WIDGET_UPDATE_PARAMS_EVENT = 'data-chart-widgets:update-params'
 export const INDICATOR_WIDGET_SELECT_EVENT = 'indicator-widgets:select-indicator'
 export const INDICATOR_EDITOR_ACTION_EVENT = 'indicator-editor:action'
+export const INDICATOR_EDITOR_STATE_EVENT = 'indicator-editor:state'
 export const CUSTOM_TOOL_WIDGET_SELECT_EVENT = 'custom-tool-widgets:select-tool'
 export const CUSTOM_TOOL_EDITOR_ACTION_EVENT = 'custom-tool-editor:action'
 export const SKILL_WIDGET_SELECT_EVENT = 'skill-widgets:select-skill'
 export const SKILL_EDITOR_ACTION_EVENT = 'skill-editor:action'
+export const SKILL_EDITOR_STATE_EVENT = 'skill-editor:state'
 export const MCP_WIDGET_SELECT_SERVER_EVENT = 'mcp-widgets:select-server'
 export const MCP_EDITOR_ACTION_EVENT = 'mcp-editor:action'
 export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-params'
@@ -76,7 +78,13 @@ export type IndicatorWidgetSelectEventDetail = {
 } & ReviewTargetEventFields
 
 export type IndicatorEditorActionEventDetail = {
-  action: 'save' | 'verify' | 'undo' | 'redo'
+  action: 'save' | 'verify'
+  panelId?: string
+  widgetKey?: string
+}
+
+export type IndicatorEditorStateEventDetail = {
+  isDirty: boolean
   panelId?: string
   widgetKey?: string
 }
@@ -88,7 +96,7 @@ export type CustomToolWidgetSelectEventDetail = {
 } & ReviewTargetEventFields
 
 export type CustomToolEditorActionEventDetail = {
-  action: 'save' | 'undo' | 'redo' | 'set-section'
+  action: 'export' | 'save' | 'set-section'
   section?: 'schema' | 'code'
   panelId?: string
   widgetKey?: string
@@ -101,7 +109,13 @@ export type SkillWidgetSelectEventDetail = {
 } & ReviewTargetEventFields
 
 export type SkillEditorActionEventDetail = {
-  action: 'save' | 'undo' | 'redo'
+  action: 'save'
+  panelId?: string
+  widgetKey?: string
+}
+
+export type SkillEditorStateEventDetail = {
+  isDirty: boolean
   panelId?: string
   widgetKey?: string
 }

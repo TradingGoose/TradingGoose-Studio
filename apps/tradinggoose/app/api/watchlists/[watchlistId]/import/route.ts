@@ -3,15 +3,17 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { WatchlistOperationError, appendWatchlistItemsToWatchlist } from '@/lib/watchlists/operations'
-import type { WatchlistImportFileItem } from '@/lib/watchlists/types'
-import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
+import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
+import {
+  appendWatchlistItemsToWatchlist,
+  WatchlistOperationError,
+} from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistImportAPI')
 
 const WatchlistImportSchema = z.object({
   workspaceId: z.string().trim().min(1, 'workspaceId is required'),
-  items: z.array(z.unknown()),
+  file: z.unknown(),
 })
 
 const requireSessionUser = async () => {
@@ -32,12 +34,15 @@ const requireWorkspacePermission = async (userId: string, workspaceId: string) =
   }
 }
 
-const normalizeImportedWatchlistItems = (entries: unknown[]): WatchlistImportFileItem[] => {
-  const items = normalizeWatchlistImportFileItems(entries)
-  if (items.length !== entries.length) {
-    throw new WatchlistOperationError('Invalid watchlist import file', 400)
+const parseImportedWatchlistItems = (file: unknown) => {
+  try {
+    return parseImportedWatchlistFile(file).watchlists[0].items
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new WatchlistOperationError('Invalid watchlist import file', 400)
+    }
+    throw error
   }
-  return items
 }
 
 const handleRouteError = (error: unknown, fallbackMessage: string) => {
@@ -45,7 +50,10 @@ const handleRouteError = (error: unknown, fallbackMessage: string) => {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
   if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request data', details: error.errors },
+      { status: 400 }
+    )
   }
   logger.error(fallbackMessage, { error })
   return NextResponse.json({ error: fallbackMessage }, { status: 500 })
@@ -61,7 +69,7 @@ export async function POST(
     const parsed = WatchlistImportSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId)
 
-    const items = normalizeImportedWatchlistItems(parsed.items)
+    const items = parseImportedWatchlistItems(parsed.file)
 
     const result = await appendWatchlistItemsToWatchlist(
       {

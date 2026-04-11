@@ -31,9 +31,25 @@ export type WatchlistImportFileSection = {
   items: WatchlistImportFileListingItem[]
 }
 
-export type WatchlistImportFileItem =
-  | WatchlistImportFileListingItem
-  | WatchlistImportFileSection
+export type WatchlistImportFileItem = WatchlistImportFileListingItem | WatchlistImportFileSection
+
+export type WatchlistTransferRecord = {
+  name: string
+  items: WatchlistImportFileItem[]
+}
+
+export type WatchlistImportFile = {
+  version: '1'
+  fileType: 'tradingGooseExport'
+  exportedAt: string
+  exportedFrom: string
+  resourceTypes: string[]
+  watchlists: [WatchlistTransferRecord]
+  skills?: unknown[]
+  workflows?: unknown[]
+  customTools?: unknown[]
+  indicators?: unknown[]
+}
 
 export type WatchlistRecord = {
   id: string

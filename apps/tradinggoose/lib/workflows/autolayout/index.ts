@@ -101,5 +101,5 @@ export function adjustForNewBlock(
 
 export type { LayoutOptions, LayoutResult, AdjustmentOptions, Edge, Loop, Parallel }
 export type { TargetedLayoutOptions } from './targeted'
-export { applyTargetedLayout, transferBlockHeights } from './targeted'
+export { applyTargetedLayout } from './targeted'
 export { getBlockMetrics, isContainerType } from './utils'

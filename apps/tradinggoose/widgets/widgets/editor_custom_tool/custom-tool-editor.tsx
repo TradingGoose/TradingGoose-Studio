@@ -1,77 +1,55 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLatestRef } from '@/hooks/use-latest-ref'
-import { useQueryClient } from '@tanstack/react-query'
-import * as Y from 'yjs'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
 import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ENTITY_KIND_CUSTOM_TOOL, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
-import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
-import { getFieldsMap } from '@/lib/yjs/entity-session'
-import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { SaveErrorAlert } from '@/widgets/widgets/components/save-error-alert'
-import { customToolsKeys } from '@/hooks/queries/custom-tools'
+import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('CustomToolEditor')
 
 export type CustomToolEditorSection = 'schema' | 'code'
 
-interface CustomToolSchema {
-  type: 'function'
-  function: {
-    name: string
-    description?: string
-    parameters: {
-      type: string
-      properties: Record<string, unknown>
-      required?: string[]
-    }
-  }
+interface CustomToolInitialValues {
+  id: string
+  title: string
+  schema: any
+  code: string
 }
 
 interface CustomToolEditorProps {
-  workspaceId: string
-  descriptor: ReviewTargetDescriptor
   activeSection: CustomToolEditorSection
   blockId: string
+  initialValues: CustomToolInitialValues
+  onSave: () => void
   onSectionChange: (section: CustomToolEditorSection) => void
+  exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
-  yjsDoc: Y.Doc
-  onReviewTargetChange?: (descriptor: ReviewTargetDescriptor | null) => void
 }
 
 export function CustomToolEditor({
-  workspaceId,
-  descriptor,
   activeSection,
   blockId,
+  initialValues,
+  onSave,
   onSectionChange,
+  exportRef,
   saveRef,
-  yjsDoc,
-  onReviewTargetChange,
 }: CustomToolEditorProps) {
-  const queryClient = useQueryClient()
-  const entitySession = useEntitySession()
-
-  const schemaYText = yjsDoc ? getFieldsMap(yjsDoc).get('schemaText') : null
-  const codeYText = yjsDoc ? getFieldsMap(yjsDoc).get('codeText') : null
-
-  const [, setTitle] = useYjsStringField(yjsDoc, 'title', '')
-  const [jsonSchema, setJsonSchema] = useYjsStringField(yjsDoc, 'schemaText', '')
-  const [functionCode, setFunctionCode] = useYjsStringField(yjsDoc, 'codeText', '')
+  const workspaceId = useWorkspaceId()
+  const [jsonSchema, setJsonSchema] = useState('')
+  const [functionCode, setFunctionCode] = useState('')
   const [schemaError, setSchemaError] = useState<string | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
   const codeEditorRef = useRef<HTMLDivElement>(null)
   const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
   const schemaParamsDropdownRef = useRef<HTMLDivElement>(null)
@@ -83,14 +61,24 @@ export function CustomToolEditor({
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
-  const jsonSchemaRef = useLatestRef(jsonSchema)
-  const functionCodeRef = useLatestRef(functionCode)
+
+  const updateToolMutation = useUpdateCustomTool()
 
   useEffect(() => {
-    setSchemaError(null)
-    setCodeError(null)
-    setSaveError(null)
-  }, [descriptor.reviewSessionId])
+    try {
+      setJsonSchema(
+        typeof initialValues.schema === 'string'
+          ? initialValues.schema
+          : JSON.stringify(initialValues.schema, null, 2)
+      )
+      setFunctionCode(initialValues.code || '')
+      setSchemaError(null)
+      setCodeError(null)
+    } catch (error) {
+      logger.error('Error initializing custom tool editor:', { error })
+      setSchemaError('Failed to load tool data. Please try again.')
+    }
+  }, [initialValues.code, initialValues.id, initialValues.schema])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,38 +94,41 @@ export function CustomToolEditor({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const validateJsonSchema = (value: string): CustomToolSchema | null => {
+  const handleJsonSchemaChange = (value: string) => {
+    if (schemaGeneration.isLoading || schemaGeneration.isStreaming) return
+    setJsonSchema(value)
+
     if (!value.trim()) {
       setSchemaError(null)
-      return null
+      return
     }
 
     try {
-      const parsed = JSON.parse(value) as CustomToolSchema
+      const parsed = JSON.parse(value)
 
       if (!parsed.type || parsed.type !== 'function') {
         setSchemaError('Missing "type": "function"')
-        return null
+        return
       }
 
       if (!parsed.function || !parsed.function.name) {
         setSchemaError('Missing function.name field')
-        return null
+        return
       }
 
       if (!parsed.function.parameters) {
         setSchemaError('Missing function.parameters object')
-        return null
+        return
       }
 
       if (!parsed.function.parameters.type) {
         setSchemaError('Missing parameters.type field')
-        return null
+        return
       }
 
       if (parsed.function.parameters.properties === undefined) {
         setSchemaError('Missing parameters.properties field')
-        return null
+        return
       }
 
       if (
@@ -145,21 +136,13 @@ export function CustomToolEditor({
         parsed.function.parameters.properties === null
       ) {
         setSchemaError('parameters.properties must be an object')
-        return null
+        return
       }
 
       setSchemaError(null)
-      setTitle(parsed.function.name)
-      return parsed
     } catch {
       setSchemaError('Invalid JSON format')
-      return null
     }
-  }
-
-  const handleJsonSchemaChange = (value: string) => {
-    setJsonSchema(value)
-    validateJsonSchema(value)
   }
 
   const handleFunctionCodeChange = (value: string) => {
@@ -198,10 +181,13 @@ Do not include any explanations, markdown formatting, or other text outside the 
       setSchemaError(null)
     },
     onStreamChunk: (chunk) => {
-      const nextSchema = `${jsonSchemaRef.current}${chunk}`
-      jsonSchemaRef.current = nextSchema
-      setJsonSchema(nextSchema)
-      validateJsonSchema(nextSchema)
+      setJsonSchema((prev) => {
+        const nextSchema = prev + chunk
+        if (schemaError) {
+          setSchemaError(null)
+        }
+        return nextSchema
+      })
     },
   })
 
@@ -234,12 +220,14 @@ IMPORTANT FORMATTING RULES:
       setCodeError(null)
     },
     onStreamChunk: (chunk) => {
-      const nextCode = `${functionCodeRef.current}${chunk}`
-      functionCodeRef.current = nextCode
-      setFunctionCode(nextCode)
-      if (codeError) {
-        setCodeError(null)
-      }
+      setFunctionCode((prev) => {
+        const nextCode = prev + chunk
+        handleFunctionCodeChange(nextCode)
+        if (codeError) {
+          setCodeError(null)
+        }
+        return nextCode
+      })
     },
   })
 
@@ -291,53 +279,46 @@ IMPORTANT FORMATTING RULES:
     }
   }, [jsonSchema])
 
-  const handleSave = useCallback(async () => {
+  const parseCurrentSchema = useCallback(() => {
     setSchemaError(null)
-    setCodeError(null)
-    setSaveError(null)
-
-    if (!descriptor.reviewSessionId) {
-      setSaveError('Missing review session.')
-      return
-    }
 
     if (!jsonSchema) {
       setSchemaError('Schema cannot be empty')
       onSectionChange('schema')
-      return
+      return null
     }
 
     try {
-      const schema = JSON.parse(jsonSchema) as CustomToolSchema
+      const schema = JSON.parse(jsonSchema)
 
       if (!schema.type || schema.type !== 'function') {
         setSchemaError('Schema must have a "type" field set to "function"')
         onSectionChange('schema')
-        return
+        return null
       }
 
       if (!schema.function || !schema.function.name) {
         setSchemaError('Schema must have a "function" object with a "name" field')
         onSectionChange('schema')
-        return
+        return null
       }
 
       if (!schema.function.parameters) {
         setSchemaError('Missing function.parameters object')
         onSectionChange('schema')
-        return
+        return null
       }
 
       if (!schema.function.parameters.type) {
         setSchemaError('Missing parameters.type field')
         onSectionChange('schema')
-        return
+        return null
       }
 
       if (schema.function.parameters.properties === undefined) {
         setSchemaError('Missing parameters.properties field')
         onSectionChange('schema')
-        return
+        return null
       }
 
       if (
@@ -346,17 +327,39 @@ IMPORTANT FORMATTING RULES:
       ) {
         setSchemaError('parameters.properties must be an object')
         onSectionChange('schema')
+        return null
+      }
+
+      return schema
+    } catch (error) {
+      logger.error('Error validating custom tool schema:', { error })
+      setSchemaError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to validate custom tool schema. Please check your inputs and try again.'
+      )
+      onSectionChange('schema')
+      return null
+    }
+  }, [jsonSchema, onSectionChange])
+
+  const handleSave = useCallback(async () => {
+    setCodeError(null)
+
+    try {
+      const schema = parseCurrentSchema()
+      if (!schema) {
         return
       }
 
       const nextToolName = schema.function.name
       const existingTools = useCustomToolsStore.getState().getAllTools(workspaceId)
       const isDuplicate = existingTools.some((tool) => {
-        if (descriptor.entityId && tool.id === descriptor.entityId) {
+        if (tool.id === initialValues.id) {
           return false
         }
 
-        return tool.title === nextToolName || tool.schema.function.name === nextToolName
+        return tool.schema.function.name === nextToolName
       })
 
       if (isDuplicate) {
@@ -365,61 +368,81 @@ IMPORTANT FORMATTING RULES:
         return
       }
 
-      setIsSaving(true)
-      setTitle(nextToolName)
-
-      const response = await fetch('/api/copilot/review-entities/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityKind: ENTITY_KIND_CUSTOM_TOOL,
-          workspaceId,
-          reviewSessionId: descriptor.reviewSessionId,
-          draftSessionId: descriptor.draftSessionId ?? undefined,
-          customTool: {
-            id: descriptor.entityId ?? undefined,
-            schema,
-            code: functionCode || '',
-          },
-        }),
+      await updateToolMutation.mutateAsync({
+        workspaceId,
+        toolId: initialValues.id,
+        updates: {
+          title: nextToolName,
+          schema,
+          code: functionCode || '',
+        },
       })
 
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to save custom tool.')
-      }
-
-      await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
-      if (payload?.reviewTarget) {
-        onReviewTargetChange?.(payload.reviewTarget as ReviewTargetDescriptor)
-      }
+      onSave()
     } catch (error) {
       logger.error('Error saving custom tool:', { error })
-      setSaveError(
-        error instanceof Error ? error.message : 'Failed to save custom tool. Please try again.'
+      setSchemaError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to save custom tool. Please check your inputs and try again.'
       )
       onSectionChange('schema')
-    } finally {
-      setIsSaving(false)
     }
   }, [
-    descriptor.draftSessionId,
-    descriptor.entityId,
-    descriptor.reviewSessionId,
+    parseCurrentSchema,
     functionCode,
-    jsonSchema,
+    initialValues.id,
+    onSave,
     onSectionChange,
-    onReviewTargetChange,
-    queryClient,
-    setTitle,
+    updateToolMutation,
     workspaceId,
   ])
+
+  const handleExport = useCallback(() => {
+    const schema = parseCurrentSchema()
+    if (!schema) {
+      return
+    }
+
+    const title = initialValues.title.trim() || schema.function.name
+    const fileNameBase =
+      title
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+        .replace(/\s+/g, '-') || 'custom-tool'
+    const json = exportCustomToolsAsJson({
+      exportedFrom: 'customToolEditor',
+      customTools: [
+        {
+          title,
+          schema,
+          code: functionCode || '',
+        },
+      ],
+    })
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
+    const blobUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = blobUrl
+    link.download = `${fileNameBase}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(blobUrl)
+  }, [functionCode, initialValues.title, parseCurrentSchema])
 
   useEffect(() => {
     saveRef.current = () => {
       void handleSave()
     }
   }, [handleSave, saveRef])
+
+  useEffect(() => {
+    exportRef.current = () => {
+      handleExport()
+    }
+  }, [exportRef, handleExport])
 
   const handleCursorChange = (
     offset: number,
@@ -601,8 +624,6 @@ IMPORTANT FORMATTING RULES:
               language='json'
               height='100%'
               minHeight='0'
-              yText={schemaYText instanceof Y.Text ? schemaYText : null}
-              awareness={entitySession?.awareness}
               showWandButton={true}
               onWandClick={() => {
                 if (schemaGeneration.isPromptVisible) {
@@ -633,12 +654,10 @@ IMPORTANT FORMATTING RULES:
                 (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
                   'cursor-not-allowed opacity-50'
               )}
-              disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming || isSaving}
+              disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
               onKeyDown={handleKeyDown}
             />
           </div>
-
-          <SaveErrorAlert error={saveError} className='mt-3' />
         </div>
       </div>
     )
@@ -699,8 +718,6 @@ IMPORTANT FORMATTING RULES:
             language='javascript'
             editorHandleRef={codeEditorHandleRef}
             onCursorChange={handleCursorChange}
-            yText={codeYText instanceof Y.Text ? codeYText : null}
-            awareness={entitySession?.awareness}
             showWandButton={true}
             onWandClick={() => {
               if (codeGeneration.isPromptVisible) {
@@ -719,7 +736,7 @@ IMPORTANT FORMATTING RULES:
                 'cursor-not-allowed opacity-50'
             )}
             highlightVariables={true}
-            disabled={codeGeneration.isLoading || codeGeneration.isStreaming || isSaving}
+            disabled={codeGeneration.isLoading || codeGeneration.isStreaming}
             onKeyDown={handleKeyDown}
             schemaParameters={schemaParameters}
           />
@@ -814,8 +831,6 @@ IMPORTANT FORMATTING RULES:
             </div>
           ) : null}
         </div>
-
-        <SaveErrorAlert error={saveError} className='mt-3' />
       </div>
     </div>
   )

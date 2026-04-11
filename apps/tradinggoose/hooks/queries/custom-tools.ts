@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { CustomToolsImportFile } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition, CustomToolSchema } from '@/stores/custom-tools/types'
@@ -234,6 +235,41 @@ interface UpdateCustomToolParams {
     schema?: CustomToolSchema
     code?: string
   }
+}
+
+interface ImportCustomToolsParams {
+  workspaceId: string
+  file: CustomToolsImportFile
+}
+
+export function useImportCustomTools() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ workspaceId, file }: ImportCustomToolsParams) => {
+      logger.info(`Importing custom tools into workspace ${workspaceId}`)
+
+      const response = await fetch(`${API_ENDPOINT}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          file,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import custom tools')
+      }
+
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
+    },
+  })
 }
 
 export function useUpdateCustomTool() {

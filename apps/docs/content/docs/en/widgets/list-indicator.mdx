@@ -1,0 +1,46 @@
+---
+title: "Indicator List"
+description: "Browse, create, and import workspace indicators."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `list_indicator` |
+| **Category** | List |
+
+The Indicator List widget is the workspace browser for custom PineTS indicators. Use it to search existing indicators, create new ones, import TradingGoose export JSON, and open the selected indicator in the Indicator Editor.
+
+## Features
+
+- **Browse and search** indicators in the current workspace.
+- **Create new** indicators from the Create menu.
+- **Import** indicators from the Create menu with the **Import indicator** action.
+- **Open in editor** by selecting an indicator from the list.
+- **Pair color linking** keeps the list synced with the Indicator Editor when both widgets share the same color.
+
+## Usage
+
+1. Add the widget to a workspace panel.
+2. Use the Create menu to add a new indicator or import a TradingGoose export JSON file.
+3. Select an indicator in the list to open it in the paired Indicator Editor widget.
+4. Assign a pair color if you want selection changes to stay in sync between the list and editor.
+
+<Callout type="info">
+  Create and import actions require edit permission on the workspace. Browsing existing indicators only requires workspace access.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card title="Indicator Editor" href="/widgets/editor-indicator">
+    Write PineTS code, verify scripts, and export indicators as JSON.
+  </Card>
+  <Card title="Indicators Guide" href="/indicators">
+    Learn the PineTS scripting model and the built-in indicators.
+  </Card>
+</Cards>

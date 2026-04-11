@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { IndicatorsImportFile } from '@/lib/indicators/import-export'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useIndicatorsStore } from '@/stores/indicators/store'
@@ -195,6 +196,11 @@ interface UpdateIndicatorParams {
   >
 }
 
+interface ImportIndicatorsParams {
+  workspaceId: string
+  file: IndicatorsImportFile
+}
+
 export function useUpdateIndicator() {
   const queryClient = useQueryClient()
 
@@ -277,6 +283,36 @@ export function useUpdateIndicator() {
       }
     },
     onSettled: (_data, _error, variables) => {
+      queryClient.invalidateQueries({ queryKey: indicatorKeys.list(variables.workspaceId) })
+    },
+  })
+}
+
+export function useImportIndicators() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ workspaceId, file }: ImportIndicatorsParams) => {
+      logger.info(`Importing indicators into workspace ${workspaceId}`)
+
+      const response = await fetch(`${API_ENDPOINT}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          file,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import indicators')
+      }
+
+      return data
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: indicatorKeys.list(variables.workspaceId) })
     },
   })

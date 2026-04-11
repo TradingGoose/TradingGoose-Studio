@@ -1,7 +1,7 @@
 'use client'
 
-import { Check } from 'lucide-react'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +13,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { toListingValue, type ListingIdentity, type ListingOption } from '@/lib/listing/identity'
+import { type ListingIdentity, type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
 import {
   useAddWatchlistListing,
   useAddWatchlistSection,
@@ -29,19 +29,19 @@ import {
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
+import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
-import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
-import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
 import {
   resolveWatchlistProviderCredentialDefinitions,
   WatchlistProviderSettingsButton,
 } from '@/widgets/widgets/watchlist/components/provider-controls'
+import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
+import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
 import { WatchlistRefreshDataButton } from '@/widgets/widgets/watchlist/components/watchlist-refresh-data-button'
 import {
   resolveSelectedWatchlist,
@@ -282,12 +282,7 @@ export const WatchlistHeaderCenterControls = ({
   }
 
   const handleAddListing = async () => {
-    if (
-      !workspaceId ||
-      !selectedWatchlist ||
-      !pendingListing ||
-      addListingMutation.isPending
-    ) {
+    if (!workspaceId || !selectedWatchlist || !pendingListing || addListingMutation.isPending) {
       return
     }
 
@@ -444,19 +439,11 @@ export const WatchlistHeaderRightControls = ({
 
     try {
       const content = await file.text()
-      const parsed = JSON.parse(content) as unknown
-      if (!Array.isArray(parsed)) {
-        throw new Error('Invalid watchlist import file')
-      }
-
-      const items = normalizeWatchlistImportFileItems(parsed)
-      if (items.length !== parsed.length) {
-        throw new Error('Invalid watchlist import file')
-      }
+      const parsed = parseImportedWatchlistFile(JSON.parse(content) as unknown)
       await importMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
-        items,
+        file: parsed,
       })
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
