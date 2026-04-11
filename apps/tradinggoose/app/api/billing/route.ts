@@ -13,9 +13,6 @@ const logger = createLogger('UnifiedBillingAPI')
 type OrganizationBillingPayload = NonNullable<
   Awaited<ReturnType<typeof getOrganizationBillingData>>
 >
-type SessionWithActiveOrganization = {
-  activeOrganizationId?: string | null
-}
 
 async function getOrganizationMemberRole(organizationId: string, userId: string) {
   const memberRecord = await db
@@ -95,31 +92,9 @@ export async function GET(request: NextRequest) {
     let billingData
 
     if (context === 'user') {
-      const activeOrganizationId = (session.session as SessionWithActiveOrganization | undefined)
-        ?.activeOrganizationId
-
-      if (activeOrganizationId) {
-        const [userRole, rawOrganizationBillingData] = await Promise.all([
-          getOrganizationMemberRole(activeOrganizationId, session.user.id),
-          getOrganizationBillingData(activeOrganizationId),
-        ])
-
-        if (userRole && rawOrganizationBillingData) {
-          billingData = toOrganizationBillingPayload(rawOrganizationBillingData, billingEnabled)
-
-          return NextResponse.json({
-            success: true,
-            context,
-            billingEnabled,
-            data: billingData,
-            userRole,
-            billingBlocked: billingData.billingBlocked,
-          })
-        }
-      }
-
-      // Fall back to the caller's personal billing account when no active organization
-      // billing subscription applies to the current session.
+      // `context=user` must always preserve the personal billing contract used by the
+      // existing subscription hooks and stores. Organization billing is exposed only
+      // through the explicit organization context endpoint.
       billingData = await getSimplifiedBillingSummary(session.user.id)
       const stats = await db
         .select({ blocked: userStats.billingBlocked })

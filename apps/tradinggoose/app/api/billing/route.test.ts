@@ -130,7 +130,46 @@ describe('/api/billing route', () => {
     })
   })
 
-  it('returns the active organization billing summary for context=user when the session is org-billed', async () => {
+  it('returns the personal billing summary for context=user even when the session is org-active', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    userStatsRows = [{ blocked: true }]
+
+    const { GET } = await import('@/app/api/billing/route')
+    const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.context).toBe('user')
+    expect(payload.userRole).toBeUndefined()
+    expect(payload.data.tier.ownerType).toBe('user')
+    expect(payload.data.usage.limit).toBe(25)
+    expect(payload.data.billingBlocked).toBe(true)
+    expect(payload.data.organizationId).toBeUndefined()
+    expect(mockGetSimplifiedBillingSummary).toHaveBeenCalledWith('user-1')
+    expect(mockGetOrganizationBillingData).not.toHaveBeenCalled()
+  })
+
+  it('keeps explicit organization billing access restricted to organization members', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    memberRows = []
+
+    const { GET } = await import('@/app/api/billing/route')
+    const response = await GET(
+      createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload.error).toBe('Access denied - not a member of this organization')
+  })
+
+  it('returns organization-shaped billing data only for explicit organization context', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },
       session: { activeOrganizationId: 'org-1' },
@@ -184,55 +223,17 @@ describe('/api/billing route', () => {
     })
 
     const { GET } = await import('@/app/api/billing/route')
-    const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.context).toBe('user')
-    expect(payload.userRole).toBe('admin')
-    expect(payload.data.organizationId).toBe('org-1')
-    expect(payload.data.subscriptionTier.ownerType).toBe('organization')
-    expect(payload.data.minimumUsageLimit).toBe(90)
-    expect(payload.data.minimumBillingAmount).toBeUndefined()
-    expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
-    expect(mockGetSimplifiedBillingSummary).not.toHaveBeenCalled()
-  })
-
-  it('falls back to personal billing when the active organization does not provide billing data', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-1' },
-      session: { activeOrganizationId: 'org-1' },
-    })
-    memberRows = [{ role: 'member' }]
-    userStatsRows = [{ blocked: true }]
-    mockGetOrganizationBillingData.mockResolvedValue(null)
-
-    const { GET } = await import('@/app/api/billing/route')
-    const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.context).toBe('user')
-    expect(payload.data.tier.ownerType).toBe('user')
-    expect(payload.data.billingBlocked).toBe(true)
-    expect(payload.userRole).toBeUndefined()
-    expect(mockGetSimplifiedBillingSummary).toHaveBeenCalledWith('user-1')
-  })
-
-  it('keeps explicit organization billing access restricted to organization members', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-1' },
-      session: { activeOrganizationId: 'org-1' },
-    })
-    memberRows = []
-
-    const { GET } = await import('@/app/api/billing/route')
     const response = await GET(
       createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
     )
     const payload = await response.json()
 
-    expect(response.status).toBe(403)
-    expect(payload.error).toBe('Access denied - not a member of this organization')
+    expect(response.status).toBe(200)
+    expect(payload.context).toBe('organization')
+    expect(payload.userRole).toBe('admin')
+    expect(payload.data.organizationId).toBe('org-1')
+    expect(payload.data.subscriptionTier.ownerType).toBe('organization')
+    expect(payload.data.minimumUsageLimit).toBe(90)
+    expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
   })
 })
