@@ -540,9 +540,9 @@ describe('copilot streaming regressions', () => {
                         timestamp: 1,
                         toolCall: {
                           id: 'pending-tool',
-                          name: 'manage_skill',
+                          name: 'edit_skill',
                           state: ClientToolCallState.pending,
-                          params: { operation: 'edit' },
+                          params: { entityDocument: '{}' },
                         },
                       },
                       {
@@ -550,9 +550,9 @@ describe('copilot streaming regressions', () => {
                         timestamp: 2,
                         toolCall: {
                           id: 'executing-tool',
-                          name: 'manage_indicator',
+                          name: 'edit_indicator',
                           state: ClientToolCallState.executing,
-                          params: { operation: 'edit' },
+                          params: { entityDocument: '{}' },
                         },
                       },
                     ],
@@ -791,9 +791,8 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.pending,
           params: {
-            operations: [
-              { operation_type: 'edit', block_id: 'block-1', params: { name: 'New name' } },
-            ],
+            workflowDocument:
+              'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             workflowId: 'wf-edit-workflow-order',
           },
           provenance: {
@@ -863,9 +862,8 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.review,
           params: {
-            operations: [
-              { operation_type: 'edit', block_id: 'block-1', params: { name: 'New name' } },
-            ],
+            workflowDocument:
+              'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             workflowId: 'wf-edit-workflow-review',
           },
           result: {

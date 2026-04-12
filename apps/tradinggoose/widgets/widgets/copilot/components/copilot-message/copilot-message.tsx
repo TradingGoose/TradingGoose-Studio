@@ -141,8 +141,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return null
     }
 
-    // Helper function to extract workflow YAML from workflow tool calls
-    const getWorkflowYaml = () => {
+    // Helper function to extract the current workflow document from workflow tool calls
+    const getWorkflowDocument = () => {
       const allToolCalls = [
         ...(message.toolCalls || []),
         ...(message.contentBlocks || [])
@@ -155,17 +155,16 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         WORKFLOW_TOOL_NAMES.includes(toolCall?.name)
       )
 
-      // Extract YAML content from workflow tools in the current message
+      // Extract workflow document content from workflow tools in the current message
       for (const toolCall of workflowTools) {
-        // Try various locations where YAML content might be stored
-        const yamlContent =
-          toolCall.result?.yamlContent ||
-          toolCall.result?.data?.yamlContent ||
-          toolCall.input?.yamlContent ||
-          toolCall.input?.data?.yamlContent
+        const workflowDocument =
+          toolCall.result?.workflowDocument ||
+          toolCall.result?.data?.workflowDocument ||
+          toolCall.input?.workflowDocument ||
+          toolCall.input?.data?.workflowDocument
 
-        if (yamlContent && typeof yamlContent === 'string' && yamlContent.trim()) {
-          return yamlContent
+        if (workflowDocument && typeof workflowDocument === 'string' && workflowDocument.trim()) {
+          return workflowDocument
         }
       }
 
@@ -192,8 +191,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         return
       }
 
-      // Get workflow YAML if this message contains workflow tools
-      const workflowYaml = getWorkflowYaml()
+      const workflowDocument = getWorkflowDocument()
 
       try {
         const requestBody: any = {
@@ -203,9 +201,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           isPositiveFeedback: isPositive,
         }
 
-        // Only include workflowYaml if it exists
-        if (workflowYaml) {
-          requestBody.workflowYaml = workflowYaml
+        if (workflowDocument) {
+          requestBody.workflowYaml = workflowDocument
         }
 
         const response = await fetch('/api/copilot/feedback', {

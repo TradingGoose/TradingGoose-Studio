@@ -2,7 +2,6 @@
 export const COPILOT_TOOL_IDS = {
   GET_USER_WORKFLOW: 'get_user_workflow',
   EDIT_WORKFLOW: 'edit_workflow',
-  PREVIEW_EDIT_WORKFLOW: 'preview_edit_workflow',
   SEARCH_DOCUMENTATION: 'search_documentation',
   GET_BLOCKS_AND_TOOLS: 'get_blocks_and_tools',
   GET_BLOCKS_METADATA: 'get_blocks_metadata',

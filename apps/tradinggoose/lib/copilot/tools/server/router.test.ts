@@ -1,13 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/studio-workflow-mermaid'
 
 const editWorkflowExecute = vi.fn(async () => ({
-  yamlContent: 'workflow: {}',
-  userWorkflow: '{"blocks":{}}',
-  workflowState: { blocks: {} },
-}))
-const previewEditWorkflowExecute = vi.fn(async () => ({
-  yamlContent: 'workflow: {}',
-  userWorkflow: '{"blocks":{}}',
+  documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+  workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
   workflowState: { blocks: {} },
 }))
 const getWorkflowConsoleExecute = vi.fn(async () => ({ entries: [] }))
@@ -113,12 +109,6 @@ vi.mock('@/lib/copilot/tools/server/workflow/get-workflow-console', () => ({
     execute: getWorkflowConsoleExecute,
   },
 }))
-vi.mock('@/lib/copilot/tools/server/workflow/preview-edit-workflow', () => ({
-  previewEditWorkflowServerTool: {
-    name: 'preview_edit_workflow',
-    execute: previewEditWorkflowExecute,
-  },
-}))
 
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
@@ -131,7 +121,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   editWorkflowExecute.mockClear()
-  previewEditWorkflowExecute.mockClear()
   getWorkflowConsoleExecute.mockClear()
 })
 
@@ -164,20 +153,18 @@ describe('routeExecution', () => {
 
   it('preserves workflow edit context fields when routing workflow tools', async () => {
     const payload = {
-      operations: [{ operation_type: 'add' as const, block_id: 'manual_trigger_1' }],
+      workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       workflowId: 'workflow-123',
-      currentUserWorkflow: '{"blocks":{}}',
+      currentWorkflowState: '{"blocks":{}}',
     }
 
     await expect(routeExecution('edit_workflow', payload)).resolves.toMatchObject({
-      yamlContent: expect.any(String),
-    })
-    await expect(routeExecution('preview_edit_workflow', payload)).resolves.toMatchObject({
-      yamlContent: expect.any(String),
+      workflowDocument: expect.any(String),
+      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
     })
 
     expect(editWorkflowExecute).toHaveBeenCalledWith(payload, undefined)
-    expect(previewEditWorkflowExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
   it('preserves workflowId when routing workflow console requests', async () => {

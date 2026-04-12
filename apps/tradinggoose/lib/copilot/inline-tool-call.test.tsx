@@ -109,14 +109,6 @@ describe('InlineToolCall', () => {
             id: 'tool-review-preview',
             name: 'edit_workflow',
             state: ClientToolCallState.review,
-            params: {
-              operations: [
-                {
-                  operation_type: 'edit',
-                  block_id: 'trigger-1',
-                },
-              ],
-            },
             result: {
               workflowState: {
                 blocks: {
@@ -131,6 +123,15 @@ describe('InlineToolCall', () => {
                 parallels: {},
               },
               preview: {
+                blockDiff: {
+                  added: [],
+                  removed: [],
+                  updated: ['trigger-1'],
+                },
+                edgeDiff: {
+                  added: [],
+                  removed: [],
+                },
                 warnings: ['Added block trigger-1 has no outgoing edges.'],
               },
             },
@@ -140,29 +141,21 @@ describe('InlineToolCall', () => {
     })
 
     expect(container.textContent).toContain('Proposed Changes')
-    expect(container.textContent).toContain('Edit trigger-1')
+    expect(container.textContent).toContain('Update trigger-1')
     expect(container.textContent).toContain('Added block trigger-1 has no outgoing edges.')
     expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
       'trigger-1'
     )
   })
 
-  it('does not render a workflow preview card for preview_edit_workflow results', async () => {
+  it('does not render a workflow preview card for non-review workflow tool states', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
           toolCall={{
-            id: 'tool-pre-edit-preview',
-            name: 'preview_edit_workflow',
+            id: 'tool-applied-edit',
+            name: 'edit_workflow',
             state: ClientToolCallState.success,
-            params: {
-              operations: [
-                {
-                  operation_type: 'edit',
-                  block_id: 'trigger-1',
-                },
-              ],
-            },
             result: {
               workflowState: {
                 blocks: {
@@ -177,6 +170,15 @@ describe('InlineToolCall', () => {
                 parallels: {},
               },
               preview: {
+                blockDiff: {
+                  added: [],
+                  removed: [],
+                  updated: ['trigger-1'],
+                },
+                edgeDiff: {
+                  added: [],
+                  removed: [],
+                },
                 warnings: ['Added block trigger-1 has no outgoing edges.'],
               },
             },
@@ -197,14 +199,6 @@ describe('InlineToolCall', () => {
             id: 'tool-applied-edit',
             name: 'edit_workflow',
             state: ClientToolCallState.success,
-            params: {
-              operations: [
-                {
-                  operation_type: 'edit',
-                  block_id: 'trigger-1',
-                },
-              ],
-            },
             result: {
               workflowState: {
                 blocks: {
@@ -244,12 +238,14 @@ describe('InlineToolCall', () => {
         <InlineToolCall
           toolCall={{
             id: 'tool-skill-review',
-            name: 'manage_skill',
+            name: 'edit_skill',
             state: ClientToolCallState.pending,
             params: {
-              operation: 'edit',
-              name: 'Updated skill',
-              content: 'Updated instructions',
+              entityDocument: JSON.stringify({
+                name: 'Updated skill',
+                description: 'Original description',
+                content: 'Updated instructions',
+              }),
             },
           }}
         />

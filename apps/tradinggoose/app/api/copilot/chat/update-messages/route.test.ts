@@ -458,10 +458,10 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
         toolCalls: [
           {
             id: 'tool-entity-1',
-            name: 'manage_skill',
+            name: 'edit_skill',
             state: 'success',
             params: {
-              operation: 'edit',
+              entityDocument: '{}',
             },
           },
         ],
@@ -471,11 +471,9 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
             timestamp: 1,
             toolCall: {
               id: 'tool-entity-1',
-              name: 'manage_skill',
+              name: 'edit_skill',
               state: 'success',
-              result: {
-                operation: 'edit',
-              },
+              result: {},
             },
           },
         ],

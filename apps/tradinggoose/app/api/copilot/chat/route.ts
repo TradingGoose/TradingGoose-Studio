@@ -44,6 +44,7 @@ import {
 } from '@/lib/copilot/session-scope'
 import type { ProviderId } from '@/providers/ai/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
@@ -448,6 +449,7 @@ export async function POST(req: NextRequest) {
       ...(session?.user?.name && { userName: session.user.name }),
       ...(agentContexts.length > 0 && { context: agentContexts }),
       ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
+      toolManifest: getCopilotRuntimeToolManifest(),
       ...(processedFileContents.length > 0 && { fileAttachments: processedFileContents }),
     }
 

@@ -9,7 +9,10 @@ import {
   resolveWorkflowIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
+import {
+  serializeWorkflowToTgMermaid,
+  TG_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/studio-workflow-mermaid'
 
 interface GetUserWorkflowArgs {
   workflowId?: string
@@ -68,21 +71,17 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Sanitize workflow state for copilot (remove UI-specific data)
-      const sanitizedState = sanitizeForCopilot(workflowState)
-
-      // Convert to JSON string for transport
-      let workflowJson = ''
+      let workflowDocument = ''
       try {
-        workflowJson = JSON.stringify(sanitizedState, null, 2)
-        logger.info('Successfully stringified sanitized workflow state', {
+        workflowDocument = serializeWorkflowToTgMermaid(workflowState)
+        logger.info('Successfully serialized workflow document', {
           workflowId,
-          jsonLength: workflowJson.length,
+          documentLength: workflowDocument.length,
         })
       } catch (stringifyError) {
         await this.markToolComplete(
           500,
-          `Failed to convert workflow to JSON: ${
+          `Failed to convert workflow to Mermaid: ${
             stringifyError instanceof Error ? stringifyError.message : 'Unknown error'
           }`
         )
@@ -91,7 +90,10 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       }
 
       // Mark complete with data; keep state success for store render
-      await this.markToolComplete(200, 'Workflow analyzed', { userWorkflow: workflowJson })
+      await this.markToolComplete(200, 'Workflow analyzed', {
+        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowDocument,
+      })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

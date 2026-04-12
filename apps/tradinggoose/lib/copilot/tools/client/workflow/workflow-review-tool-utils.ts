@@ -85,25 +85,3 @@ export async function getReadableWorkflowSnapshot(
     source: 'api',
   }
 }
-
-export async function serializeReadableWorkflowSnapshot(
-  executionContext: ClientToolExecutionContext,
-  workflowId?: string
-): Promise<{
-  workflowId: string
-  currentUserWorkflow: string
-  workflowState: WorkflowSnapshot
-  source: 'live' | 'api'
-}> {
-  const { workflowId: resolvedWorkflowId, workflowState, source } = await getReadableWorkflowSnapshot(
-    executionContext,
-    workflowId
-  )
-
-  return {
-    workflowId: resolvedWorkflowId,
-    currentUserWorkflow: JSON.stringify(workflowState),
-    workflowState,
-    source,
-  }
-}

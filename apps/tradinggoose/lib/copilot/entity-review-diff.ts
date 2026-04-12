@@ -1,4 +1,5 @@
 import type { CopilotToolCall } from '@/stores/copilot/types'
+import { parseEntityDocument } from '@/lib/copilot/entity-documents'
 
 export interface EntityReviewDiffSection {
   key: string
@@ -17,33 +18,6 @@ type EntityFieldRecord = Record<string, any>
 type DiffFieldConfig = {
   key: string
   label: string
-}
-
-type CustomToolSchema = {
-  type: 'function'
-  function: {
-    name: string
-    description?: string
-    parameters: {
-      type: string
-      properties: Record<string, any>
-      required?: string[]
-    }
-  }
-}
-
-type McpServerConfig = {
-  name?: string
-  description?: string | null
-  transport?: 'http' | 'sse' | 'streamable-http'
-  url?: string
-  headers?: Record<string, string>
-  command?: string | null
-  args?: string[]
-  env?: Record<string, string>
-  timeout?: number
-  retries?: number
-  enabled?: boolean
 }
 
 const DIFF_CONTEXT_LINES = 2
@@ -65,20 +39,6 @@ function stringifyDiffValue(value: unknown): string {
     return JSON.stringify(value, null, 2)
   } catch {
     return String(value)
-  }
-}
-
-function formatCustomToolSchema(schema: CustomToolSchema): string {
-  return JSON.stringify(schema, null, 2)
-}
-
-function renameSchemaFunction(schemaText: string, title: string): string {
-  try {
-    const parsed = JSON.parse(schemaText) as CustomToolSchema
-    parsed.function.name = title
-    return formatCustomToolSchema(parsed)
-  } catch {
-    return schemaText
   }
 }
 
@@ -108,101 +68,59 @@ function buildDiffSections(
   return sections
 }
 
-function buildSkillNextFields(
-  toolCall: CopilotToolCall,
-  currentFields: EntityFieldRecord
-): EntityFieldRecord {
-  const params = toolCall.params || {}
-
-  return {
-    ...currentFields,
-    ...(params.name !== undefined ? { name: params.name } : {}),
-    ...(params.description !== undefined ? { description: params.description } : {}),
-    ...(params.content !== undefined ? { content: params.content } : {}),
-  }
-}
-
-function buildCustomToolNextFields(
-  toolCall: CopilotToolCall,
-  currentFields: EntityFieldRecord
-): EntityFieldRecord {
-  const params = toolCall.params || {}
-  const nextTitle = params.title ?? params.schema?.function?.name ?? currentFields.title ?? ''
-  const nextSchemaText = params.schema
-    ? formatCustomToolSchema(params.schema as CustomToolSchema)
-    : params.title !== undefined
-      ? renameSchemaFunction(currentFields.schemaText ?? '', params.title)
-      : currentFields.schemaText ?? ''
-
-  return {
-    ...currentFields,
-    ...(params.title !== undefined || params.schema !== undefined ? { title: nextTitle } : {}),
-    ...(params.title !== undefined || params.schema !== undefined
-      ? { schemaText: nextSchemaText }
-      : {}),
-    ...(params.code !== undefined ? { codeText: params.code } : {}),
-  }
-}
-
-function buildIndicatorNextFields(
-  toolCall: CopilotToolCall,
-  currentFields: EntityFieldRecord
-): EntityFieldRecord {
-  const params = toolCall.params || {}
-
-  return {
-    ...currentFields,
-    ...(params.name !== undefined ? { name: params.name } : {}),
-    ...(params.color !== undefined ? { color: params.color } : {}),
-    ...(params.pineCode !== undefined ? { pineCode: params.pineCode } : {}),
-    ...(params.inputMeta !== undefined ? { inputMeta: params.inputMeta } : {}),
-  }
-}
-
-function buildMcpNextFields(
+function buildSkillDocumentNextFields(
   toolCall: CopilotToolCall,
   currentFields: EntityFieldRecord
 ): EntityFieldRecord | null {
-  const params = toolCall.params || {}
-  const config =
-    params.config && typeof params.config === 'object'
-      ? (params.config as McpServerConfig)
-      : null
-
-  if (!config) {
-    return null
-  }
-
-  if (params.operation === 'add') {
+  try {
     return {
       ...currentFields,
-      name: config.name ?? currentFields.name,
-      description: config.description ?? '',
-      transport: config.transport ?? 'streamable-http',
-      url: config.url ?? '',
-      headers: config.headers ?? {},
-      command: config.command ?? '',
-      args: config.args ?? [],
-      env: config.env ?? {},
-      timeout: config.timeout ?? 30000,
-      retries: config.retries ?? 3,
-      enabled: config.enabled ?? true,
+      ...parseEntityDocument('skill', String(toolCall.params?.entityDocument ?? '')),
     }
+  } catch {
+    return null
   }
+}
 
-  return {
-    ...currentFields,
-    ...(config.name !== undefined ? { name: config.name } : {}),
-    ...(config.description !== undefined ? { description: config.description ?? '' } : {}),
-    ...(config.transport !== undefined ? { transport: config.transport } : {}),
-    ...(config.url !== undefined ? { url: config.url } : {}),
-    ...(config.headers !== undefined ? { headers: config.headers } : {}),
-    ...(config.command !== undefined ? { command: config.command ?? '' } : {}),
-    ...(config.args !== undefined ? { args: config.args } : {}),
-    ...(config.env !== undefined ? { env: config.env } : {}),
-    ...(config.timeout !== undefined ? { timeout: config.timeout } : {}),
-    ...(config.retries !== undefined ? { retries: config.retries } : {}),
-    ...(config.enabled !== undefined ? { enabled: config.enabled } : {}),
+function buildCustomToolDocumentNextFields(
+  toolCall: CopilotToolCall,
+  currentFields: EntityFieldRecord
+): EntityFieldRecord | null {
+  try {
+    return {
+      ...currentFields,
+      ...parseEntityDocument('custom_tool', String(toolCall.params?.entityDocument ?? '')),
+    }
+  } catch {
+    return null
+  }
+}
+
+function buildIndicatorDocumentNextFields(
+  toolCall: CopilotToolCall,
+  currentFields: EntityFieldRecord
+): EntityFieldRecord | null {
+  try {
+    return {
+      ...currentFields,
+      ...parseEntityDocument('indicator', String(toolCall.params?.entityDocument ?? '')),
+    }
+  } catch {
+    return null
+  }
+}
+
+function buildMcpDocumentNextFields(
+  toolCall: CopilotToolCall,
+  currentFields: EntityFieldRecord
+): EntityFieldRecord | null {
+  try {
+    return {
+      ...currentFields,
+      ...parseEntityDocument('mcp_server', String(toolCall.params?.entityDocument ?? '')),
+    }
+  } catch {
+    return null
   }
 }
 
@@ -218,47 +136,49 @@ export function buildEntityReviewDiffPayload(
     return null
   }
 
-  const operation = toolCall.params?.operation
-  if (operation !== 'add' && operation !== 'edit') {
-    return null
-  }
-
   switch (toolCall.name) {
-    case 'manage_skill': {
-      const sections = buildDiffSections(currentFields, buildSkillNextFields(toolCall, currentFields), [
+    case 'edit_skill': {
+      const nextFields = buildSkillDocumentNextFields(toolCall, currentFields)
+      if (!nextFields) {
+        return null
+      }
+
+      const sections = buildDiffSections(currentFields, nextFields, [
         { key: 'name', label: 'Name' },
         { key: 'description', label: 'Description' },
         { key: 'content', label: 'Instructions' },
       ])
       return sections.length > 0 ? { title: 'Proposed Skill Changes', sections } : null
     }
-    case 'manage_custom_tool': {
-      const sections = buildDiffSections(
-        currentFields,
-        buildCustomToolNextFields(toolCall, currentFields),
-        [
-          { key: 'title', label: 'Title' },
-          { key: 'schemaText', label: 'Schema' },
-          { key: 'codeText', label: 'Code' },
-        ]
-      )
+    case 'edit_custom_tool': {
+      const nextFields = buildCustomToolDocumentNextFields(toolCall, currentFields)
+      if (!nextFields) {
+        return null
+      }
+
+      const sections = buildDiffSections(currentFields, nextFields, [
+        { key: 'title', label: 'Title' },
+        { key: 'schemaText', label: 'Schema' },
+        { key: 'codeText', label: 'Code' },
+      ])
       return sections.length > 0 ? { title: 'Proposed Custom Tool Changes', sections } : null
     }
-    case 'manage_indicator': {
-      const sections = buildDiffSections(
-        currentFields,
-        buildIndicatorNextFields(toolCall, currentFields),
-        [
-          { key: 'name', label: 'Name' },
-          { key: 'color', label: 'Color' },
-          { key: 'pineCode', label: 'Pine Code' },
-          { key: 'inputMeta', label: 'Input Meta' },
-        ]
-      )
+    case 'edit_indicator': {
+      const nextFields = buildIndicatorDocumentNextFields(toolCall, currentFields)
+      if (!nextFields) {
+        return null
+      }
+
+      const sections = buildDiffSections(currentFields, nextFields, [
+        { key: 'name', label: 'Name' },
+        { key: 'color', label: 'Color' },
+        { key: 'pineCode', label: 'Pine Code' },
+        { key: 'inputMeta', label: 'Input Meta' },
+      ])
       return sections.length > 0 ? { title: 'Proposed Indicator Changes', sections } : null
     }
-    case 'manage_mcp_tool': {
-      const nextFields = buildMcpNextFields(toolCall, currentFields)
+    case 'edit_mcp_server': {
+      const nextFields = buildMcpDocumentNextFields(toolCall, currentFields)
       if (!nextFields) {
         return null
       }

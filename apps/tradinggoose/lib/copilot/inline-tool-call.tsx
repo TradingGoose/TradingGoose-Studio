@@ -25,14 +25,10 @@ import {
 import type { CopilotToolCall } from '@/stores/copilot/types'
 import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
 
-type WorkflowReviewOperation = {
-  operation_type?: string
-  block_id?: string
-}
-
 type WorkflowReviewPayload = {
   workflowState: Record<string, any>
-  operations: WorkflowReviewOperation[]
+  changeSummary: string[]
+  previewDiffOperations: Array<{ operation_type?: string; block_id?: string }>
   warnings: string[]
   addedEdgesCount: number
   removedEdgesCount: number
@@ -233,20 +229,6 @@ function formatToolName(name: string): string {
     .join(' ')
 }
 
-function formatWorkflowOperation(operation: WorkflowReviewOperation): string {
-  const action = String(operation.operation_type || 'edit')
-  const blockId = String(operation.block_id || 'unknown block')
-
-  switch (action) {
-    case 'add':
-      return `Add ${blockId}`
-    case 'delete':
-      return `Delete ${blockId}`
-    default:
-      return `Edit ${blockId}`
-  }
-}
-
 function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string {
   switch (type) {
     case 'added':
@@ -276,9 +258,14 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
     return null
   }
 
-  const operations = Array.isArray(toolCall.params?.operations)
-    ? (toolCall.params.operations as WorkflowReviewOperation[])
-    : []
+  const blockDiff =
+    result?.preview?.blockDiff && typeof result.preview.blockDiff === 'object'
+      ? (result.preview.blockDiff as {
+          added?: string[]
+          removed?: string[]
+          updated?: string[]
+        })
+      : null
   const warnings = Array.isArray(result?.preview?.warnings)
     ? (result.preview.warnings as string[])
     : []
@@ -289,9 +276,21 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
     ? result.preview.edgeDiff.removed.length
     : 0
 
+  const changeSummary = [
+    ...((blockDiff?.added || []).map((blockId) => `Add ${blockId}`)),
+    ...((blockDiff?.updated || []).map((blockId) => `Update ${blockId}`)),
+    ...((blockDiff?.removed || []).map((blockId) => `Remove ${blockId}`)),
+  ]
+
+  const previewDiffOperations = [
+    ...((blockDiff?.added || []).map((block_id) => ({ operation_type: 'add', block_id }))),
+    ...((blockDiff?.updated || []).map((block_id) => ({ operation_type: 'edit', block_id }))),
+  ]
+
   return {
     workflowState,
-    operations,
+    changeSummary,
+    previewDiffOperations,
     warnings,
     addedEdgesCount,
     removedEdgesCount,
@@ -817,18 +816,18 @@ export function InlineToolCall({
       {showWorkflowReview && workflowReviewPayload ? (
         <div className='pr-1 pl-5'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
-            {workflowReviewPayload.operations.length > 0 ? (
+            {workflowReviewPayload.changeSummary.length > 0 ? (
               <div className='flex flex-col gap-1'>
                 <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
                   Proposed Changes
                 </div>
                 <div className='flex flex-wrap gap-1.5'>
-                  {workflowReviewPayload.operations.map((operation, index) => (
+                  {workflowReviewPayload.changeSummary.map((summary, index) => (
                     <span
-                      key={`${operation.operation_type || 'edit'}-${operation.block_id || index}-${index}`}
+                      key={`${summary}-${index}`}
                       className='inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground'
                     >
-                      {formatWorkflowOperation(operation)}
+                      {summary}
                     </span>
                   ))}
                 </div>
@@ -858,7 +857,7 @@ export function InlineToolCall({
 
             <PreviewWorkflow
               workflowState={workflowReviewPayload.workflowState as any}
-              diffOperations={workflowReviewPayload.operations}
+              diffOperations={workflowReviewPayload.previewDiffOperations}
               height={240}
               defaultZoom={0.7}
               fitPadding={0.18}

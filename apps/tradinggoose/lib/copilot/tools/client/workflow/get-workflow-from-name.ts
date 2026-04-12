@@ -5,7 +5,10 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
+import {
+  serializeWorkflowToTgMermaid,
+  TG_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('GetWorkflowFromNameClientTool')
@@ -76,18 +79,21 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
         return
       }
 
-      // Convert state to the same string format as get_user_workflow
       const workflowState = {
         blocks: wf.state.blocks || {},
         edges: wf.state.edges || [],
         loops: wf.state.loops || {},
         parallels: wf.state.parallels || {},
+        lastSaved: wf.state.lastSaved,
+        isDeployed: wf.state.isDeployed,
+        deployedAt: wf.state.deployedAt,
       }
-      // Sanitize workflow state for copilot (remove UI-specific data)
-      const sanitizedState = sanitizeForCopilot(workflowState)
-      const userWorkflow = JSON.stringify(sanitizedState, null, 2)
+      const workflowDocument = serializeWorkflowToTgMermaid(workflowState)
 
-      await this.markToolComplete(200, `Retrieved workflow ${workflowName}`, { userWorkflow })
+      await this.markToolComplete(200, `Retrieved workflow ${workflowName}`, {
+        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowDocument,
+      })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

@@ -8,24 +8,18 @@ import { shouldAutoApplyWorkflowEdits } from '@/lib/copilot/access-policy'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  getReadableWorkflowSnapshot,
   requireActiveWorkflowSession,
   resolveWorkflowIdFromExecutionContext,
-  serializeReadableWorkflowSnapshot,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
 
-interface EditWorkflowOperation {
-  operation_type: 'add' | 'edit' | 'delete'
-  block_id: string
-  params?: Record<string, any>
-}
-
 interface EditWorkflowArgs {
-  operations: EditWorkflowOperation[]
-  workflowId: string
-  currentUserWorkflow?: string
+  workflowDocument: string
+  documentFormat?: string
+  workflowId?: string
 }
 
 export class EditWorkflowClientTool extends BaseClientTool {
@@ -178,30 +172,22 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
       this.lastWorkflowId = workflowId
 
-      // Validate operations
-      const operations = args?.operations || []
-      if (!operations.length) {
+      const workflowDocument = args?.workflowDocument?.trim()
+      if (!workflowDocument) {
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No operations provided for edit_workflow')
+        await this.markToolComplete(400, 'No workflowDocument provided for edit_workflow')
         return
       }
 
-      // Build the edit baseline from the live Yjs workflow doc when available,
-      // but allow review-mode staging to fall back to the persisted workflow.
-      let currentUserWorkflow = args?.currentUserWorkflow
+      let currentWorkflowState: string | undefined
 
-      if (!currentUserWorkflow) {
-        try {
-          currentUserWorkflow = (
-            await serializeReadableWorkflowSnapshot(
-              executionContext,
-              workflowId
-            )
-          ).currentUserWorkflow
-        } catch (e) {
-          logger.warn('Failed to build currentUserWorkflow from readable workflow snapshot', e as any)
-          throw new Error('Failed to read the current workflow')
-        }
+      try {
+        currentWorkflowState = JSON.stringify(
+          (await getReadableWorkflowSnapshot(executionContext, workflowId)).workflowState
+        )
+      } catch (e) {
+        logger.warn('Failed to build currentWorkflowState from readable workflow snapshot', e as any)
+        throw new Error('Failed to read the current workflow')
       }
 
       const res = await fetch('/api/copilot/execute-copilot-server-tool', {
@@ -210,9 +196,10 @@ export class EditWorkflowClientTool extends BaseClientTool {
         body: JSON.stringify({
           toolName: 'edit_workflow',
           payload: {
-            operations,
             workflowId,
-            ...(currentUserWorkflow ? { currentUserWorkflow } : {}),
+            workflowDocument,
+            ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
+            ...(currentWorkflowState ? { currentWorkflowState } : {}),
           },
         }),
       })

@@ -4,9 +4,15 @@ import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockRequireActiveWorkflowSession = vi.fn()
-const mockSerializeReadableWorkflowSnapshot = vi.fn()
+const mockGetReadableWorkflowSnapshot = vi.fn()
 const mockSetWorkflowState = vi.fn()
 const mockExtractPersistedStateFromDoc = vi.fn()
+
+const workflowDocument = [
+  'flowchart TD',
+  '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+  '%% TG_BLOCK {"id":"block-1","type":"trigger","name":"Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
+].join('\n')
 
 let accessLevel: 'limited' | 'full' = 'limited'
 let persistedToolCalls: Record<string, any> = {}
@@ -15,8 +21,7 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   requireActiveWorkflowSession: (...args: any[]) => mockRequireActiveWorkflowSession(...args),
   resolveWorkflowIdFromExecutionContext: (executionContext: any, workflowId?: string) =>
     workflowId ?? executionContext.workflowId,
-  serializeReadableWorkflowSnapshot: (...args: any[]) =>
-    mockSerializeReadableWorkflowSnapshot(...args),
+  getReadableWorkflowSnapshot: (...args: any[]) => mockGetReadableWorkflowSnapshot(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -40,14 +45,14 @@ describe('EditWorkflowClientTool approval gating', () => {
     accessLevel = 'limited'
     persistedToolCalls = {}
     mockRequireActiveWorkflowSession.mockReset()
-    mockSerializeReadableWorkflowSnapshot.mockReset()
+    mockGetReadableWorkflowSnapshot.mockReset()
     mockSetWorkflowState.mockReset()
     mockExtractPersistedStateFromDoc.mockReset()
 
-    mockSerializeReadableWorkflowSnapshot.mockResolvedValue({
+    mockGetReadableWorkflowSnapshot.mockResolvedValue({
       workflowId: 'wf-1',
       source: 'live',
-      currentUserWorkflow: JSON.stringify({
+      workflowState: {
         blocks: {
           'block-1': {
             id: 'block-1',
@@ -62,7 +67,7 @@ describe('EditWorkflowClientTool approval gating', () => {
         edges: [],
         loops: {},
         parallels: {},
-      }),
+      },
     })
 
     mockRequireActiveWorkflowSession.mockReturnValue({
@@ -152,7 +157,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.handleUserAction({
       workflowId: 'wf-1',
-      operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Renamed Trigger' } }],
+      workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -167,10 +172,10 @@ describe('EditWorkflowClientTool approval gating', () => {
   })
 
   it('stages workflow edits from a persisted workflow fallback when no live session is registered yet', async () => {
-    mockSerializeReadableWorkflowSnapshot.mockResolvedValueOnce({
+    mockGetReadableWorkflowSnapshot.mockResolvedValueOnce({
       workflowId: 'wf-1',
       source: 'api',
-      currentUserWorkflow: JSON.stringify({
+      workflowState: {
         blocks: {
           'block-1': {
             id: 'block-1',
@@ -185,14 +190,14 @@ describe('EditWorkflowClientTool approval gating', () => {
         edges: [],
         loops: {},
         parallels: {},
-      }),
+      },
     })
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url === '/api/copilot/execute-copilot-server-tool') {
-        expect(init?.body).toContain('"currentUserWorkflow"')
+        expect(init?.body).toContain('"currentWorkflowState"')
         expect(init?.body).toContain('Persisted Trigger')
         return {
           ok: true,
@@ -236,7 +241,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.handleUserAction({
       workflowId: 'wf-1',
-      operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Renamed Trigger' } }],
+      workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -310,7 +315,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.execute({
       workflowId: 'wf-1',
-      operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Accepted Trigger' } }],
+      workflowDocument,
     })
     await tool.handleAccept()
 
@@ -388,7 +393,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.execute({
       workflowId: 'wf-1',
-      operations: [{ operation_type: 'edit', block_id: 'block-1', params: { name: 'Auto Applied' } }],
+      workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)

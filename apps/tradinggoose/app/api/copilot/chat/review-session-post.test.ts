@@ -304,6 +304,13 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
           apiKey: 'test-copilot-key',
         },
         chatId: 'review-session-1',
+        toolManifest: expect.objectContaining({
+          version: 'v1',
+          tools: expect.arrayContaining([
+            expect.objectContaining({ name: 'get_user_workflow' }),
+            expect.objectContaining({ name: 'edit_workflow' }),
+          ]),
+        }),
       }),
     })
     expect(mockTransaction).toHaveBeenCalledTimes(1)
@@ -439,6 +446,9 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         userId: 'collaborator-user',
         model: 'claude-sonnet-4.6',
         chatId: 'review-session-1',
+        toolManifest: expect.objectContaining({
+          version: 'v1',
+        }),
         context: [
           {
             type: 'current_indicator',
@@ -632,6 +642,9 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         userId: 'collaborator-user',
         model: 'claude-sonnet-4.6',
         chatId: 'review-session-channel-1',
+        toolManifest: expect.objectContaining({
+          version: 'v1',
+        }),
       }),
     })
   })

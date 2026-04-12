@@ -10,12 +10,14 @@ describe('entity-review-diff', () => {
     const payload = buildEntityReviewDiffPayload(
       {
         id: 'tool-skill',
-        name: 'manage_skill',
+        name: 'edit_skill',
         state: ClientToolCallState.pending,
         params: {
-          operation: 'edit',
-          name: 'Updated skill',
-          content: 'New instructions',
+          entityDocument: JSON.stringify({
+            name: 'Updated skill',
+            description: 'Original description',
+            content: 'New instructions',
+          }),
         },
       },
       {
@@ -46,11 +48,28 @@ describe('entity-review-diff', () => {
     const payload = buildEntityReviewDiffPayload(
       {
         id: 'tool-custom-tool',
-        name: 'manage_custom_tool',
+        name: 'edit_custom_tool',
         state: ClientToolCallState.pending,
         params: {
-          operation: 'edit',
-          title: 'new_tool_name',
+          entityDocument: JSON.stringify({
+            title: 'new_tool_name',
+            schemaText: JSON.stringify(
+              {
+                type: 'function',
+                function: {
+                  name: 'new_tool_name',
+                  parameters: {
+                    type: 'object',
+                    properties: {},
+                    required: [],
+                  },
+                },
+              },
+              null,
+              2
+            ),
+            codeText: 'return 1',
+          }),
         },
       },
       {
@@ -84,12 +103,15 @@ describe('entity-review-diff', () => {
     const payload = buildEntityReviewDiffPayload(
       {
         id: 'tool-indicator',
-        name: 'manage_indicator',
+        name: 'edit_indicator',
         state: ClientToolCallState.pending,
         params: {
-          operation: 'edit',
-          color: '#22c55e',
-          inputMeta: { period: 20 },
+          entityDocument: JSON.stringify({
+            name: 'RSI',
+            color: '#22c55e',
+            pineCode: 'plot(close)',
+            inputMeta: { period: 20 },
+          }),
         },
       },
       {
@@ -121,13 +143,22 @@ describe('entity-review-diff', () => {
     const payload = buildEntityReviewDiffPayload(
       {
         id: 'tool-mcp',
-        name: 'manage_mcp_tool',
+        name: 'edit_mcp_server',
         state: ClientToolCallState.pending,
         params: {
-          operation: 'add',
-          config: {
+          entityDocument: JSON.stringify({
             name: 'Market Data',
-          },
+            description: '',
+            transport: 'streamable-http',
+            url: '',
+            headers: {},
+            command: '',
+            args: [],
+            env: {},
+            timeout: 30000,
+            retries: 3,
+            enabled: true,
+          }),
         },
       },
       {

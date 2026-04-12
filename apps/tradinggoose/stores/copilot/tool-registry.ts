@@ -14,6 +14,23 @@ import { GetTriggerBlocksClientTool } from '@/lib/copilot/tools/client/blocks/ge
 import { GetExamplesRagClientTool } from '@/lib/copilot/tools/client/examples/get-examples-rag'
 import { GetOperationsExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-operations-examples'
 import { GetTriggerExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-trigger-examples'
+import {
+  EditCustomToolClientTool,
+  EditIndicatorClientTool,
+  EditMcpServerClientTool,
+  EditSkillClientTool,
+  GetCustomToolClientTool,
+  GetIndicatorClientTool,
+  GetMcpServerClientTool,
+  GetSkillClientTool,
+  ListCustomToolsClientTool,
+  ListIndicatorsClientTool,
+  ListMcpServersClientTool,
+  ListSkillsClientTool,
+} from '@/lib/copilot/tools/client/entities/entity-document-tools'
+import { EditMonitorClientTool } from '@/lib/copilot/tools/client/monitor/edit-monitor'
+import { GetMonitorClientTool } from '@/lib/copilot/tools/client/monitor/get-monitor'
+import { ListMonitorsClientTool } from '@/lib/copilot/tools/client/monitor/list-monitors'
 import { ListGDriveFilesClientTool } from '@/lib/copilot/tools/client/gdrive/list-files'
 import { ReadGDriveFileClientTool } from '@/lib/copilot/tools/client/gdrive/read-file'
 import { GDriveRequestAccessClientTool } from '@/lib/copilot/tools/client/google/gdrive-request-access'
@@ -39,14 +56,8 @@ import { GetBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client
 import { GetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/get-global-workflow-variables'
 import { GetUserWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/get-user-workflow'
 import { GetWorkflowConsoleClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-console'
-import { GetWorkflowDataClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-data'
 import { GetWorkflowFromNameClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-from-name'
 import { ListUserWorkflowsClientTool } from '@/lib/copilot/tools/client/workflow/list-user-workflows'
-import { ManageCustomToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-custom-tool'
-import { ManageIndicatorClientTool } from '@/lib/copilot/tools/client/workflow/manage-indicator'
-import { ManageMcpToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-mcp-tool'
-import { ManageSkillClientTool } from '@/lib/copilot/tools/client/workflow/manage-skill'
-import { PreviewEditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/preview-edit-workflow'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -152,6 +163,21 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   set_environment_variables: serverTool(SetEnvironmentVariablesClientTool, withActiveWorkflowId),
   get_credentials: serverTool(GetCredentialsClientTool, withActiveWorkflowIdUnlessIdentityProvided),
   knowledge_base: clientTool(KnowledgeBaseClientTool),
+  list_custom_tools: clientTool(ListCustomToolsClientTool),
+  get_custom_tool: clientTool(GetCustomToolClientTool),
+  edit_custom_tool: clientTool(EditCustomToolClientTool),
+  list_monitors: clientTool(ListMonitorsClientTool),
+  get_monitor: clientTool(GetMonitorClientTool),
+  edit_monitor: clientTool(EditMonitorClientTool),
+  list_indicators: clientTool(ListIndicatorsClientTool),
+  get_indicator: clientTool(GetIndicatorClientTool),
+  edit_indicator: clientTool(EditIndicatorClientTool),
+  list_skills: clientTool(ListSkillsClientTool),
+  get_skill: clientTool(GetSkillClientTool),
+  edit_skill: clientTool(EditSkillClientTool),
+  list_mcp_servers: clientTool(ListMcpServersClientTool),
+  get_mcp_server: clientTool(GetMcpServerClientTool),
+  edit_mcp_server: clientTool(EditMcpServerClientTool),
   list_gdrive_files: serverTool(
     ListGDriveFilesClientTool,
     withActiveWorkflowIdUnlessIdentityProvided
@@ -168,11 +194,9 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   gdrive_request_access: clientTool(GDriveRequestAccessClientTool),
   oauth_request_access: clientTool(OAuthRequestAccessClientTool),
   edit_workflow: clientTool(EditWorkflowClientTool),
-  preview_edit_workflow: clientTool(PreviewEditWorkflowClientTool),
   get_user_workflow: clientTool(GetUserWorkflowClientTool),
   list_user_workflows: clientTool(ListUserWorkflowsClientTool),
   get_workflow_from_name: clientTool(GetWorkflowFromNameClientTool),
-  get_workflow_data: clientTool(GetWorkflowDataClientTool),
   get_global_workflow_variables: clientTool(GetGlobalWorkflowVariablesClientTool),
   set_global_workflow_variables: clientTool(SetGlobalWorkflowVariablesClientTool),
   get_trigger_examples: clientTool(GetTriggerExamplesClientTool),
@@ -180,10 +204,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   get_operations_examples: clientTool(GetOperationsExamplesClientTool),
   deploy_workflow: clientTool(DeployWorkflowClientTool),
   check_deployment_status: clientTool(CheckDeploymentStatusClientTool),
-  manage_custom_tool: clientTool(ManageCustomToolClientTool),
-  manage_indicator: clientTool(ManageIndicatorClientTool),
-  manage_skill: clientTool(ManageSkillClientTool),
-  manage_mcp_tool: clientTool(ManageMcpToolClientTool),
   sleep: clientTool(SleepClientTool),
   get_block_outputs: clientTool(GetBlockOutputsClientTool),
   get_block_upstream_references: clientTool(GetBlockUpstreamReferencesClientTool),
