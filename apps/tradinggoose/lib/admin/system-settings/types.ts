@@ -5,6 +5,6 @@ export interface AdminSystemSettingsSnapshot {
   billingEnabled: boolean
   billingReady: boolean
   allowPromotionCodes: boolean
-  stripeSecretKey: string
-  stripeWebhookSecret: string
+  hasStripeSecretKey: boolean
+  hasStripeWebhookSecret: boolean
 }

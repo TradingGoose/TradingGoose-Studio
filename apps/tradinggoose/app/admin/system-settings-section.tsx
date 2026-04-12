@@ -30,14 +30,18 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
   billingEnabled: false,
   billingReady: false,
   allowPromotionCodes: true,
-  stripeSecretKey: '',
-  stripeWebhookSecret: '',
+  hasStripeSecretKey: false,
+  hasStripeWebhookSecret: false,
 }
 
 export function AdminSystemSettingsSection() {
   const snapshotQuery = useAdminSystemSettingsSnapshot()
   const updateMutation = useUpdateAdminSystemSettings()
   const [draft, setDraft] = useState<AdminSystemSettingsSnapshot | null>(null)
+  const [secretDraft, setSecretDraft] = useState({
+    stripeSecretKey: '',
+    stripeWebhookSecret: '',
+  })
   const [showSecretKey, setShowSecretKey] = useState(false)
   const [showWebhookSecret, setShowWebhookSecret] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,8 +70,7 @@ export function AdminSystemSettingsSection() {
   }, [message])
 
   const settings = draft ?? EMPTY_SNAPSHOT
-  const stripeConfigured =
-    settings.stripeSecretKey.trim().length > 0 && settings.stripeWebhookSecret.trim().length > 0
+  const stripeConfigured = settings.hasStripeSecretKey && settings.hasStripeWebhookSecret
   const stripeStatusLabel = stripeConfigured ? 'Stripe ready' : 'Stripe incomplete'
 
   async function handleSave() {
@@ -75,9 +78,25 @@ export function AdminSystemSettingsSection() {
     setMessage(null)
 
     try {
-      const { billingReady: _billingReady, ...input } = settings
+      const input = {
+        registrationMode: settings.registrationMode,
+        billingEnabled: settings.billingEnabled,
+        allowPromotionCodes: settings.allowPromotionCodes,
+        ...(secretDraft.stripeSecretKey.trim().length > 0
+          ? { stripeSecretKey: secretDraft.stripeSecretKey }
+          : {}),
+        ...(secretDraft.stripeWebhookSecret.trim().length > 0
+          ? { stripeWebhookSecret: secretDraft.stripeWebhookSecret }
+          : {}),
+      }
       const nextSnapshot = await updateMutation.mutateAsync(input)
       setDraft(nextSnapshot)
+      setSecretDraft({
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+      })
+      setShowSecretKey(false)
+      setShowWebhookSecret(false)
       setMessage('System settings updated')
     } catch (submitError) {
       setError(getErrorMessage(submitError))
@@ -240,20 +259,22 @@ export function AdminSystemSettingsSection() {
                 id='stripe-secret-key'
                 label='STRIPE_SECRET_KEY'
                 hint='Secret API key used for Stripe operations and checkout.'
-                value={settings.stripeSecretKey}
+                value={secretDraft.stripeSecretKey}
+                configured={settings.hasStripeSecretKey}
                 revealed={showSecretKey}
                 onRevealToggle={() => setShowSecretKey((current) => !current)}
-                onChange={(event) => updateField('stripeSecretKey', event.target.value)}
+                onChange={(event) => updateSecretField('stripeSecretKey', event.target.value)}
               />
 
               <SecretField
                 id='stripe-webhook-secret'
                 label='STRIPE_WEBHOOK_SECRET'
                 hint='Signing secret used to validate incoming Stripe webhooks.'
-                value={settings.stripeWebhookSecret}
+                value={secretDraft.stripeWebhookSecret}
+                configured={settings.hasStripeWebhookSecret}
                 revealed={showWebhookSecret}
                 onRevealToggle={() => setShowWebhookSecret((current) => !current)}
-                onChange={(event) => updateField('stripeWebhookSecret', event.target.value)}
+                onChange={(event) => updateSecretField('stripeWebhookSecret', event.target.value)}
               />
             </div>
           </div>
@@ -274,6 +295,13 @@ export function AdminSystemSettingsSection() {
   ) {
     setDraft((current) => ({
       ...(current ?? EMPTY_SNAPSHOT),
+      [key]: value,
+    }))
+  }
+
+  function updateSecretField(key: keyof typeof secretDraft, value: string) {
+    setSecretDraft((current) => ({
+      ...current,
       [key]: value,
     }))
   }
@@ -312,6 +340,7 @@ function SecretField({
   label,
   hint,
   value,
+  configured,
   revealed,
   onRevealToggle,
   onChange,
@@ -320,6 +349,7 @@ function SecretField({
   label: string
   hint: string
   value: string
+  configured: boolean
   revealed: boolean
   onRevealToggle: () => void
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
@@ -331,9 +361,20 @@ function SecretField({
           {label}
         </Label>
         <p className='text-muted-foreground text-xs leading-relaxed'>{hint}</p>
+        <p className='text-muted-foreground text-xs leading-relaxed'>
+          {configured
+            ? 'Configured. Enter a new value to replace the stored secret.'
+            : 'Not configured. Enter a value to store this secret.'}
+        </p>
       </div>
       <div className='flex items-center gap-2'>
-        <Input id={id} type={revealed ? 'text' : 'password'} value={value} onChange={onChange} />
+        <Input
+          id={id}
+          type={revealed ? 'text' : 'password'}
+          value={value}
+          placeholder={configured ? 'Configured' : 'Not configured'}
+          onChange={onChange}
+        />
         <Button
           type='button'
           variant='outline'

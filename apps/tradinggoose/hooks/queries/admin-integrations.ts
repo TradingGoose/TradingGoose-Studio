@@ -54,13 +54,15 @@ function normalizeSnapshot(payload: unknown): AdminIntegrationsSnapshot {
       : [],
     secrets: Array.isArray(data.secrets)
       ? data.secrets.map((secret) => {
-          const item = secret && typeof secret === 'object' ? (secret as Record<string, unknown>) : {}
+          const item =
+            secret && typeof secret === 'object' ? (secret as Record<string, unknown>) : {}
 
           return {
             id: typeof item.id === 'string' ? item.id : '',
             definitionId: typeof item.definitionId === 'string' ? item.definitionId : '',
             credentialKey: typeof item.credentialKey === 'string' ? item.credentialKey : '',
-            value: typeof item.value === 'string' ? item.value : '',
+            value: '',
+            hasValue: typeof item.hasValue === 'boolean' ? item.hasValue : false,
           }
         })
       : [],

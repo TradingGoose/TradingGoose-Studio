@@ -23,8 +23,8 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
       billingEnabled: false,
       billingReady: false,
       allowPromotionCodes: true,
-      stripeSecretKey: '',
-      stripeWebhookSecret: '',
+      hasStripeSecretKey: false,
+      hasStripeWebhookSecret: false,
     }
   }
 
@@ -41,9 +41,10 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
     billingReady: typeof data.billingReady === 'boolean' ? data.billingReady : false,
     allowPromotionCodes:
       typeof data.allowPromotionCodes === 'boolean' ? data.allowPromotionCodes : true,
-    stripeSecretKey: typeof data.stripeSecretKey === 'string' ? data.stripeSecretKey : '',
-    stripeWebhookSecret:
-      typeof data.stripeWebhookSecret === 'string' ? data.stripeWebhookSecret : '',
+    hasStripeSecretKey:
+      typeof data.hasStripeSecretKey === 'boolean' ? data.hasStripeSecretKey : false,
+    hasStripeWebhookSecret:
+      typeof data.hasStripeWebhookSecret === 'boolean' ? data.hasStripeWebhookSecret : false,
   }
 }
 

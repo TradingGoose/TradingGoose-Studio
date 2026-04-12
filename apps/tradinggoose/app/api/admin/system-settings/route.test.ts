@@ -88,7 +88,7 @@ describe('/api/admin/system-settings route', () => {
     mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
   })
 
-  it('claims bootstrap ownership before returning secret-bearing system settings', async () => {
+  it('claims bootstrap ownership before returning secret presence flags', async () => {
     const { GET } = await import('./route')
 
     const response = await GET()
@@ -99,10 +99,12 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      hasStripeSecretKey: true,
+      hasStripeWebhookSecret: true,
       billingReady: true,
     })
+    expect(payload).not.toHaveProperty('stripeSecretKey')
+    expect(payload).not.toHaveProperty('stripeWebhookSecret')
     expect(mockClaimFirstSystemAdmin).toHaveBeenCalledWith('user-1')
     expect(mockClaimFirstSystemAdmin.mock.invocationCallOrder[0]).toBeLessThan(
       mockGetResolvedSystemSettings.mock.invocationCallOrder[0]
@@ -123,7 +125,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockIsBillingConfigurationReady).not.toHaveBeenCalled()
   })
 
-  it('backfills default subscriptions before and after enabling billing', async () => {
+  it('backfills default subscriptions only after enabling billing is saved', async () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
@@ -149,8 +151,17 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(payload.billingEnabled).toBe(true)
-    expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(2)
+    expect(payload).toMatchObject({
+      billingEnabled: true,
+      hasStripeSecretKey: true,
+      hasStripeWebhookSecret: true,
+    })
+    expect(payload).not.toHaveProperty('stripeSecretKey')
+    expect(payload).not.toHaveProperty('stripeWebhookSecret')
+    expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(1)
+    expect(mockUpsertSystemSettings.mock.invocationCallOrder[0]).toBeLessThan(
+      mockBackfillDefaultUserSubscriptions.mock.invocationCallOrder[0]
+    )
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       registrationMode: 'open',
       billingEnabled: true,
@@ -198,5 +209,66 @@ describe('/api/admin/system-settings route', () => {
 
     expect(response.status).toBe(200)
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+  })
+
+  it('preserves stored Stripe credentials when they are omitted from updates', async () => {
+    mockUpsertSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'waitlist',
+      billingEnabled: true,
+      allowPromotionCodes: true,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'waitlist',
+          billingEnabled: true,
+          allowPromotionCodes: true,
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
+      registrationMode: 'waitlist',
+      billingEnabled: true,
+      allowPromotionCodes: true,
+    })
+    expect(payload).toMatchObject({
+      registrationMode: 'waitlist',
+      billingEnabled: true,
+      allowPromotionCodes: true,
+      hasStripeSecretKey: true,
+      hasStripeWebhookSecret: true,
+      billingReady: true,
+    })
+    expect(payload).not.toHaveProperty('stripeSecretKey')
+    expect(payload).not.toHaveProperty('stripeWebhookSecret')
+  })
+
+  it('rejects empty Stripe credential replacements', async () => {
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'open',
+          billingEnabled: true,
+          allowPromotionCodes: false,
+          stripeSecretKey: '   ',
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(payload).toMatchObject({ error: 'Invalid request data' })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 })

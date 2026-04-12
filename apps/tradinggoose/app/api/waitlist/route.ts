@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError, z } from 'zod'
+import { createLogger } from '@/lib/logs/console/logger'
 import { addToWaitlist, getRegistrationMode } from '@/lib/registration/service'
 import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
 }
+
+const logger = createLogger('WaitlistAPI')
 
 const waitlistRequestSchema = z.object({
   email: z.string().trim().email(),
@@ -59,10 +62,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    logger.error('Failed to join waitlist', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to join waitlist' },
+      { error: 'Failed to join waitlist' },
       {
-        status: 400,
+        status: 500,
         headers: NO_STORE_HEADERS,
       }
     )

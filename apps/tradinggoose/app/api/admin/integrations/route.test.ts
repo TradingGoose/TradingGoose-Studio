@@ -7,11 +7,13 @@ const {
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockListSystemIntegrations,
+  mockUpdateSystemIntegrationBundle,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockListSystemIntegrations: vi.fn(),
+  mockUpdateSystemIntegrationBundle: vi.fn(),
   mockLogger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -27,7 +29,7 @@ vi.mock('@/lib/admin/access', () => ({
 
 vi.mock('@/lib/admin/system-integrations', () => ({
   listSystemIntegrations: mockListSystemIntegrations,
-  updateSystemIntegrationBundle: vi.fn(),
+  updateSystemIntegrationBundle: mockUpdateSystemIntegrationBundle,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -62,13 +64,14 @@ describe('/api/admin/integrations route', () => {
           id: 'secret-1',
           definitionId: 'bundle-1',
           key: 'apiKey',
-          value: 'secret-api-key',
+          value: '',
+          hasValue: true,
         },
       ],
     })
   })
 
-  it('claims bootstrap ownership before returning secret-bearing integrations', async () => {
+  it('claims bootstrap ownership before returning credential presence flags', async () => {
     const { GET } = await import('./route')
 
     const response = await GET()
@@ -89,10 +92,11 @@ describe('/api/admin/integrations route', () => {
           id: 'secret-1',
           definitionId: 'bundle-1',
           credentialKey: 'apiKey',
-          value: 'secret-api-key',
+          hasValue: true,
         },
       ],
     })
+    expect(payload.secrets[0]).not.toHaveProperty('value')
     expect(mockClaimFirstSystemAdmin).toHaveBeenCalledWith('user-1')
     expect(mockClaimFirstSystemAdmin.mock.invocationCallOrder[0]).toBeLessThan(
       mockListSystemIntegrations.mock.invocationCallOrder[0]
@@ -110,5 +114,64 @@ describe('/api/admin/integrations route', () => {
     expect(response.status).toBe(403)
     expect(payload).toEqual({ error: 'Forbidden' })
     expect(mockListSystemIntegrations).not.toHaveBeenCalled()
+  })
+
+  it('accepts plaintext credentials on write without echoing them back', async () => {
+    const { PATCH } = await import('./route')
+
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/integrations', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          bundleId: 'bundle-1',
+          definition: {
+            id: 'bundle-1',
+            parentId: null,
+            displayName: 'Stripe',
+            isEnabled: null,
+          },
+          services: [],
+          secrets: [
+            {
+              id: 'secret-1',
+              definitionId: 'bundle-1',
+              credentialKey: 'apiKey',
+              value: 'secret-api-key',
+              hasValue: true,
+            },
+          ],
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateSystemIntegrationBundle).toHaveBeenCalledWith({
+      definition: {
+        id: 'bundle-1',
+        parentId: null,
+        name: 'Stripe',
+        isEnabled: null,
+      },
+      services: [],
+      secrets: [
+        {
+          id: 'secret-1',
+          definitionId: 'bundle-1',
+          key: 'apiKey',
+          value: 'secret-api-key',
+          hasValue: true,
+        },
+      ],
+    })
+    expect(payload.secrets).toEqual([
+      {
+        id: 'secret-1',
+        definitionId: 'bundle-1',
+        credentialKey: 'apiKey',
+        hasValue: true,
+      },
+    ])
+    expect(payload.secrets[0]).not.toHaveProperty('value')
   })
 })

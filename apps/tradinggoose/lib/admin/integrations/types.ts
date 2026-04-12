@@ -10,6 +10,7 @@ export interface AdminIntegrationSecret {
   definitionId: string
   credentialKey: string
   value: string
+  hasValue: boolean
 }
 
 export interface AdminIntegrationsSnapshot {

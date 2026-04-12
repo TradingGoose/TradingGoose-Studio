@@ -1,18 +1,12 @@
 import { db } from '@tradinggoose/db'
-import {
-  systemIntegrationDefinition,
-  systemIntegrationSecret,
-} from '@tradinggoose/db/schema'
+import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { createLogger } from '@/lib/logs/console/logger'
-import { decryptSecret, encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils'
 import {
   getSystemIntegrationCatalogDefinitionIds,
   getSystemIntegrationCatalogSeedSnapshot,
 } from '@/lib/system-integrations/catalog'
-
-const logger = createLogger('SystemIntegrationsAdmin')
 
 const nullableIdSchema = z
   .union([z.string().trim().min(1), z.null()])
@@ -33,6 +27,7 @@ export const systemIntegrationSecretSchema = z.object({
   definitionId: z.string().trim().min(1),
   key: z.string().trim().min(1),
   value: z.string(),
+  hasValue: z.boolean(),
 })
 
 export const updateSystemIntegrationBundleSchema = z.object({
@@ -52,6 +47,13 @@ export interface SystemIntegrationState {
 
 export class SystemIntegrationValidationError extends Error {}
 
+type PersistedSystemIntegrationSecret = {
+  id: string
+  definitionId: string
+  key: string
+  value: string
+}
+
 export async function listSystemIntegrations(): Promise<SystemIntegrationState> {
   const catalog = getSystemIntegrationCatalogSeedSnapshot()
   const catalogDefinitionIds = new Set(catalog.definitions.map((definition) => definition.id))
@@ -66,8 +68,12 @@ export async function listSystemIntegrations(): Promise<SystemIntegrationState> 
       .orderBy(systemIntegrationSecret.createdAt, systemIntegrationSecret.id),
   ])
 
-  const persistedDefinitions = allDefinitions.filter((definition) => catalogDefinitionIds.has(definition.id))
-  const persistedSecrets = allSecrets.filter((secret) => catalogDefinitionIds.has(secret.definitionId))
+  const persistedDefinitions = allDefinitions.filter((definition) =>
+    catalogDefinitionIds.has(definition.id)
+  )
+  const persistedSecrets = allSecrets.filter((secret) =>
+    catalogDefinitionIds.has(secret.definitionId)
+  )
   const persistedDefinitionsById = new Map(
     persistedDefinitions.map((definition) => [definition.id, definition])
   )
@@ -84,29 +90,20 @@ export async function listSystemIntegrations(): Promise<SystemIntegrationState> 
     }
   })
   const sortedDefinitions = sortDefinitionsForInsert(catalogDefinitions)
-  const decryptedPersistedSecrets = await Promise.all(
-    persistedSecrets.map(async (secret) => ({
-      id: secret.id,
-      definitionId: secret.definitionId,
-      key: secret.key,
-      value: await decryptSystemSecret(secret.id, secret.value),
-    }))
-  )
-  const decryptedSecretsByKey = new Map(
-    decryptedPersistedSecrets.map((secret) => [`${secret.definitionId}:${secret.key}`, secret])
+  const persistedSecretsByKey = new Map(
+    persistedSecrets.map((secret) => [`${secret.definitionId}:${secret.key}`, secret])
   )
   const normalizedSecrets = [
     ...catalog.secrets.map((secret) => {
-      const persistedSecret = decryptedSecretsByKey.get(`${secret.definitionId}:${secret.key}`)
+      const persistedSecret = persistedSecretsByKey.get(`${secret.definitionId}:${secret.key}`)
 
-      return (
-        persistedSecret ?? {
-          id: secret.id,
-          definitionId: secret.definitionId,
-          key: secret.key,
-          value: '',
-        }
-      )
+      return {
+        id: secret.id,
+        definitionId: secret.definitionId,
+        key: secret.key,
+        value: '',
+        hasValue: Boolean(persistedSecret?.value?.trim()),
+      }
     }),
   ].sort(
     (left, right) =>
@@ -137,18 +134,45 @@ export async function updateSystemIntegrationBundle(input: UpdateSystemIntegrati
   const definitions = sortDefinitionsForInsert(
     normalizeDefinitionsForCredentialState([input.definition, ...input.services], input.secrets)
   )
-  const nonEmptySecrets = input.secrets.filter((secret) => secret.key.trim() && secret.value.trim())
-  const encryptedSecrets = await Promise.all(
-    nonEmptySecrets.map(async (secret) => {
-      const { encrypted } = await encryptSecret(secret.value)
-      return {
-        id: secret.id,
-        definitionId: secret.definitionId,
-        key: secret.key,
-        value: encrypted,
-      }
-    })
+  const existingSecrets = await db
+    .select()
+    .from(systemIntegrationSecret)
+    .where(eq(systemIntegrationSecret.definitionId, input.definition.id))
+  const existingSecretsByKey = new Map(
+    existingSecrets.map((secret) => [`${secret.definitionId}:${secret.key}`, secret])
   )
+  const nextSecrets = (
+    await Promise.all(
+      input.secrets.map(async (secret) => {
+        const nextValue = secret.value.trim()
+        if (!secret.key.trim()) {
+          return null
+        }
+
+        if (nextValue) {
+          const { encrypted } = await encryptSecret(nextValue)
+          return {
+            id: secret.id,
+            definitionId: secret.definitionId,
+            key: secret.key,
+            value: encrypted,
+          }
+        }
+
+        const existingSecret = existingSecretsByKey.get(`${secret.definitionId}:${secret.key}`)
+        if (secret.hasValue && existingSecret?.value?.trim()) {
+          return {
+            id: secret.id,
+            definitionId: secret.definitionId,
+            key: secret.key,
+            value: existingSecret.value,
+          }
+        }
+
+        return null
+      })
+    )
+  ).filter((secret): secret is PersistedSystemIntegrationSecret => secret !== null)
 
   await db.transaction(async (tx) => {
     await tx
@@ -166,20 +190,10 @@ export async function updateSystemIntegrationBundle(input: UpdateSystemIntegrati
       )
     }
 
-    if (encryptedSecrets.length > 0) {
-      await tx.insert(systemIntegrationSecret).values(encryptedSecrets)
+    if (nextSecrets.length > 0) {
+      await tx.insert(systemIntegrationSecret).values(nextSecrets)
     }
   })
-}
-
-async function decryptSystemSecret(secretId: string, encryptedValue: string) {
-  try {
-    const { decrypted } = await decryptSecret(encryptedValue)
-    return decrypted
-  } catch (error) {
-    logger.error('Failed to decrypt system integration secret', { secretId, error })
-    return ''
-  }
 }
 
 function validateSystemIntegrationBundlePayload(input: UpdateSystemIntegrationBundleInput) {
@@ -244,7 +258,11 @@ function validateSystemIntegrationBundlePayload(input: UpdateSystemIntegrationBu
   }
 
   for (const definition of definitions) {
-    ensureUnique(definitionIds, definition.id, `Duplicate integration definition id: ${definition.id}`)
+    ensureUnique(
+      definitionIds,
+      definition.id,
+      `Duplicate integration definition id: ${definition.id}`
+    )
     definitionsById.set(definition.id, definition)
 
     if (!catalogDefinitionIds.has(definition.id)) {
@@ -295,7 +313,6 @@ function validateSystemIntegrationBundlePayload(input: UpdateSystemIntegrationBu
       )
     }
   }
-
 }
 
 function ensureUnique(set: Set<string>, value: string, message: string) {
@@ -364,7 +381,10 @@ function getConfiguredBundleIds(
   const catalog = getSystemIntegrationCatalogSeedSnapshot()
   const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]))
   const secretValuesByPair = new Map(
-    secrets.map((secret) => [`${secret.definitionId}:${secret.key}`, secret.value.trim()])
+    secrets.map((secret) => [
+      `${secret.definitionId}:${secret.key}`,
+      secret.hasValue || Boolean(secret.value.trim()),
+    ])
   )
   const configuredBundleIds = new Set<string>()
 

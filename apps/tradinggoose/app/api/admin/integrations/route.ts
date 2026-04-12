@@ -36,6 +36,7 @@ const adminIntegrationSecretSchema = z.object({
   definitionId: z.string().trim().min(1),
   credentialKey: z.string().trim().min(1),
   value: z.string(),
+  hasValue: z.boolean(),
 })
 
 const adminIntegrationsPatchSchema = z.object({
@@ -165,6 +166,7 @@ export async function PATCH(request: NextRequest) {
         definitionId: secret.definitionId,
         key: secret.credentialKey,
         value: secret.value,
+        hasValue: secret.hasValue,
       })),
     })
 
@@ -211,7 +213,7 @@ function serializeSnapshot(data: Awaited<ReturnType<typeof listSystemIntegration
       id: secret.id,
       definitionId: secret.definitionId,
       credentialKey: secret.key,
-      value: secret.value,
+      hasValue: secret.hasValue,
     })),
   }
 }

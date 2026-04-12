@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Pencil, ShieldCheck, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Pencil, ShieldCheck, X } from 'lucide-react'
 import {
   Alert,
   AlertDescription,
@@ -49,7 +49,6 @@ export function AdminIntegrations() {
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminIntegrationsSnapshot | null>(null)
   const [expandedBundles, setExpandedBundles] = useState<Record<string, boolean>>({})
-  const [revealedSecretIds, setRevealedSecretIds] = useState<Record<string, boolean>>({})
   const [editingSecretId, setEditingSecretId] = useState<string | null>(null)
   const [editingSecretValue, setEditingSecretValue] = useState('')
 
@@ -267,19 +266,14 @@ export function AdminIntegrations() {
                                 ) : (
                                   <div className='grid gap-3 md:grid-cols-2'>
                                     {visibleSecretFields.map((secret) => {
-                                      const isRevealed = Boolean(revealedSecretIds[secret.id])
                                       const credentialField = getCredentialFieldConfig(
                                         bundle.id,
                                         secret.credentialKey
                                       )
-                                      const isSecretConfigured = Boolean(secret.value.trim())
+                                      const isSecretConfigured = hasSecretValue(secret)
                                       const isEditingSecret = editingSecretId === secret.id
-                                      const shouldMaskValue =
-                                        credentialField.isSensitive && !isRevealed
-                                      const displayValue = secret.value
-                                        ? shouldMaskValue
-                                          ? maskCredentialValue(secret.value)
-                                          : secret.value
+                                      const displayValue = isSecretConfigured
+                                        ? 'Configured. Stored value hidden.'
                                         : 'Not set'
 
                                       return (
@@ -345,7 +339,11 @@ export function AdminIntegrations() {
                                                         cancelEditingSecret()
                                                       }
                                                     }}
-                                                    placeholder={credentialField.placeholder}
+                                                    placeholder={
+                                                      isSecretConfigured
+                                                        ? `Enter a new ${credentialField.label.toLowerCase()} to replace the stored value`
+                                                        : credentialField.placeholder
+                                                    }
                                                     autoComplete={
                                                       credentialField.isSensitive
                                                         ? 'new-password'
@@ -372,29 +370,6 @@ export function AdminIntegrations() {
                                               </>
                                             ) : (
                                               <>
-                                                {credentialField.isSensitive ? (
-                                                  <Button
-                                                    type='button'
-                                                    variant='ghost'
-                                                    size='icon'
-                                                    className='h-8 w-8 text-muted-foreground'
-                                                    onClick={() => {
-                                                      setRevealedSecretIds((current) => ({
-                                                        ...current,
-                                                        [secret.id]: !current[secret.id],
-                                                      }))
-                                                    }}
-                                                  >
-                                                    {isRevealed ? (
-                                                      <EyeOff className='h-4 w-4' />
-                                                    ) : (
-                                                      <Eye className='h-4 w-4' />
-                                                    )}
-                                                    <span className='sr-only'>
-                                                      {isRevealed ? 'Hide value' : 'Reveal value'}
-                                                    </span>
-                                                  </Button>
-                                                ) : null}
                                                 <div className='min-w-0 flex-1 px-3 py-2'>
                                                   <code className='block truncate font-mono text-foreground text-xs'>
                                                     {displayValue}
@@ -561,7 +536,7 @@ export function AdminIntegrations() {
 
   function startEditingSecret(secret: AdminIntegrationSecret) {
     setEditingSecretId(secret.id)
-    setEditingSecretValue(secret.value)
+    setEditingSecretValue('')
   }
 
   function cancelEditingSecret() {
@@ -570,10 +545,17 @@ export function AdminIntegrations() {
   }
 
   function saveEditingSecret(secret: AdminIntegrationSecret) {
+    const nextValue = editingSecretValue.trim()
     const nextSnapshot = updateDraftSnapshot((current) => ({
       ...current,
       secrets: current.secrets.map((candidate) =>
-        candidate.id === secret.id ? { ...candidate, value: editingSecretValue } : candidate
+        candidate.id === secret.id
+          ? {
+              ...candidate,
+              value: editingSecretValue,
+              hasValue: candidate.hasValue || Boolean(nextValue),
+            }
+          : candidate
       ),
     }))
 
@@ -614,16 +596,8 @@ function cloneSnapshot(snapshot: AdminIntegrationsSnapshot): AdminIntegrationsSn
   }
 }
 
-function maskCredentialValue(value: string) {
-  if (!value) {
-    return 'Not set'
-  }
-
-  const prefixLength = Math.min(3, value.length)
-  const suffixLength = Math.min(2, Math.max(value.length - prefixLength, 0))
-  const maskedLength = Math.max(value.length - prefixLength - suffixLength, 4)
-
-  return `${value.slice(0, prefixLength)}${'•'.repeat(maskedLength)}${value.slice(value.length - suffixLength)}`
+function hasSecretValue(secret: AdminIntegrationSecret) {
+  return secret.hasValue || Boolean(secret.value.trim())
 }
 
 function mergeBundleIntoDraft(
@@ -675,6 +649,7 @@ function normalizeSecretForComparison(secret: AdminIntegrationSecret) {
     id: secret.id,
     definitionId: secret.definitionId,
     credentialKey: secret.credentialKey,
+    hasValue: secret.hasValue,
     value: secret.value,
   }
 }
@@ -724,7 +699,7 @@ function isBundleConfigured(bundleId: string, secrets: AdminIntegrationSecret[])
   }
 
   const secretValuesByKey = new Map(
-    secrets.map((secret) => [secret.credentialKey, secret.value.trim()])
+    secrets.map((secret) => [secret.credentialKey, hasSecretValue(secret)])
   )
 
   return requiredFields.every((field) => Boolean(secretValuesByKey.get(field.key)))
@@ -738,12 +713,12 @@ function getBundleSectionSummary(
   const credentialFields = getSystemIntegrationCatalogCredentialFields(bundleId)
   const requiredFields = credentialFields.filter((field) => field.required !== false)
   const secretValuesByKey = new Map(
-    secretFields.map((secret) => [secret.credentialKey, secret.value.trim()])
+    secretFields.map((secret) => [secret.credentialKey, hasSecretValue(secret)])
   )
   const configuredRequiredCount = requiredFields.filter((field) =>
     Boolean(secretValuesByKey.get(field.key))
   ).length
-  const configuredSecretCount = secretFields.filter((secret) => Boolean(secret.value.trim())).length
+  const configuredSecretCount = secretFields.filter((secret) => hasSecretValue(secret)).length
   const enabledServiceCount = bundleServices.filter((service) => service.isEnabled).length
   const missingRequiredLabels = requiredFields
     .filter((field) => !secretValuesByKey.get(field.key))

@@ -119,10 +119,6 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    if (isEnablingBilling) {
-      await backfillDefaultUserSubscriptions()
-    }
-
     const snapshot = await upsertSystemSettings(payload)
 
     if (isEnablingBilling) {
@@ -166,7 +162,7 @@ function serializeSnapshot(
     billingEnabled: snapshot.billingEnabled,
     billingReady,
     allowPromotionCodes: snapshot.allowPromotionCodes,
-    stripeSecretKey: snapshot.stripeSecretKey ?? '',
-    stripeWebhookSecret: snapshot.stripeWebhookSecret ?? '',
+    hasStripeSecretKey: Boolean(snapshot.stripeSecretKey?.trim()),
+    hasStripeWebhookSecret: Boolean(snapshot.stripeWebhookSecret?.trim()),
   }
 }

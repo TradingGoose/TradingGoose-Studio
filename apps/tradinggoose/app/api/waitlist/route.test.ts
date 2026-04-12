@@ -10,9 +10,20 @@ const { mockAddToWaitlist, mockGetRegistrationMode } = vi.hoisted(() => ({
   mockGetRegistrationMode: vi.fn(),
 }))
 
+const mockLogger = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}))
+
 vi.mock('@/lib/registration/service', () => ({
   addToWaitlist: (...args: unknown[]) => mockAddToWaitlist(...args),
   getRegistrationMode: (...args: unknown[]) => mockGetRegistrationMode(...args),
+}))
+
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => mockLogger,
 }))
 
 describe('waitlist route', () => {
@@ -83,5 +94,24 @@ describe('waitlist route', () => {
       error: 'Registration is currently disabled.',
     })
     expect(mockAddToWaitlist).not.toHaveBeenCalled()
+  })
+
+  it('does not leak internal errors to unauthenticated callers', async () => {
+    mockGetRegistrationMode.mockResolvedValue('waitlist')
+    mockAddToWaitlist.mockRejectedValue(new Error('duplicate key value violates unique constraint'))
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/waitlist', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'goose@example.com' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({
+      error: 'Failed to join waitlist',
+    })
   })
 })
