@@ -39,12 +39,18 @@ export async function GET() {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin registration access attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     const userId = access.userId
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
@@ -69,12 +75,18 @@ export async function PATCH(request: NextRequest) {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin registration update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     const userId = access.userId
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
@@ -114,8 +126,8 @@ export async function PATCH(request: NextRequest) {
 
     logger.error(`[${requestId}] Failed to update admin registration`, error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update registration settings' },
-      { status: 400, headers: NO_STORE_HEADERS }
+      { error: 'Failed to update registration settings' },
+      { status: 500, headers: NO_STORE_HEADERS }
     )
   }
 }
