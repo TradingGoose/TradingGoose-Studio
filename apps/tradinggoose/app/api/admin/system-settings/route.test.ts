@@ -4,16 +4,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  mockBackfillDefaultUserSubscriptions,
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
+  mockSetCachedStripeSettings,
+  mockUpsertSystemSettings,
   mockLogger,
 } = vi.hoisted(() => ({
+  mockBackfillDefaultUserSubscriptions: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
+  mockSetCachedStripeSettings: vi.fn(),
+  mockUpsertSystemSettings: vi.fn(),
   mockLogger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -27,6 +33,10 @@ vi.mock('@/lib/admin/access', () => ({
   getSystemAdminAccess: mockGetSystemAdminAccess,
 }))
 
+vi.mock('@/lib/billing/core/subscription', () => ({
+  backfillDefaultUserSubscriptions: mockBackfillDefaultUserSubscriptions,
+}))
+
 vi.mock('@/lib/billing/settings', () => ({
   isBillingConfigurationReady: mockIsBillingConfigurationReady,
 }))
@@ -37,11 +47,11 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
-  upsertSystemSettings: vi.fn(),
+  upsertSystemSettings: mockUpsertSystemSettings,
 }))
 
 vi.mock('@/lib/system-settings/stripe-runtime', () => ({
-  setCachedStripeSettings: vi.fn(),
+  setCachedStripeSettings: mockSetCachedStripeSettings,
 }))
 
 describe('/api/admin/system-settings route', () => {
@@ -67,6 +77,15 @@ describe('/api/admin/system-settings route', () => {
       stripeSecretKey: 'sk_test_123',
       stripeWebhookSecret: 'whsec_456',
     })
+    mockUpsertSystemSettings.mockResolvedValue({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: true,
+      allowPromotionCodes: false,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+    mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
   })
 
   it('claims bootstrap ownership before returning secret-bearing system settings', async () => {
@@ -102,5 +121,82 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toEqual({ error: 'Forbidden' })
     expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
     expect(mockIsBillingConfigurationReady).not.toHaveBeenCalled()
+  })
+
+  it('backfills default subscriptions before and after enabling billing', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      allowPromotionCodes: false,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'open',
+          billingEnabled: true,
+          allowPromotionCodes: false,
+          stripeSecretKey: 'sk_test_123',
+          stripeWebhookSecret: 'whsec_456',
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.billingEnabled).toBe(true)
+    expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(2)
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
+      registrationMode: 'open',
+      billingEnabled: true,
+      allowPromotionCodes: false,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+    expect(mockSetCachedStripeSettings).toHaveBeenCalledWith({
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+  })
+
+  it('does not backfill subscriptions when disabling billing', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: true,
+      allowPromotionCodes: false,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+    mockUpsertSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      allowPromotionCodes: false,
+      stripeSecretKey: 'sk_test_123',
+      stripeWebhookSecret: 'whsec_456',
+    })
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'open',
+          billingEnabled: false,
+          allowPromotionCodes: false,
+          stripeSecretKey: 'sk_test_123',
+          stripeWebhookSecret: 'whsec_456',
+        }),
+      }) as any
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 })

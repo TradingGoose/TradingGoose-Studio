@@ -7,11 +7,7 @@ import { db } from '@tradinggoose/db'
 import { organization, userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import {
-  type BillingTierRecord,
-  isOrganizationSubscription,
-  requireDefaultBillingTier,
-} from '@/lib/billing/tiers'
+import { type BillingTierRecord, isOrganizationSubscription } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -52,6 +48,10 @@ export async function getUserStorageLimit(
   userId: string,
   workspaceId?: string | null
 ): Promise<number> {
+  if (!(await isBillingEnabledForRuntime())) {
+    return Number.MAX_SAFE_INTEGER
+  }
+
   try {
     const billingContext = await resolveWorkspaceBillingContext({
       workspaceId,
@@ -60,12 +60,7 @@ export async function getUserStorageLimit(
     return getTierStorageLimitBytes(billingContext.tier)
   } catch (error) {
     logger.error('Error getting user storage limit:', error)
-    try {
-      const defaultTier = await requireDefaultBillingTier()
-      return getTierStorageLimitBytes(defaultTier)
-    } catch {
-      return 0
-    }
+    return 0
   }
 }
 
@@ -77,6 +72,10 @@ export async function getUserStorageUsage(
   userId: string,
   workspaceId?: string | null
 ): Promise<number> {
+  if (!(await isBillingEnabledForRuntime())) {
+    return 0
+  }
+
   try {
     const billingContext = await resolveWorkspaceBillingContext({
       workspaceId,

@@ -1,12 +1,12 @@
 import { db } from '@tradinggoose/db'
-import { organization, userStats } from '@tradinggoose/db/schema'
+import { organization } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import {
   getOrganizationBillingLedger,
   getOrganizationMemberBillingLedger,
 } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
-import { getResolvedBillingSettings, isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { getSubscriptionUsageAllowanceUsd, getTierUsageAllowanceUsd } from '@/lib/billing/tiers'
 import {
   resolveWorkflowBillingContext,
@@ -24,28 +24,11 @@ interface UsageData {
   limit: number
 }
 
-async function getUsageMonitorStatus(userId: string): Promise<UsageData> {
+async function getUsageMonitorStatus(
+  userId: string,
+  usageWarningThresholdPercent: number
+): Promise<UsageData> {
   try {
-    const { billingEnabled, usageWarningThresholdPercent } = await getResolvedBillingSettings()
-
-    // If billing is disabled, always return permissive limits
-    if (!billingEnabled) {
-      // Get actual usage from the database for display purposes
-      const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
-      const currentUsage =
-        statsRecords.length > 0
-          ? Number.parseFloat(statsRecords[0].currentPeriodCost?.toString() || '0')
-          : 0
-
-      return {
-        percentUsed: Math.min((currentUsage / 1000) * 100, 100),
-        isWarning: false,
-        isExceeded: false,
-        currentUsage,
-        limit: 1000,
-      }
-    }
-
     const usageData = await getUserUsageData(userId)
     const limit = usageData.limit
     const currentUsage = usageData.currentUsage
@@ -117,7 +100,7 @@ export async function checkServerSideUsageLimits(params: {
       return {
         isExceeded: false,
         currentUsage: 0,
-        limit: 99999,
+        limit: Number.MAX_SAFE_INTEGER,
       }
     }
 
@@ -130,7 +113,10 @@ export async function checkServerSideUsageLimits(params: {
     const billingContext = workflowId
       ? await resolveWorkflowBillingContext({ workflowId, actorUserId: userId })
       : workspaceId
-        ? await resolveWorkspaceBillingContext({ workspaceId, actorUserId: userId })
+        ? await resolveWorkspaceBillingContext({
+            workspaceId,
+            actorUserId: userId,
+          })
         : null
 
     if (billingContext?.scopeType === 'organization' && billingContext.scopeId) {
@@ -199,7 +185,9 @@ export async function checkServerSideUsageLimits(params: {
       ])
 
       const currentUsage = memberLedger?.currentPeriodCost ?? 0
-      const limit = getTierUsageAllowanceUsd(billingContext.subscription?.tier ?? billingContext.tier)
+      const limit = getTierUsageAllowanceUsd(
+        billingContext.subscription?.tier ?? billingContext.tier
+      )
 
       if (billingLedger?.billingBlocked) {
         return {
@@ -221,7 +209,7 @@ export async function checkServerSideUsageLimits(params: {
       }
     }
 
-    const usageData = await getUsageMonitorStatus(userId)
+    const usageData = await getUsageMonitorStatus(userId, usageWarningThresholdPercent)
 
     return {
       isExceeded: usageData.isExceeded,

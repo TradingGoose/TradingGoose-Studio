@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
 import { adminSystemSettingsMutationSchema } from '@/lib/admin/system-settings/mutations'
+import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getResolvedSystemSettings, upsertSystemSettings } from '@/lib/system-settings/service'
@@ -103,7 +104,11 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
-    const billingReady = await isBillingConfigurationReady()
+    const [currentSettings, billingReady] = await Promise.all([
+      getResolvedSystemSettings(),
+      isBillingConfigurationReady(),
+    ])
+    const isEnablingBilling = payload.billingEnabled === true && !currentSettings.billingEnabled
     if (payload.billingEnabled && !billingReady) {
       return NextResponse.json(
         {
@@ -114,7 +119,15 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    if (isEnablingBilling) {
+      await backfillDefaultUserSubscriptions()
+    }
+
     const snapshot = await upsertSystemSettings(payload)
+
+    if (isEnablingBilling) {
+      await backfillDefaultUserSubscriptions()
+    }
 
     setCachedStripeSettings({
       stripeSecretKey: snapshot.stripeSecretKey,
@@ -150,7 +163,7 @@ function serializeSnapshot(
 ) {
   return {
     registrationMode: snapshot.registrationMode,
-    billingEnabled: billingReady ? snapshot.billingEnabled : false,
+    billingEnabled: snapshot.billingEnabled,
     billingReady,
     allowPromotionCodes: snapshot.allowPromotionCodes,
     stripeSecretKey: snapshot.stripeSecretKey ?? '',

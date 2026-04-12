@@ -6,15 +6,17 @@ import {
   renderFreeTierUpgradeEmail,
   renderUsageThresholdEmail,
 } from '@/components/emails/render-email'
-import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import {
+  getConfiguredPersonalUsageLimit,
+  getEffectiveSubscription,
+  getSubscribedPersonalUsageMinimumLimit,
+} from '@/lib/billing/core/subscription'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import {
   getPrimaryPublicUserUpgradeTier,
-  getSubscriptionUsageAllowanceUsd,
   getTierBasePrice,
   getTierUsageAllowanceUsd,
-  requireDefaultBillingTier,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
@@ -25,49 +27,6 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('UsageManagement')
 
-async function getDefaultUserTierLimit(): Promise<number> {
-  const defaultTier = await requireDefaultBillingTier()
-  return getTierUsageAllowanceUsd(defaultTier)
-}
-
-function parseOptionalAmount(value: string | number | null | undefined): number | null {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  const parsed = Number.parseFloat(value.toString())
-  return Number.isFinite(parsed) ? Math.max(parsed, 0) : null
-}
-
-function getGrantedOnboardingAllowance(value: string | number | null | undefined): number {
-  return parseOptionalAmount(value) ?? 0
-}
-
-function getFreeUserUsageLimit(params: {
-  tierLimit: number
-  grantedOnboardingAllowanceUsd: string | number | null | undefined
-}): number {
-  return Math.max(
-    params.tierLimit,
-    getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
-  )
-}
-
-function getEffectiveIndividualUsageLimit(params: {
-  customUsageLimit: string | number | null | undefined
-  minimumLimit: number
-}): number {
-  const customUsageLimit = params.customUsageLimit
-    ? Number.parseFloat(params.customUsageLimit.toString())
-    : null
-
-  if (customUsageLimit === null || Number.isNaN(customUsageLimit)) {
-    return params.minimumLimit
-  }
-
-  return Math.max(customUsageLimit, params.minimumLimit)
-}
-
 /**
  * Handle new user setup when they join the platform.
  * Creates the billing usage row for a newly provisioned user.
@@ -76,11 +35,16 @@ export async function handleNewUser(userId: string): Promise<void> {
   try {
     const { onboardingAllowanceUsd } = await getResolvedBillingSettings()
 
-    await db.insert(userStats).values({
-      id: crypto.randomUUID(),
-      userId: userId,
-      grantedOnboardingAllowanceUsd: onboardingAllowanceUsd.toString(),
-    })
+    await db
+      .insert(userStats)
+      .values({
+        id: crypto.randomUUID(),
+        userId,
+        grantedOnboardingAllowanceUsd: onboardingAllowanceUsd.toString(),
+      })
+      .onConflictDoNothing({
+        target: userStats.userId,
+      })
 
     logger.info('User stats record created for new user', {
       userId,
@@ -100,11 +64,12 @@ export async function handleNewUser(userId: string): Promise<void> {
  */
 export async function getUserUsageData(userId: string): Promise<UsageData> {
   try {
-    const [{ usageWarningThresholdPercent }, userStatsData, subscription] = await Promise.all([
-      getResolvedBillingSettings(),
-      db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
-      getEffectiveSubscription(userId),
-    ])
+    const [{ billingEnabled, usageWarningThresholdPercent }, userStatsData, subscription] =
+      await Promise.all([
+        getResolvedBillingSettings(),
+        db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
+        getEffectiveSubscription(userId),
+      ])
 
     if (userStatsData.length === 0) {
       logger.warn('User stats not found, initializing defaults', { userId })
@@ -117,22 +82,33 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     }
 
     const stats = userStatsData[0]
+    const unbilledUsage = Number.parseFloat(stats.totalCost?.toString() ?? '0')
+    if (!billingEnabled) {
+      return {
+        currentUsage: unbilledUsage,
+        limit: Number.MAX_SAFE_INTEGER,
+        percentUsed: 0,
+        isWarning: false,
+        isExceeded: false,
+        billingPeriodStart: null,
+        billingPeriodEnd: null,
+        lastPeriodCost: Number.parseFloat(stats.lastPeriodCost?.toString() ?? '0'),
+      }
+    }
+
+    if (!subscription) {
+      throw new Error(`No active personal subscription found for billed user ${userId}`)
+    }
+
     const currentUsage = Number.parseFloat(
-      (subscription ? stats.currentPeriodCost : stats.totalCost)?.toString() ?? '0'
+      stats.currentPeriodCost?.toString() ?? stats.totalCost?.toString() ?? '0'
     )
     const lastPeriodCost = Number.parseFloat(stats.lastPeriodCost?.toString() ?? '0')
-    const minimumLimit = subscription
-      ? getSubscriptionUsageAllowanceUsd(subscription)
-      : getFreeUserUsageLimit({
-          tierLimit: await getDefaultUserTierLimit(),
-          grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
-        })
-    const limit = subscription
-      ? getEffectiveIndividualUsageLimit({
-          customUsageLimit: stats.customUsageLimit,
-          minimumLimit,
-        })
-      : minimumLimit
+    const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
+      subscription,
+      grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
+    })
+    const limit = getConfiguredPersonalUsageLimit(stats.customUsageLimit, minimumLimit)
 
     const percentUsed = limit > 0 ? Math.min((currentUsage / limit) * 100, 100) : 0
     const isWarning = percentUsed >= usageWarningThresholdPercent
@@ -155,11 +131,9 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     }
   } catch (error) {
     logger.error('Failed to get user usage data', { userId, error })
-    // Gracefully return a default usage snapshot so UI can render instead of throwing
-    const fallbackLimit = await getDefaultUserTierLimit()
     return {
       currentUsage: 0,
-      limit: fallbackLimit,
+      limit: 0,
       percentUsed: 0,
       isWarning: false,
       isExceeded: false,
@@ -175,7 +149,8 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
  */
 export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitInfo> {
   try {
-    const [subscription, userStatsRecord] = await Promise.all([
+    const [{ billingEnabled }, subscription, userStatsRecord] = await Promise.all([
+      getResolvedBillingSettings(),
       getEffectiveSubscription(userId),
       db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
     ])
@@ -185,31 +160,36 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
     }
 
     const stats = userStatsRecord[0]
+    if (!billingEnabled) {
+      return {
+        currentLimit: Number.MAX_SAFE_INTEGER,
+        canEdit: false,
+        minimumLimit: 0,
+        tier: toBillingTierSummary(subscription?.tier),
+        updatedAt: stats.customUsageLimitUpdatedAt,
+      }
+    }
 
-    const minimumLimitForTier = subscription
-      ? getSubscriptionUsageAllowanceUsd(subscription)
-      : getFreeUserUsageLimit({
-          tierLimit: await getDefaultUserTierLimit(),
-          grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
-        })
-    const currentLimit = subscription
-      ? getEffectiveIndividualUsageLimit({
-          customUsageLimit: stats.customUsageLimit,
-          minimumLimit: minimumLimitForTier,
-        })
-      : minimumLimitForTier
-    const minimumLimit = subscription
-      ? getSubscriptionUsageAllowanceUsd(subscription)
-      : minimumLimitForTier
+    if (!subscription) {
+      throw new Error(`No active personal subscription found for billed user ${userId}`)
+    }
+
+    const minimumLimitForTier = getSubscribedPersonalUsageMinimumLimit({
+      subscription,
+      grantedOnboardingAllowanceUsd: stats.grantedOnboardingAllowanceUsd,
+    })
+    const currentLimit = getConfiguredPersonalUsageLimit(
+      stats.customUsageLimit,
+      minimumLimitForTier
+    )
+    const minimumLimit = minimumLimitForTier
     const canEdit = canEditUsageLimit(subscription)
 
     return {
       currentLimit,
       canEdit,
       minimumLimit,
-      tier: subscription?.tier
-        ? toBillingTierSummary(subscription.tier)
-        : toBillingTierSummary(await requireDefaultBillingTier()),
+      tier: toBillingTierSummary(subscription.tier),
       updatedAt: stats.customUsageLimitUpdatedAt,
     }
   } catch (error) {
@@ -227,10 +207,22 @@ export async function updateUserUsageLimit(
     const subscription = await getEffectiveSubscription(userId)
 
     if (!canEditUsageLimit(subscription)) {
-      return { success: false, error: 'This billing tier cannot edit usage limits' }
+      return {
+        success: false,
+        error: 'This billing tier cannot edit usage limits',
+      }
     }
 
-    const minimumLimit = getSubscriptionUsageAllowanceUsd(subscription)
+    const userStatsRecord = await db
+      .select()
+      .from(userStats)
+      .where(eq(userStats.userId, userId))
+      .limit(1)
+
+    const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
+      subscription,
+      grantedOnboardingAllowanceUsd: userStatsRecord[0]?.grantedOnboardingAllowanceUsd,
+    })
 
     logger.info('Applying tier minimum validation', {
       userId,
@@ -248,11 +240,6 @@ export async function updateUserUsageLimit(
     }
 
     // Get current usage to validate against
-    const userStatsRecord = await db
-      .select()
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1)
 
     if (userStatsRecord.length > 0) {
       const currentUsage = Number.parseFloat(
@@ -296,15 +283,22 @@ export async function updateUserUsageLimit(
  * Get usage limit for a user (used by checkUsageStatus for server-side checks).
  */
 export async function getUserUsageLimit(userId: string): Promise<number> {
-  const subscription = await getEffectiveSubscription(userId)
-  const userStatsQuery = await db
-    .select({
-      customUsageLimit: userStats.customUsageLimit,
-      grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
-    })
-    .from(userStats)
-    .where(eq(userStats.userId, userId))
-    .limit(1)
+  const [{ billingEnabled }, subscription, userStatsQuery] = await Promise.all([
+    getResolvedBillingSettings(),
+    getEffectiveSubscription(userId),
+    db
+      .select({
+        customUsageLimit: userStats.customUsageLimit,
+        grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+      })
+      .from(userStats)
+      .where(eq(userStats.userId, userId))
+      .limit(1),
+  ])
+
+  if (!billingEnabled) {
+    return Number.MAX_SAFE_INTEGER
+  }
 
   if (userStatsQuery.length === 0) {
     throw new Error(
@@ -312,22 +306,16 @@ export async function getUserUsageLimit(userId: string): Promise<number> {
     )
   }
 
-  const minimumLimit = subscription
-    ? getSubscriptionUsageAllowanceUsd(subscription)
-    : getFreeUserUsageLimit({
-        tierLimit: await getDefaultUserTierLimit(),
-        grantedOnboardingAllowanceUsd: userStatsQuery[0].grantedOnboardingAllowanceUsd,
-      })
+  if (!subscription) {
+    throw new Error(`No active personal subscription found for billed user ${userId}`)
+  }
 
-  return subscription
-    ? getEffectiveIndividualUsageLimit({
-        customUsageLimit: userStatsQuery[0].customUsageLimit,
-        minimumLimit,
-      })
-    : getFreeUserUsageLimit({
-        tierLimit: minimumLimit,
-        grantedOnboardingAllowanceUsd: userStatsQuery[0].grantedOnboardingAllowanceUsd,
-      })
+  const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
+    subscription,
+    grantedOnboardingAllowanceUsd: userStatsQuery[0].grantedOnboardingAllowanceUsd,
+  })
+
+  return getConfiguredPersonalUsageLimit(userStatsQuery[0].customUsageLimit, minimumLimit)
 }
 
 /**

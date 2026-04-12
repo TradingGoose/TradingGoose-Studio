@@ -1,24 +1,25 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
 import {
   getSubscriptionUsageAllowanceUsd,
   getTierDisplayName,
-  getTierUsageAllowanceUsd,
   hydrateSubscriptionsWithTiers,
   requireDefaultBillingTier,
   selectEffectiveSubscription,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import type { BillingTierSummary, UserSubscriptionState } from '@/lib/billing/types'
-import { isProd } from '@/lib/environment'
+import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SubscriptionCore')
 
 type SubscriptionRecord = typeof subscription.$inferSelect
+const DEFAULT_USER_SUBSCRIPTION_ID_PREFIX = 'sub_default_'
 
 export interface PersonalBillingSnapshot {
   subscription: SubscriptionWithTier | null
@@ -42,14 +43,24 @@ function getGrantedOnboardingAllowance(value: string | number | null | undefined
   return parsed === null ? 0 : Math.max(parsed, 0)
 }
 
-function getFreeUserUsageLimit(
-  defaultTierLimit: number,
+export function getSubscribedPersonalUsageMinimumLimit(params: {
+  subscription: SubscriptionWithTier | null
   grantedOnboardingAllowanceUsd: string | number | null | undefined
-): number {
-  return Math.max(defaultTierLimit, getGrantedOnboardingAllowance(grantedOnboardingAllowanceUsd))
+}): number {
+  if (!params.subscription) {
+    return 0
+  }
+
+  const subscriptionLimit = getSubscriptionUsageAllowanceUsd(params.subscription)
+  return params.subscription.tier.isDefault
+    ? Math.max(
+        subscriptionLimit,
+        getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
+      )
+    : subscriptionLimit
 }
 
-function getEffectivePersonalUsageLimit(
+export function getConfiguredPersonalUsageLimit(
   customUsageLimit: string | number | null | undefined,
   minimumLimit: number
 ): number {
@@ -79,7 +90,7 @@ export async function getActiveSubscriptionForReference(
       and(
         eq(subscription.referenceType, reference.referenceType),
         eq(subscription.referenceId, reference.referenceId),
-        eq(subscription.status, 'active')
+        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
       )
     )
 
@@ -101,7 +112,7 @@ async function getActivePersonalSubscriptions(userId: string): Promise<Subscript
       and(
         eq(subscription.referenceType, 'user'),
         eq(subscription.referenceId, userId),
-        eq(subscription.status, 'active')
+        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
       )
     )
 }
@@ -114,14 +125,111 @@ export async function getPersonalEffectiveSubscription(
     const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
     return selectEffectiveSubscription(hydratedSubscriptions)
   } catch (error) {
-    logger.error('Error getting personal effective subscription', { error, userId })
+    logger.error('Error getting personal effective subscription', {
+      error,
+      userId,
+    })
     return null
   }
 }
 
+function getDefaultUserSubscriptionId(userId: string) {
+  return `${DEFAULT_USER_SUBSCRIPTION_ID_PREFIX}${userId}`
+}
+
+export async function ensureDefaultUserSubscription(userId: string): Promise<SubscriptionWithTier> {
+  const existingSubscription = await getPersonalEffectiveSubscription(userId)
+  if (existingSubscription) {
+    return existingSubscription
+  }
+
+  const defaultTier = await requireDefaultBillingTier()
+  const subscriptionId = getDefaultUserSubscriptionId(userId)
+
+  await db
+    .insert(subscription)
+    .values({
+      id: subscriptionId,
+      plan: defaultTier.id,
+      billingTierId: defaultTier.id,
+      referenceType: 'user',
+      referenceId: userId,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      status: 'active',
+      periodStart: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      seats: null,
+      trialStart: null,
+      trialEnd: null,
+      metadata: {
+        source: 'default-tier',
+      },
+    })
+    .onConflictDoUpdate({
+      target: subscription.id,
+      set: {
+        plan: defaultTier.id,
+        billingTierId: defaultTier.id,
+        referenceType: 'user',
+        referenceId: userId,
+        stripeSubscriptionId: null,
+        status: 'active',
+        periodStart: null,
+        periodEnd: null,
+        cancelAtPeriodEnd: false,
+        seats: null,
+        trialStart: null,
+        trialEnd: null,
+        metadata: {
+          source: 'default-tier',
+        },
+      },
+    })
+
+  const defaultSubscription = await getPersonalEffectiveSubscription(userId)
+  if (!defaultSubscription) {
+    throw new Error(`Failed to provision default subscription for user ${userId}`)
+  }
+
+  return defaultSubscription
+}
+
+export async function backfillDefaultUserSubscriptions(): Promise<number> {
+  const [userRows, entitledSubscriptions] = await Promise.all([
+    db.select({ id: user.id }).from(user),
+    db
+      .select({ referenceId: subscription.referenceId })
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.referenceType, 'user'),
+          inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
+        )
+      ),
+  ])
+
+  const subscribedUserIds = new Set(entitledSubscriptions.map((row) => row.referenceId))
+  let createdCount = 0
+
+  for (const row of userRows) {
+    if (subscribedUserIds.has(row.id)) {
+      continue
+    }
+
+    await ensureDefaultUserSubscription(row.id)
+    createdCount += 1
+  }
+
+  logger.info('Backfilled default user subscriptions', { createdCount })
+  return createdCount
+}
+
 export async function getPersonalBillingSnapshot(userId: string): Promise<PersonalBillingSnapshot> {
   try {
-    const [subscription, statsRecords] = await Promise.all([
+    const [{ billingEnabled }, subscription, statsRecords] = await Promise.all([
+      getResolvedBillingSettings(),
       getPersonalEffectiveSubscription(userId),
       db
         .select({
@@ -135,176 +243,58 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
         .limit(1),
     ])
 
-    const effectiveTier = subscription?.tier ?? (await requireDefaultBillingTier())
     const stats = statsRecords[0]
+    const currentPeriodCost = Number.parseFloat(
+      (stats?.currentPeriodCost ?? stats?.totalCost)?.toString() || '0'
+    )
 
-    let currentPeriodCost = 0
-    if (stats) {
-      currentPeriodCost = Number.parseFloat(
-        (subscription ? stats.currentPeriodCost : stats.totalCost)?.toString() || '0'
-      )
+    if (!billingEnabled) {
+      return {
+        subscription: null,
+        tier: toBillingTierSummary(null),
+        currentPeriodCost,
+        limit: Number.MAX_SAFE_INTEGER,
+        isExceeded: false,
+      }
     }
 
-    const minimumLimit = subscription
-      ? getSubscriptionUsageAllowanceUsd(subscription)
-      : getFreeUserUsageLimit(
-          getTierUsageAllowanceUsd(effectiveTier),
-          stats?.grantedOnboardingAllowanceUsd
-        )
-    const limit = subscription
-      ? getEffectivePersonalUsageLimit(stats?.customUsageLimit, minimumLimit)
-      : minimumLimit
+    if (!subscription) {
+      logger.error('Missing personal subscription while billing is enabled', {
+        userId,
+      })
+      return {
+        subscription: null,
+        tier: toBillingTierSummary(null),
+        currentPeriodCost,
+        limit: 0,
+        isExceeded: true,
+      }
+    }
+
+    const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
+      subscription,
+      grantedOnboardingAllowanceUsd: stats?.grantedOnboardingAllowanceUsd,
+    })
+    const limit = getConfiguredPersonalUsageLimit(stats?.customUsageLimit, minimumLimit)
 
     return {
       subscription,
-      tier: toBillingTierSummary(effectiveTier),
+      tier: toBillingTierSummary(subscription.tier),
       currentPeriodCost,
       limit,
       isExceeded: currentPeriodCost >= limit,
     }
   } catch (error) {
     logger.error('Error getting personal billing snapshot', { error, userId })
-    try {
-      const defaultTier = await requireDefaultBillingTier()
-      return {
-        subscription: null,
-        tier: toBillingTierSummary(defaultTier),
-        currentPeriodCost: 0,
-        limit: getTierUsageAllowanceUsd(defaultTier),
-        isExceeded: true,
-      }
-    } catch {
-      return {
-        subscription: null,
-        tier: toBillingTierSummary(null),
-        currentPeriodCost: 0,
-        limit: 0,
-        isExceeded: true,
-      }
-    }
-  }
-}
-
-/**
- * Check if user has exceeded their cost limit based on current period usage
- */
-export async function hasExceededCostLimit(userId: string): Promise<boolean> {
-  try {
-    if (!isProd) {
-      return false
-    }
-
-    const subscription = await getEffectiveSubscription(userId)
-    let limit: number
-
-    if (subscription) {
-      const billingTier = subscription.tier.displayName
-      limit = getSubscriptionUsageAllowanceUsd(subscription)
-      logger.info('Using individual tier limit', {
-        userId,
-        billingTier,
-        limit,
-      })
-    } else {
-      const defaultTier = await requireDefaultBillingTier()
-      const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
-      const stats = statsRecords[0]
-      limit = getFreeUserUsageLimit(
-        getTierUsageAllowanceUsd(defaultTier),
-        stats?.grantedOnboardingAllowanceUsd
-      )
-      logger.info('Using default billing tier limit', { userId, limit })
-      if (statsRecords.length === 0) {
-        return false
-      }
-
-      const currentCost = Number.parseFloat(
-        stats.totalCost?.toString() || stats.currentPeriodCost?.toString() || '0'
-      )
-
-      logger.info('Checking cost limit', { userId, currentCost, limit })
-
-      return currentCost >= limit
-    }
-
-    const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
-
-    if (statsRecords.length === 0) {
-      return false
-    }
-
-    // Use current period cost instead of total cost for accurate billing period tracking
-    const currentCost = Number.parseFloat(
-      statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
-    )
-
-    logger.info('Checking cost limit', { userId, currentCost, limit })
-
-    return currentCost >= limit
-  } catch (error) {
-    logger.error('Error checking cost limit', { error, userId })
-    return false // Be conservative in case of error
-  }
-}
-
-/**
- * Check if sharing features are enabled for user
- */
-// Removed unused feature flag helpers: isSharingEnabled, isMultiplayerEnabled, isWorkspaceCollaborationEnabled
-
-/**
- * Get comprehensive subscription state for a user
- * Single function to get all subscription information
- */
-export async function getUserSubscriptionState(userId: string): Promise<UserSubscriptionState> {
-  try {
-    // Get subscription and user stats in parallel to minimize DB calls
-    const [subscription, statsRecords] = await Promise.all([
-      getEffectiveSubscription(userId),
-      db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
-    ])
-
-    const tier = subscription?.tier
-      ? toBillingTierSummary(subscription.tier)
-      : toBillingTierSummary(await requireDefaultBillingTier())
-
-    // Check cost limit using already-fetched user stats
-    let hasExceededLimit = false
-    if (isProd && statsRecords.length > 0) {
-      let limit: number
-      let currentCost: number
-      if (subscription) {
-        limit = getSubscriptionUsageAllowanceUsd(subscription)
-        currentCost = Number.parseFloat(
-          statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
-        )
-      } else {
-        limit = getFreeUserUsageLimit(
-          getTierUsageAllowanceUsd(await requireDefaultBillingTier()),
-          statsRecords[0].grantedOnboardingAllowanceUsd
-        )
-        currentCost = Number.parseFloat(
-          statsRecords[0].totalCost?.toString() ||
-            statsRecords[0].currentPeriodCost?.toString() ||
-            '0'
-        )
-      }
-      hasExceededLimit = currentCost >= limit
-    }
-
+    const { billingEnabled } = await getResolvedBillingSettings().catch(() => ({
+      billingEnabled: true,
+    }))
     return {
-      tier,
-      effectiveSubscription: subscription,
-      hasExceededLimit,
-    }
-  } catch (error) {
-    logger.error('Error getting user subscription state', { error, userId })
-
-    // Return safe defaults in case of error
-    return {
+      subscription: null,
       tier: toBillingTierSummary(null),
-      effectiveSubscription: null,
-      hasExceededLimit: false,
+      currentPeriodCost: 0,
+      limit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
+      isExceeded: billingEnabled,
     }
   }
 }

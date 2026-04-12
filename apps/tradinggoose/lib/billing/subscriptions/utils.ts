@@ -4,6 +4,10 @@ import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
  * Subscription statuses that count as active for billing purposes
  */
 export const BILLING_ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing'] as const
+export const BILLING_ENTITLED_SUBSCRIPTION_STATUSES = [
+  ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
+  'past_due',
+] as const
 
 type ActiveSubscriptionLike =
   | {

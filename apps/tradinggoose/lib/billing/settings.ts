@@ -2,11 +2,7 @@ import { db } from '@tradinggoose/db'
 import { systemBillingSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { getDefaultBillingTier } from '@/lib/billing/tiers'
-import {
-  getSystemSettingsRecord,
-  resolveSystemSettingsFlags,
-  upsertSystemSettings,
-} from '@/lib/system-settings/service'
+import { getSystemSettingsRecord, resolveSystemSettingsFlags } from '@/lib/system-settings/service'
 
 type BillingSettingsRecord = typeof systemBillingSettings.$inferSelect
 export const GLOBAL_BILLING_SETTINGS_ID = 'global'
@@ -34,25 +30,10 @@ export async function isBillingConfigurationReady(): Promise<boolean> {
   return Boolean(await getDefaultBillingTier())
 }
 
-export async function disableBillingIfConfigurationInvalid(): Promise<boolean> {
-  if (await isBillingConfigurationReady()) {
-    return false
-  }
-
-  const systemSettings = await getSystemSettingsRecord()
-  if (!resolveSystemSettingsFlags(systemSettings).billingEnabled) {
-    return false
-  }
-
-  await upsertSystemSettings({ billingEnabled: false })
-  return true
-}
-
 export async function getResolvedBillingSettings() {
-  const [settings, systemSettings, billingConfigurationReady] = await Promise.all([
+  const [settings, systemSettings] = await Promise.all([
     getBillingSettings(),
     getSystemSettingsRecord(),
-    isBillingConfigurationReady(),
   ])
   const systemFlags = resolveSystemSettingsFlags(systemSettings)
   const parsedOverageThreshold = Number.parseFloat(
@@ -70,7 +51,7 @@ export async function getResolvedBillingSettings() {
 
   return {
     settings,
-    billingEnabled: systemFlags.billingEnabled && billingConfigurationReady,
+    billingEnabled: systemFlags.billingEnabled,
     onboardingAllowanceUsd:
       Number.isFinite(parsedOnboardingAllowance) && parsedOnboardingAllowance >= 0
         ? parsedOnboardingAllowance

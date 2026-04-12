@@ -7,21 +7,20 @@ import {
   user,
   userStats,
 } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import {
   type BillingTierRecord,
   getSubscriptionUsageAllowanceUsd,
   getTierBasePrice,
-  getTierIncludedUsageLimit,
   getTierUsageAllowanceUsd,
   hydrateSubscriptionsWithTiers,
   isFreeBillingTier,
   isOrganizationSubscription,
-  requireDefaultBillingTier,
   toBillingTierSummary,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
@@ -45,14 +44,13 @@ export async function getOrganizationCurrentUsageForTier(
 ): Promise<number> {
   if (usesIndividualBillingLedger(tier)) {
     const memberRows = await db
-      .select({ currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost })
+      .select({
+        currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
+      })
       .from(organizationMemberBillingLedger)
       .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
 
-    return memberRows.reduce(
-      (total, row) => total + parseDecimal(row.currentPeriodCost),
-      0
-    )
+    return memberRows.reduce((total, row) => total + parseDecimal(row.currentPeriodCost), 0)
   }
 
   const billingLedger = await getOrganizationBillingLedger(organizationId)
@@ -65,7 +63,9 @@ export async function calculateOrganizationIndividualOverage(params: {
 }): Promise<number> {
   const perUserLimit = getTierUsageAllowanceUsd(params.tier)
   const memberRows = await db
-    .select({ currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost })
+    .select({
+      currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
+    })
     .from(organizationMemberBillingLedger)
     .where(eq(organizationMemberBillingLedger.organizationId, params.organizationId))
 
@@ -87,7 +87,7 @@ export async function getOrganizationSubscription(organizationId: string) {
         and(
           eq(subscription.referenceType, 'organization'),
           eq(subscription.referenceId, organizationId),
-          eq(subscription.status, 'active')
+          inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
         )
       )
       .limit(1)
@@ -95,7 +95,10 @@ export async function getOrganizationSubscription(organizationId: string) {
     const hydrated = await hydrateSubscriptionsWithTiers(orgSubs)
     return hydrated[0] ?? null
   } catch (error) {
-    logger.error('Error getting organization subscription', { error, organizationId })
+    logger.error('Error getting organization subscription', {
+      error,
+      organizationId,
+    })
     return null
   }
 }
@@ -137,11 +140,11 @@ export async function calculateUserOverage(userId: string): Promise<{
 } | null> {
   try {
     // Get user's subscription and usage data
-    const [subscription, usageData, userRecord, defaultTier] = await Promise.all([
+    const [{ billingEnabled }, subscription, usageData, userRecord] = await Promise.all([
+      getResolvedBillingSettings(),
       getEffectiveSubscription(userId),
       getUserUsageData(userId),
       db.select().from(user).where(eq(user.id, userId)).limit(1),
-      requireDefaultBillingTier(),
     ])
 
     if (userRecord.length === 0) {
@@ -149,11 +152,12 @@ export async function calculateUserOverage(userId: string): Promise<{
       return null
     }
 
-    const tier = toBillingTierSummary(subscription?.tier ?? defaultTier)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription?.tier ?? null)
+    const tier = toBillingTierSummary(subscription?.tier)
+    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
     const actualUsage = usageData.currentUsage
 
-    const overageAmount = Math.max(0, actualUsage - usageAllowance)
+    const overageAmount =
+      billingEnabled && subscription ? Math.max(0, actualUsage - usageAllowance) : 0
 
     return {
       basePrice,
@@ -287,22 +291,23 @@ export async function getSimplifiedBillingSummary(
 }> {
   try {
     // Get subscription and usage data upfront
-    const [{ usageWarningThresholdPercent }, subscription, defaultTier] = await Promise.all([
+    const [{ billingEnabled, usageWarningThresholdPercent }, subscription] = await Promise.all([
       getResolvedBillingSettings(),
       organizationId
         ? getOrganizationSubscription(organizationId)
         : getEffectiveSubscription(userId),
-      requireDefaultBillingTier(),
     ])
 
     // Build a canonical tier-backed summary once and share it across the response.
-    const isPaid = Boolean(subscription?.tier && !isFreeBillingTier(subscription.tier))
-    const tier = toBillingTierSummary(subscription?.tier ?? defaultTier)
+    const isPaid = Boolean(
+      billingEnabled && subscription?.tier && !isFreeBillingTier(subscription.tier)
+    )
+    const tier = toBillingTierSummary(subscription?.tier)
 
     if (organizationId) {
       // Organization billing summary
       if (!subscription) {
-        return getDefaultBillingSummary('organization')
+        return getDefaultBillingSummary('organization', billingEnabled)
       }
 
       const [members, billingLedger, orgRows] = await Promise.all([
@@ -319,14 +324,14 @@ export async function getSimplifiedBillingSummary(
       ])
 
       if (!billingLedger) {
-        return getDefaultBillingSummary('organization')
+        return getDefaultBillingSummary('organization', billingEnabled)
       }
 
       const { basePrice: basePricePerSeat, usageAllowance } = getBillingTierPricing(subscription)
       // Organization billing is always seat-based. Fall back to the tier's configured seat count
       // until the subscription record has an explicit seat quantity.
       const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
-      const totalBasePrice = basePricePerSeat * licensedSeats
+      const totalBasePrice = billingEnabled ? basePricePerSeat * licensedSeats : 0
 
       const totalCurrentUsage = await getOrganizationCurrentUsageForTier(
         organizationId,
@@ -334,12 +339,14 @@ export async function getSimplifiedBillingSummary(
       )
       const totalCopilotCost = billingLedger.currentPeriodCopilotCost
       const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
-      const totalOverage = usesIndividualBillingLedger(subscription.tier)
-        ? await calculateOrganizationIndividualOverage({
-            organizationId,
-            tier: subscription.tier,
-          })
-        : Math.max(0, totalCurrentUsage - usageAllowance)
+      const totalOverage = billingEnabled
+        ? usesIndividualBillingLedger(subscription.tier)
+          ? await calculateOrganizationIndividualOverage({
+              organizationId,
+              tier: subscription.tier,
+            })
+          : Math.max(0, totalCurrentUsage - usageAllowance)
+        : 0
       const billingPeriodStart = subscription.periodStart || null
       const billingPeriodEnd = subscription.periodEnd || null
 
@@ -347,15 +354,20 @@ export async function getSimplifiedBillingSummary(
         orgRows.length > 0 && orgRows[0].orgUsageLimit
           ? Number.parseFloat(orgRows[0].orgUsageLimit)
           : null
-      const totalUsageLimit = usesIndividualBillingLedger(subscription.tier)
-        ? usageAllowance
-        : configuredUsageLimit !== null
-          ? Math.max(configuredUsageLimit, usageAllowance)
-          : usageAllowance
+      const totalUsageLimit = billingEnabled
+        ? usesIndividualBillingLedger(subscription.tier)
+          ? usageAllowance
+          : configuredUsageLimit !== null
+            ? Math.max(configuredUsageLimit, usageAllowance)
+            : usageAllowance
+        : Number.MAX_SAFE_INTEGER
       const percentUsed =
-        totalUsageLimit > 0 ? Math.round((totalCurrentUsage / totalUsageLimit) * 100) : 0
-      const isWarning = percentUsed >= usageWarningThresholdPercent && percentUsed < 100
-      const isExceeded = totalCurrentUsage >= totalUsageLimit
+        billingEnabled && totalUsageLimit > 0
+          ? Math.round((totalCurrentUsage / totalUsageLimit) * 100)
+          : 0
+      const isWarning =
+        billingEnabled && percentUsed >= usageWarningThresholdPercent && percentUsed < 100
+      const isExceeded = billingEnabled && totalCurrentUsage >= totalUsageLimit
       const daysRemaining = billingPeriodEnd
         ? Math.max(0, Math.ceil((billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : 0
@@ -433,10 +445,12 @@ export async function getSimplifiedBillingSummary(
     const totalCopilotCost = copilotCost
     const totalLastPeriodCopilotCost = lastPeriodCopilotCost
 
-    const overageAmount = Math.max(0, currentUsage - usageAllowance)
+    const overageAmount =
+      billingEnabled && subscription ? Math.max(0, currentUsage - usageAllowance) : 0
     const percentUsed = usageData.limit > 0 ? (currentUsage / usageData.limit) * 100 : 0
     const isWarning = percentUsed >= usageWarningThresholdPercent && percentUsed < 100
     const isExceeded = currentUsage >= usageData.limit
+    const effectiveBasePrice = billingEnabled ? basePrice : 0
 
     // Calculate days remaining in billing period
     const daysRemaining = usageData.billingPeriodEnd
@@ -449,10 +463,10 @@ export async function getSimplifiedBillingSummary(
     return {
       type: 'individual',
       id: subscription?.id ?? null,
-      basePrice,
+      basePrice: effectiveBasePrice,
       currentUsage: currentUsage,
       overageAmount,
-      totalProjected: basePrice + overageAmount,
+      totalProjected: effectiveBasePrice + overageAmount,
       usageLimit: usageData.limit,
       percentUsed,
       isWarning,
@@ -491,7 +505,13 @@ export async function getSimplifiedBillingSummary(
       stack: error instanceof Error ? error.stack : undefined,
     })
     try {
-      return await getDefaultBillingSummary(organizationId ? 'organization' : 'individual')
+      const { billingEnabled } = await getResolvedBillingSettings().catch(() => ({
+        billingEnabled: true,
+      }))
+      return getDefaultBillingSummary(
+        organizationId ? 'organization' : 'individual',
+        billingEnabled
+      )
     } catch (fallbackError) {
       logger.error('Failed to build default billing summary', {
         userId,
@@ -548,23 +568,22 @@ export async function getSimplifiedBillingSummary(
 /**
  * Get default billing summary for error cases
  */
-async function getDefaultBillingSummary(type: 'individual' | 'organization') {
-  const defaultTier = await requireDefaultBillingTier()
-  const usageLimit = getTierIncludedUsageLimit(defaultTier)
-  const basePrice = getTierBasePrice(defaultTier)
+function getDefaultBillingSummary(type: 'individual' | 'organization', billingEnabled: boolean) {
+  const usageLimit = billingEnabled ? 0 : Number.MAX_SAFE_INTEGER
+  const isExceeded = billingEnabled
 
   return {
     type,
     id: null,
-    tier: toBillingTierSummary(defaultTier),
-    basePrice,
+    tier: toBillingTierSummary(null),
+    basePrice: 0,
     currentUsage: 0,
     overageAmount: 0,
     totalProjected: 0,
     usageLimit,
-    percentUsed: 0,
+    percentUsed: isExceeded ? 100 : 0,
     isWarning: false,
-    isExceeded: false,
+    isExceeded,
     daysRemaining: 0,
     // Subscription details
     isPaid: false,
@@ -577,9 +596,9 @@ async function getDefaultBillingSummary(type: 'individual' | 'organization') {
     usage: {
       current: 0,
       limit: usageLimit,
-      percentUsed: 0,
+      percentUsed: isExceeded ? 100 : 0,
       isWarning: false,
-      isExceeded: false,
+      isExceeded,
       billingPeriodStart: null,
       billingPeriodEnd: null,
       lastPeriodCost: 0,

@@ -29,6 +29,7 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
+import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
@@ -305,6 +306,11 @@ export const auth = betterAuth({
 
           try {
             await handleNewUser(user.id)
+
+            const { billingEnabled } = await getResolvedBillingSettings()
+            if (billingEnabled) {
+              await ensureDefaultUserSubscription(user.id)
+            }
           } catch (error) {
             logger.error('[databaseHooks.user.create.after] Failed to initialize user stats', {
               userId: user.id,
@@ -1507,10 +1513,15 @@ export const auth = betterAuth({
 
             await handleSubscriptionDeleted(subscriptionRecord)
 
-            // Reset usage limits to the current default billing tier
-            await syncSubscriptionUsageLimits(subscriptionRecord)
+            const { billingEnabled } = await getResolvedBillingSettings()
+            const nextSubscriptionRecord =
+              billingEnabled && subscriptionRecord.referenceType === 'user'
+                ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
+                : subscriptionRecord
 
-            logger.info('[onSubscriptionDeleted] Reset usage limits to default billing tier', {
+            await syncSubscriptionUsageLimits(nextSubscriptionRecord)
+
+            logger.info('[onSubscriptionDeleted] Reconciled subscription usage limits', {
               subscriptionId: subscription.id,
               referenceType: subscription.referenceType,
               referenceId: subscription.referenceId,
