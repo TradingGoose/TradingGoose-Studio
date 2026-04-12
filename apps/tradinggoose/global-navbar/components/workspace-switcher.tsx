@@ -1,6 +1,6 @@
 'use client'
-import Image from 'next/image'
 import { ChevronsUpDown, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -15,6 +15,7 @@ interface WorkspaceSwitcherProps {
   activeWorkspace: Workspace | null
   workspaces: Workspace[]
   isLoading: boolean
+  canManageWorkspaces: boolean
   workspaceMenuOpen: boolean
   onWorkspaceMenuOpenChange: (open: boolean) => void
   hoveredWorkspaceId: string | null
@@ -41,6 +42,7 @@ export function WorkspaceSwitcher({
   activeWorkspace,
   workspaces,
   isLoading,
+  canManageWorkspaces,
   workspaceMenuOpen,
   onWorkspaceMenuOpenChange,
   hoveredWorkspaceId,
@@ -87,7 +89,9 @@ export function WorkspaceSwitcher({
               </div>
               <div className='grid flex-1 text-left text-sm leading-tight'>
                 <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
-                <span className='truncate text-xs'>{activeWorkspace?.role ?? fallbackSubtitle}</span>
+                <span className='truncate text-xs'>
+                  {activeWorkspace?.role ?? fallbackSubtitle}
+                </span>
               </div>
               <ChevronsUpDown className='ml-auto' />
             </SidebarMenuButton>
@@ -100,7 +104,7 @@ export function WorkspaceSwitcher({
           >
             <div className='flex h-[300px] flex-col p-2'>
               <div className='min-h-0 flex-1'>
-                <ScrollArea className='h-[220px]'>
+                <ScrollArea className={cn('h-[220px]', !canManageWorkspaces && 'h-[268px]')}>
                   {isLoading ? (
                     <div className='space-y-2'>
                       {[0, 1, 2].map((index) => (
@@ -109,7 +113,9 @@ export function WorkspaceSwitcher({
                     </div>
                   ) : workspaces.length === 0 ? (
                     <div className='rounded-md border border-dashed p-4 text-center text-muted-foreground text-sm'>
-                      No workspaces yet. Create one to get started.
+                      {canManageWorkspaces
+                        ? 'No workspaces yet. Create one to get started.'
+                        : 'No workspaces available.'}
                     </div>
                   ) : (
                     <div className='space-y-1'>
@@ -164,7 +170,7 @@ export function WorkspaceSwitcher({
                                 </span>
                               )}
                               <div className='flex h-full flex-shrink-0 items-center gap-1'>
-                                {workspace.permissions === 'admin' ? (
+                                {canManageWorkspaces && workspace.permissions === 'admin' ? (
                                   <Button
                                     variant='ghost'
                                     size='icon'
@@ -180,7 +186,9 @@ export function WorkspaceSwitcher({
                                     <Pencil className='h-3.5 w-3.5' />
                                   </Button>
                                 ) : null}
-                                {workspace.permissions === 'admin' && workspaces.length > 1 ? (
+                                {canManageWorkspaces &&
+                                workspace.permissions === 'admin' &&
+                                workspaces.length > 1 ? (
                                   <Button
                                     variant='ghost'
                                     size='icon'
@@ -198,11 +206,11 @@ export function WorkspaceSwitcher({
                                 ) : null}
                               </div>
                             </div>
-                            {
-                              renameError && editingWorkspaceId === workspace.id ? (
-                                <p className='px-2 text-destructive text-xs'>{renameError}</p>
-                              ) : null
-                            }
+                            {canManageWorkspaces &&
+                            renameError &&
+                            editingWorkspaceId === workspace.id ? (
+                              <p className='px-2 text-destructive text-xs'>{renameError}</p>
+                            ) : null}
                           </div>
                         )
                       })}
@@ -210,35 +218,39 @@ export function WorkspaceSwitcher({
                   )}
                 </ScrollArea>
               </div>
-              <div className='mt-2 flex items-center gap-2 border-t pt-2'>
-                <Button
-                  variant='secondary'
-                  className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
-                  onClick={() => (activeWorkspace ? onInviteWorkspace(activeWorkspace) : undefined)}
-                  disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
-                >
-                  <Settings className='h-3.5 w-3.5' />
-                  Manage
-                </Button>
-                <Button
-                  variant='secondary'
-                  className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
-                  onClick={() => onCreateWorkspace()}
-                  disabled={isCreatingWorkspace}
-                >
-                  {isCreatingWorkspace ? (
-                    <>
-                      <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                      Creating…
-                    </>
-                  ) : (
-                    <>
-                      <Plus className='h-3.5 w-3.5' />
-                      Create
-                    </>
-                  )}
-                </Button>
-              </div>
+              {canManageWorkspaces ? (
+                <div className='mt-2 flex items-center gap-2 border-t pt-2'>
+                  <Button
+                    variant='secondary'
+                    className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
+                    onClick={() =>
+                      activeWorkspace ? onInviteWorkspace(activeWorkspace) : undefined
+                    }
+                    disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
+                  >
+                    <Settings className='h-3.5 w-3.5' />
+                    Manage
+                  </Button>
+                  <Button
+                    variant='secondary'
+                    className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
+                    onClick={() => onCreateWorkspace()}
+                    disabled={isCreatingWorkspace}
+                  >
+                    {isCreatingWorkspace ? (
+                      <>
+                        <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                        Creating…
+                      </>
+                    ) : (
+                      <>
+                        <Plus className='h-3.5 w-3.5' />
+                        Create
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>

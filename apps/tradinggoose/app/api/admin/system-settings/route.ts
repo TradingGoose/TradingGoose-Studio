@@ -42,6 +42,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
     }
 
+    if (!access.isSystemAdmin && access.canBootstrapSystemAdmin) {
+      const claimed = await claimFirstSystemAdmin(userId)
+      if (!claimed) {
+        logger.warn(`[${requestId}] Bootstrap admin claim lost`, { userId })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+      }
+    }
+
     const [snapshot, billingReady] = await Promise.all([
       getResolvedSystemSettings(),
       isBillingConfigurationReady(),

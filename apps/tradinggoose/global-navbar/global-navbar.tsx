@@ -95,6 +95,7 @@ export function GlobalNavbar({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
     readOnly: navigationMode === 'admin',
   })
+  const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
   const workspaceSwitcherActiveWorkspace =
     navigationMode === 'admin' ? null : workspaceSwitcher.activeWorkspace
   const systemNavigation = React.useMemo(() => {
@@ -306,6 +307,7 @@ export function GlobalNavbar({
                 activeWorkspace={workspaceSwitcherActiveWorkspace}
                 workspaces={workspaceSwitcher.workspaces}
                 isLoading={workspaceSwitcher.isWorkspacesLoading}
+                canManageWorkspaces={canManageWorkspaces}
                 workspaceMenuOpen={workspaceSwitcher.workspaceMenuOpen}
                 onWorkspaceMenuOpenChange={workspaceSwitcher.setWorkspaceMenuOpen}
                 hoveredWorkspaceId={workspaceSwitcher.hoveredWorkspaceId}
@@ -366,17 +368,19 @@ export function GlobalNavbar({
           </SidebarInset>
         </SidebarProvider>
 
-        <WorkspaceDialogs
-          inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
-          onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
-          inviteWorkspace={workspaceSwitcher.inviteWorkspace}
-          deleteDialogOpen={workspaceSwitcher.deleteDialogOpen}
-          onDeleteDialogChange={workspaceSwitcher.handleDeleteDialogChange}
-          workspaceToDelete={workspaceSwitcher.workspaceToDelete}
-          deleteError={workspaceSwitcher.deleteError}
-          isDeletingWorkspace={workspaceSwitcher.isDeletingWorkspace}
-          onConfirmDelete={() => void workspaceSwitcher.handleConfirmDelete()}
-        />
+        {canManageWorkspaces ? (
+          <WorkspaceDialogs
+            inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
+            onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
+            inviteWorkspace={workspaceSwitcher.inviteWorkspace}
+            deleteDialogOpen={workspaceSwitcher.deleteDialogOpen}
+            onDeleteDialogChange={workspaceSwitcher.handleDeleteDialogChange}
+            workspaceToDelete={workspaceSwitcher.workspaceToDelete}
+            deleteError={workspaceSwitcher.deleteError}
+            isDeletingWorkspace={workspaceSwitcher.isDeletingWorkspace}
+            onConfirmDelete={() => void workspaceSwitcher.handleConfirmDelete()}
+          />
+        ) : null}
         <SettingsDialog
           open={isSettingsModalOpen}
           section={activeSettingsSection}

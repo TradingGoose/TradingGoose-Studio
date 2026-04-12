@@ -46,7 +46,7 @@ async function getRequestedSystemOAuthProviderId(request: Request, pathname: str
   return ''
 }
 
-const handler = async (request: Request) => {
+export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
 
   if (!shouldHydrateSystemOAuthCredentials(pathname)) {
@@ -66,4 +66,4 @@ const handler = async (request: Request) => {
   return runWithSystemOAuthClientCredentials(() => auth.handler(request), credentials)
 }
 
-export const { GET, POST } = toNextJsHandler(handler)
+export const { GET, POST } = toNextJsHandler(handleAuthRequest)

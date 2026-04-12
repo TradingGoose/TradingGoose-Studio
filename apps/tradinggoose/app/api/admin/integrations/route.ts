@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { ZodError } from 'zod'
+import { ZodError, z } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
 import {
   listSystemIntegrations,
@@ -8,7 +8,6 @@ import {
 } from '@/lib/admin/system-integrations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { z } from 'zod'
 
 const logger = createLogger('AdminIntegrationsAPI')
 
@@ -53,13 +52,19 @@ export async function GET() {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin integrations access attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     const userId = access.userId
     if (!userId) {
       logger.warn(`[${requestId}] Unauthorized admin integrations access attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
@@ -69,8 +74,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
     }
 
+    if (!access.isSystemAdmin && access.canBootstrapSystemAdmin) {
+      const claimed = await claimFirstSystemAdmin(userId)
+      if (!claimed) {
+        logger.warn(`[${requestId}] Bootstrap admin claim lost`, {
+          userId,
+        })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+      }
+    }
+
     const data = await listSystemIntegrations()
-    return NextResponse.json(serializeSnapshot(data), { status: 200, headers: NO_STORE_HEADERS })
+    return NextResponse.json(serializeSnapshot(data), {
+      status: 200,
+      headers: NO_STORE_HEADERS,
+    })
   } catch (error) {
     logger.error(`[${requestId}] Failed to load admin integrations`, error)
     return NextResponse.json(
@@ -87,13 +105,19 @@ export async function PATCH(request: NextRequest) {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin integrations update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     const userId = access.userId
     if (!userId) {
       logger.warn(`[${requestId}] Unauthorized admin integrations update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
@@ -145,7 +169,10 @@ export async function PATCH(request: NextRequest) {
     })
 
     const data = await listSystemIntegrations()
-    return NextResponse.json(serializeSnapshot(data), { status: 200, headers: NO_STORE_HEADERS })
+    return NextResponse.json(serializeSnapshot(data), {
+      status: 200,
+      headers: NO_STORE_HEADERS,
+    })
   } catch (error) {
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin integrations payload`, {
@@ -161,10 +188,7 @@ export async function PATCH(request: NextRequest) {
       logger.warn(`[${requestId}] Rejected admin integrations payload`, {
         message: error.message,
       })
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400, headers: NO_STORE_HEADERS }
-      )
+      return NextResponse.json({ error: error.message }, { status: 400, headers: NO_STORE_HEADERS })
     }
 
     logger.error(`[${requestId}] Failed to update admin integrations`, error)

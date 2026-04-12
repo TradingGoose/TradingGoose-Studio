@@ -20,6 +20,7 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
   const pathname = usePathname() ?? '/'
   const router = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
+  const canManageWorkspaces = !readOnly
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
@@ -48,7 +49,9 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
 
     setIsWorkspacesLoading(true)
     try {
-      const response = await fetch(readOnly ? '/api/workspaces?autoCreate=false' : '/api/workspaces')
+      const response = await fetch(
+        canManageWorkspaces ? '/api/workspaces' : '/api/workspaces?autoCreate=false'
+      )
       if (!response.ok) {
         setWorkspaces([])
         setActiveWorkspace(null)
@@ -77,7 +80,27 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [enabled, readOnly, workspaceId])
+  }, [canManageWorkspaces, enabled, workspaceId])
+
+  React.useEffect(() => {
+    if (canManageWorkspaces) {
+      return
+    }
+
+    setWorkspaceMenuOpen(false)
+    setHoveredWorkspaceId(null)
+    setIsCreatingWorkspace(false)
+    setEditingWorkspaceId(null)
+    setEditingWorkspaceName('')
+    setIsRenamingWorkspace(false)
+    setRenameError(null)
+    setInviteDialogOpen(false)
+    setInviteWorkspace(null)
+    setDeleteDialogOpen(false)
+    setWorkspaceToDelete(null)
+    setIsDeletingWorkspace(false)
+    setDeleteError(null)
+  }, [canManageWorkspaces])
 
   React.useEffect(() => {
     void fetchWorkspaces()
@@ -106,6 +129,10 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
+    if (!canManageWorkspaces) {
+      return
+    }
+
     if (isCreatingWorkspace) {
       return
     }
@@ -139,17 +166,24 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
     } finally {
       setIsCreatingWorkspace(false)
     }
-  }, [fetchWorkspaces, handleSwitchWorkspace, isCreatingWorkspace])
+  }, [canManageWorkspaces, fetchWorkspaces, handleSwitchWorkspace, isCreatingWorkspace])
 
-  const handleStartEditing = React.useCallback((workspace: Workspace) => {
-    if (workspace.permissions !== 'admin') {
-      return
-    }
+  const handleStartEditing = React.useCallback(
+    (workspace: Workspace) => {
+      if (!canManageWorkspaces) {
+        return
+      }
 
-    setEditingWorkspaceId(workspace.id)
-    setEditingWorkspaceName(workspace.name)
-    setRenameError(null)
-  }, [])
+      if (workspace.permissions !== 'admin') {
+        return
+      }
+
+      setEditingWorkspaceId(workspace.id)
+      setEditingWorkspaceName(workspace.name)
+      setRenameError(null)
+    },
+    [canManageWorkspaces]
+  )
 
   const handleCancelEditing = React.useCallback(() => {
     setEditingWorkspaceId(null)
@@ -159,6 +193,10 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
   }, [])
 
   const handleSaveWorkspaceName = React.useCallback(async () => {
+    if (!canManageWorkspaces) {
+      return
+    }
+
     if (!editingWorkspaceId) {
       return
     }
@@ -189,37 +227,68 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
     } finally {
       setIsRenamingWorkspace(false)
     }
-  }, [editingWorkspaceId, editingWorkspaceName, fetchWorkspaces, handleCancelEditing])
+  }, [
+    canManageWorkspaces,
+    editingWorkspaceId,
+    editingWorkspaceName,
+    fetchWorkspaces,
+    handleCancelEditing,
+  ])
 
-  const handleInviteDialogChange = React.useCallback((open: boolean) => {
-    setInviteDialogOpen(open)
-    if (!open) {
-      setInviteWorkspace(null)
-    }
-  }, [])
+  const handleInviteDialogChange = React.useCallback(
+    (open: boolean) => {
+      if (!canManageWorkspaces) {
+        return
+      }
 
-  const handleOpenInviteDialog = React.useCallback((workspace: Workspace) => {
-    if (workspace.permissions !== 'admin') {
-      return
-    }
+      setInviteDialogOpen(open)
+      if (!open) {
+        setInviteWorkspace(null)
+      }
+    },
+    [canManageWorkspaces]
+  )
 
-    setInviteWorkspace(workspace)
-    setInviteDialogOpen(true)
-  }, [])
+  const handleOpenInviteDialog = React.useCallback(
+    (workspace: Workspace) => {
+      if (!canManageWorkspaces) {
+        return
+      }
 
-  const handleDeleteDialogChange = React.useCallback((open: boolean) => {
-    if (!open) {
-      setDeleteDialogOpen(false)
-      setWorkspaceToDelete(null)
-      setDeleteError(null)
-      setIsDeletingWorkspace(false)
-      return
-    }
+      if (workspace.permissions !== 'admin') {
+        return
+      }
 
-    setDeleteDialogOpen(true)
-  }, [])
+      setInviteWorkspace(workspace)
+      setInviteDialogOpen(true)
+    },
+    [canManageWorkspaces]
+  )
+
+  const handleDeleteDialogChange = React.useCallback(
+    (open: boolean) => {
+      if (!canManageWorkspaces) {
+        return
+      }
+
+      if (!open) {
+        setDeleteDialogOpen(false)
+        setWorkspaceToDelete(null)
+        setDeleteError(null)
+        setIsDeletingWorkspace(false)
+        return
+      }
+
+      setDeleteDialogOpen(true)
+    },
+    [canManageWorkspaces]
+  )
 
   const handleConfirmDelete = React.useCallback(async () => {
+    if (!canManageWorkspaces) {
+      return
+    }
+
     if (!workspaceToDelete) {
       return
     }
@@ -245,9 +314,16 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
     } finally {
       setIsDeletingWorkspace(false)
     }
-  }, [workspaceToDelete, fetchWorkspaces, activeWorkspace?.id, handleDeleteDialogChange])
+  }, [
+    canManageWorkspaces,
+    workspaceToDelete,
+    fetchWorkspaces,
+    activeWorkspace?.id,
+    handleDeleteDialogChange,
+  ])
 
   return {
+    canManageWorkspaces,
     activeWorkspace,
     workspaces,
     isWorkspacesLoading,

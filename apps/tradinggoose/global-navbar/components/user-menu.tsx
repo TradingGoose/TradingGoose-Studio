@@ -22,7 +22,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
 import { canTierConfigureSso } from '@/lib/billing/tier-summary'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
@@ -101,7 +100,6 @@ export function UserMenu({
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
   const currentThemeLabel = THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
-  const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
@@ -125,14 +123,9 @@ export function UserMenu({
   )
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
-  const hasOrganization = Boolean(activeOrganizationId)
-  const canManageSSOSettings = useMemo(() => {
-    if (!hasOrganization || !isOrganizationPlan || !canConfigureSso) return false
-    if (isHosted) {
-      return isOwner || isAdmin
-    }
-    return isSSOProviderOwner === true
-  }, [canConfigureSso, hasOrganization, isAdmin, isOrganizationPlan, isOwner, isSSOProviderOwner])
+  const canManageSSOSettings = Boolean(
+    activeOrganizationId && isOrganizationPlan && canConfigureSso && (isOwner || isAdmin)
+  )
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -182,38 +175,6 @@ export function UserMenu({
     window.addEventListener('user-avatar-updated', handler)
     return () => window.removeEventListener('user-avatar-updated', handler)
   }, [])
-
-  useEffect(() => {
-    if (isHosted) {
-      setIsSSOProviderOwner(null)
-      return
-    }
-
-    if (!userId) {
-      setIsSSOProviderOwner(false)
-      return
-    }
-
-    let isMounted = true
-
-    const fetchProviders = async () => {
-      try {
-        const response = await fetch('/api/auth/sso/providers')
-        if (!response.ok) throw new Error('Failed to fetch providers')
-        const data = await response.json()
-        const ownsProvider = data.providers?.some((p: any) => p.userId === userId) || false
-        if (isMounted) setIsSSOProviderOwner(ownsProvider)
-      } catch {
-        if (isMounted) setIsSSOProviderOwner(false)
-      }
-    }
-
-    fetchProviders()
-
-    return () => {
-      isMounted = false
-    }
-  }, [userId])
 
   const effectiveAvatar = avatarOverride.url ?? userAvatar
   const effectiveVersion = avatarOverride.version ?? userAvatarVersion

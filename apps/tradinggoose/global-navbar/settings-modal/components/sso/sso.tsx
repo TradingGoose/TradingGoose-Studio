@@ -62,8 +62,6 @@ interface SSOProvider {
   providerId: string
   domain: string
   issuer: string
-  organizationId: string
-  userId?: string
   oidcConfig?: string
   samlConfig?: string
   providerType: 'oidc' | 'saml'
@@ -73,21 +71,19 @@ export function SSO() {
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
+  const activeOrganizationId = activeOrganization?.id
   const { data: organizationBillingData } = useOrganizationBilling(activeOrganization?.id || '')
   const billingData = (organizationBillingData as any)?.data ?? organizationBillingData ?? null
-  const billingEnabled = billingData?.billingEnabled ?? true
-  const canUseSso = Boolean(
-    billingData?.subscriptionTier?.ownerType === 'organization' &&
-      canTierConfigureSso(billingData.subscriptionTier)
-  )
+  const isOrganizationPlan = billingData?.subscriptionTier?.ownerType === 'organization'
+  const canUseSso = Boolean(isOrganizationPlan && canTierConfigureSso(billingData.subscriptionTier))
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [providerLoadError, setProviderLoadError] = useState<string | null>(null)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [copied, setCopied] = useState(false)
   const [providers, setProviders] = useState<SSOProvider[]>([])
   const [isLoadingProviders, setIsLoadingProviders] = useState(true)
   const [showConfigForm, setShowConfigForm] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
 
   const [formData, setFormData] = useState({
     providerType: 'oidc' as 'oidc' | 'saml',
@@ -125,97 +121,95 @@ export function SSO() {
   const [showErrors, setShowErrors] = useState(false)
 
   const userEmail = session?.user?.email
-  const userId = session?.user?.id
   const userRole = getUserRole(activeOrganization, userEmail)
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
   const canManageSSO = isOwner || isAdmin
-
-  const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
+  const shouldFetchProviders = Boolean(activeOrganizationId && canManageSSO && canUseSso)
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchProviders = async () => {
+      if (!shouldFetchProviders) {
+        setProviders([])
+        setProviderLoadError(null)
+        setIsLoadingProviders(false)
+        return
+      }
+
       try {
+        setIsLoadingProviders(true)
         const response = await fetch('/api/auth/sso/providers')
         if (!response.ok) {
-          throw new Error(`Failed to fetch providers: ${response.statusText}`)
+          const errorData = await response.json().catch(() => null)
+          throw new Error(
+            errorData?.details ||
+              errorData?.error ||
+              response.statusText ||
+              'Failed to load SSO providers'
+          )
         }
 
         const data = await response.json()
-        setProviders(data.providers || [])
-
-        if (!billingEnabled && userId) {
-          const ownsProvider = data.providers.some((p: any) => p.userId === userId)
-          setIsSSOProviderOwner(ownsProvider)
-        } else {
-          setIsSSOProviderOwner(null)
+        if (!cancelled) {
+          setProviders(data.providers || [])
+          setProviderLoadError(null)
         }
       } catch (error) {
         logger.error('Failed to fetch SSO providers', { error })
-        setProviders([])
-        setIsSSOProviderOwner(false)
+        if (!cancelled) {
+          setProviders([])
+          setProviderLoadError(
+            error instanceof Error ? error.message : 'Failed to load SSO provider configuration'
+          )
+        }
       } finally {
-        setIsLoadingProviders(false)
+        if (!cancelled) {
+          setIsLoadingProviders(false)
+        }
       }
     }
 
-    const shouldFetch = !billingEnabled ? true : canManageSSO && activeOrganization && canUseSso
+    fetchProviders()
 
-    if (shouldFetch) {
-      fetchProviders()
-    } else {
-      setIsLoadingProviders(false)
+    return () => {
+      cancelled = true
     }
-  }, [canManageSSO, activeOrganization, canUseSso, userId, billingEnabled])
+  }, [activeOrganizationId, shouldFetchProviders])
 
-  if (billingEnabled) {
-    if (!activeOrganization) {
-      return (
-        <div className='flex h-full items-center justify-center p-6'>
-          <Alert>
-            <AlertDescription>
-              You must be part of an organization to configure Single Sign-On.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
-    }
+  if (!activeOrganization) {
+    return (
+      <div className='flex h-full items-center justify-center p-6'>
+        <Alert>
+          <AlertDescription>
+            You must be part of an organization to configure Single Sign-On.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
-    if (!canUseSso) {
-      return (
-        <div className='flex h-full items-center justify-center p-6'>
-          <Alert>
-            <AlertDescription>
-              Single Sign-On is not enabled for this billing tier.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
-    }
+  if (!canUseSso) {
+    return (
+      <div className='flex h-full items-center justify-center p-6'>
+        <Alert>
+          <AlertDescription>Single Sign-On is not enabled for this billing tier.</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
-    if (!canManageSSO) {
-      return (
-        <div className='flex h-full items-center justify-center p-6'>
-          <Alert>
-            <AlertDescription>
-              Only organization owners and admins can configure Single Sign-On settings.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
-    }
-  } else {
-    if (!isLoadingProviders && isSSOProviderOwner === false && providers.length > 0) {
-      return (
-        <div className='flex h-full items-center justify-center p-6'>
-          <Alert>
-            <AlertDescription>
-              Only the user who configured SSO can manage these settings.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
-    }
+  if (!canManageSSO) {
+    return (
+      <div className='flex h-full items-center justify-center p-6'>
+        <Alert>
+          <AlertDescription>
+            Only organization owners and admins can configure Single Sign-On settings.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   const validateProviderId = (value: string): string[] => {
@@ -368,7 +362,7 @@ export function SSO() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.details || 'Failed to configure SSO provider')
+        throw new Error(errorData.details || errorData.error || 'Failed to configure SSO provider')
       }
 
       const result = await response.json()
@@ -392,18 +386,20 @@ export function SSO() {
       })
 
       const providersResponse = await fetch('/api/auth/sso/providers')
-      if (providersResponse.ok) {
-        const providersData = await providersResponse.json()
-        setProviders(providersData.providers || [])
-
-        if (!billingEnabled && userId) {
-          const ownsProvider = providersData.providers.some((p: any) => p.userId === userId)
-          setIsSSOProviderOwner(ownsProvider)
-        }
+      if (!providersResponse.ok) {
+        const errorData = await providersResponse.json().catch(() => null)
+        throw new Error(
+          errorData?.details ||
+            errorData?.error ||
+            providersResponse.statusText ||
+            'Failed to reload SSO providers'
+        )
       }
 
+      const providersData = await providersResponse.json()
+      setProviders(providersData.providers || [])
+
       setShowConfigForm(false)
-      setIsEditing(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
@@ -456,46 +452,18 @@ export function SSO() {
     } catch {}
   }
 
-  const handleReconfigure = (provider: SSOProvider) => {
-    try {
-      // Parse config based on provider type
-      let clientId = ''
-      let clientSecret = ''
-      let scopes = 'openid,profile,email'
-
-      if (provider.providerType === 'oidc' && provider.oidcConfig) {
-        const config = JSON.parse(provider.oidcConfig)
-        clientId = config.clientId || ''
-        clientSecret = config.clientSecret || ''
-        scopes = config.scopes?.join(',') || 'openid,profile,email'
-      }
-
-      setFormData({
-        providerType: provider.providerType,
-        providerId: provider.providerId,
-        issuerUrl: provider.issuer,
-        domain: provider.domain,
-        clientId,
-        clientSecret,
-        scopes,
-        entryPoint: '',
-        cert: '',
-        callbackUrl: '',
-        audience: '',
-        wantAssertionsSigned: true,
-        idpMetadata: '',
-        showAdvanced: false,
-      })
-      setIsEditing(true)
-      setShowConfigForm(true)
-    } catch (error) {
-      logger.error('Failed to parse provider config', { error })
-      setError('Failed to load provider configuration')
-    }
-  }
-
   if (isLoadingProviders) {
     return <SsoSkeleton />
+  }
+
+  if (providerLoadError) {
+    return (
+      <div className='flex h-full items-center justify-center p-6'>
+        <Alert variant='destructive'>
+          <AlertDescription>{providerLoadError}</AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   const hasProviders = providers.length > 0
@@ -522,16 +490,6 @@ export function SSO() {
                       <p className='mt-1 text-muted-foreground text-sm'>
                         {provider.providerId} • {provider.domain}
                       </p>
-                    </div>
-                    <div className='flex items-center space-x-2'>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => handleReconfigure(provider)}
-                        className='rounded-sm'
-                      >
-                        Reconfigure
-                      </Button>
                     </div>
                   </div>
 
@@ -586,20 +544,6 @@ export function SSO() {
           ) : (
             // SSO Configuration Form
             <>
-              {hasProviders && (
-                <div className='mb-4'>
-                  <Button
-                    variant='outline'
-                    onClick={() => {
-                      setShowConfigForm(false)
-                      setIsEditing(false)
-                    }}
-                    className='rounded-sm'
-                  >
-                    ← Back to SSO Status
-                  </Button>
-                </div>
-              )}
               <form onSubmit={handleSubmit} className='space-y-3' autoComplete='off'>
                 {/* Hidden dummy input to prevent autofill */}
                 <input type='text' name='hidden' style={{ display: 'none' }} autoComplete='false' />
@@ -989,13 +933,7 @@ export function SSO() {
                   className='w-full rounded-md'
                   disabled={isLoading || hasAnyErrors(errors) || !isFormValid()}
                 >
-                  {isLoading
-                    ? isEditing
-                      ? 'Updating...'
-                      : 'Configuring...'
-                    : isEditing
-                      ? 'Update SSO Provider'
-                      : 'Configure SSO Provider'}
+                  {isLoading ? 'Configuring...' : 'Configure SSO Provider'}
                 </Button>
               </form>
 

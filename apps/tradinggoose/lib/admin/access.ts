@@ -66,3 +66,24 @@ export async function getSystemAdminAccess() {
     canBootstrapSystemAdmin,
   }
 }
+
+export async function requireSystemAdminUserId(options?: { claimBootstrap?: boolean }) {
+  const access = await getSystemAdminAccess()
+
+  if (!access.isAuthenticated || !access.userId) {
+    throw new Error('UNAUTHORIZED')
+  }
+
+  if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (!access.isSystemAdmin && access.canBootstrapSystemAdmin && options?.claimBootstrap) {
+    const claimed = await claimFirstSystemAdmin(access.userId)
+    if (!claimed) {
+      throw new Error('FORBIDDEN')
+    }
+  }
+
+  return access.userId
+}
