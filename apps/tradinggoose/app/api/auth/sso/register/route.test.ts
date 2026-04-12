@@ -203,7 +203,45 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
-  it('registers oidc providers for the active organization after merging discovery endpoints', async () => {
+  it('rejects legacy manual oidc endpoint override fields', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+      session: {
+        activeOrganizationId: 'org-1',
+      },
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerId: 'okta',
+          issuer: 'https://issuer.example.com',
+          domain: 'example.com',
+          providerType: 'oidc',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          authorizationEndpoint: 'https://issuer.example.com/oauth2/v1/authorize',
+        }),
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error:
+        'Manual OIDC endpoint overrides are not supported: authorizationEndpoint. Configure OIDC using the issuer URL only.',
+    })
+    expect(fetch).not.toHaveBeenCalled()
+    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+  })
+
+  it('registers oidc providers for the active organization via issuer discovery', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
