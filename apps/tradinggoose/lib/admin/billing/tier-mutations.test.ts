@@ -43,6 +43,23 @@ describe('validateAdminBillingTierInput', () => {
     expect(validateAdminBillingTierInput(createTierInput())).toBeNull()
   })
 
+  it('allows a zero-price default tier to configure normal tier limits', () => {
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          status: 'active',
+          includedUsageLimitUsd: 25,
+          storageLimitGb: 10,
+          concurrencyLimit: 3,
+          syncRateLimitPerMinute: 30,
+          asyncRateLimitPerMinute: 15,
+          apiEndpointRateLimitPerMinute: 30,
+          canEditUsageLimit: true,
+        })
+      )
+    ).toBeNull()
+  })
+
   it('still requires default tiers to stay public', () => {
     expect(validateAdminBillingTierInput(createTierInput({ isPublic: false }))).toBe(
       'The default tier must be visible in the public catalog'

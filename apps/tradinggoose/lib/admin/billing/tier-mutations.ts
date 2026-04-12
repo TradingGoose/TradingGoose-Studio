@@ -63,10 +63,6 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
     if (hasPositiveNumber(input.monthlyPriceUsd) || hasPositiveNumber(input.yearlyPriceUsd)) {
       return 'The default tier cannot configure a recurring price'
     }
-
-    if (input.canEditUsageLimit) {
-      return 'The default tier must not allow usage limit edits'
-    }
   }
 
   if (input.ownerType === 'user') {
@@ -86,13 +82,6 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
       return 'User tiers cannot configure SSO'
     }
 
-    if (
-      !hasPositiveNumber(input.monthlyPriceUsd) &&
-      !hasPositiveNumber(input.yearlyPriceUsd) &&
-      (hasPositiveNumber(input.includedUsageLimitUsd) || input.canEditUsageLimit)
-    ) {
-      return 'Free user tiers must rely on onboarding allowance only'
-    }
   }
 
   if (input.ownerType === 'organization') {

@@ -6,7 +6,7 @@ import {
   adminBillingTierMutationSchema,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
-import { disableBillingIfConfigurationInvalid } from '@/lib/billing/settings'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingTierCreateAPI')
@@ -33,6 +33,17 @@ export async function POST(request: Request) {
     const validationError = validateAdminBillingTierInput(parsed.data)
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
+    }
+
+    if (
+      (await isBillingEnabledForRuntime()) &&
+      parsed.data.isDefault &&
+      parsed.data.status !== 'active'
+    ) {
+      return NextResponse.json(
+        { error: 'The default tier must stay active while billing is enabled.' },
+        { status: 409 }
+      )
     }
 
     const tierId = `tier_${crypto.randomUUID()}`
@@ -78,8 +89,6 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
     })
-
-    await disableBillingIfConfigurationInvalid()
 
     return NextResponse.json({ success: true, id: tierId }, { status: 201 })
   } catch (error) {

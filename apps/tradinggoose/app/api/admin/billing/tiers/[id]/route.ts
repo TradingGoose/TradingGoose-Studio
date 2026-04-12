@@ -7,7 +7,7 @@ import {
   adminBillingTierMutationSchema,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
-import { disableBillingIfConfigurationInvalid } from '@/lib/billing/settings'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingTierMutationAPI')
@@ -45,6 +45,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!existingTier) {
       return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
+    }
+
+    const billingEnabled = await isBillingEnabledForRuntime()
+    if (billingEnabled && existingTier.isDefault && !parsed.data.isDefault) {
+      return NextResponse.json(
+        { error: 'Disable billing or assign another active default tier before removing the default tier flag.' },
+        { status: 409 }
+      )
+    }
+
+    if (billingEnabled && parsed.data.isDefault && parsed.data.status !== 'active') {
+      return NextResponse.json(
+        { error: 'The default tier must stay active while billing is enabled.' },
+        { status: 409 }
+      )
     }
 
     const [{ count: subscriptionCount }] = await db
@@ -166,8 +181,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .where(eq(systemBillingTier.id, id))
     })
 
-    await disableBillingIfConfigurationInvalid()
-
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
@@ -220,8 +233,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     }
 
     await db.delete(systemBillingTier).where(eq(systemBillingTier.id, id))
-
-    await disableBillingIfConfigurationInvalid()
 
     return NextResponse.json({ success: true })
   } catch (error) {

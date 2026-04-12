@@ -1,8 +1,7 @@
 'use client'
 
 import { type FormEvent, useMemo, useState } from 'react'
-import { ChevronLeft, Receipt } from 'lucide-react'
-import Link from 'next/link'
+import { Receipt } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Alert, AlertDescription, Button } from '@/components/ui'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
@@ -14,6 +13,7 @@ import {
   useUpdateAdminBillingTier,
 } from '@/hooks/queries/admin-billing'
 import {
+  BillingBreadcrumbs,
   buildTierMutationInput,
   createTierFormDefaults,
   createTierPreviewState,
@@ -41,14 +41,14 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
   const formId = `admin-billing-tier-form-${tier.id}`
 
   const headerLeft = (
-    <div className='flex items-center gap-3'>
-      <Button asChild variant='ghost' size='sm' className='h-8 px-2'>
-        <Link href='/admin/billing'>
-          <ChevronLeft className='h-4 w-4' />
-          <span>Billing</span>
-        </Link>
-      </Button>
-      <span className='font-medium text-sm'>{tier.displayName}</span>
+    <div className='flex w-full flex-1 items-center gap-3'>
+      <BillingBreadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Billing', href: '/admin/billing' },
+          { label: tier.displayName },
+        ]}
+      />
     </div>
   )
 
@@ -179,14 +179,14 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
   }
 
   const headerLeft = (
-    <div className='flex items-center gap-3'>
-      <Button asChild variant='ghost' size='sm' className='h-8 px-2'>
-        <Link href='/admin/billing'>
-          <ChevronLeft className='h-4 w-4' />
-          <span>Billing</span>
-        </Link>
-      </Button>
-      <span className='font-medium text-sm'>Billing tier</span>
+    <div className='flex w-full flex-1 items-center gap-3'>
+      <BillingBreadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Billing', href: '/admin/billing' },
+          { label: 'Billing tier' },
+        ]}
+      />
     </div>
   )
 

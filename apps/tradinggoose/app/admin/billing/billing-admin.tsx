@@ -1,7 +1,7 @@
 'use client'
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, Receipt, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Receipt, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -136,6 +136,50 @@ export type TierDerivedAccessFields = Pick<
   'ownerType' | 'usageScope' | 'seatMode'
 >
 type TierCommerceLabel = 'free' | 'self-serve' | 'contact-sales'
+
+type BillingBreadcrumbItem = {
+  label: string
+  href?: string
+}
+
+export function BillingBreadcrumbs({ items }: { items: BillingBreadcrumbItem[] }) {
+  const currentLabel = items[items.length - 1]?.label ?? 'Billing'
+
+  return (
+    <>
+      <div className='hidden items-center gap-2 sm:flex'>
+        {items.map((item, index) => {
+          const key = `${item.label}-${item.href || index}`
+
+          return (
+            <div key={key} className='flex items-center gap-2'>
+              {index === 0 && <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />}
+
+              {item.href ? (
+                <Link
+                  href={item.href}
+                  prefetch={true}
+                  className='font-medium text-sm transition-colors hover:text-muted-foreground'
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <span className='font-medium text-sm'>{item.label}</span>
+              )}
+
+              {index < items.length - 1 && <span className='text-muted-foreground'>/</span>}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className='flex flex-1 items-center gap-1 text-muted-foreground text-sm sm:hidden'>
+        <ShieldCheck className='h-[16px] w-[16px]' />
+        <span className='truncate'>{currentLabel}</span>
+      </div>
+    </>
+  )
+}
 
 const TIER_SECTION_STATUS_BADGE_CLASSNAME = {
   ready: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
@@ -1787,10 +1831,7 @@ export function AdminBilling() {
 
   const headerLeft = (
     <div className='flex w-full flex-1 items-center gap-3'>
-      <div className='hidden items-center gap-2 sm:flex'>
-        <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Admin billing</span>
-      </div>
+      <BillingBreadcrumbs items={[{ label: 'Admin', href: '/admin' }, { label: 'Billing' }]} />
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchQuery}
@@ -1909,14 +1950,14 @@ export function AdminBillingCreateTier() {
   const formId = 'admin-billing-create-tier-form'
 
   const headerLeft = (
-    <div className='flex items-center gap-3'>
-      <Button asChild variant='ghost' size='sm' className='h-8 px-2'>
-        <Link href='/admin/billing'>
-          <ChevronLeft className='h-4 w-4' />
-          <span>Billing</span>
-        </Link>
-      </Button>
-      <span className='font-medium text-sm'>Create billing tier</span>
+    <div className='flex w-full flex-1 items-center gap-3'>
+      <BillingBreadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Billing', href: '/admin/billing' },
+          { label: 'Create tier' },
+        ]}
+      />
     </div>
   )
 
