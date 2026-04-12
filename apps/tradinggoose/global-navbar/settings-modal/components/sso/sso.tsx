@@ -62,9 +62,9 @@ interface SSOProvider {
   providerId: string
   domain: string
   issuer: string
-  oidcConfig?: string
-  samlConfig?: string
   providerType: 'oidc' | 'saml'
+  hasOidcConfig: boolean
+  hasSamlConfig: boolean
 }
 
 export function SSO() {

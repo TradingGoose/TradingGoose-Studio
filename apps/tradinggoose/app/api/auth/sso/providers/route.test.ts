@@ -96,22 +96,25 @@ describe('SSO providers route', () => {
 
     const { GET } = await import('./route')
     const response = await GET()
+    const payload = await response.json()
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
+    expect(payload).toEqual({
       providers: [
         {
           id: 'provider-1',
           providerId: 'okta',
           domain: 'example.com',
           issuer: 'https://issuer.example.com',
-          oidcConfig: '{"clientId":"abc"}',
-          samlConfig: null,
           organizationId: 'org-1',
           providerType: 'oidc',
+          hasOidcConfig: true,
+          hasSamlConfig: false,
         },
       ],
     })
+    expect(payload.providers[0]).not.toHaveProperty('oidcConfig')
+    expect(payload.providers[0]).not.toHaveProperty('samlConfig')
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
     expect(mockGetOrganizationBillingData).toHaveBeenCalledWith('org-1')
     expect(mockWhere).toHaveBeenCalledWith({
@@ -240,13 +243,19 @@ describe('SSO providers route', () => {
     const response = await GET()
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
+    const payload = await response.json()
+
+    expect(payload).toEqual({
       providers: [
         expect.objectContaining({
           providerId: 'okta-saml',
           providerType: 'saml',
+          hasOidcConfig: false,
+          hasSamlConfig: true,
         }),
       ],
     })
+    expect(payload.providers[0]).not.toHaveProperty('oidcConfig')
+    expect(payload.providers[0]).not.toHaveProperty('samlConfig')
   })
 })

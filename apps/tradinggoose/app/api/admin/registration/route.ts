@@ -58,6 +58,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
     }
 
+    if (!access.isSystemAdmin && access.canBootstrapSystemAdmin) {
+      const claimed = await claimFirstSystemAdmin(userId)
+      if (!claimed) {
+        logger.warn(`[${requestId}] Bootstrap admin claim lost`, { userId })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+      }
+    }
+
     return NextResponse.json(await serializeSnapshot(), { status: 200, headers: NO_STORE_HEADERS })
   } catch (error) {
     logger.error(`[${requestId}] Failed to load admin registration`, error)

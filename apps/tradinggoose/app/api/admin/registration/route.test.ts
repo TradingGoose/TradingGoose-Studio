@@ -59,6 +59,47 @@ describe('/api/admin/registration route', () => {
     mockListWaitlistEntries.mockResolvedValue([])
   })
 
+  it('claims bootstrap admin before returning waitlist data', async () => {
+    mockGetSystemAdminAccess.mockResolvedValueOnce({
+      session: { activeOrganizationId: null },
+      user: { id: 'user-1' },
+      userId: 'user-1',
+      isAuthenticated: true,
+      isSystemAdmin: false,
+      canBootstrapSystemAdmin: true,
+    })
+    mockClaimFirstSystemAdmin.mockResolvedValueOnce(true)
+
+    const { GET } = await import('./route')
+    const response = await GET()
+
+    expect(response.status).toBe(200)
+    expect(mockClaimFirstSystemAdmin).toHaveBeenCalledWith('user-1')
+    expect(mockClaimFirstSystemAdmin.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetRegistrationMode.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('rejects bootstrap readers who lose the admin claim race', async () => {
+    mockGetSystemAdminAccess.mockResolvedValueOnce({
+      session: { activeOrganizationId: null },
+      user: { id: 'user-1' },
+      userId: 'user-1',
+      isAuthenticated: true,
+      isSystemAdmin: false,
+      canBootstrapSystemAdmin: true,
+    })
+    mockClaimFirstSystemAdmin.mockResolvedValueOnce(false)
+
+    const { GET } = await import('./route')
+    const response = await GET()
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Forbidden' })
+    expect(mockGetRegistrationMode).not.toHaveBeenCalled()
+    expect(mockListWaitlistEntries).not.toHaveBeenCalled()
+  })
+
   it('does not leak internal waitlist update errors to admin clients', async () => {
     mockUpdateWaitlistStatuses.mockRejectedValue(
       new Error('duplicate key value violates unique constraint "waitlist_email_idx"')

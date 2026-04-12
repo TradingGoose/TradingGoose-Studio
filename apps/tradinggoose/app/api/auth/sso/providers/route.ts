@@ -92,8 +92,14 @@ export async function GET() {
       .where(eq(ssoProvider.organizationId, activeOrganizationId))
 
     const providers = results.map((provider) => ({
-      ...provider,
+      id: provider.id,
+      providerId: provider.providerId,
+      domain: provider.domain,
+      issuer: provider.issuer,
+      organizationId: provider.organizationId,
       providerType: getProviderType(provider),
+      hasOidcConfig: Boolean(provider.oidcConfig),
+      hasSamlConfig: Boolean(provider.samlConfig),
     }))
 
     logger.info('Fetched SSO providers', {
