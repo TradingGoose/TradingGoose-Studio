@@ -1,10 +1,3 @@
-export const PLAN_NAMES = {
-  enterprise: 'Enterprise',
-  team: 'Team',
-  pro: 'Pro',
-  free: 'Free',
-} as const
-
 export const GRADIENT_TEXT_STYLES =
   'gradient-text bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
 

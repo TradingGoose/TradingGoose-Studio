@@ -14,11 +14,17 @@ const getJwtSecret = () => {
 /**
  * Generate an internal JWT token for server-side API calls
  * Token expires in 5 minutes to keep it short-lived
+ * @param userId Optional user ID to embed in the token payload
  */
-export async function generateInternalToken(): Promise<string> {
+export async function generateInternalToken(userId?: string): Promise<string> {
   const secret = getJwtSecret()
+  const payload: { type: 'internal'; userId?: string } = { type: 'internal' }
 
-  const token = await new SignJWT({ type: 'internal' })
+  if (userId) {
+    payload.userId = userId
+  }
+
+  const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('5m')
@@ -30,10 +36,19 @@ export async function generateInternalToken(): Promise<string> {
 }
 
 /**
- * Verify an internal JWT token
- * Returns true if valid, false otherwise
+ * Structured verification result for internal JWTs.
  */
-export async function verifyInternalToken(token: string): Promise<boolean> {
+export interface InternalTokenVerificationResult {
+  valid: boolean
+  userId?: string
+}
+
+/**
+ * Verify an internal JWT token and return structured metadata.
+ */
+export async function verifyInternalTokenDetailed(
+  token: string
+): Promise<InternalTokenVerificationResult> {
   try {
     const secret = getJwtSecret()
 
@@ -43,11 +58,26 @@ export async function verifyInternalToken(token: string): Promise<boolean> {
     })
 
     // Check that it's an internal token
-    return payload.type === 'internal'
+    if (payload.type === 'internal') {
+      return {
+        valid: true,
+        userId: typeof payload.userId === 'string' ? payload.userId : undefined,
+      }
+    }
+
+    return { valid: false }
   } catch (error) {
     // Token verification failed
-    return false
+    return { valid: false }
   }
+}
+
+/**
+ * Backward-compatible boolean verifier for existing call sites.
+ */
+export async function verifyInternalToken(token: string): Promise<boolean> {
+  const verification = await verifyInternalTokenDetailed(token)
+  return verification.valid
 }
 
 /**

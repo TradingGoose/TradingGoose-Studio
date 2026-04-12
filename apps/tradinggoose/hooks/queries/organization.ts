@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { workspaceKeys } from '@/hooks/queries/workspace'
 
 const logger = createLogger('OrganizationQueries')
 
@@ -13,10 +14,23 @@ export const organizationKeys = {
   lists: () => [...organizationKeys.all, 'list'] as const,
   details: () => [...organizationKeys.all, 'detail'] as const,
   detail: (id: string) => [...organizationKeys.details(), id] as const,
-  subscription: (id: string) => [...organizationKeys.detail(id), 'subscription'] as const,
   billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
   members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
+  workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
+  availableWorkspaces: (id: string) => [...organizationKeys.workspaces(id), 'available'] as const,
+}
+
+export type OrganizationWorkspaceBillingOwner =
+  | { type: 'user'; userId: string }
+  | { type: 'organization'; organizationId: string }
+
+export interface OrganizationWorkspaceRecord {
+  id: string
+  name: string
+  ownerId: string
+  ownerName?: string | null
+  billingOwner: OrganizationWorkspaceBillingOwner
 }
 
 /**
@@ -71,48 +85,6 @@ export function useOrganization(orgId: string) {
 }
 
 /**
- * Fetch organization subscription data
- */
-async function fetchOrganizationSubscription(orgId: string) {
-  if (!orgId) {
-    return null
-  }
-
-  const response = await client.subscription.list({
-    query: { referenceId: orgId },
-  })
-
-  if (response.error) {
-    logger.error('Error fetching organization subscription', { error: response.error })
-    return null
-  }
-
-  const teamSubscription = response.data?.find(
-    (sub: any) => sub.status === 'active' && sub.plan === 'team'
-  )
-  const enterpriseSubscription = response.data?.find(
-    (sub: any) => sub.plan === 'enterprise' || sub.plan === 'enterprise-plus'
-  )
-  const activeSubscription = enterpriseSubscription || teamSubscription
-
-  return activeSubscription || null
-}
-
-/**
- * Hook to fetch organization subscription
- */
-export function useOrganizationSubscription(orgId: string) {
-  return useQuery({
-    queryKey: organizationKeys.subscription(orgId),
-    queryFn: () => fetchOrganizationSubscription(orgId),
-    enabled: !!orgId,
-    retry: false,
-    staleTime: 30 * 1000,
-    placeholderData: keepPreviousData,
-  })
-}
-
-/**
  * Fetch organization billing data
  */
 async function fetchOrganizationBilling(orgId: string) {
@@ -138,6 +110,42 @@ export function useOrganizationBilling(orgId: string) {
     queryFn: () => fetchOrganizationBilling(orgId),
     enabled: !!orgId,
     retry: false,
+    staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+async function fetchOrganizationWorkspaces(
+  orgId: string,
+  options?: { available?: boolean }
+): Promise<OrganizationWorkspaceRecord[]> {
+  const query = options?.available ? '?available=true' : ''
+  const response = await fetch(`/api/organizations/${orgId}/workspaces${query}`)
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || error.message || 'Failed to fetch organization workspaces')
+  }
+
+  const payload = await response.json()
+  return payload?.data?.workspaces ?? []
+}
+
+export function useOrganizationBillingWorkspaces(orgId: string, enabled = true) {
+  return useQuery({
+    queryKey: organizationKeys.workspaces(orgId),
+    queryFn: () => fetchOrganizationWorkspaces(orgId),
+    enabled: Boolean(orgId) && enabled,
+    staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useAvailableOrganizationBillingWorkspaces(orgId: string, enabled = true) {
+  return useQuery({
+    queryKey: organizationKeys.availableWorkspaces(orgId),
+    queryFn: () => fetchOrganizationWorkspaces(orgId, { available: true }),
+    enabled: Boolean(orgId) && enabled,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   })
@@ -200,12 +208,8 @@ export function useUpdateOrganizationUsageLimit() {
     },
     onMutate: async ({ organizationId, limit }) => {
       await queryClient.cancelQueries({ queryKey: organizationKeys.billing(organizationId) })
-      await queryClient.cancelQueries({ queryKey: organizationKeys.subscription(organizationId) })
 
       const previousBillingData = queryClient.getQueryData(organizationKeys.billing(organizationId))
-      const previousSubscriptionData = queryClient.getQueryData(
-        organizationKeys.subscription(organizationId)
-      )
 
       queryClient.setQueryData(organizationKeys.billing(organizationId), (old: any) => {
         if (!old) return old
@@ -227,7 +231,7 @@ export function useUpdateOrganizationUsageLimit() {
         }
       })
 
-      return { previousBillingData, previousSubscriptionData, organizationId }
+      return { previousBillingData, organizationId }
     },
     onError: (_err, _variables, context) => {
       if (context?.previousBillingData && context?.organizationId) {
@@ -236,19 +240,10 @@ export function useUpdateOrganizationUsageLimit() {
           context.previousBillingData
         )
       }
-      if (context?.previousSubscriptionData && context?.organizationId) {
-        queryClient.setQueryData(
-          organizationKeys.subscription(context.organizationId),
-          context.previousSubscriptionData
-        )
-      }
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({
         queryKey: organizationKeys.billing(variables.organizationId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.subscription(variables.organizationId),
       })
     },
   })
@@ -325,7 +320,6 @@ export function useRemoveMember() {
       queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
       queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
       queryClient.invalidateQueries({ queryKey: organizationKeys.memberUsage(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.subscription(variables.orgId) })
       queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
     },
   })
@@ -394,7 +388,6 @@ export function useUpdateSeats() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.subscription(variables.orgId) })
       queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
       queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
     },
@@ -466,6 +459,99 @@ export function useCreateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+    },
+  })
+}
+
+interface AssignWorkspaceToOrganizationParams {
+  organizationId: string
+  workspaceId: string
+}
+
+export function useAssignWorkspaceToOrganization() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ organizationId, workspaceId }: AssignWorkspaceToOrganizationParams) => {
+      const response = await fetch(`/api/organizations/${organizationId}/workspaces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        logger.error('Failed to assign workspace billing owner to organization', {
+          organizationId,
+          workspaceId,
+          status: response.status,
+          error,
+        })
+        throw new Error(error.error || error.message || 'Failed to assign workspace billing owner')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.workspaces(variables.organizationId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.availableWorkspaces(variables.organizationId),
+      })
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.settings(variables.workspaceId) })
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() })
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.billing(variables.organizationId),
+      })
+    },
+  })
+}
+
+interface ReleaseWorkspaceFromOrganizationParams {
+  organizationId: string
+  workspaceId: string
+}
+
+export function useReleaseWorkspaceFromOrganization() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ organizationId, workspaceId }: ReleaseWorkspaceFromOrganizationParams) => {
+      const response = await fetch(
+        `/api/organizations/${organizationId}/workspaces?workspaceId=${encodeURIComponent(workspaceId)}`,
+        {
+          method: 'DELETE',
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        logger.error('Failed to release workspace billing owner from organization', {
+          organizationId,
+          workspaceId,
+          status: response.status,
+          error,
+        })
+        throw new Error(
+          error.error || error.message || 'Failed to release workspace billing ownership'
+        )
+      }
+
+      return response.json()
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.workspaces(variables.organizationId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.availableWorkspaces(variables.organizationId),
+      })
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.settings(variables.workspaceId) })
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() })
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.billing(variables.organizationId),
+      })
     },
   })
 }

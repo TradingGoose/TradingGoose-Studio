@@ -3,7 +3,7 @@ import type { SubBlockConfig } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
 import type { TriggerConfig } from '@/triggers/types'
 
-const NATIVE_TRIGGER_PROVIDERS = new Set([
+const NATIVE_TRIGGER_PROVIDER_KEYS = new Set([
   'core',
   'schedule',
   'indicator',
@@ -70,9 +70,9 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
   return clonedTrigger
 }
 
-export function getTriggersByProvider(provider: string): TriggerConfig[] {
+export function getTriggersByWebhookProvider(webhookProvider: string): TriggerConfig[] {
   return Object.values(TRIGGER_REGISTRY)
-    .filter((trigger) => trigger.provider === provider)
+    .filter((trigger) => trigger.webhookProvider === webhookProvider)
     .map((trigger) => getTrigger(trigger.id)!)
 }
 
@@ -82,7 +82,7 @@ export function getAllTriggers(): TriggerConfig[] {
 
 export function isNativeTrigger(triggerId: string): boolean {
   const trigger = TRIGGER_REGISTRY[triggerId]
-  return trigger ? NATIVE_TRIGGER_PROVIDERS.has(trigger.provider) : false
+  return trigger ? NATIVE_TRIGGER_PROVIDER_KEYS.has(trigger.webhookProvider) : false
 }
 
 export function getTriggerIds(): string[] {

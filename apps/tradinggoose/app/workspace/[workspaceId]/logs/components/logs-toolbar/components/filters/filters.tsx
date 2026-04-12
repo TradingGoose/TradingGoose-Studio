@@ -3,9 +3,9 @@
 import { TimerOff } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { isProd } from '@/lib/environment'
-import { FilterSection, FolderFilter, Level, Timeline, Trigger, Workflow } from './components'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { FilterSection, FolderFilter, Level, Timeline, Trigger, Workflow } from './components'
 
 /**
  * Filters component for logs page - includes timeline and other filter options
@@ -15,6 +15,8 @@ export function Filters() {
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const subscription = getSubscriptionStatus(billingPayload)
   const isPaid = subscription.isPaid
+  const retentionDays = subscription.tier.logRetentionDays
+  const hasFiniteRetention = typeof retentionDays === 'number' && retentionDays > 0
 
   const handleUpgradeClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -26,8 +28,7 @@ export function Filters() {
 
   return (
     <div className='h-full w-60 overflow-auto border-r p-4'>
-      {/* Show retention policy for free users in production only */}
-      {!isLoading && !isPaid && isProd && (
+      {!isLoading && hasFiniteRetention && isProd && (
         <div className='mb-4 overflow-hidden rounded-md border border-border'>
           <div className='flex items-center gap-2 border-b bg-background p-3'>
             <TimerOff className='h-4 w-4 text-muted-foreground' />
@@ -35,18 +36,20 @@ export function Filters() {
           </div>
           <div className='p-3'>
             <p className='text-muted-foreground text-xs'>
-              Logs are automatically deleted after 7 days.
+              Logs are automatically deleted after {retentionDays} days on this tier.
             </p>
-            <div className='mt-2.5'>
-              <Button
-                size='sm'
-                variant='secondary'
-                className='h-8 w-full px-3 py-1.5 text-xs'
-                onClick={handleUpgradeClick}
-              >
-                Upgrade Plan
-              </Button>
-            </div>
+            {!isPaid ? (
+              <div className='mt-2.5'>
+                <Button
+                  size='sm'
+                  variant='secondary'
+                  className='h-8 w-full px-3 py-1.5 text-xs'
+                  onClick={handleUpgradeClick}
+                >
+                  Upgrade Plan
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

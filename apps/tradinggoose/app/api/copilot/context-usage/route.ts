@@ -1,23 +1,20 @@
-import { db } from '@tradinggoose/db'
-import { userStats } from '@tradinggoose/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
 import { getSession } from '@/lib/auth'
-import {
-  COPILOT_RUNTIME_MODELS,
-} from '@/lib/copilot/runtime-models'
-import {
-  buildCopilotRuntimeProviderConfig,
-} from '@/lib/copilot/runtime-provider.server'
+import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { getTierCopilotCostMultiplier } from '@/lib/billing/tiers'
+import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
+import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
+import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
-import { isBillingEnabled } from '@/lib/environment'
+import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
+import { checkInternalApiKey } from '@/lib/copilot/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
-import { proxyCopilotRequest, getCopilotApiUrl } from '@/app/api/copilot/proxy'
+import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import { calculateCost } from '@/providers/ai/utils'
-import { checkInternalApiKey } from '@/lib/copilot/utils'
 
 const MODEL_SYNONYMS: Record<string, string> = {
   'claude-sonnet-4.6': 'claude-sonnet-4-6',
@@ -27,7 +24,6 @@ const MODEL_SYNONYMS: Record<string, string> = {
 }
 
 const logger = createLogger('ContextUsageAPI')
-
 
 const ContextUsageRequestSchema = z.object({
   conversationId: z.string(),
@@ -140,10 +136,11 @@ export async function POST(req: NextRequest) {
     const data = await simAgentResponse.json()
     logger.info('[Context Usage API] Copilot data received', data)
 
-    if (bill && assistantMessageId && isBillingEnabled) {
+    if (bill && assistantMessageId && (await isBillingEnabledForRuntime())) {
       try {
         await billCopilotUsage({
           userId,
+          workflowId,
           assistantMessageId,
           usage: data,
           billingModel: billingModel || model,
@@ -274,12 +271,13 @@ function extractTokenMetrics(usage: any): TokenMetrics | null {
 
 async function billCopilotUsage(params: {
   userId: string
+  workflowId?: string
   assistantMessageId: string
   usage: any
   billingModel: string
   remoteModel?: string | null
 }) {
-  const { userId, assistantMessageId, usage, billingModel, remoteModel } = params
+  const { userId, workflowId, assistantMessageId, usage, billingModel, remoteModel } = params
   try {
     const metrics = extractTokenMetrics(usage)
     if (!metrics) {
@@ -305,36 +303,59 @@ async function billCopilotUsage(params: {
       metrics.completionTokens,
       false
     )
-    const costToAdd = Number(costResult.total || 0)
+    const billingContext = workflowId
+      ? await resolveWorkflowBillingContext({
+          workflowId,
+          actorUserId: userId,
+        })
+      : null
+    const effectiveTier = workflowId
+      ? billingContext?.subscription?.tier ?? null
+      : (await getPersonalEffectiveSubscription(userId))?.tier ?? null
 
-    const updateFields: Record<string, any> = {
-      totalCost: sql`total_cost + ${costToAdd}`,
-      currentPeriodCost: sql`current_period_cost + ${costToAdd}`,
-      totalCopilotCost: sql`total_copilot_cost + ${costToAdd}`,
-      totalCopilotCalls: sql`total_copilot_calls + 1`,
-      lastActive: new Date(),
-    }
-
-    if (metrics.totalTokens > 0) {
-      updateFields.totalCopilotTokens = sql`total_copilot_tokens + ${metrics.totalTokens}`
-    }
-
-    const updateResult = await db
-      .update(userStats)
-      .set(updateFields)
-      .where(eq(userStats.userId, userId))
-      .returning({ id: userStats.id })
-
-    if (updateResult.length === 0) {
-      logger.warn('Copilot billing skipped - user stats record not found', { userId })
+    if (!effectiveTier) {
+      logger.warn('Skipping copilot billing - missing active subscription tier', {
+        userId,
+        workflowId,
+        assistantMessageId,
+      })
       return
     }
 
-    await checkAndBillOverageThreshold(userId)
+    const costToAdd = Number(costResult.total || 0) * getTierCopilotCostMultiplier(effectiveTier)
+
+    const extraUpdates: Record<string, any> = {
+      totalCopilotCost: sql`total_copilot_cost + ${costToAdd}`,
+      currentPeriodCopilotCost: sql`current_period_copilot_cost + ${costToAdd}`,
+      totalCopilotCalls: sql`total_copilot_calls + 1`,
+    }
+
+    if (metrics.totalTokens > 0) {
+      extraUpdates.totalCopilotTokens = sql`total_copilot_tokens + ${metrics.totalTokens}`
+    }
+
+    const didAccrue = await accrueUserUsageCost({
+      userId,
+      workflowId,
+      cost: costToAdd,
+      extraUpdates,
+      reason: 'copilot_context_usage',
+    })
+
+    if (!didAccrue) {
+      logger.warn('Copilot billing skipped - user stats record not found', {
+        userId,
+        workflowId,
+      })
+      return
+    }
+
     await markMessageAsProcessed(billingKey, BILLING_EVENT_TTL_SECONDS)
 
     logger.info('Copilot billing recorded', {
       userId,
+      billingUserId: billingContext?.billingUserId ?? userId,
+      workflowId,
       assistantMessageId,
       cost: costToAdd,
       tokens: metrics.totalTokens,

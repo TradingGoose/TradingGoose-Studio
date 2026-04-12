@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubWebhookTrigger: TriggerConfig = {
   id: 'github_webhook',
   name: 'GitHub Webhook',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow from GitHub events like push, pull requests, issues, and more',
   version: '1.0.0',
   icon: GithubIcon,

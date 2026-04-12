@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkServerSideUsageLimits } from '@/lib/billing/calculations/usage-monitor'
+import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -36,7 +36,11 @@ export async function POST(req: NextRequest) {
 
     logger.info('[API VALIDATION] Validating usage limit', { userId })
 
-    const { isExceeded, currentUsage, limit } = await checkServerSideUsageLimits(userId)
+    const {
+      isExceeded,
+      currentPeriodCost: currentUsage,
+      limit,
+    } = await getPersonalBillingSnapshot(userId)
 
     logger.info('[API VALIDATION] Usage limit validated', {
       userId,

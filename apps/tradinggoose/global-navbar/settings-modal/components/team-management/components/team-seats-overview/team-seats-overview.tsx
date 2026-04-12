@@ -2,13 +2,9 @@ import { Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DEFAULT_TEAM_TIER_COST_LIMIT } from '@/lib/billing/constants'
-import { checkEnterprisePlan } from '@/lib/billing/subscriptions/utils'
-import { env } from '@/lib/env'
 
 type Subscription = {
   id: string
-  plan: string
   status: string
   seats?: number
   referenceId: string
@@ -16,6 +12,12 @@ type Subscription = {
   periodEnd?: number | Date
   trialEnd?: number | Date
   metadata?: any
+  tier?: {
+    displayName: string
+    ownerType: 'user' | 'organization'
+    seatMode: 'fixed' | 'adjustable'
+    monthlyPriceUsd: number | null
+  } | null
 }
 
 interface TeamSeatsOverviewProps {
@@ -62,6 +64,11 @@ export function TeamSeatsOverview({
   onReduceSeats,
   onAddSeatDialog,
 }: TeamSeatsOverviewProps) {
+  const canManageSeats =
+    subscriptionData?.tier?.ownerType === 'organization' &&
+    subscriptionData?.tier?.seatMode === 'adjustable'
+  const pricePerSeat = subscriptionData?.tier?.monthlyPriceUsd ?? 0
+
   if (isLoadingSubscription) {
     return <TeamSeatsSkeleton />
   }
@@ -93,18 +100,17 @@ export function TeamSeatsOverview({
     )
   }
 
+  if (!canManageSeats) {
+    return null
+  }
+
   return (
     <div className='rounded-sm border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
-        {/* Seats info and usage - matching team usage layout */}
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
             <span className='font-medium text-sm'>Seats</span>
-            {!checkEnterprisePlan(subscriptionData) ? (
-              <span className='text-muted-foreground text-xs'>
-                (${env.TEAM_TIER_COST_LIMIT ?? DEFAULT_TEAM_TIER_COST_LIMIT}/month each)
-              </span>
-            ) : null}
+            <span className='text-muted-foreground text-xs'>(${pricePerSeat}/month each)</span>
           </div>
           <div className='flex items-center gap-1 text-xs tabular-nums'>
             <span className='text-muted-foreground'>{usedSeats} used</span>
@@ -113,37 +119,27 @@ export function TeamSeatsOverview({
           </div>
         </div>
 
-        {/* Progress Bar - matching team usage component */}
         <Progress value={(usedSeats / (subscriptionData.seats || 1)) * 100} className='h-2' />
 
-        {/* Action buttons - below the usage display */}
-        {checkEnterprisePlan(subscriptionData) ? (
-          <div className='text-center'>
-            <p className='text-muted-foreground text-xs'>
-              Contact support for enterprise usage limit changes
-            </p>
-          </div>
-        ) : (
-          <div className='flex gap-2 pt-1'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={onReduceSeats}
-              disabled={(subscriptionData.seats || 0) <= 1 || isLoading}
-              className='h-8 flex-1 rounded-sm'
-            >
-              Remove Seat
-            </Button>
-            <Button
-              size='sm'
-              onClick={onAddSeatDialog}
-              disabled={isLoading}
-              className='h-8 flex-1 rounded-sm'
-            >
-              Add Seat
-            </Button>
-          </div>
-        )}
+        <div className='flex gap-2 pt-1'>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={onReduceSeats}
+            disabled={(subscriptionData.seats || 0) <= 1 || isLoading}
+            className='h-8 flex-1 rounded-sm'
+          >
+            Remove Seat
+          </Button>
+          <Button
+            size='sm'
+            onClick={onAddSeatDialog}
+            disabled={isLoading}
+            className='h-8 flex-1 rounded-sm'
+          >
+            Add Seat
+          </Button>
+        </div>
       </div>
     </div>
   )

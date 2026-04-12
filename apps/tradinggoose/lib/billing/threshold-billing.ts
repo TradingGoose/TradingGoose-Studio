@@ -1,17 +1,22 @@
 import { db } from '@tradinggoose/db'
-import { member, subscription, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { organizationBillingLedger, organizationMemberBillingLedger, userStats } from '@tradinggoose/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
-import { DEFAULT_OVERAGE_THRESHOLD } from '@/lib/billing/constants'
-import { calculateSubscriptionOverage, getPlanPricing } from '@/lib/billing/core/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { env } from '@/lib/env'
+import {
+  getSubscriptionUsageAllowanceUsd,
+  getTierUsageAllowanceUsd,
+  isPaidBillingTier,
+  usesIndividualBillingLedger,
+} from '@/lib/billing/tiers'
+import {
+  resolveWorkflowBillingContext,
+  resolveWorkspaceBillingContext,
+} from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ThresholdBilling')
-
-const OVERAGE_THRESHOLD = env.OVERAGE_THRESHOLD_DOLLARS || DEFAULT_OVERAGE_THRESHOLD
 
 function parseDecimal(value: string | number | null | undefined): number {
   if (value === null || value === undefined) return 0
@@ -48,8 +53,8 @@ async function createAndFinalizeOverageInvoice(
         if (custDpm) defaultPaymentMethod = custDpm
       }
     }
-  } catch (e) {
-    logger.error('Failed to retrieve subscription or customer', { error: e })
+  } catch (error) {
+    logger.error('Failed to retrieve subscription or customer', { error })
   }
 
   const invoice = await stripe.invoices.create(
@@ -96,61 +101,148 @@ async function createAndFinalizeOverageInvoice(
   return invoice.id || ''
 }
 
-export async function checkAndBillOverageThreshold(userId: string): Promise<void> {
+async function resolveThresholdBillingContext(params: {
+  userId: string
+  workspaceId?: string | null
+  workflowId?: string | null
+}) {
+  if (params.workflowId) {
+    return resolveWorkflowBillingContext({
+      workflowId: params.workflowId,
+      actorUserId: params.userId,
+    })
+  }
+
+  return resolveWorkspaceBillingContext({
+    workspaceId: params.workspaceId,
+    actorUserId: params.userId,
+  })
+}
+
+export async function checkAndBillOverageThreshold(params: {
+  userId: string
+  workspaceId?: string | null
+  workflowId?: string | null
+}): Promise<void> {
   try {
-    const threshold = OVERAGE_THRESHOLD
+    const { overageThresholdDollars: threshold } = await getResolvedBillingSettings()
+    const billingContext = await resolveThresholdBillingContext(params)
+    const subscription = billingContext.subscription
 
-    const userSubscription = await getHighestPrioritySubscription(userId)
-
-    if (!userSubscription || userSubscription.status !== 'active') {
-      logger.debug('No active subscription for threshold billing', { userId })
-      return
-    }
-
-    if (
-      !userSubscription.plan ||
-      userSubscription.plan === 'free' ||
-      userSubscription.plan === 'enterprise'
-    ) {
-      return
-    }
-
-    if (userSubscription.plan === 'team') {
-      logger.debug('Team plan detected - triggering org-level threshold billing', {
-        userId,
-        organizationId: userSubscription.referenceId,
+    if (!subscription || subscription.status !== 'active') {
+      logger.debug('No active subscription for threshold billing', {
+        userId: params.userId,
+        workspaceId: params.workspaceId,
+        workflowId: params.workflowId,
       })
-      await checkAndBillOrganizationOverageThreshold(userSubscription.referenceId)
+      return
+    }
+
+    if (!isPaidBillingTier(billingContext.tier)) {
       return
     }
 
     await db.transaction(async (tx) => {
-      const statsRecords = await tx
-        .select()
-        .from(userStats)
-        .where(eq(userStats.userId, userId))
-        .for('update')
-        .limit(1)
+      const isOrganizationScope =
+        billingContext.scopeType === 'organization' ||
+        billingContext.scopeType === 'organization_member'
+      const organizationId =
+        billingContext.billingOwner.type === 'organization'
+          ? billingContext.billingOwner.organizationId
+          : null
+      let statsRecord:
+        | typeof organizationBillingLedger.$inferSelect
+        | typeof userStats.$inferSelect
+        | null = null
 
-      if (statsRecords.length === 0) {
-        logger.warn('User stats not found for threshold billing', { userId })
+      if (isOrganizationScope) {
+        const records = await tx
+          .select()
+          .from(organizationBillingLedger)
+          .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+          .for('update')
+          .limit(1)
+
+        statsRecord = records[0] ?? null
+
+        if (!statsRecord) {
+          await tx
+            .insert(organizationBillingLedger)
+            .values({
+              organizationId: organizationId ?? billingContext.scopeId,
+            })
+            .onConflictDoNothing({
+              target: [organizationBillingLedger.organizationId],
+            })
+
+          const seededRecords = await tx
+            .select()
+            .from(organizationBillingLedger)
+            .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+            .for('update')
+            .limit(1)
+
+          statsRecord = seededRecords[0] ?? null
+        }
+      } else {
+        const records = await tx
+          .select()
+          .from(userStats)
+          .where(eq(userStats.userId, billingContext.billingUserId))
+          .for('update')
+          .limit(1)
+
+        statsRecord = records[0] ?? null
+      }
+
+      if (!statsRecord) {
+        logger.warn('Billing ledger not found for threshold billing', {
+          actorUserId: params.userId,
+          billingUserId: billingContext.billingUserId,
+          billingScopeType: billingContext.scopeType,
+          billingScopeId: billingContext.scopeId,
+          workspaceId: params.workspaceId,
+          workflowId: params.workflowId,
+        })
         return
       }
 
-      const stats = statsRecords[0]
-
-      const currentOverage = await calculateSubscriptionOverage({
-        id: userSubscription.id,
-        plan: userSubscription.plan,
-        referenceId: userSubscription.referenceId,
-        seats: userSubscription.seats,
-      })
-      const billedOverageThisPeriod = parseDecimal(stats.billedOverageThisPeriod)
+      const billedOverageThisPeriod = parseDecimal(statsRecord.billedOverageThisPeriod)
+      const usageAllowance =
+        isOrganizationScope && subscription.tier && usesIndividualBillingLedger(subscription.tier)
+          ? getTierUsageAllowanceUsd(subscription.tier)
+          : getSubscriptionUsageAllowanceUsd(subscription)
+      const currentPeriodCost =
+        isOrganizationScope && subscription.tier && usesIndividualBillingLedger(subscription.tier)
+          ? (
+              await tx
+                .select({ currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost })
+                .from(organizationMemberBillingLedger)
+                .where(eq(organizationMemberBillingLedger.organizationId, organizationId!))
+            ).reduce((total, row) => total + parseDecimal(row.currentPeriodCost), 0)
+          : parseDecimal(statsRecord.currentPeriodCost)
+      const currentOverage =
+        isOrganizationScope && subscription.tier && usesIndividualBillingLedger(subscription.tier)
+          ? (
+              await tx
+                .select({ currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost })
+                .from(organizationMemberBillingLedger)
+                .where(eq(organizationMemberBillingLedger.organizationId, organizationId!))
+            ).reduce((total, row) => {
+              const memberUsage = parseDecimal(row.currentPeriodCost)
+              return total + Math.max(0, memberUsage - usageAllowance)
+            }, 0)
+          : Math.max(0, currentPeriodCost - usageAllowance)
       const unbilledOverage = Math.max(0, currentOverage - billedOverageThisPeriod)
 
       logger.debug('Threshold billing check', {
-        userId,
-        plan: userSubscription.plan,
+        actorUserId: params.userId,
+        billingUserId: billingContext.billingUserId,
+        billingScopeType: billingContext.scopeType,
+        billingScopeId: billingContext.scopeId,
+        billingTier: billingContext.tier.displayName,
+        currentPeriodCost,
+        usageAllowance,
         currentOverage,
         billedOverageThisPeriod,
         unbilledOverage,
@@ -162,10 +254,13 @@ export async function checkAndBillOverageThreshold(userId: string): Promise<void
       }
 
       const amountToBill = unbilledOverage
-
-      const stripeSubscriptionId = userSubscription.stripeSubscriptionId
+      const stripeSubscriptionId = subscription.stripeSubscriptionId
       if (!stripeSubscriptionId) {
-        logger.error('No Stripe subscription ID found', { userId })
+        logger.error('No Stripe subscription ID found', {
+          billingUserId: billingContext.billingUserId,
+          workspaceId: params.workspaceId,
+          workflowId: params.workflowId,
+        })
         return
       }
 
@@ -176,50 +271,70 @@ export async function checkAndBillOverageThreshold(userId: string): Promise<void
           ? stripeSubscription.customer
           : stripeSubscription.customer.id
 
-      const periodEnd = userSubscription.periodEnd
-        ? Math.floor(userSubscription.periodEnd.getTime() / 1000)
+      const periodEnd = subscription.periodEnd
+        ? Math.floor(subscription.periodEnd.getTime() / 1000)
         : Math.floor(Date.now() / 1000)
       const billingPeriod = new Date(periodEnd * 1000).toISOString().slice(0, 7)
 
       const amountCents = Math.round(amountToBill * 100)
       const totalOverageCents = Math.round(currentOverage * 100)
-      const idempotencyKey = `threshold-overage:${customerId}:${stripeSubscriptionId}:${billingPeriod}:${totalOverageCents}:${amountCents}`
+      const idempotencyKey = `threshold-overage:${billingContext.scopeType}:${billingContext.scopeId}:${customerId}:${stripeSubscriptionId}:${billingPeriod}:${totalOverageCents}:${amountCents}`
 
       logger.info('Creating threshold overage invoice', {
-        userId,
-        plan: userSubscription.plan,
+        actorUserId: params.userId,
+        billingUserId: billingContext.billingUserId,
+        billingScopeType: billingContext.scopeType,
+        billingScopeId: billingContext.scopeId,
         amountToBill,
         billingPeriod,
         idempotencyKey,
       })
 
-      const cents = amountCents
-
       const invoiceId = await createAndFinalizeOverageInvoice(stripe, {
         customerId,
         stripeSubscriptionId,
-        amountCents: cents,
+        amountCents,
         description: `Threshold overage billing – ${billingPeriod}`,
         itemDescription: `Usage overage ($${amountToBill.toFixed(2)})`,
         metadata: {
           type: 'overage_threshold_billing',
-          userId,
+          actorUserId: params.userId,
+          billingUserId: billingContext.billingUserId,
+          billingScopeId: billingContext.scopeId,
+          billingScopeType: billingContext.scopeType,
+          workspaceId: params.workspaceId ?? '',
+          workflowId: params.workflowId ?? '',
           subscriptionId: stripeSubscriptionId,
           billingPeriod,
-          totalOverageAtTimeOfBilling: currentOverage.toFixed(2),
+          currentPeriodCost: currentPeriodCost.toFixed(2),
+          usageAllowance: usageAllowance.toFixed(2),
+          currentOverage: currentOverage.toFixed(2),
         },
         idempotencyKey,
       })
 
-      await tx
-        .update(userStats)
-        .set({
-          billedOverageThisPeriod: sql`${userStats.billedOverageThisPeriod} + ${amountToBill}`,
-        })
-        .where(eq(userStats.userId, userId))
+      if (isOrganizationScope) {
+        await tx
+          .update(organizationBillingLedger)
+          .set({
+            billedOverageThisPeriod: sql`${organizationBillingLedger.billedOverageThisPeriod} + ${amountToBill}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+      } else {
+        await tx
+          .update(userStats)
+          .set({
+            billedOverageThisPeriod: sql`${userStats.billedOverageThisPeriod} + ${amountToBill}`,
+          })
+          .where(eq(userStats.userId, billingContext.billingUserId))
+      }
 
       logger.info('Successfully created and finalized threshold overage invoice', {
-        userId,
+        actorUserId: params.userId,
+        billingUserId: billingContext.billingUserId,
+        billingScopeType: billingContext.scopeType,
+        billingScopeId: billingContext.scopeId,
         amountBilled: amountToBill,
         invoiceId,
         newBilledTotal: billedOverageThisPeriod + amountToBill,
@@ -227,192 +342,9 @@ export async function checkAndBillOverageThreshold(userId: string): Promise<void
     })
   } catch (error) {
     logger.error('Error in threshold billing check', {
-      userId,
-      error,
-    })
-  }
-}
-
-export async function checkAndBillOrganizationOverageThreshold(
-  organizationId: string
-): Promise<void> {
-  logger.info('=== ENTERED checkAndBillOrganizationOverageThreshold ===', { organizationId })
-
-  try {
-    const threshold = OVERAGE_THRESHOLD
-
-    logger.debug('Starting organization threshold billing check', { organizationId, threshold })
-
-    const orgSubscriptions = await db
-      .select()
-      .from(subscription)
-      .where(and(eq(subscription.referenceId, organizationId), eq(subscription.status, 'active')))
-      .limit(1)
-
-    if (orgSubscriptions.length === 0) {
-      logger.debug('No active subscription for organization', { organizationId })
-      return
-    }
-
-    const orgSubscription = orgSubscriptions[0]
-    logger.debug('Found organization subscription', {
-      organizationId,
-      plan: orgSubscription.plan,
-      seats: orgSubscription.seats,
-      stripeSubscriptionId: orgSubscription.stripeSubscriptionId,
-    })
-
-    if (orgSubscription.plan !== 'team') {
-      logger.debug('Organization plan is not team, skipping', {
-        organizationId,
-        plan: orgSubscription.plan,
-      })
-      return
-    }
-
-    const members = await db
-      .select({ userId: member.userId, role: member.role })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
-
-    logger.debug('Found organization members', {
-      organizationId,
-      memberCount: members.length,
-      members: members.map((m) => ({ userId: m.userId, role: m.role })),
-    })
-
-    if (members.length === 0) {
-      logger.warn('No members found for organization', { organizationId })
-      return
-    }
-
-    const owner = members.find((m) => m.role === 'owner')
-    if (!owner) {
-      logger.error('No owner found for organization', { organizationId })
-      return
-    }
-
-    logger.debug('Found organization owner, starting transaction', {
-      organizationId,
-      ownerId: owner.userId,
-    })
-
-    await db.transaction(async (tx) => {
-      const ownerStatsLock = await tx
-        .select()
-        .from(userStats)
-        .where(eq(userStats.userId, owner.userId))
-        .for('update')
-        .limit(1)
-
-      if (ownerStatsLock.length === 0) {
-        logger.error('Owner stats not found', { organizationId, ownerId: owner.userId })
-        return
-      }
-
-      let totalTeamUsage = parseDecimal(ownerStatsLock[0].currentPeriodCost)
-      const totalBilledOverage = parseDecimal(ownerStatsLock[0].billedOverageThisPeriod)
-
-      const nonOwnerIds = members.filter((m) => m.userId !== owner.userId).map((m) => m.userId)
-
-      if (nonOwnerIds.length > 0) {
-        const memberStatsRows = await tx
-          .select({
-            userId: userStats.userId,
-            currentPeriodCost: userStats.currentPeriodCost,
-          })
-          .from(userStats)
-          .where(inArray(userStats.userId, nonOwnerIds))
-
-        for (const stats of memberStatsRows) {
-          totalTeamUsage += parseDecimal(stats.currentPeriodCost)
-        }
-      }
-
-      const { basePrice: basePricePerSeat } = getPlanPricing(orgSubscription.plan)
-      const basePrice = basePricePerSeat * (orgSubscription.seats || 1)
-      const currentOverage = Math.max(0, totalTeamUsage - basePrice)
-      const unbilledOverage = Math.max(0, currentOverage - totalBilledOverage)
-
-      logger.debug('Organization threshold billing check', {
-        organizationId,
-        totalTeamUsage,
-        basePrice,
-        currentOverage,
-        totalBilledOverage,
-        unbilledOverage,
-        threshold,
-      })
-
-      if (unbilledOverage < threshold) {
-        return
-      }
-
-      const amountToBill = unbilledOverage
-
-      const stripeSubscriptionId = orgSubscription.stripeSubscriptionId
-      if (!stripeSubscriptionId) {
-        logger.error('No Stripe subscription ID for organization', { organizationId })
-        return
-      }
-
-      const stripe = requireStripeClient()
-      const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-      const customerId =
-        typeof stripeSubscription.customer === 'string'
-          ? stripeSubscription.customer
-          : stripeSubscription.customer.id
-
-      const periodEnd = orgSubscription.periodEnd
-        ? Math.floor(orgSubscription.periodEnd.getTime() / 1000)
-        : Math.floor(Date.now() / 1000)
-      const billingPeriod = new Date(periodEnd * 1000).toISOString().slice(0, 7)
-      const amountCents = Math.round(amountToBill * 100)
-      const totalOverageCents = Math.round(currentOverage * 100)
-
-      const idempotencyKey = `threshold-overage-org:${customerId}:${stripeSubscriptionId}:${billingPeriod}:${totalOverageCents}:${amountCents}`
-
-      logger.info('Creating organization threshold overage invoice', {
-        organizationId,
-        amountToBill,
-        billingPeriod,
-      })
-
-      const cents = amountCents
-
-      const invoiceId = await createAndFinalizeOverageInvoice(stripe, {
-        customerId,
-        stripeSubscriptionId,
-        amountCents: cents,
-        description: `Team threshold overage billing – ${billingPeriod}`,
-        itemDescription: `Team usage overage ($${amountToBill.toFixed(2)})`,
-        metadata: {
-          type: 'overage_threshold_billing_org',
-          organizationId,
-          subscriptionId: stripeSubscriptionId,
-          billingPeriod,
-          totalOverageAtTimeOfBilling: currentOverage.toFixed(2),
-        },
-        idempotencyKey,
-      })
-
-      await tx
-        .update(userStats)
-        .set({
-          billedOverageThisPeriod: sql`${userStats.billedOverageThisPeriod} + ${amountToBill}`,
-        })
-        .where(eq(userStats.userId, owner.userId))
-
-      logger.info('Successfully created and finalized organization threshold overage invoice', {
-        organizationId,
-        ownerId: owner.userId,
-        amountBilled: amountToBill,
-        invoiceId,
-      })
-    })
-  } catch (error) {
-    logger.error('Error in organization threshold billing', {
-      organizationId,
+      userId: params.userId,
+      workspaceId: params.workspaceId,
+      workflowId: params.workflowId,
       error,
     })
   }

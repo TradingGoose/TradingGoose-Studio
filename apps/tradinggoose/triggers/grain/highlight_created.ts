@@ -5,7 +5,7 @@ import { buildHighlightOutputs, grainSetupInstructions } from './utils'
 export const grainHighlightCreatedTrigger: TriggerConfig = {
   id: 'grain_highlight_created',
   name: 'Grain Highlight Created',
-  provider: 'grain',
+  webhookProvider: 'grain',
   description: 'Trigger workflow when a new highlight/clip is created in Grain',
   version: '1.0.0',
   icon: GrainIcon,

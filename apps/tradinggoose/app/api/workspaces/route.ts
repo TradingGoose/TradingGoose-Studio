@@ -1,12 +1,13 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
+import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -16,8 +17,9 @@ const createWorkspaceSchema = z.object({
 })
 
 // Get all workspaces for the current user
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getSession()
+  const allowWorkspaceBootstrap = request.nextUrl.searchParams.get('autoCreate') !== 'false'
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,6 +37,10 @@ export async function GET() {
     .orderBy(desc(workspace.createdAt))
 
   if (userWorkspaces.length === 0) {
+    if (!allowWorkspaceBootstrap) {
+      return NextResponse.json({ workspaces: [] })
+    }
+
     // Create a default workspace for the user
     const defaultWorkspace = await createDefaultWorkspace(session.user.id, session.user.name)
 
@@ -44,13 +50,15 @@ export async function GET() {
     return NextResponse.json({ workspaces: [defaultWorkspace] })
   }
 
-  // If user has workspaces but might have orphaned workflows, migrate them
-  await ensureWorkflowsHaveWorkspace(session.user.id, userWorkspaces[0].workspace.id)
+  if (allowWorkspaceBootstrap) {
+    // If user has workspaces but might have orphaned workflows, migrate them
+    await ensureWorkflowsHaveWorkspace(session.user.id, userWorkspaces[0].workspace.id)
+  }
 
   // Format the response with permission information
   const workspacesWithPermissions = userWorkspaces.map(
     ({ workspace: workspaceDetails, permissionType }) => ({
-      ...workspaceDetails,
+      ...toWorkspaceApiRecord(workspaceDetails),
       role: permissionType === 'admin' ? 'owner' : 'member', // Map admin to owner for compatibility
       permissions: permissionType,
     })
@@ -100,7 +108,9 @@ async function createWorkspace(userId: string, name: string) {
         id: workspaceId,
         name,
         ownerId: userId,
-        billedAccountUserId: userId,
+        billingOwnerType: 'user',
+        billingOwnerUserId: userId,
+        billingOwnerOrganizationId: null,
         allowPersonalApiKeys: true,
         createdAt: now,
         updatedAt: now,
@@ -150,14 +160,17 @@ async function createWorkspace(userId: string, name: string) {
 
     // Seed the Yjs doc and persist to normalized tables in parallel
     const [, seedResult] = await Promise.all([
-      tryApplyWorkflowState(workflowId, createWorkflowSnapshot({
-        blocks: workflowState.blocks,
-        edges: workflowState.edges,
-        loops: workflowState.loops,
-        parallels: workflowState.parallels,
-        lastSaved,
-        isDeployed: false,
-      })),
+      tryApplyWorkflowState(
+        workflowId,
+        createWorkflowSnapshot({
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+          lastSaved,
+          isDeployed: false,
+        })
+      ),
       saveWorkflowToNormalizedTables(workflowId, workflowState),
     ])
 
@@ -171,13 +184,17 @@ async function createWorkspace(userId: string, name: string) {
 
   // Return the workspace data directly instead of querying again
   return {
-    id: workspaceId,
-    name,
-    ownerId: userId,
-    billedAccountUserId: userId,
-    allowPersonalApiKeys: true,
-    createdAt: now,
-    updatedAt: now,
+    ...toWorkspaceApiRecord({
+      id: workspaceId,
+      name,
+      ownerId: userId,
+      billingOwnerType: 'user',
+      billingOwnerUserId: userId,
+      billingOwnerOrganizationId: null,
+      allowPersonalApiKeys: true,
+      createdAt: now,
+      updatedAt: now,
+    }),
     role: 'owner',
   }
 }

@@ -3,7 +3,7 @@ import type { OAuthService } from '@/lib/oauth/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import type { HttpMethod } from '@/tools/types'
 
-export type TradingProviderId = 'alpaca' | 'tradier' | 'robinhood' | (string & {})
+export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
 export type TradingAuthType = 'apiKey' | 'oauth'
 
@@ -67,8 +67,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
   apiSecret?: string
   orderClass?: string
   accountId?: string
-  accountUrl?: string
-  instrumentUrl?: string
   providerParams?: TradingProviderParams
 }
 
@@ -78,7 +76,6 @@ export interface TradingHoldingsInput {
   apiKey?: string
   apiSecret?: string
   accountId?: string
-  accountUrl?: string
   providerParams?: TradingProviderParams
 }
 

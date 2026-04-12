@@ -5,10 +5,14 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import {
+  getBillingContextResolutionMessage,
+  resolveWorkspaceBillingContext,
+  toRateLimitBillingScope,
+} from '@/lib/billing/workspace-billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import {
@@ -17,6 +21,7 @@ import {
   getScheduleTimeValues,
   getSubBlockValue,
 } from '@/lib/schedules/utils'
+import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { decryptSecret } from '@/lib/utils'
 import { blockExistsInDeployment, loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
@@ -79,6 +84,26 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
   const EnvVarsSchema = (await import('zod')).z.record((await import('zod')).z.string())
 
+  const rescheduleSkippedExecution = async () => {
+    try {
+      const deployedData = await loadDeployedWorkflowState(payload.workflowId)
+      const nextRunAt = await calculateNextRunTime(
+        payload,
+        deployedData.blocks as any,
+        payload.timezone
+      )
+      await db
+        .update(workflowSchedule)
+        .set({ updatedAt: now, nextRunAt })
+        .where(eq(workflowSchedule.id, payload.scheduleId))
+    } catch (calcErr) {
+      logger.warn(
+        `[${requestId}] Unable to calculate nextRunAt while skipping schedule ${payload.scheduleId}`,
+        calcErr
+      )
+    }
+  }
+
   try {
     const [workflowRecord] = await db
       .select()
@@ -100,73 +125,87 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const userSubscription = await getHighestPrioritySubscription(actorUserId)
-
-    const rateLimiter = new RateLimiter()
-    const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-      actorUserId,
-      userSubscription,
-      'schedule',
-      false
-    )
-
-    if (!rateLimitCheck.allowed) {
-      logger.warn(
-        `[${requestId}] Rate limit exceeded for scheduled workflow ${payload.workflowId}`,
-        {
-          userId: workflowRecord.userId,
-          remaining: rateLimitCheck.remaining,
-          resetAt: rateLimitCheck.resetAt,
-        }
-      )
-
-      const retryDelay = 5 * 60 * 1000
-      const nextRetryAt = new Date(now.getTime() + retryDelay)
-
+    const billingEnabled = await isBillingEnabledForRuntime()
+    let billingContext = null
+    if (billingEnabled) {
       try {
-        await db
-          .update(workflowSchedule)
-          .set({
-            updatedAt: now,
-            nextRunAt: nextRetryAt,
-          })
-          .where(eq(workflowSchedule.id, payload.scheduleId))
-
-        logger.debug(`[${requestId}] Updated next retry time due to rate limit`)
-      } catch (updateError) {
-        logger.error(`[${requestId}] Error updating schedule for rate limit:`, updateError)
+        billingContext = await resolveWorkspaceBillingContext({
+          workspaceId: workflowRecord.workspaceId,
+          actorUserId,
+        })
+      } catch (error) {
+        logger.warn(
+          `[${requestId}] ${getBillingContextResolutionMessage(error)} Skipping scheduled execution.`,
+          {
+            actorUserId,
+            workflowId: payload.workflowId,
+            workspaceId: workflowRecord.workspaceId,
+            error,
+          }
+        )
+        await rescheduleSkippedExecution()
+        return
       }
-
-      return
     }
 
-    const usageCheck = await checkServerSideUsageLimits(actorUserId)
+    if (billingContext) {
+      const rateLimiter = new RateLimiter()
+      const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
+        billingContext.billingUserId,
+        billingContext.subscription,
+        'schedule',
+        false,
+        toRateLimitBillingScope(billingContext, actorUserId)
+      )
+
+      if (!rateLimitCheck.allowed) {
+        logger.warn(
+          `[${requestId}] Rate limit exceeded for scheduled workflow ${payload.workflowId}`,
+          {
+            userId: workflowRecord.userId,
+            remaining: rateLimitCheck.remaining,
+            resetAt: rateLimitCheck.resetAt,
+          }
+        )
+
+        const retryDelay = 5 * 60 * 1000
+        const nextRetryAt = new Date(now.getTime() + retryDelay)
+
+        try {
+          await db
+            .update(workflowSchedule)
+            .set({
+              updatedAt: now,
+              nextRunAt: nextRetryAt,
+            })
+            .where(eq(workflowSchedule.id, payload.scheduleId))
+
+          logger.debug(`[${requestId}] Updated next retry time due to rate limit`)
+        } catch (updateError) {
+          logger.error(`[${requestId}] Error updating schedule for rate limit:`, updateError)
+        }
+
+        return
+      }
+    }
+
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: actorUserId,
+      workflowId: payload.workflowId,
+      workspaceId: workflowRecord.workspaceId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${workflowRecord.userId} has exceeded usage limits. Skipping scheduled execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
         {
+          actorUserId,
+          ...(billingContext ? { billingUserId: billingContext.billingUserId } : {}),
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
         }
       )
-      try {
-        const deployedData = await loadDeployedWorkflowState(payload.workflowId)
-        const nextRunAt = await calculateNextRunTime(
-          payload,
-          deployedData.blocks as any,
-          payload.timezone
-        )
-        await db
-          .update(workflowSchedule)
-          .set({ updatedAt: now, nextRunAt })
-          .where(eq(workflowSchedule.id, payload.scheduleId))
-      } catch (calcErr) {
-        logger.warn(
-          `[${requestId}] Unable to calculate nextRunAt while skipping schedule ${payload.scheduleId}`,
-          calcErr
-        )
-      }
+      await rescheduleSkippedExecution()
       return
     }
 
@@ -339,6 +378,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
             contextExtensions: {
               executionId,
               workspaceId: workflowRecord.workspaceId || '',
+              userId: actorUserId,
               isDeployedContext: true,
             },
           })
@@ -407,7 +447,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       if (executionSuccess.success) {
         logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
 
-        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          executionSuccess.blocks,
+          payload.timezone
+        )
 
         logger.debug(
           `[${requestId}] Calculated next run time: ${nextRunAt.toISOString()} for workflow ${payload.workflowId}`
@@ -435,7 +479,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
         const newFailedCount = (payload.failedCount || 0) + 1
         const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          executionSuccess.blocks,
+          payload.timezone
+        )
 
         if (shouldDisable) {
           logger.warn(

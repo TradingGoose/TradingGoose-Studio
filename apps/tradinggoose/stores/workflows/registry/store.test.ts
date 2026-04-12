@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { WORKSPACE_BOOTSTRAP_CHANNEL, type WorkflowMetadata } from '@/stores/workflows/registry/types'
 
 type Deferred<T> = {
   promise: Promise<T>
@@ -290,6 +290,96 @@ describe('workflow registry stale metadata handling', () => {
     expect(Object.keys(state.workflows)).toEqual(['wf-b'])
     expect(state.hydrationByChannel[channelId]?.phase).toBe('metadata-ready')
     expect(state.hydrationByChannel[channelId]?.workspaceId).toBe('ws-b')
+  })
+
+  it('keeps bootstrap metadata aligned during workspace switches so stale previous-workspace loads cannot overwrite the registry', async () => {
+    const wsADeferred = createDeferred<any>()
+    const wsBDeferred = createDeferred<any>()
+
+    const deferredByWorkspace = new Map<string, Deferred<any>>([
+      ['ws-a', wsADeferred],
+      ['ws-b', wsBDeferred],
+    ])
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const rawUrl =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = new URL(rawUrl, 'http://localhost:3000')
+        const workspaceId = url.searchParams.get('workspaceId')
+        if (!workspaceId) {
+          throw new Error('workspaceId is required in metadata request')
+        }
+
+        const deferred = deferredByWorkspace.get(workspaceId)
+        if (!deferred) {
+          throw new Error(`Missing deferred response for ${workspaceId}`)
+        }
+
+        return deferred.promise
+      })
+    )
+
+    useWorkflowRegistry.setState((state) => ({
+      ...state,
+      workflows: {
+        'wf-a': createWorkflowMetadata('wf-a', 'ws-a'),
+      },
+      hydrationByChannel: {
+        'editor-panel': {
+          phase: 'ready',
+          workspaceId: 'ws-a',
+          workflowId: 'wf-a',
+          requestId: null,
+          error: null,
+        },
+      },
+    }))
+
+    const staleBootstrapRequest = useWorkflowRegistry.getState().loadWorkflows({
+      workspaceId: 'ws-a',
+      channelId: WORKSPACE_BOOTSTRAP_CHANNEL,
+    })
+
+    const switchPromise = useWorkflowRegistry.getState().switchToWorkspace('ws-b')
+
+    wsBDeferred.resolve(
+      createSuccessResponse([
+        {
+          id: 'wf-b',
+          name: 'Workflow B',
+          description: 'B',
+          color: '#22c55e',
+          createdAt: '2026-03-02T00:00:00.000Z',
+          workspaceId: 'ws-b',
+          isDeployed: false,
+        },
+      ])
+    )
+
+    await switchPromise
+
+    wsADeferred.resolve(
+      createSuccessResponse([
+        {
+          id: 'wf-a',
+          name: 'Workflow A',
+          description: 'A',
+          color: '#ef4444',
+          createdAt: '2026-03-01T00:00:00.000Z',
+          workspaceId: 'ws-a',
+          isDeployed: false,
+        },
+      ])
+    )
+
+    await staleBootstrapRequest
+
+    const state = useWorkflowRegistry.getState()
+    expect(Object.keys(state.workflows)).toEqual(['wf-b'])
+    expect(state.hydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]?.workspaceId).toBe('ws-b')
+    expect(state.hydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]?.phase).toBe('metadata-ready')
   })
 
   it('supports concurrent setActiveWorkflow calls on different channels', async () => {

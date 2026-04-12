@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotContactCreatedTrigger: TriggerConfig = {
   id: 'hubspot_contact_created',
   name: 'HubSpot Contact Created',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a new contact is created in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

@@ -1,13 +1,24 @@
-import { db } from '@tradinggoose/db'
-import { member, subscription as subscriptionTable, user, userStats } from '@tradinggoose/db/schema'
+import { db, member, user, userStats } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
-import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { assertWorkspaceOwnerCanLeaveBillingOrganization } from '@/lib/workspaces/billing-owner'
 
 const logger = createLogger('OrganizationMemberAPI')
+
+type MemberUsagePayload = {
+  currentPeriodCost: number | string | null
+  customUsageLimit: string | null
+  customUsageLimitUpdatedAt: Date | null
+  lastPeriodCost: string | null
+  billingPeriodStart: Date | null
+  billingPeriodEnd: Date | null
+  usageScope?: 'individual' | 'pooled'
+  sharedCurrentPeriodCost?: number | null
+}
 
 /**
  * GET /api/organizations/[id]/members/[memberId]
@@ -74,24 +85,51 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 })
     }
 
-    let memberData = memberEntry[0]
+    let memberData: (typeof memberEntry)[number] & { usage?: MemberUsagePayload } = memberEntry[0]
 
     // Include usage data if requested and user has permission
     if (includeUsage && hasAdminAccess) {
       const usageData = await db
         .select({
           currentPeriodCost: userStats.currentPeriodCost,
-          currentUsageLimit: userStats.currentUsageLimit,
-          usageLimitUpdatedAt: userStats.usageLimitUpdatedAt,
+          customUsageLimit: userStats.customUsageLimit,
+          customUsageLimitUpdatedAt: userStats.customUsageLimitUpdatedAt,
           lastPeriodCost: userStats.lastPeriodCost,
         })
         .from(userStats)
         .where(eq(userStats.userId, memberId))
         .limit(1)
 
-      const computed = await getUserUsageData(memberId)
+      const organizationBillingData = await getOrganizationBillingData(organizationId)
 
-      if (usageData.length > 0) {
+      if (organizationBillingData) {
+        const usageScope = organizationBillingData.subscriptionTier.usageScope
+        const memberUsage = organizationBillingData.members.find(
+          (organizationMember) => organizationMember.userId === memberId
+        )
+        const defaultUsage = usageData[0] ?? {
+          currentPeriodCost: null,
+          customUsageLimit: null,
+          customUsageLimitUpdatedAt: null,
+          lastPeriodCost: null,
+        }
+
+        memberData = {
+          ...memberData,
+          usage: {
+            ...defaultUsage,
+            currentPeriodCost:
+              usageScope === 'individual' ? (memberUsage?.currentUsage ?? 0) : null,
+            billingPeriodStart: organizationBillingData.billingPeriodStart,
+            billingPeriodEnd: organizationBillingData.billingPeriodEnd,
+            usageScope,
+            sharedCurrentPeriodCost:
+              usageScope === 'pooled' ? organizationBillingData.totalCurrentUsage : null,
+          },
+        }
+      } else if (usageData.length > 0) {
+        const computed = await getUserUsageData(memberId)
+
         memberData = {
           ...memberData,
           usage: {
@@ -99,11 +137,6 @@ export async function GET(
             billingPeriodStart: computed.billingPeriodStart,
             billingPeriodEnd: computed.billingPeriodEnd,
           },
-        } as typeof memberData & {
-          usage: (typeof usageData)[0] & {
-            billingPeriodStart: Date | null
-            billingPeriodEnd: Date | null
-          }
         }
       }
     }
@@ -288,6 +321,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot remove organization owner' }, { status: 400 })
     }
 
+    try {
+      await assertWorkspaceOwnerCanLeaveBillingOrganization({
+        organizationId,
+        workspaceOwnerId: memberId,
+      })
+    } catch (error) {
+      if (error instanceof Error) {
+        return NextResponse.json({ error: error.message }, { status: 409 })
+      }
+      throw error
+    }
+
     // Remove member
     const removedMember = await db
       .delete(member)
@@ -304,124 +349,6 @@ export async function DELETE(
       removedBy: session.user.id,
       wasSelfRemoval: session.user.id === memberId,
     })
-
-    // If the removed user left their last paid team and has a personal Pro set to cancel_at_period_end, restore it
-    try {
-      const remainingPaidTeams = await db
-        .select({ orgId: member.organizationId })
-        .from(member)
-        .where(eq(member.userId, memberId))
-
-      let hasAnyPaidTeam = false
-      if (remainingPaidTeams.length > 0) {
-        const orgIds = remainingPaidTeams.map((m) => m.orgId)
-        const orgPaidSubs = await db
-          .select()
-          .from(subscriptionTable)
-          .where(and(eq(subscriptionTable.status, 'active'), eq(subscriptionTable.plan, 'team')))
-
-        hasAnyPaidTeam = orgPaidSubs.some((s) => orgIds.includes(s.referenceId))
-      }
-
-      if (!hasAnyPaidTeam) {
-        const personalProRows = await db
-          .select()
-          .from(subscriptionTable)
-          .where(
-            and(
-              eq(subscriptionTable.referenceId, memberId),
-              eq(subscriptionTable.status, 'active'),
-              eq(subscriptionTable.plan, 'pro')
-            )
-          )
-          .limit(1)
-
-        const personalPro = personalProRows[0]
-        if (
-          personalPro &&
-          personalPro.cancelAtPeriodEnd === true &&
-          personalPro.stripeSubscriptionId
-        ) {
-          try {
-            const stripe = requireStripeClient()
-            await stripe.subscriptions.update(personalPro.stripeSubscriptionId, {
-              cancel_at_period_end: false,
-            })
-          } catch (stripeError) {
-            logger.error('Stripe restore cancel_at_period_end failed for personal Pro', {
-              userId: memberId,
-              stripeSubscriptionId: personalPro.stripeSubscriptionId,
-              error: stripeError,
-            })
-          }
-
-          try {
-            await db
-              .update(subscriptionTable)
-              .set({ cancelAtPeriodEnd: false })
-              .where(eq(subscriptionTable.id, personalPro.id))
-
-            logger.info('Restored personal Pro after leaving last paid team', {
-              userId: memberId,
-              personalSubscriptionId: personalPro.id,
-            })
-          } catch (dbError) {
-            logger.error('DB update failed when restoring personal Pro', {
-              userId: memberId,
-              subscriptionId: personalPro.id,
-              error: dbError,
-            })
-          }
-
-          // Also restore the snapshotted Pro usage back to currentPeriodCost
-          try {
-            const userStatsRows = await db
-              .select({
-                currentPeriodCost: userStats.currentPeriodCost,
-                proPeriodCostSnapshot: userStats.proPeriodCostSnapshot,
-              })
-              .from(userStats)
-              .where(eq(userStats.userId, memberId))
-              .limit(1)
-
-            if (userStatsRows.length > 0) {
-              const currentUsage = userStatsRows[0].currentPeriodCost || '0'
-              const snapshotUsage = userStatsRows[0].proPeriodCostSnapshot || '0'
-
-              const currentNum = Number.parseFloat(currentUsage)
-              const snapshotNum = Number.parseFloat(snapshotUsage)
-              const restoredUsage = (currentNum + snapshotNum).toString()
-
-              await db
-                .update(userStats)
-                .set({
-                  currentPeriodCost: restoredUsage,
-                  proPeriodCostSnapshot: '0', // Clear the snapshot
-                })
-                .where(eq(userStats.userId, memberId))
-
-              logger.info('Restored Pro usage after leaving team', {
-                userId: memberId,
-                previousUsage: currentUsage,
-                snapshotUsage: snapshotUsage,
-                restoredUsage: restoredUsage,
-              })
-            }
-          } catch (usageRestoreError) {
-            logger.error('Failed to restore Pro usage after leaving team', {
-              userId: memberId,
-              error: usageRestoreError,
-            })
-          }
-        }
-      }
-    } catch (postRemoveError) {
-      logger.error('Post-removal personal Pro restore check failed', {
-        organizationId,
-        memberId,
-        error: postRemoveError,
-      })
-    }
 
     return NextResponse.json({
       success: true,

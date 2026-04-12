@@ -230,10 +230,18 @@ export const mockUser = {
 
 export const mockSubscription = {
   id: 'sub-123',
-  plan: 'enterprise',
+  billingTierId: 'tier_org_individual',
   status: 'active',
   seats: 5,
-  referenceId: 'user-123',
+  referenceType: 'organization' as const,
+  referenceId: 'org-456',
+  tier: {
+    id: 'tier_org_individual',
+    displayName: 'Enterprise',
+    ownerType: 'organization',
+    usageScope: 'individual',
+    seatMode: 'fixed',
+  },
   metadata: {
     perSeatAllowance: 100,
     totalAllowance: 500,
@@ -263,18 +271,34 @@ export const mockRegularMember = {
 
 export const mockTeamSubscription = {
   id: 'sub-456',
-  plan: 'team',
+  billingTierId: 'tier_org_adjustable',
   status: 'active',
   seats: 5,
+  referenceType: 'organization' as const,
   referenceId: 'org-123',
+  tier: {
+    id: 'tier_org_adjustable',
+    displayName: 'Team',
+    ownerType: 'organization',
+    usageScope: 'pooled',
+    seatMode: 'adjustable',
+  },
 }
 
 export const mockPersonalSubscription = {
   id: 'sub-789',
-  plan: 'enterprise',
+  billingTierId: 'tier_user_fixed',
   status: 'active',
   seats: 5,
+  referenceType: 'user' as const,
   referenceId: 'user-123',
+  tier: {
+    id: 'tier_user_fixed',
+    displayName: 'Pro',
+    ownerType: 'user',
+    usageScope: 'individual',
+    seatMode: 'fixed',
+  },
   metadata: {
     perSeatAllowance: 100,
     totalAllowance: 500,

@@ -3,7 +3,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const indicatorTrigger: TriggerConfig = {
   id: 'indicator_trigger',
   name: 'Indicator Trigger',
-  provider: 'indicator',
+  webhookProvider: 'indicator',
   description: 'Trigger workflow from indicator monitor events',
   version: '1.0.0',
   subBlocks: [

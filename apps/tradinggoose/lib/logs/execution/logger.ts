@@ -1,18 +1,27 @@
 import { db } from '@tradinggoose/db'
 import {
-  member,
   organization,
+  organizationBillingLedger,
+  organizationMemberBillingLedger,
   userStats,
   user as userTable,
-  workflow,
   workflowExecutionLogs,
 } from '@tradinggoose/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import {
+  getOrganizationBillingLedger,
+  getOrganizationMemberBillingLedger,
+} from '@/lib/billing/core/organization'
 import { checkUsageStatus, maybeSendUsageThresholdEmail } from '@/lib/billing/core/usage'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
-import { isBillingEnabled } from '@/lib/environment'
+import {
+  getTierDisplayName,
+  getTierUsageAllowanceUsd,
+  isFreeBillingTier,
+} from '@/lib/billing/tiers'
+import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
@@ -39,6 +48,32 @@ export interface ToolCall {
 }
 
 const logger = createLogger('ExecutionLogger')
+
+type OrganizationBillingOwner = {
+  type: 'organization'
+  organizationId: string
+}
+
+function getOrganizationBillingOwner(
+  billingOwner:
+    | {
+        type: 'user'
+        userId: string
+      }
+    | OrganizationBillingOwner
+): OrganizationBillingOwner | null {
+  return billingOwner.type === 'organization' ? billingOwner : null
+}
+
+function readExecutionActorUserId(executionData: Record<string, unknown>): string | null {
+  const environment = executionData.environment
+  if (!environment || typeof environment !== 'object' || Array.isArray(environment)) {
+    return null
+  }
+
+  const userId = (environment as { userId?: unknown }).userId
+  return typeof userId === 'string' && userId.length > 0 ? userId : null
+}
 
 export class ExecutionLogger implements IExecutionLoggerService {
   async startWorkflowExecution(params: {
@@ -186,6 +221,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
       },
       models: costSummary.models,
     }
+    const actorUserId = readExecutionActorUserId(existingExecutionData)
 
     const [updatedLog] = await db
       .update(workflowExecutionLogs)
@@ -197,6 +233,8 @@ export class ExecutionLogger implements IExecutionLoggerService {
         executionData: mergedExecutionData,
         cost: {
           total: costSummary.totalCost,
+          baseExecutionCharge: costSummary.baseExecutionCharge,
+          modelCost: costSummary.modelCost,
           input: costSummary.totalInputCost,
           output: costSummary.totalOutputCost,
           tokens: {
@@ -214,124 +252,151 @@ export class ExecutionLogger implements IExecutionLoggerService {
       throw new Error(`Workflow log not found for execution ${executionId}`)
     }
 
-    try {
-      const [wf] = await db.select().from(workflow).where(eq(workflow.id, updatedLog.workflowId))
-      if (wf) {
-        const [usr] = await db
+    if (await isBillingEnabledForRuntime()) {
+      try {
+        const billingContext = await resolveWorkflowBillingContext({
+          workflowId: updatedLog.workflowId,
+          actorUserId,
+        })
+        const [billingUser] = await db
           .select({ id: userTable.id, email: userTable.email, name: userTable.name })
           .from(userTable)
-          .where(eq(userTable.id, wf.userId))
+          .where(eq(userTable.id, billingContext.billingUserId))
           .limit(1)
 
-        if (usr?.email) {
-          const sub = await getHighestPrioritySubscription(usr.id)
+        const costDelta = costSummary.totalCost
+        const planName = getTierDisplayName(billingContext.tier)
 
-          const costDelta = costSummary.totalCost
+        if (billingContext.scopeType === 'user' && billingUser?.email) {
+          const before = await checkUsageStatus(billingContext.billingUserId)
 
-          const planName = sub?.plan || 'Free'
-          const scope: 'user' | 'organization' =
-            sub && (sub.plan === 'team' || sub.plan === 'enterprise') ? 'organization' : 'user'
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
 
-          if (scope === 'user') {
-            const before = await checkUsageStatus(usr.id)
+          const limit = before.usageData.limit
+          const percentBefore = before.usageData.percentUsed
+          const percentAfter =
+            limit > 0 ? Math.min(100, percentBefore + (costDelta / limit) * 100) : percentBefore
+          const currentUsageAfter = before.usageData.currentUsage + costDelta
 
-            await this.updateUserStats(
-              updatedLog.workflowId,
-              costSummary,
-              updatedLog.trigger as ExecutionTrigger['type']
+          await maybeSendUsageThresholdEmail({
+            scope: 'user',
+            userId: billingContext.billingUserId,
+            userEmail: billingUser.email,
+            userName: billingUser.name || undefined,
+            planName,
+            isFreeTier: isFreeBillingTier(billingContext.tier),
+            percentBefore,
+            percentAfter,
+            currentUsageAfter,
+            limit,
+          })
+        } else if (billingContext.scopeType === 'organization_member') {
+          const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
+
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+
+          if (organizationBillingOwner && billingUser?.email) {
+            const memberLedger = await getOrganizationMemberBillingLedger(
+              organizationBillingOwner.organizationId,
+              billingContext.billingUserId
             )
 
-            const limit = before.usageData.limit
-            const percentBefore = before.usageData.percentUsed
+            const limit = getTierUsageAllowanceUsd(
+              billingContext.subscription?.tier ?? billingContext.tier
+            )
+            const beforeUsage = memberLedger?.currentPeriodCost ?? 0
+            const percentBefore = limit > 0 ? Math.min(100, (beforeUsage / limit) * 100) : 0
+            const currentUsageAfter = beforeUsage + costDelta
             const percentAfter =
-              limit > 0 ? Math.min(100, percentBefore + (costDelta / limit) * 100) : percentBefore
-            const currentUsageAfter = before.usageData.currentUsage + costDelta
+              limit > 0 ? Math.min(100, (currentUsageAfter / limit) * 100) : percentBefore
 
             await maybeSendUsageThresholdEmail({
               scope: 'user',
-              userId: usr.id,
-              userEmail: usr.email,
-              userName: usr.name || undefined,
+              userId: billingContext.billingUserId,
+              userEmail: billingUser.email,
+              userName: billingUser.name || undefined,
               planName,
+              isFreeTier: isFreeBillingTier(billingContext.tier),
               percentBefore,
               percentAfter,
               currentUsageAfter,
               limit,
             })
-          } else if (sub?.referenceId) {
-            let orgLimit = 0
-            const orgRows = await db
+          }
+        } else if (billingContext.scopeType === 'organization') {
+          const [billingLedger, orgRows] = await Promise.all([
+            getOrganizationBillingLedger(billingContext.scopeId),
+            db
               .select({ orgUsageLimit: organization.orgUsageLimit })
               .from(organization)
-              .where(eq(organization.id, sub.referenceId))
-              .limit(1)
-            const { getPlanPricing } = await import('@/lib/billing/core/billing')
-            const { basePrice } = getPlanPricing(sub.plan)
-            const minimum = (sub.seats || 1) * basePrice
-            if (orgRows.length > 0 && orgRows[0].orgUsageLimit) {
-              const configured = Number.parseFloat(orgRows[0].orgUsageLimit)
-              orgLimit = Math.max(configured, minimum)
-            } else {
-              orgLimit = minimum
-            }
+              .where(eq(organization.id, billingContext.scopeId))
+              .limit(1),
+          ])
 
-            const [{ sum: orgUsageBefore }] = await db
-              .select({ sum: sql`COALESCE(SUM(${userStats.currentPeriodCost}), 0)` })
-              .from(member)
-              .leftJoin(userStats, eq(member.userId, userStats.userId))
-              .where(eq(member.organizationId, sub.referenceId))
-              .limit(1)
-            const orgUsageBeforeNum = Number.parseFloat(
-              (orgUsageBefore as any)?.toString?.() || '0'
-            )
-
-            await this.updateUserStats(
-              updatedLog.workflowId,
-              costSummary,
-              updatedLog.trigger as ExecutionTrigger['type']
-            )
-
-            const percentBefore =
-              orgLimit > 0 ? Math.min(100, (orgUsageBeforeNum / orgLimit) * 100) : 0
-            const percentAfter =
-              orgLimit > 0
-                ? Math.min(100, percentBefore + (costDelta / orgLimit) * 100)
-                : percentBefore
-            const currentUsageAfter = orgUsageBeforeNum + costDelta
-
-            await maybeSendUsageThresholdEmail({
-              scope: 'organization',
-              organizationId: sub.referenceId,
-              planName,
-              percentBefore,
-              percentAfter,
-              currentUsageAfter,
-              limit: orgLimit,
-            })
+          let orgLimit = 0
+          const { getBillingTierPricing } = await import('@/lib/billing/core/billing')
+          const { usageAllowance } = getBillingTierPricing(billingContext.subscription)
+          if (orgRows.length > 0 && orgRows[0].orgUsageLimit) {
+            const configured = Number.parseFloat(orgRows[0].orgUsageLimit)
+            orgLimit = Math.max(configured, usageAllowance)
+          } else {
+            orgLimit = usageAllowance
           }
-        } else {
-          await this.updateUserStats(
+
+          const orgUsageBeforeNum = billingLedger?.currentPeriodCost ?? 0
+
+          await this.updateUsageLedger(
             updatedLog.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type']
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+
+          const percentBefore =
+            orgLimit > 0 ? Math.min(100, (orgUsageBeforeNum / orgLimit) * 100) : 0
+          const currentUsageAfter = orgUsageBeforeNum + costDelta
+          const percentAfter =
+            orgLimit > 0 ? Math.min(100, (currentUsageAfter / orgLimit) * 100) : percentBefore
+
+          await maybeSendUsageThresholdEmail({
+            scope: 'organization',
+            organizationId: billingContext.scopeId,
+            planName,
+            isFreeTier: false,
+            percentBefore,
+            percentAfter,
+            currentUsageAfter,
+            limit: orgLimit,
+          })
+        } else {
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
           )
         }
-      } else {
-        await this.updateUserStats(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type']
-        )
+      } catch (e) {
+        try {
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+        } catch {}
+        logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
       }
-    } catch (e) {
-      try {
-        await this.updateUserStats(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type']
-        )
-      } catch {}
-      logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
     }
 
     logger.debug(`Completed workflow execution ${executionId}`)
@@ -387,10 +452,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
   }
 
   /**
-   * Updates user stats with cost and token information
-   * Maintains same logic as original execution logger for billing consistency
+   * Updates the active billing ledger with cost and token information.
+   * Maintains the same runtime billing accounting path for both user and organization scopes.
    */
-  private async updateUserStats(
+  private async updateUsageLedger(
     workflowId: string,
     costSummary: {
       totalCost: number
@@ -402,41 +467,72 @@ export class ExecutionLogger implements IExecutionLoggerService {
       baseExecutionCharge: number
       modelCost: number
     },
-    trigger: ExecutionTrigger['type']
+    trigger: ExecutionTrigger['type'],
+    actorUserId?: string | null
   ): Promise<void> {
-    if (!isBillingEnabled) {
-      logger.debug('Billing is disabled, skipping user stats cost update')
+    if (!(await isBillingEnabledForRuntime())) {
+      logger.debug('Billing is disabled, skipping billing ledger cost update')
       return
     }
 
     if (costSummary.totalCost <= 0) {
-      logger.debug('No cost to update in user stats')
+      logger.debug('No cost to update in billing ledger')
       return
     }
 
     try {
-      // Get the workflow record to get the userId
-      const [workflowRecord] = await db
-        .select()
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-
-      if (!workflowRecord) {
-        logger.error(`Workflow ${workflowId} not found for user stats update`)
-        return
-      }
-
-      const userId = workflowRecord.userId
+      const billingContext = await resolveWorkflowBillingContext({
+        workflowId,
+        actorUserId,
+      })
+      const isOrganizationScope = billingContext.scopeType === 'organization'
+      const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
+      const isOrganizationMemberScope =
+        billingContext.scopeType === 'organization_member' && organizationBillingOwner !== null
+      const billingTargetId = isOrganizationScope
+        ? billingContext.scopeId
+        : billingContext.billingUserId
       const costToStore = costSummary.totalCost
 
-      const existing = await db.select().from(userStats).where(eq(userStats.userId, userId))
-      if (existing.length === 0) {
-        logger.error('User stats record not found - should be created during onboarding', {
-          userId,
-          trigger,
-        })
-        return
+      if (isOrganizationScope) {
+        const billingLedger = await getOrganizationBillingLedger(billingTargetId)
+        if (!billingLedger) {
+          logger.error('Billing ledger record not found - should be created during onboarding', {
+            billingTargetId,
+            billingScopeType: billingContext.scopeType,
+            trigger,
+          })
+          return
+        }
+      } else if (isOrganizationMemberScope && organizationBillingOwner) {
+        const organizationId = organizationBillingOwner.organizationId
+        const [organizationLedger, memberLedger] = await Promise.all([
+          getOrganizationBillingLedger(organizationId),
+          getOrganizationMemberBillingLedger(organizationId, billingTargetId),
+        ])
+
+        if (!organizationLedger || !memberLedger) {
+          logger.error('Billing ledger record not found - should be created during onboarding', {
+            billingTargetId,
+            billingScopeType: billingContext.scopeType,
+            organizationId,
+            trigger,
+          })
+          return
+        }
+      } else {
+        const existing = await db
+          .select()
+          .from(userStats)
+          .where(eq(userStats.userId, billingTargetId))
+        if (existing.length === 0) {
+          logger.error('Billing ledger record not found - should be created during onboarding', {
+            billingTargetId,
+            billingScopeType: billingContext.scopeType,
+            trigger,
+          })
+          return
+        }
       }
 
       const updateFields: any = {
@@ -464,24 +560,64 @@ export class ExecutionLogger implements IExecutionLoggerService {
           break
       }
 
-      await db.update(userStats).set(updateFields).where(eq(userStats.userId, userId))
+      if (isOrganizationScope) {
+        updateFields.updatedAt = new Date()
+      }
 
-      logger.debug('Updated user stats record with cost data', {
-        userId,
+      if (isOrganizationScope) {
+        await db
+          .update(organizationBillingLedger)
+          .set(updateFields)
+          .where(eq(organizationBillingLedger.organizationId, billingTargetId))
+      } else if (isOrganizationMemberScope && organizationBillingOwner) {
+        const organizationId = organizationBillingOwner.organizationId
+
+        await Promise.all([
+          db
+            .update(organizationMemberBillingLedger)
+            .set({
+              ...updateFields,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(organizationMemberBillingLedger.organizationId, organizationId),
+                eq(organizationMemberBillingLedger.userId, billingTargetId)
+              )
+            ),
+          db
+            .update(organizationBillingLedger)
+            .set({
+              ...updateFields,
+              updatedAt: new Date(),
+            })
+            .where(eq(organizationBillingLedger.organizationId, organizationId)),
+        ])
+      } else {
+        await db.update(userStats).set(updateFields).where(eq(userStats.userId, billingTargetId))
+      }
+
+      logger.debug('Updated billing ledger record with cost data', {
+        billingTargetId,
+        billingScopeType: billingContext.scopeType,
         trigger,
         addedCost: costToStore,
         addedTokens: costSummary.totalTokens,
       })
 
       // Check if user has hit overage threshold and bill incrementally
-      await checkAndBillOverageThreshold(userId)
+      await checkAndBillOverageThreshold({
+        userId: actorUserId ?? billingContext.billingUserId,
+        workspaceId: billingContext.workspaceId,
+        workflowId,
+      })
     } catch (error) {
-      logger.error('Error updating user stats with cost information', {
+      logger.error('Error updating billing ledger with cost information', {
         workflowId,
         error,
         costSummary,
       })
-      // Don't throw - we want execution to continue even if user stats update fails
+      // Don't throw - we want execution to continue even if billing ledger update fails
     }
   }
 

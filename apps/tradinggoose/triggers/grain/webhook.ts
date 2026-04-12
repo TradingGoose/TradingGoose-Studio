@@ -5,7 +5,7 @@ import { buildGenericOutputs, grainSetupInstructions } from './utils'
 export const grainWebhookTrigger: TriggerConfig = {
   id: 'grain_webhook',
   name: 'Grain Webhook',
-  provider: 'grain',
+  webhookProvider: 'grain',
   description: 'Generic webhook trigger for all Grain events',
   version: '1.0.0',
   icon: GrainIcon,

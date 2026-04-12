@@ -89,15 +89,6 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       placeholder: 'Optional Tradier account ID override',
       condition: { field: 'provider', value: 'tradier' },
     },
-    {
-      id: 'accountUrl',
-      title: 'Account URL',
-      type: 'short-input',
-      layout: 'full',
-      required: false,
-      placeholder: 'Optional Robinhood account URL override',
-      condition: { field: 'provider', value: 'robinhood' },
-    },
   ],
   tools: {
     access: ['trading_order_detail'],
@@ -122,7 +113,6 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
           credential: resolveCredential(),
           environment: params.environment,
           accountId: params.accountId,
-          accountUrl: params.accountUrl,
         }
       },
     },

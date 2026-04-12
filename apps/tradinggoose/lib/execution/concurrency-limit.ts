@@ -1,23 +1,21 @@
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import {
+  resolveWorkflowBillingContext,
+  resolveWorkspaceBillingContext,
+} from '@/lib/billing/workspace-billing'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { env } from '@/lib/env'
 import { getRedisClient } from '@/lib/redis'
 
-const CODE_EXECUTION_CONCURRENT_LIMITS = {
-  free: 1,
-  pro: 2,
-  team: 4,
-  enterprise: 8,
-} as const
-const CONCURRENCY_KEY_PREFIX = 'code_execution_concurrency:user'
+const CONCURRENCY_KEY_PREFIX = 'code_execution_concurrency:scope'
 const CONCURRENCY_TTL_MS = 10 * 60 * 1000
 
-type CodeExecutionTier = keyof typeof CODE_EXECUTION_CONCURRENT_LIMITS
 type ConcurrencyLimitError = Error & {
   code: 'CODE_EXECUTION_CONCURRENCY_LIMIT'
   statusCode: 429
   details: {
     userId: string
-    tier: CodeExecutionTier
+    scopeId: string
+    tier: string
     activeExecutions: number
     maxConcurrentExecutions: number
   }
@@ -28,7 +26,7 @@ type ConcurrencyBackendUnavailableError = Error & {
   statusCode: 503
 }
 
-const activeExecutionsByUser = new Map<string, number>()
+const activeExecutionsByScope = new Map<string, number>()
 type Lease = {
   activeExecutions: number
   release: () => Promise<void>
@@ -58,15 +56,17 @@ redis.call('PEXPIRE', KEYS[1], ttlMs)
 return current
 `
 
-const redisKey = (userId: string) => `${CONCURRENCY_KEY_PREFIX}:${userId}`
+const redisKey = (scopeId: string) => `${CONCURRENCY_KEY_PREFIX}:${scopeId}`
 
 const acquireExecutionLease = async ({
   userId,
+  scopeId,
   tier,
   maxConcurrentExecutions,
 }: {
   userId: string
-  tier: CodeExecutionTier
+  scopeId: string
+  tier: string
   maxConcurrentExecutions: number
 }): Promise<Lease> => {
   const redisConfigured = Boolean(env.REDIS_URL)
@@ -81,7 +81,7 @@ const acquireExecutionLease = async ({
       rawResult = (await redis.eval(
         REDIS_ACQUIRE_SCRIPT,
         1,
-        redisKey(userId),
+        redisKey(scopeId),
         maxConcurrentExecutions.toString(),
         CONCURRENCY_TTL_MS.toString()
       )) as unknown
@@ -101,6 +101,7 @@ const acquireExecutionLease = async ({
     if (acquired !== 1) {
       throw buildConcurrencyLimitError({
         userId,
+        scopeId,
         tier,
         activeExecutions,
         maxConcurrentExecutions,
@@ -111,30 +112,36 @@ const acquireExecutionLease = async ({
       activeExecutions,
       release: async () => {
         try {
-          await redis.eval(REDIS_RELEASE_SCRIPT, 1, redisKey(userId), CONCURRENCY_TTL_MS.toString())
+          await redis.eval(
+            REDIS_RELEASE_SCRIPT,
+            1,
+            redisKey(scopeId),
+            CONCURRENCY_TTL_MS.toString()
+          )
         } catch {}
       },
     }
   }
 
-  const activeExecutions = activeExecutionsByUser.get(userId) ?? 0
+  const activeExecutions = activeExecutionsByScope.get(scopeId) ?? 0
   if (activeExecutions >= maxConcurrentExecutions) {
     throw buildConcurrencyLimitError({
       userId,
+      scopeId,
       tier,
       activeExecutions,
       maxConcurrentExecutions,
     })
   }
-  activeExecutionsByUser.set(userId, activeExecutions + 1)
+  activeExecutionsByScope.set(scopeId, activeExecutions + 1)
   return {
     activeExecutions: activeExecutions + 1,
     release: async () => {
-      const nextActiveExecutions = (activeExecutionsByUser.get(userId) ?? 1) - 1
+      const nextActiveExecutions = (activeExecutionsByScope.get(scopeId) ?? 1) - 1
       if (nextActiveExecutions <= 0) {
-        activeExecutionsByUser.delete(userId)
+        activeExecutionsByScope.delete(scopeId)
       } else {
-        activeExecutionsByUser.set(userId, nextActiveExecutions)
+        activeExecutionsByScope.set(scopeId, nextActiveExecutions)
       }
     },
   }
@@ -150,7 +157,7 @@ export const isCodeExecutionConcurrencyLimitError = (
   )
 
 export const getCodeExecutionConcurrencyLimitMessage = (error: ConcurrencyLimitError) =>
-  `Too many concurrent code executions for your plan. Active: ${error.details.activeExecutions}, limit: ${error.details.maxConcurrentExecutions}.`
+  `Too many concurrent code executions for your billing tier. Active: ${error.details.activeExecutions}, limit: ${error.details.maxConcurrentExecutions}.`
 
 export const isCodeExecutionConcurrencyBackendUnavailableError = (
   error: unknown
@@ -160,11 +167,6 @@ export const isCodeExecutionConcurrencyBackendUnavailableError = (
       typeof error === 'object' &&
       (error as { code?: string }).code === 'CODE_EXECUTION_CONCURRENCY_BACKEND_UNAVAILABLE'
   )
-
-const resolveTier = (plan?: string | null): CodeExecutionTier => {
-  if (plan === 'enterprise' || plan === 'team' || plan === 'pro' || plan === 'free') return plan
-  return 'free'
-}
 
 const buildConcurrencyLimitError = (
   details: ConcurrencyLimitError['details']
@@ -185,20 +187,42 @@ const buildConcurrencyBackendUnavailableError = (): ConcurrencyBackendUnavailabl
 
 export const withCodeExecutionConcurrencyLimit = async <T>({
   userId,
+  workspaceId,
+  workflowId,
   task,
 }: {
   userId?: string
+  workspaceId?: string | null
+  workflowId?: string | null
   task: () => Promise<T>
 }): Promise<T> => {
   if (!userId) {
     return task()
   }
 
-  const subscription = await getHighestPrioritySubscription(userId)
-  const tier = resolveTier(subscription?.plan)
-  const maxConcurrentExecutions = CODE_EXECUTION_CONCURRENT_LIMITS[tier]
+  if (!(await isBillingEnabledForRuntime())) {
+    return task()
+  }
+
+  const billingContext = workflowId
+    ? await resolveWorkflowBillingContext({
+        workflowId,
+        actorUserId: userId,
+      })
+    : await resolveWorkspaceBillingContext({
+        workspaceId,
+        actorUserId: userId,
+      })
+  const tier = billingContext.tier.displayName
+  const maxConcurrentExecutions = billingContext.tier.concurrencyLimit
+
+  if (maxConcurrentExecutions === null || maxConcurrentExecutions < 0) {
+    throw new Error(`Billing tier ${tier} is missing concurrencyLimit`)
+  }
+
   const leaseResult = await acquireExecutionLease({
     userId,
+    scopeId: billingContext.scopeId,
     tier,
     maxConcurrentExecutions,
   })

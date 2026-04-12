@@ -127,6 +127,41 @@
       "when": 1775425889692,
       "tag": "0017_parched_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775689043608,
+      "tag": "0018_natural_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775715871799,
+      "tag": "0019_jazzy_sabra",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775763959628,
+      "tag": "0020_breezy_jean_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775881524840,
+      "tag": "0021_goofy_roxanne_simpson",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1775924527489,
+      "tag": "0022_loud_donald_blake",
+      "breakpoints": true
     }
   ]
 }

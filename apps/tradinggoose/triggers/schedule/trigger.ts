@@ -5,7 +5,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const scheduleTrigger: TriggerConfig = {
   id: 'schedule',
   name: 'Schedule',
-  provider: 'schedule',
+  webhookProvider: 'schedule',
   description: 'Trigger workflow execution on a schedule',
   version: '1.0.0',
   icon: Clock,

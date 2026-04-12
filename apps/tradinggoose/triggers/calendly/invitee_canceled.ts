@@ -5,7 +5,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const calendlyInviteeCanceledTrigger: TriggerConfig = {
   id: 'calendly_invitee_canceled',
   name: 'Calendly Invitee Canceled',
-  provider: 'calendly',
+  webhookProvider: 'calendly',
   description: 'Trigger workflow when someone cancels a scheduled event on Calendly',
   version: '1.0.0',
   icon: CalendlyIcon,

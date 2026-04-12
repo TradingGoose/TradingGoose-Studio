@@ -79,8 +79,7 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
       title: defaultTitle,
       description: summaryFull,
       images: [brand.logoUrl || '/favicon/web-app-manifest-512x512.png'],
-      creator: '@tradinggoose',
-      site: '@tradinggoose',
+      creator: '@BruzWJ',
     },
     manifest: '/manifest.webmanifest',
     icons: {
@@ -137,7 +136,6 @@ export function generateStructuredData() {
     sameAs: [
       'https://github.com/TradingGoose/TradingGoose-Studio',
       'https://docs.tradinggoose.ai',
-      'https://x.com/tradinggoose',
       'https://discord.gg/wavf5JWhuT',
     ],
     applicationCategory: 'FinanceApplication',
@@ -156,7 +154,6 @@ export function generateStructuredData() {
       url: 'https://tradinggoose.ai',
       sameAs: [
         'https://github.com/TradingGoose/TradingGoose-Studio',
-        'https://x.com/tradinggoose',
         'https://discord.gg/wavf5JWhuT',
       ],
     },

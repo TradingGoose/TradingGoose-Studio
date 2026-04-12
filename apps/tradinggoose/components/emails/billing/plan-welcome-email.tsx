@@ -1,13 +1,22 @@
-import * as React from 'react'
-import { Body, Container, Head, Hr, Html, Link, Preview, Section, Text } from '@react-email/components'
-import { getBrandConfig } from '@/lib/branding/branding'
-import { getBaseUrl } from '@/lib/urls/utils'
+import {
+  Body,
+  Container,
+  Head,
+  Hr,
+  Html,
+  Link,
+  Preview,
+  Section,
+  Text,
+} from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
+import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface PlanWelcomeEmailProps {
-  planName: 'Pro' | 'Team'
+  planName: string
   userName?: string
   loginLink?: string
   createdDate?: Date
@@ -23,7 +32,7 @@ export function PlanWelcomeEmail({
   const baseUrl = getBaseUrl()
   const cta = loginLink || `${baseUrl}/login`
 
-  const previewText = `${brand.name}: Your ${planName} plan is active`
+  const previewText = `${brand.name}: Your ${planName} tier is active`
 
   return (
     <Html>
@@ -34,12 +43,12 @@ export function PlanWelcomeEmail({
           <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.title}>{planName} plan activated</Text>
+            <Text style={baseStyles.title}>{planName} tier activated</Text>
             <Text style={{ ...baseStyles.paragraph, marginTop: 0 }}>
               {userName ? `Welcome, ${userName}!` : 'Welcome!'}
             </Text>
             <Text style={baseStyles.paragraph}>
-              You&apos;re all set on the <strong>{planName}</strong> plan for {brand.name}. Explore
+              You&apos;re all set on the <strong>{planName}</strong> tier for {brand.name}. Explore
               your new limits and ship faster with your team.
             </Text>
 
@@ -49,7 +58,13 @@ export function PlanWelcomeEmail({
                   <tr>
                     <td align='center'>
                       <Link href={cta} style={{ textDecoration: 'none' }}>
-                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                        <Text
+                          style={{
+                            ...baseStyles.button,
+                            display: 'inline-block',
+                            margin: '22px 0',
+                          }}
+                        >
                           Open {brand.name}
                         </Text>
                       </Link>
@@ -60,7 +75,7 @@ export function PlanWelcomeEmail({
             </Section>
 
             <Text style={baseStyles.paragraph}>
-              Want to discuss your plan or get personalized help getting started?{' '}
+              Want to discuss your tier or get personalized help getting started?{' '}
               <Link href='https://cal.com/waleedlatif/15min' style={baseStyles.link}>
                 Schedule a 15-minute call
               </Link>{' '}
@@ -70,7 +85,8 @@ export function PlanWelcomeEmail({
             <Hr style={{ borderColor: '#1f202a', margin: '18px 0' }} />
 
             <Text style={baseStyles.paragraph}>
-              Need to invite teammates, adjust usage limits, or manage billing? Visit Settings {'->'}
+              Need to invite teammates, adjust usage limits, or manage billing? Visit Settings{' '}
+              {'->'}
               Subscription anytime.
             </Text>
 

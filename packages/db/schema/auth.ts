@@ -1,4 +1,4 @@
-import { index, json, jsonb, pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { boolean, index, json, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { organization, user } from './core'
 
 export const session = pgTable(
@@ -62,14 +62,6 @@ export const verification = pgTable(
     identifierIdx: index('verification_identifier_idx').on(table.identifier),
   })
 )
-
-export const waitlist = pgTable('waitlist', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  status: text('status').notNull().default('pending'), // pending, approved, rejected
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
 
 export const settings = pgTable('settings', {
   id: text('id').primaryKey(), // Use the user id as the key

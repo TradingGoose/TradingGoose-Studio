@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const slackWebhookTrigger: TriggerConfig = {
   id: 'slack_webhook',
   name: 'Slack Webhook',
-  provider: 'slack',
+  webhookProvider: 'slack',
   description: 'Trigger workflow from Slack events like mentions, messages, and reactions',
   version: '1.0.0',
   icon: SlackIcon,

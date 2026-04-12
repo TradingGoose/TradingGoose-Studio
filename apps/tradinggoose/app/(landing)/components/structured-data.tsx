@@ -1,3 +1,6 @@
+import { getPublicBillingCatalog } from '@/lib/billing/catalog'
+import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
+
 interface GitHubStats {
   stars: number | null
   forks: number | null
@@ -6,14 +9,11 @@ interface GitHubStats {
 
 async function fetchGitHubStats(): Promise<GitHubStats> {
   try {
-    const res = await fetch(
-      'https://api.github.com/repos/TradingGoose/TradingGoose-Studio',
-      {
-        headers: { Accept: 'application/vnd.github+json' },
-        // Revalidate daily — stars change slowly and API has rate limits.
-        next: { revalidate: 86400 },
-      }
-    )
+    const res = await fetch('https://api.github.com/repos/TradingGoose/TradingGoose-Studio', {
+      headers: { Accept: 'application/vnd.github+json' },
+      // Revalidate daily — stars change slowly and API has rate limits.
+      next: { revalidate: 86400 },
+    })
     if (!res.ok) return { stars: null, forks: null, subscribers: null }
     const data = (await res.json()) as {
       stargazers_count?: number
@@ -59,9 +59,92 @@ function buildInteractionCounters(stats: GitHubStats) {
   return counters
 }
 
+function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBillingCatalog>>) {
+  if (!catalog.billingEnabled) {
+    return []
+  }
+
+  const offers: Array<Record<string, unknown>> = catalog.publicTiers.map((tier) => {
+    const baseOffer: Record<string, unknown> = {
+      '@type': 'Offer',
+      '@id': `https://tradinggoose.ai/#offer-${tier.id}`,
+      name: tier.displayName,
+      description: tier.description,
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': 'https://tradinggoose.ai/#organization' },
+      eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
+    }
+
+    const hasMonthlyPrice = (tier.monthlyPriceUsd ?? 0) > 0
+    const hasYearlyPrice = (tier.yearlyPriceUsd ?? 0) > 0
+
+    if (!hasMonthlyPrice && !hasYearlyPrice) {
+      return {
+        ...baseOffer,
+        price: '0',
+        priceCurrency: 'USD',
+      }
+    }
+
+    if (hasYearlyPrice && !hasMonthlyPrice) {
+      return {
+        ...baseOffer,
+        price: `${tier.yearlyPriceUsd ?? 0}`,
+        priceCurrency: 'USD',
+        priceSpecification: {
+          '@type': 'UnitPriceSpecification',
+          price: `${tier.yearlyPriceUsd ?? 0}`,
+          priceCurrency: 'USD',
+          unitText: 'YEAR',
+          billingIncrement: 1,
+        },
+      }
+    }
+
+    return {
+      ...baseOffer,
+      price: `${tier.monthlyPriceUsd ?? 0}`,
+      priceCurrency: 'USD',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: `${tier.monthlyPriceUsd ?? 0}`,
+        priceCurrency: 'USD',
+        unitText: 'MONTH',
+        billingIncrement: 1,
+      },
+    }
+  })
+
+  if (catalog.enterprisePlaceholder) {
+    offers.push({
+      '@type': 'Offer',
+      '@id': 'https://tradinggoose.ai/#offer-enterprise',
+      name: catalog.enterprisePlaceholder.displayName,
+      description: catalog.enterprisePlaceholder.description,
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': 'https://tradinggoose.ai/#organization' },
+      eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
+      ...(catalog.enterprisePlaceholder.contactUrl
+        ? { url: catalog.enterprisePlaceholder.contactUrl }
+        : {}),
+    })
+  }
+
+  return offers
+}
+
 export default async function StructuredData() {
-  const githubStats = await fetchGitHubStats()
+  const [githubStats, billingCatalog] = await Promise.all([
+    fetchGitHubStats(),
+    getPublicBillingCatalog(),
+  ])
   const interactionStatistic = buildInteractionCounters(githubStats)
+  const pricingNarrative = billingCatalog.billingEnabled
+    ? buildHostedPricingNarrative(billingCatalog)
+    : ''
+  const pricingFaqText = pricingNarrative
+    ? `${pricingNarrative} Self-hosting the open-source Studio edition is free under the project license.`
+    : 'Self-hosting the open-source Studio edition is free under the project license.'
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -74,7 +157,7 @@ export default async function StructuredData() {
         description:
           'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. It is a drag-and-drop workflow builder for custom indicators, live market monitors, and AI agent automations — not to be confused with the older TradingGoose multi-agent research framework.',
         url: 'https://tradinggoose.ai',
-        foundingDate: '2025',
+        foundingDate: '2026-04-04',
         knowsAbout: [
           'Algorithmic trading',
           'LLM trading agents',
@@ -95,7 +178,6 @@ export default async function StructuredData() {
         },
         image: { '@id': 'https://tradinggoose.ai/#logo' },
         sameAs: [
-          'https://x.com/tradinggoose',
           'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://discord.gg/wavf5JWhuT',
           'https://docs.tradinggoose.ai',
@@ -183,56 +265,7 @@ export default async function StructuredData() {
         applicationSubCategory: 'Trading Platform',
         operatingSystem: 'Web, Windows, macOS, Linux',
         softwareVersion: '2026.04.04',
-        offers: [
-          {
-            '@type': 'Offer',
-            '@id': 'https://tradinggoose.ai/#offer-community',
-            name: 'Community',
-            description:
-              'For individuals exploring indicators, AI workflows, and strategy prototyping.',
-            price: '0',
-            priceCurrency: 'USD',
-            availability: 'https://schema.org/InStock',
-            seller: { '@id': 'https://tradinggoose.ai/#organization' },
-            eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
-          },
-          {
-            '@type': 'Offer',
-            '@id': 'https://tradinggoose.ai/#offer-pro',
-            name: 'Pro',
-            description:
-              'For active users who need higher throughput, more storage, and unlimited workspaces.',
-            price: '20',
-            priceCurrency: 'USD',
-            priceSpecification: {
-              '@type': 'UnitPriceSpecification',
-              price: '20',
-              priceCurrency: 'USD',
-              unitText: 'MONTH',
-              billingIncrement: 1,
-            },
-            availability: 'https://schema.org/InStock',
-            seller: { '@id': 'https://tradinggoose.ai/#organization' },
-          },
-          {
-            '@type': 'Offer',
-            '@id': 'https://tradinggoose.ai/#offer-team',
-            name: 'Team',
-            description:
-              'For teams sharing workflows, pooled storage, and a dedicated support channel.',
-            price: '40',
-            priceCurrency: 'USD',
-            priceSpecification: {
-              '@type': 'UnitPriceSpecification',
-              price: '40',
-              priceCurrency: 'USD',
-              unitText: 'MONTH',
-              billingIncrement: 1,
-            },
-            availability: 'https://schema.org/InStock',
-            seller: { '@id': 'https://tradinggoose.ai/#organization' },
-          },
-        ],
+        offers: buildStructuredOffers(billingCatalog),
         featureList: [
           'Visual workflow canvas for trading strategies',
           'Custom indicator editor (PineTS)',
@@ -300,7 +333,7 @@ export default async function StructuredData() {
             name: 'How much does TradingGoose cost?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'TradingGoose offers four tiers. Community is free for individuals exploring indicators and AI workflows. Pro is $20/month for active users who need higher throughput and unlimited workspaces. Team is $40/month for teams sharing workflows with pooled storage. Enterprise is custom-priced. Self-hosting the open-source Studio edition is free under the project license.',
+              text: pricingFaqText,
             },
           },
           {
@@ -340,7 +373,8 @@ export default async function StructuredData() {
       {
         '@type': 'Article',
         '@id': 'https://tradinggoose.ai/#article-disambiguation',
-        headline: 'TradingGoose Studio: open-source visual workflow platform for LLM-driven trading',
+        headline:
+          'TradingGoose Studio: open-source visual workflow platform for LLM-driven trading',
         description:
           'Canonical reference page for TradingGoose Studio. This is the drag-and-drop workflow builder with PineTS custom indicators, live market monitors, and AI agent automation — distinct from the older TradingGoose multi-agent LLM research framework.',
         author: { '@id': 'https://tradinggoose.ai/#organization' },

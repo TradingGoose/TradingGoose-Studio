@@ -30,9 +30,9 @@ export interface Organization {
 
 export interface Subscription {
   id: string
-  plan: string
   status: string
   seats?: number
+  referenceType?: 'user' | 'organization'
   referenceId: string
   cancelAtPeriodEnd?: boolean
   periodEnd?: number | Date
@@ -50,6 +50,7 @@ export interface Workspace {
   id: string
   name: string
   ownerId: string
+  billingOwner?: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
   isOwner: boolean
   canInvite: boolean
 }
@@ -76,14 +77,14 @@ export interface MemberUsageData {
 export interface OrganizationBillingData {
   organizationId: string
   organizationName: string
-  subscriptionPlan: string
+  subscriptionTierName: string
   subscriptionStatus: string
   totalSeats: number
   usedSeats: number
   seatsCount: number
   totalCurrentUsage: number
   totalUsageLimit: number
-  minimumBillingAmount: number
+  minimumUsageLimit: number
   averageUsagePerMember: number
   billingPeriodStart: string | null
   billingPeriodEnd: string | null
@@ -127,10 +128,6 @@ export interface OrganizationState {
   lastFetched: number | null
   lastSubscriptionFetched: number | null
   lastOrgBillingFetched: number | null
-
-  // User permissions
-  hasTeamPlan: boolean
-  hasEnterprisePlan: boolean
 }
 
 export interface OrganizationStore extends OrganizationState {
@@ -153,8 +150,6 @@ export interface OrganizationStore extends OrganizationState {
   // Seat management
   addSeats: (newSeatCount: number) => Promise<void>
   reduceSeats: (newSeatCount: number) => Promise<void>
-
-  transferSubscriptionToOrganization: (orgId: string) => Promise<void>
 
   getUserRole: (userEmail?: string) => string
   isAdminOrOwner: (userEmail?: string) => boolean

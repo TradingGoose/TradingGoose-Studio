@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createMcpErrorResponse } from '@/lib/mcp/utils'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
@@ -43,7 +43,7 @@ async function validateMcpAuth(
   const requestId = generateRequestId()
 
   try {
-    const auth = await checkHybridAuth(request, { requireWorkflowId: false })
+    const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
     if (!auth.success || !auth.userId) {
       logger.warn(`[${requestId}] Authentication failed: ${auth.error}`)
       return {

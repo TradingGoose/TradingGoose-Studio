@@ -21,7 +21,12 @@ export const isTest = env.NODE_ENV === 'test'
 /**
  * Is this the hosted version of the application
  */
-const HOSTED_HOSTNAMES = ['www.tradinggoose.ai', 'tradinggoose.ai', 'preview.tradinggoose.ai', 'staging.tradinggoose.ai']
+const HOSTED_HOSTNAMES = [
+  'www.tradinggoose.ai',
+  'tradinggoose.ai',
+  'preview.tradinggoose.ai',
+  'staging.tradinggoose.ai',
+]
 
 function extractHostname(url: string | undefined): string {
   if (!url) return ''
@@ -35,18 +40,6 @@ function extractHostname(url: string | undefined): string {
 export const isHosted = HOSTED_HOSTNAMES.includes(extractHostname(getEnv('NEXT_PUBLIC_APP_URL')))
 
 /**
- * Is billing enforcement enabled
- */
-export const isBillingEnabled = isTruthy(env.NEXT_PUBLIC_BILLING_ENABLED)
-
-/**
  * Is email verification enabled
  */
 export const isEmailVerificationEnabled = isTruthy(env.EMAIL_VERIFICATION_ENABLED)
-
-/**
- * Get cost multiplier based on environment
- */
-export function getCostMultiplier(): number {
-  return isProd ? (env.COST_MULTIPLIER ?? 1) : 1
-}

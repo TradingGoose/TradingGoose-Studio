@@ -8,7 +8,10 @@ import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
+import {
+  loadDeployedWorkflowState,
+  loadWorkflowFromNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'
 import { Serializer } from '@/serializer'
@@ -21,6 +24,9 @@ export type WorkflowExecutionPayload = {
   userId: string
   input?: any
   triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
+  startBlockId?: string
+  executionTarget?: 'deployed' | 'live'
+  triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
 }
 
@@ -40,11 +46,15 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
 
   try {
-    const usageCheck = await checkServerSideUsageLimits(payload.userId)
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: payload.userId,
+      workflowId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${payload.userId} has exceeded usage limits. Skipping workflow execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping workflow execution.`,
         {
+          actorUserId: payload.userId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
@@ -52,12 +62,19 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       )
       throw new Error(
         usageCheck.message ||
-        'Usage limit exceeded. Please upgrade your plan to continue using workflows.'
+          'Usage limit exceeded. Please upgrade your billing tier to continue using workflows.'
       )
     }
 
-    // Load workflow data from deployed state (this task is only used for API executions right now)
-    const workflowData = await loadDeployedWorkflowState(workflowId)
+    const workflowData =
+      payload.executionTarget === 'live'
+        ? await loadWorkflowFromNormalizedTables(workflowId)
+        : await loadDeployedWorkflowState(workflowId)
+    if (!workflowData) {
+      throw new Error(
+        `Workflow ${workflowId} has no ${payload.executionTarget ?? 'deployed'} state`
+      )
+    }
 
     const { blocks, edges, loops, parallels } = workflowData
 
@@ -94,6 +111,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       userId: payload.userId,
       workspaceId: workspaceId || '',
       variables: decryptedEnvVars,
+      triggerData: payload.triggerData,
     })
 
     // Create serialized workflow
@@ -116,14 +134,31 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       contextExtensions: {
         executionId,
         workspaceId: workspaceId || '',
-        isDeployedContext: true,
+        userId: payload.userId,
+        isDeployedContext: payload.executionTarget !== 'live',
       },
     })
 
     // Set up logging on the executor
     loggingSession.setupExecutor(executor)
 
-    const result = await executor.execute(workflowId)
+    const startBlockId = payload.startBlockId
+    if (startBlockId && !mergedStates[startBlockId]) {
+      throw new Error(`Workflow ${workflowId} does not contain trigger block ${startBlockId}`)
+    }
+
+    if (startBlockId) {
+      const outgoingConnections = serializedWorkflow.connections.filter(
+        (connection) => connection.source === startBlockId
+      )
+      if (outgoingConnections.length === 0) {
+        throw new Error(
+          `Trigger block ${startBlockId} must be connected to other blocks to execute`
+        )
+      }
+    }
+
+    const result = await executor.execute(workflowId, startBlockId)
 
     // Handle streaming vs regular result
     const executionResult = 'stream' in result && 'execution' in result ? result.execution : result

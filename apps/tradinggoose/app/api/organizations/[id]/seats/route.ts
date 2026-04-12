@@ -4,14 +4,15 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { getOrganizationSubscription } from '@/lib/billing/core/billing'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { isBillingEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationSeatsAPI')
 
 const updateSeatsSchema = z.object({
-  seats: z.number().int().min(1, 'Minimum 1 seat required').max(50, 'Maximum 50 seats allowed'),
+  seats: z.number().int().min(1, 'Minimum 1 seat required'),
 })
 
 /**
@@ -27,7 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!isBillingEnabled) {
+    if (!(await isBillingEnabledForRuntime())) {
       return NextResponse.json({ error: 'Billing is not enabled' }, { status: 400 })
     }
 
@@ -61,22 +62,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Get the organization's subscription
-    const subscriptionRecord = await db
-      .select()
-      .from(subscription)
-      .where(and(eq(subscription.referenceId, organizationId), eq(subscription.status, 'active')))
-      .limit(1)
+    const orgSubscription = await getOrganizationSubscription(organizationId)
 
-    if (subscriptionRecord.length === 0) {
+    if (!orgSubscription) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
     }
 
-    const orgSubscription = subscriptionRecord[0]
-
-    // Only team plans support seat changes (not enterprise - those are handled manually)
-    if (orgSubscription.plan !== 'team') {
+    if (
+      orgSubscription.tier.ownerType !== 'organization' ||
+      orgSubscription.tier.seatMode !== 'adjustable'
+    ) {
       return NextResponse.json(
-        { error: 'Seat changes are only available for Team plans' },
+        { error: 'Seat changes are only available for adjustable-seat billing tiers' },
+        { status: 400 }
+      )
+    }
+
+    const seatCount = orgSubscription.tier.seatCount ?? 1
+    const seatMaximum = orgSubscription.tier.seatMaximum
+
+    if (newSeatCount < seatCount) {
+      return NextResponse.json(
+        { error: `Minimum ${seatCount} seat${seatCount === 1 ? '' : 's'} required` },
+        { status: 400 }
+      )
+    }
+
+    if (seatMaximum !== null && newSeatCount > seatMaximum) {
+      return NextResponse.json(
+        { error: `Maximum ${seatMaximum} seats allowed for this tier` },
         { status: 400 }
       )
     }
@@ -104,7 +118,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const currentSeats = orgSubscription.seats || 1
+    const currentSeats = Math.max(orgSubscription.seats || seatCount || 1, 1)
 
     // If no change, return early
     if (newSeatCount === currentSeats) {
@@ -129,7 +143,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Stripe subscription is not active' }, { status: 400 })
     }
 
-    // Find the subscription item (there should be only one for team plans)
+    // Find the single Stripe subscription item that represents this adjustable-seat tier.
     const subscriptionItem = stripeSubscription.items.data[0]
 
     if (!subscriptionItem) {
@@ -253,14 +267,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Get subscription data
-    const subscriptionRecord = await db
-      .select()
-      .from(subscription)
-      .where(and(eq(subscription.referenceId, organizationId), eq(subscription.status, 'active')))
-      .limit(1)
+    const orgSubscription = await getOrganizationSubscription(organizationId)
 
-    if (subscriptionRecord.length === 0) {
+    if (!orgSubscription) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
     }
 
@@ -270,8 +279,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .from(member)
       .where(eq(member.organizationId, organizationId))
 
-    const orgSubscription = subscriptionRecord[0]
-    const maxSeats = orgSubscription.seats || 1
+    const maxSeats = Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
     const usedSeats = memberCount.length
     const availableSeats = Math.max(0, maxSeats - usedSeats)
 
@@ -281,8 +289,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         maxSeats,
         usedSeats,
         availableSeats,
-        plan: orgSubscription.plan,
-        canModifySeats: orgSubscription.plan === 'team',
+        tier: orgSubscription.tier.displayName,
+        canModifySeats:
+          orgSubscription.tier.ownerType === 'organization' &&
+          orgSubscription.tier.seatMode === 'adjustable',
+        seatMode: orgSubscription.tier.seatMode,
+        seatMaximum: orgSubscription.tier.seatMaximum,
       },
     })
   } catch (error) {

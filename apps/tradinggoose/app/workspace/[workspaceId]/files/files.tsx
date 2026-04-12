@@ -29,7 +29,6 @@ import {
   formatFileSize,
   formatStorageSize,
   GRADIENT_TEXT_STYLES,
-  PLAN_NAMES,
   truncateMiddle,
 } from '@/app/workspace/[workspaceId]/files/utils'
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
@@ -52,7 +51,8 @@ export function WorkspaceFiles() {
     uploadProgress,
     storageInfo,
     storageLoading,
-    planName,
+    tierDisplayName,
+    isPaidTier,
     uploadFiles,
     downloadFile,
     deleteFile,
@@ -64,8 +64,6 @@ export function WorkspaceFiles() {
     const q = search.toLowerCase()
     return files.filter((f) => f.name.toLowerCase().includes(q))
   }, [files, search])
-
-  const displayPlanName = PLAN_NAMES[planName as keyof typeof PLAN_NAMES] || 'Free'
 
   const uploadButtonLabel =
     uploading && uploadProgress.total > 0
@@ -115,12 +113,9 @@ export function WorkspaceFiles() {
         <div className='flex flex-col items-end gap-1'>
           <div className='flex items-center gap-2 text-sm'>
             <span
-              className={cn(
-                'font-medium',
-                planName === 'free' ? 'text-foreground' : GRADIENT_TEXT_STYLES
-              )}
+              className={cn('font-medium', isPaidTier ? GRADIENT_TEXT_STYLES : 'text-foreground')}
             >
-              {displayPlanName}
+              {tierDisplayName}
             </span>
             <span className='text-muted-foreground tabular-nums'>
               {formatStorageSize(storageInfo.usedBytes)} /{' '}
@@ -300,7 +295,7 @@ export function WorkspaceFiles() {
                                     {formatDisplayDate(file.uploadedAt)}
                                   </td>
                                   <td className='px-4 py-3'>
-                                    <div className='flex items-center justify-centergap-1.5'>
+                                    <div className='flex items-center justify-center gap-1.5'>
                                       <Button
                                         variant='ghost'
                                         size='icon'

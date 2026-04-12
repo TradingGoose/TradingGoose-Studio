@@ -5,7 +5,7 @@ import { buildRecordingOutputs, grainSetupInstructions } from './utils'
 export const grainRecordingCreatedTrigger: TriggerConfig = {
   id: 'grain_recording_created',
   name: 'Grain Recording Created',
-  provider: 'grain',
+  webhookProvider: 'grain',
   description: 'Trigger workflow when a new recording is added in Grain',
   version: '1.0.0',
   icon: GrainIcon,

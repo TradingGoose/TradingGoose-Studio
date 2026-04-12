@@ -5,7 +5,12 @@ import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import {
+  getBillingContextResolutionMessage,
+  resolveWorkspaceBillingContext,
+  toRateLimitBillingScope,
+} from '@/lib/billing/workspace-billing'
 import { env } from '@/lib/env'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { processExecutionFiles } from '@/lib/execution/files'
@@ -13,7 +18,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret, generateRequestId } from '@/lib/utils'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import {
@@ -21,6 +25,7 @@ import {
   updateWorkflowRunCounts,
   workflowHasResponseBlock,
 } from '@/lib/workflows/utils'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { Executor } from '@/executor'
@@ -56,6 +61,28 @@ class UsageLimitError extends Error {
   constructor(message: string, statusCode = 402) {
     super(message)
     this.statusCode = statusCode
+  }
+}
+
+async function resolveExecutionBillingContext(params: {
+  requestId: string
+  workflowId: string
+  workspaceId?: string | null
+  actorUserId: string
+}) {
+  try {
+    return await resolveWorkspaceBillingContext({
+      workspaceId: params.workspaceId,
+      actorUserId: params.actorUserId,
+    })
+  } catch (error) {
+    logger.warn(`[${params.requestId}] Failed to resolve workflow billing context`, {
+      workflowId: params.workflowId,
+      workspaceId: params.workspaceId,
+      actorUserId: params.actorUserId,
+      error,
+    })
+    throw new UsageLimitError(getBillingContextResolutionMessage(error))
   }
 }
 
@@ -135,14 +162,20 @@ export async function executeWorkflow(
   const triggerType: TriggerType = streamConfig?.workflowTriggerType || 'api'
   const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
 
-  const usageCheck = await checkServerSideUsageLimits(actorUserId)
+  const usageCheck = await checkServerSideUsageLimits({
+    userId: actorUserId,
+    workflowId,
+    workspaceId: workflow.workspaceId,
+  })
   if (usageCheck.isExceeded) {
-    logger.warn(`[${requestId}] User ${workflow.userId} has exceeded usage limits`, {
+    logger.warn(`[${requestId}] Workspace billing subject has exceeded usage limits`, {
+      actorUserId,
       currentUsage: usageCheck.currentUsage,
       limit: usageCheck.limit,
+      workflowId,
     })
     throw new UsageLimitError(
-      usageCheck.message || 'Usage limit exceeded. Please upgrade your plan to continue.'
+      usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
     )
   }
 
@@ -315,6 +348,7 @@ export async function executeWorkflow(
     const contextExtensions: any = {
       executionId,
       workspaceId: workflow.workspaceId,
+      userId: actorUserId,
       isDeployedContext: true,
     }
 
@@ -431,18 +465,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           void updateApiKeyLastUsed(auth.keyId).catch(() => {})
         }
 
-        const userSubscription = await getHighestPrioritySubscription(actorUserId)
-        const rateLimiter = new RateLimiter()
-        const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-          actorUserId,
-          userSubscription,
-          'api',
-          false
-        )
-        if (!rateLimitCheck.allowed) {
-          throw new RateLimitError(
-            `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
+        if (await isBillingEnabledForRuntime()) {
+          const billingContext = await resolveExecutionBillingContext({
+            requestId,
+            workflowId: validation.workflow.id,
+            workspaceId: validation.workflow.workspaceId,
+            actorUserId,
+          })
+          const rateLimiter = new RateLimiter()
+          const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
+            billingContext.billingUserId,
+            billingContext.subscription,
+            'api',
+            false,
+            toRateLimitBillingScope(billingContext, actorUserId)
           )
+
+          if (!rateLimitCheck.allowed) {
+            throw new RateLimitError(
+              `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
+            )
+          }
         }
       }
 
@@ -669,37 +712,46 @@ export async function POST(
       }
     }
 
-    const userSubscription = await getHighestPrioritySubscription(authenticatedUserId)
+    const billingEnabled = await isBillingEnabledForRuntime()
 
     if (isAsync) {
       try {
-        const rateLimiter = new RateLimiter()
-        const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-          authenticatedUserId,
-          userSubscription,
-          'api',
-          true
-        )
-
-        if (!rateLimitCheck.allowed) {
-          logger.warn(`[${requestId}] Rate limit exceeded for async execution`, {
-            userId: authenticatedUserId,
-            remaining: rateLimitCheck.remaining,
-            resetAt: rateLimitCheck.resetAt,
+        if (billingEnabled) {
+          const billingContext = await resolveExecutionBillingContext({
+            requestId,
+            workflowId,
+            workspaceId: validation.workflow.workspaceId,
+            actorUserId: authenticatedUserId,
           })
+          const rateLimiter = new RateLimiter()
+          const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
+            billingContext.billingUserId,
+            billingContext.subscription,
+            'api',
+            true,
+            toRateLimitBillingScope(billingContext, authenticatedUserId)
+          )
 
-          return new Response(
-            JSON.stringify({
-              error: 'Rate limit exceeded',
-              message: `You have exceeded your async execution limit. ${rateLimitCheck.remaining} requests remaining. Limit resets at ${rateLimitCheck.resetAt}.`,
+          if (!rateLimitCheck.allowed) {
+            logger.warn(`[${requestId}] Rate limit exceeded for async execution`, {
+              userId: authenticatedUserId,
               remaining: rateLimitCheck.remaining,
               resetAt: rateLimitCheck.resetAt,
-            }),
-            {
-              status: 429,
-              headers: { 'Content-Type': 'application/json' },
-            }
-          )
+            })
+
+            return new Response(
+              JSON.stringify({
+                error: 'Rate limit exceeded',
+                message: `You have exceeded your async execution limit. ${rateLimitCheck.remaining} requests remaining. Limit resets at ${rateLimitCheck.resetAt}.`,
+                remaining: rateLimitCheck.remaining,
+                resetAt: rateLimitCheck.resetAt,
+              }),
+              {
+                status: 429,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
+          }
         }
 
         const handle = await tasks.trigger('workflow-execution', {
@@ -730,24 +782,36 @@ export async function POST(
           }
         )
       } catch (error: any) {
+        if (error instanceof UsageLimitError) {
+          return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
+        }
         logger.error(`[${requestId}] Failed to create Trigger.dev task:`, error)
         return createErrorResponse('Failed to queue workflow execution', 500)
       }
     }
 
     try {
-      const rateLimiter = new RateLimiter()
-      const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-        authenticatedUserId,
-        userSubscription,
-        triggerType,
-        false
-      )
-
-      if (!rateLimitCheck.allowed) {
-        throw new RateLimitError(
-          `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
+      if (billingEnabled) {
+        const billingContext = await resolveExecutionBillingContext({
+          requestId,
+          workflowId,
+          workspaceId: validation.workflow.workspaceId,
+          actorUserId: authenticatedUserId,
+        })
+        const rateLimiter = new RateLimiter()
+        const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
+          billingContext.billingUserId,
+          billingContext.subscription,
+          triggerType,
+          false,
+          toRateLimitBillingScope(billingContext, authenticatedUserId)
         )
+
+        if (!rateLimitCheck.allowed) {
+          throw new RateLimitError(
+            `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
+          )
+        }
       }
 
       if (streamResponse) {

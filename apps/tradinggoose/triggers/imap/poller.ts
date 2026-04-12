@@ -8,7 +8,7 @@ const logger = createLogger('ImapPollingTrigger')
 export const imapPollingTrigger: TriggerConfig = {
   id: 'imap_poller',
   name: 'IMAP Email Trigger',
-  provider: 'imap',
+  webhookProvider: 'imap',
   description: 'Triggers when new emails are received via IMAP (works with any email provider)',
   version: '1.0.0',
   icon: MailServerIcon,

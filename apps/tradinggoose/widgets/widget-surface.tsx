@@ -2,13 +2,13 @@
 
 import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
-import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
-import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
-import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
+import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
+import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
+import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 
 type HeaderSlotContent = ReactNode | ReactNode[]
 type WidgetSurfaceHeader = Partial<WidgetHeaderSlots>
@@ -95,15 +95,15 @@ function WidgetSurfaceComponent({
   return (
     <div className='box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 basis-0 p-1'>
       <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
-        <header className='text-accent-foreground border-border/80 border-b bg-muted/40'>
+        <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >
-            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground items-center text-sm py-0.5'>
-              <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap text-left pl-1'>
+            <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left'>
                 <PairColorDropdown color={pairColor} onChange={handlePairColorSelect} />
                 <WidgetSelector
                   currentKey={widgetKey}
@@ -112,10 +112,10 @@ function WidgetSurfaceComponent({
                 />
                 {renderHeaderSlot(header?.left ?? registryHeader?.left)}
               </div>
-              <div className='flex h-8 flex-grow basis-0 items-center justify-center gap-1 whitespace-nowrap  text-center'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-center gap-1 whitespace-nowrap text-center'>
                 {renderHeaderSlot(header?.center ?? registryHeader?.center)}
               </div>
-              <div className='flex h-8 flex-grow basis-0 items-center justify-end gap-1 whitespace-nowrap text-right pr-1'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-end gap-1 whitespace-nowrap pr-1 text-right'>
                 {renderHeaderSlot(header?.right ?? registryHeader?.right)}
                 {onPanelSplit || onPanelSplitHorizontal || onPanelClose ? (
                   <WidgetActionMenu

@@ -25,7 +25,7 @@ const resolveHoldingsRequest = (params: TradingHoldingsParams) => {
 export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldingsResponse> = {
   id: 'trading_get_holdings',
   name: 'Trading: Get Holdings',
-  description: 'Fetch a unified account snapshot from Alpaca, Tradier, or Robinhood.',
+  description: 'Fetch a unified account snapshot from Alpaca or Tradier.',
   version: '1.0.0',
 
   params: {
@@ -33,7 +33,7 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       type: 'string',
       required: true,
       visibility: 'user-only',
-      description: 'Trading provider id (alpaca, tradier, or robinhood).',
+      description: 'Trading provider id (alpaca or tradier).',
     },
     environment: {
       type: 'string',
@@ -53,12 +53,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Tradier OAuth credential id.',
     },
-    robinhoodCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Robinhood OAuth credential id.',
-    },
     alpacaCredential: {
       type: 'string',
       required: false,
@@ -76,12 +70,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       required: false,
       visibility: 'user-or-llm',
       description: 'Account ID (Tradier).',
-    },
-    accountUrl: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Account resource URL (Robinhood).',
     },
   },
 
@@ -105,7 +93,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
           apiKey: params.apiKey,
           apiSecret: params.apiSecret,
           accountId: params.accountId,
-          accountUrl: params.accountUrl,
           providerId: provider.id,
           providerName: provider.name,
         })

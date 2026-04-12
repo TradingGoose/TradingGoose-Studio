@@ -9,8 +9,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 
 type EmptyWidgetProps = WidgetComponentProps & {
   onWidgetChange?: (widgetKey: string) => void

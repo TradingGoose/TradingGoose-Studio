@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotCompanyPropertyChangedTrigger: TriggerConfig = {
   id: 'hubspot_company_property_changed',
   name: 'HubSpot Company Property Changed',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when any property of a company is updated in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

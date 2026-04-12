@@ -1,19 +1,100 @@
 import { db } from '@tradinggoose/db'
-import { subscription, user, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, inArray, lt, sql } from 'drizzle-orm'
+import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { and, eq, inArray, lt } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
-import { env } from '@/lib/env'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { getTierLogRetentionDays } from '@/lib/billing/tiers'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
 import { isUsingCloudStorage, StorageService } from '@/lib/uploads'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('LogsCleanupAPI')
 
 const BATCH_SIZE = 2000
+
+function parseLogRetentionDays(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value)
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+async function getWorkflowRetentionGroups(): Promise<
+  Array<{ retentionDays: number; workflowIds: string[] }>
+> {
+  const workflowRows = await db
+    .select({
+      id: workflow.id,
+      userId: workflow.userId,
+      workspaceId: workflow.workspaceId,
+    })
+    .from(workflow)
+
+  const workflowIdsByRetentionDays = new Map<number, string[]>()
+  const billingContextByScopeKey = new Map<
+    string,
+    Promise<Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>>
+  >()
+
+  for (const workflowRow of workflowRows) {
+    const scopeKey = workflowRow.workspaceId
+      ? `workspace:${workflowRow.workspaceId}`
+      : `user:${workflowRow.userId}`
+
+    let billingContextPromise = billingContextByScopeKey.get(scopeKey)
+    if (!billingContextPromise) {
+      billingContextPromise = workflowRow.workspaceId
+        ? resolveWorkspaceBillingContext({
+            workspaceId: workflowRow.workspaceId,
+            actorUserId: workflowRow.userId,
+          })
+        : resolveWorkspaceBillingContext({
+            actorUserId: workflowRow.userId,
+          })
+      billingContextByScopeKey.set(scopeKey, billingContextPromise)
+    }
+
+    try {
+      const billingContext = await billingContextPromise
+      const retentionDays = parseLogRetentionDays(getTierLogRetentionDays(billingContext.tier))
+      if (retentionDays === null) {
+        continue
+      }
+
+      const workflowIds = workflowIdsByRetentionDays.get(retentionDays) ?? []
+      workflowIds.push(workflowRow.id)
+      workflowIdsByRetentionDays.set(retentionDays, workflowIds)
+    } catch (error) {
+      logger.error('Failed to resolve workflow billing context for log cleanup', {
+        workflowId: workflowRow.id,
+        workspaceId: workflowRow.workspaceId,
+        userId: workflowRow.userId,
+        error,
+      })
+    }
+  }
+
+  const workflowGroups = Array.from(workflowIdsByRetentionDays.entries()).map(
+    ([retentionDays, workflowIds]) => ({
+      retentionDays,
+      workflowIds,
+    })
+  )
+
+  return workflowGroups.filter((workflowGroup) => workflowGroup.workflowIds.length > 0)
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,40 +103,17 @@ export async function GET(request: NextRequest) {
       return authError
     }
 
-    const retentionDate = new Date()
-    retentionDate.setDate(retentionDate.getDate() - Number(env.FREE_PLAN_LOG_RETENTION_DAYS || '7'))
-
-    const freeUsers = await db
-      .select({ userId: user.id })
-      .from(user)
-      .leftJoin(
-        subscription,
-        and(
-          eq(user.id, subscription.referenceId),
-          inArray(subscription.status, BILLING_ACTIVE_SUBSCRIPTION_STATUSES),
-          inArray(subscription.plan, ['pro', 'team', 'enterprise'])
-        )
-      )
-      .where(sql`${subscription.id} IS NULL`)
-
-    if (freeUsers.length === 0) {
-      logger.info('No free users found for log cleanup')
-      return NextResponse.json({ message: 'No free users found for cleanup' })
+    if (!(await isBillingEnabledForRuntime())) {
+      logger.info('Skipping log cleanup because billing is disabled')
+      return NextResponse.json({ message: 'Billing disabled, skipping cleanup' })
     }
 
-    const freeUserIds = freeUsers.map((u) => u.userId)
+    const workflowGroups = await getWorkflowRetentionGroups()
 
-    const workflowsQuery = await db
-      .select({ id: workflow.id })
-      .from(workflow)
-      .where(inArray(workflow.userId, freeUserIds))
-
-    if (workflowsQuery.length === 0) {
-      logger.info('No workflows found for free users')
+    if (workflowGroups.length === 0) {
+      logger.info('No workflows found for finite log retention cleanup')
       return NextResponse.json({ message: 'No workflows found for cleanup' })
     }
-
-    const workflowIds = workflowsQuery.map((w) => w.id)
 
     const results = {
       enhancedLogs: {
@@ -80,118 +138,142 @@ export async function GET(request: NextRequest) {
     const MAX_BATCHES = 10
 
     let batchesProcessed = 0
-    let hasMoreLogs = true
+    let hasMoreLogs = false
 
-    logger.info(`Starting enhanced logs cleanup for ${workflowIds.length} workflows`)
+    logger.info('Starting enhanced logs cleanup', {
+      workflowGroupCount: workflowGroups.length,
+      workflowCount: workflowGroups.reduce(
+        (totalWorkflowCount, workflowGroup) =>
+          totalWorkflowCount + workflowGroup.workflowIds.length,
+        0
+      ),
+    })
 
-    while (hasMoreLogs && batchesProcessed < MAX_BATCHES) {
-      const oldEnhancedLogs = await db
-        .select({
-          id: workflowExecutionLogs.id,
-          workflowId: workflowExecutionLogs.workflowId,
-          executionId: workflowExecutionLogs.executionId,
-          stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
-          level: workflowExecutionLogs.level,
-          trigger: workflowExecutionLogs.trigger,
-          startedAt: workflowExecutionLogs.startedAt,
-          endedAt: workflowExecutionLogs.endedAt,
-          totalDurationMs: workflowExecutionLogs.totalDurationMs,
-          executionData: workflowExecutionLogs.executionData,
-          cost: workflowExecutionLogs.cost,
-          files: workflowExecutionLogs.files,
-          createdAt: workflowExecutionLogs.createdAt,
-        })
-        .from(workflowExecutionLogs)
-        .where(
-          and(
-            inArray(workflowExecutionLogs.workflowId, workflowIds),
-            lt(workflowExecutionLogs.createdAt, retentionDate)
+    for (const workflowGroup of workflowGroups) {
+      if (batchesProcessed >= MAX_BATCHES) {
+        break
+      }
+
+      const retentionDate = new Date()
+      retentionDate.setDate(retentionDate.getDate() - workflowGroup.retentionDays)
+      let groupHasMoreLogs = true
+
+      while (groupHasMoreLogs && batchesProcessed < MAX_BATCHES) {
+        const oldEnhancedLogs = await db
+          .select({
+            id: workflowExecutionLogs.id,
+            workflowId: workflowExecutionLogs.workflowId,
+            executionId: workflowExecutionLogs.executionId,
+            stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
+            level: workflowExecutionLogs.level,
+            trigger: workflowExecutionLogs.trigger,
+            startedAt: workflowExecutionLogs.startedAt,
+            endedAt: workflowExecutionLogs.endedAt,
+            totalDurationMs: workflowExecutionLogs.totalDurationMs,
+            executionData: workflowExecutionLogs.executionData,
+            cost: workflowExecutionLogs.cost,
+            files: workflowExecutionLogs.files,
+            createdAt: workflowExecutionLogs.createdAt,
+          })
+          .from(workflowExecutionLogs)
+          .where(
+            and(
+              inArray(workflowExecutionLogs.workflowId, workflowGroup.workflowIds),
+              lt(workflowExecutionLogs.createdAt, retentionDate)
+            )
           )
-        )
-        .limit(BATCH_SIZE)
+          .limit(BATCH_SIZE)
 
-      results.enhancedLogs.total += oldEnhancedLogs.length
+        results.enhancedLogs.total += oldEnhancedLogs.length
 
-      for (const log of oldEnhancedLogs) {
-        const today = new Date().toISOString().split('T')[0]
+        for (const log of oldEnhancedLogs) {
+          const today = new Date().toISOString().split('T')[0]
 
-        const enhancedLogKey = `archived-enhanced-logs/${today}/${log.id}.json`
-        const enhancedLogData = JSON.stringify({
-          ...log,
-          archivedAt: new Date().toISOString(),
-          logType: 'enhanced',
-        })
-
-        try {
-          await StorageService.uploadFile({
-            file: Buffer.from(enhancedLogData),
-            fileName: enhancedLogKey,
-            contentType: 'application/json',
-            context: 'general',
-            metadata: {
-              logId: String(log.id),
-              workflowId: String(log.workflowId),
-              executionId: String(log.executionId),
-              logType: 'enhanced',
-              archivedAt: new Date().toISOString(),
-            },
+          const enhancedLogKey = `archived-enhanced-logs/${today}/${log.id}.json`
+          const enhancedLogData = JSON.stringify({
+            ...log,
+            archivedAt: new Date().toISOString(),
+            logType: 'enhanced',
           })
 
-          results.enhancedLogs.archived++
+          try {
+            await StorageService.uploadFile({
+              file: Buffer.from(enhancedLogData),
+              fileName: enhancedLogKey,
+              contentType: 'application/json',
+              context: 'general',
+              metadata: {
+                logId: String(log.id),
+                workflowId: String(log.workflowId),
+                executionId: String(log.executionId),
+                logType: 'enhanced',
+                archivedAt: new Date().toISOString(),
+              },
+            })
 
-          if (isUsingCloudStorage() && log.files && Array.isArray(log.files)) {
-            for (const file of log.files) {
-              if (file && typeof file === 'object' && file.key) {
-                results.files.total++
-                try {
-                  await StorageService.deleteFile({
-                    key: file.key,
-                    context: 'general',
-                  })
-                  results.files.deleted++
-                  logger.info(`Deleted file: ${file.key}`)
-                } catch (fileError) {
-                  results.files.deleteFailed++
-                  logger.error(`Failed to delete file ${file.key}:`, { fileError })
+            results.enhancedLogs.archived++
+
+            if (isUsingCloudStorage() && log.files && Array.isArray(log.files)) {
+              for (const file of log.files) {
+                if (file && typeof file === 'object' && file.key) {
+                  results.files.total++
+                  try {
+                    await StorageService.deleteFile({
+                      key: file.key,
+                      context: 'general',
+                    })
+                    results.files.deleted++
+                    logger.info(`Deleted file: ${file.key}`)
+                  } catch (fileError) {
+                    results.files.deleteFailed++
+                    logger.error(`Failed to delete file ${file.key}:`, { fileError })
+                  }
                 }
               }
             }
-          }
 
-          try {
-            const deleteResult = await db
-              .delete(workflowExecutionLogs)
-              .where(eq(workflowExecutionLogs.id, log.id))
-              .returning({ id: workflowExecutionLogs.id })
+            try {
+              const deleteResult = await db
+                .delete(workflowExecutionLogs)
+                .where(eq(workflowExecutionLogs.id, log.id))
+                .returning({ id: workflowExecutionLogs.id })
 
-            if (deleteResult.length > 0) {
-              results.enhancedLogs.deleted++
-            } else {
+              if (deleteResult.length > 0) {
+                results.enhancedLogs.deleted++
+              } else {
+                results.enhancedLogs.deleteFailed++
+                logger.warn(
+                  `Failed to delete enhanced log ${log.id} after archiving: No rows deleted`
+                )
+              }
+            } catch (deleteError) {
               results.enhancedLogs.deleteFailed++
-              logger.warn(
-                `Failed to delete enhanced log ${log.id} after archiving: No rows deleted`
-              )
+              logger.error(`Error deleting enhanced log ${log.id} after archiving:`, {
+                deleteError,
+              })
             }
-          } catch (deleteError) {
-            results.enhancedLogs.deleteFailed++
-            logger.error(`Error deleting enhanced log ${log.id} after archiving:`, { deleteError })
+          } catch (archiveError) {
+            results.enhancedLogs.archiveFailed++
+            logger.error(`Failed to archive enhanced log ${log.id}:`, { archiveError })
           }
-        } catch (archiveError) {
-          results.enhancedLogs.archiveFailed++
-          logger.error(`Failed to archive enhanced log ${log.id}:`, { archiveError })
         }
+
+        batchesProcessed++
+        groupHasMoreLogs = oldEnhancedLogs.length === BATCH_SIZE
+        hasMoreLogs = hasMoreLogs || groupHasMoreLogs
+
+        logger.info(
+          `Processed enhanced logs batch ${batchesProcessed}: ${oldEnhancedLogs.length} logs`,
+          {
+            retentionDays: workflowGroup.retentionDays,
+          }
+        )
       }
-
-      batchesProcessed++
-      hasMoreLogs = oldEnhancedLogs.length === BATCH_SIZE
-
-      logger.info(
-        `Processed enhanced logs batch ${batchesProcessed}: ${oldEnhancedLogs.length} logs`
-      )
     }
 
     try {
-      const snapshotRetentionDays = Number(env.FREE_PLAN_LOG_RETENTION_DAYS || '7') + 1 // Keep snapshots 1 day longer
+      const snapshotRetentionDays =
+        Math.min(...workflowGroups.map((workflowGroup) => workflowGroup.retentionDays)) + 1
       const cleanedSnapshots = await snapshotService.cleanupOrphanedSnapshots(snapshotRetentionDays)
       results.snapshots.cleaned = cleanedSnapshots
       logger.info(`Cleaned up ${cleanedSnapshots} orphaned snapshots`)

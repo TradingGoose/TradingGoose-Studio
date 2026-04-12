@@ -3,10 +3,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useUpdateOrganizationUsageLimit } from '@/hooks/queries/organization'
-import { useUpdateUsageLimit } from '@/hooks/queries/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useUpdateOrganizationUsageLimit } from '@/hooks/queries/organization'
+import { useUpdateUsageLimit } from '@/hooks/queries/subscription'
 
 const logger = createLogger('UsageLimit')
 

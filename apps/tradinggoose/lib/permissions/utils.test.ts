@@ -27,11 +27,16 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'user_id',
     email: 'user_email',
     name: 'user_name',
+    image: 'user_image',
   },
   workspace: {
     id: 'workspace_id',
     name: 'workspace_name',
     ownerId: 'workspace_owner_id',
+    billingOwnerType: 'billing_owner_type',
+    billingOwnerUserId: 'billing_owner_user_id',
+    billingOwnerOrganizationId: 'billing_owner_organization_id',
+    allowPersonalApiKeys: 'allow_personal_api_keys',
   },
 }))
 
@@ -43,11 +48,17 @@ vi.mock('drizzle-orm', () => ({
 
 import { db } from '@tradinggoose/db'
 import {
+  assertActiveWorkspaceAccess,
+  checkWorkspaceAccess,
   getManageableWorkspaces,
   getUserEntityPermissions,
   getUsersWithPermissions,
+  getWorkspaceById,
+  getWorkspaceMemberProfiles,
+  getWorkspaceWithOwner,
   hasAdminPermission,
   hasWorkspaceAdminAccess,
+  workspaceExists,
 } from '@/lib/permissions/utils'
 
 const mockDb = db as any
@@ -171,6 +182,186 @@ describe('Permission Utils', () => {
       const result = await getUserEntityPermissions('user123', 'custom_entity', 'entity123')
 
       expect(result).toBe('write')
+    })
+
+    it('should return null for missing workspaces before checking permissions', async () => {
+      let callCount = 0
+      mockDb.select.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return createMockChain([])
+        }
+        return createMockChain([{ permissionType: 'admin' as PermissionType }])
+      })
+
+      const result = await getUserEntityPermissions('user123', 'workspace', 'workspace456')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('workspace helpers', () => {
+    it('should report when a workspace exists', async () => {
+      const chain = createMockChain([{ id: 'workspace123' }])
+      mockDb.select.mockReturnValue(chain)
+
+      await expect(workspaceExists('workspace123')).resolves.toBe(true)
+    })
+
+    it('should return the workspace row by id', async () => {
+      const workspaceRow = {
+        id: 'workspace123',
+        name: 'Workspace 123',
+        ownerId: 'owner-1',
+        billingOwnerType: 'user' as const,
+        billingOwnerUserId: 'owner-1',
+        billingOwnerOrganizationId: null,
+        allowPersonalApiKeys: true,
+      }
+      const chain = createMockChain([workspaceRow])
+      mockDb.select.mockReturnValue(chain)
+
+      await expect(getWorkspaceById('workspace123')).resolves.toEqual(workspaceRow)
+    })
+
+    it('should return the workspace row with owner fields', async () => {
+      const workspaceRow = {
+        id: 'workspace123',
+        name: 'Workspace 123',
+        ownerId: 'owner-1',
+        billingOwnerType: 'user' as const,
+        billingOwnerUserId: 'owner-1',
+        billingOwnerOrganizationId: null,
+        allowPersonalApiKeys: true,
+      }
+      const chain = createMockChain([workspaceRow])
+      mockDb.select.mockReturnValue(chain)
+
+      await expect(getWorkspaceWithOwner('workspace123')).resolves.toEqual(workspaceRow)
+    })
+  })
+
+  describe('checkWorkspaceAccess', () => {
+    it('should grant owner access without checking permissions', async () => {
+      const workspaceRow = {
+        id: 'workspace123',
+        name: 'Workspace 123',
+        ownerId: 'owner-1',
+        billingOwnerType: 'user' as const,
+        billingOwnerUserId: 'owner-1',
+        billingOwnerOrganizationId: null,
+        allowPersonalApiKeys: true,
+      }
+      mockDb.select.mockReturnValue(createMockChain([workspaceRow]))
+
+      const result = await checkWorkspaceAccess('workspace123', 'owner-1')
+
+      expect(result).toEqual({
+        exists: true,
+        hasAccess: true,
+        canWrite: true,
+        workspace: workspaceRow,
+      })
+    })
+
+    it('should allow write access for direct members', async () => {
+      let callCount = 0
+      mockDb.select.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return createMockChain([
+            {
+              id: 'workspace123',
+              name: 'Workspace 123',
+              ownerId: 'owner-1',
+              billingOwnerType: 'user' as const,
+              billingOwnerUserId: 'owner-1',
+              billingOwnerOrganizationId: null,
+              allowPersonalApiKeys: true,
+            },
+          ])
+        }
+        return createMockChain([{ permissionType: 'write' as PermissionType }])
+      })
+
+      const result = await checkWorkspaceAccess('workspace123', 'writer-1')
+
+      expect(result.exists).toBe(true)
+      expect(result.hasAccess).toBe(true)
+      expect(result.canWrite).toBe(true)
+    })
+
+    it('should deny access when the user is not a member', async () => {
+      let callCount = 0
+      mockDb.select.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return createMockChain([
+            {
+              id: 'workspace123',
+              name: 'Workspace 123',
+              ownerId: 'owner-1',
+              billingOwnerType: 'user' as const,
+              billingOwnerUserId: 'owner-1',
+              billingOwnerOrganizationId: null,
+              allowPersonalApiKeys: true,
+            },
+          ])
+        }
+        return createMockChain([])
+      })
+
+      const result = await checkWorkspaceAccess('workspace123', 'stranger-1')
+
+      expect(result).toEqual({
+        exists: true,
+        hasAccess: false,
+        canWrite: false,
+        workspace: {
+          id: 'workspace123',
+          name: 'Workspace 123',
+          ownerId: 'owner-1',
+          billingOwnerType: 'user',
+          billingOwnerUserId: 'owner-1',
+          billingOwnerOrganizationId: null,
+          allowPersonalApiKeys: true,
+        },
+      })
+    })
+
+    it('should return a missing-workspace access result when the workspace does not exist', async () => {
+      mockDb.select.mockReturnValue(createMockChain([]))
+
+      const result = await checkWorkspaceAccess('workspace123', 'user-1')
+
+      expect(result).toEqual({
+        exists: false,
+        hasAccess: false,
+        canWrite: false,
+        workspace: null,
+      })
+    })
+
+    it('should throw when active access is missing', async () => {
+      mockDb.select.mockReturnValue(createMockChain([]))
+
+      await expect(assertActiveWorkspaceAccess('workspace123', 'user-1')).rejects.toThrow(
+        'Active workspace access denied: workspace123'
+      )
+    })
+  })
+
+  describe('getWorkspaceMemberProfiles', () => {
+    it('should return minimal member profiles for a workspace', async () => {
+      const members = [
+        { userId: 'user-1', name: 'Alice', image: 'alice.png' },
+        { userId: 'user-2', name: 'Bob', image: null },
+      ]
+      mockDb.select.mockReturnValue(createMockChain(members))
+
+      const result = await getWorkspaceMemberProfiles('workspace123')
+
+      expect(result).toEqual(members)
     })
   })
 

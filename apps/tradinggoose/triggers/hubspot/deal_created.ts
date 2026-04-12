@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotDealCreatedTrigger: TriggerConfig = {
   id: 'hubspot_deal_created',
   name: 'HubSpot Deal Created',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a new deal is created in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

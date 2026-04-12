@@ -22,6 +22,7 @@ export interface ToolCallMetadata {
 }
 
 export interface CostMetadata {
+  baseExecutionCharge?: number
   models?: Record<
     string,
     {

@@ -64,16 +64,8 @@ export async function GET(
     }
 
     const response = {
-      executionId,
       workflowId: workflowLog.workflowId,
       workflowState,
-      executionMetadata: {
-        trigger: workflowLog.trigger,
-        startedAt: workflowLog.startedAt.toISOString(),
-        endedAt: workflowLog.endedAt?.toISOString(),
-        totalDurationMs: workflowLog.totalDurationMs,
-        cost: workflowLog.cost || null,
-      },
     }
 
     logger.debug(`Successfully fetched execution data for: ${executionId}`)

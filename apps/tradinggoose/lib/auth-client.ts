@@ -10,7 +10,6 @@ import {
 import { createAuthClient } from 'better-auth/react'
 import type { auth } from '@/lib/auth'
 import { env } from '@/lib/env'
-import { isBillingEnabled } from '@/lib/environment'
 import { SessionContext, type SessionHookResult } from '@/lib/session/session-context'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -20,13 +19,9 @@ export const client = createAuthClient({
     emailOTPClient(),
     genericOAuthClient(),
     customSessionClient<typeof auth>(),
-    ...(isBillingEnabled
-      ? [
-          stripeClient({
-            subscription: true, // Enable subscription management
-          }),
-        ]
-      : []),
+    stripeClient({
+      subscription: true,
+    }),
     organizationClient(),
     ...(env.NEXT_PUBLIC_SSO_ENABLED ? [ssoClient()] : []),
   ],

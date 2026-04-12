@@ -1,9 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { subscription as subscriptionTable, user } from '@tradinggoose/db/schema'
-import { and, eq, or } from 'drizzle-orm'
+import { and, eq, inArray, or } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -37,9 +38,10 @@ export async function POST(request: NextRequest) {
         .from(subscriptionTable)
         .where(
           and(
+            eq(subscriptionTable.referenceType, 'organization'),
             eq(subscriptionTable.referenceId, organizationId),
             or(
-              eq(subscriptionTable.status, 'active'),
+              inArray(subscriptionTable.status, BILLING_ACTIVE_SUBSCRIPTION_STATUSES),
               eq(subscriptionTable.cancelAtPeriodEnd, true)
             )
           )

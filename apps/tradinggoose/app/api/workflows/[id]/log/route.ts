@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const triggerType = isChatExecution ? 'chat' : 'manual'
       const loggingSession = new LoggingSession(id, executionId, triggerType, requestId)
 
-      const userId = validation.workflow.userId
+      const session = await getSession()
+      const userId = session?.user?.id ?? validation.workflow.userId
       const workspaceId = validation.workflow.workspaceId || ''
 
       await loggingSession.safeStart({

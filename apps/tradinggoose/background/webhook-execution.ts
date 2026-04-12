@@ -180,11 +180,15 @@ async function executeWebhookJobInternal(
   const loggingSession = new LoggingSession(payload.workflowId, executionId, 'webhook', requestId)
 
   try {
-    const usageCheck = await checkServerSideUsageLimits(payload.userId)
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: payload.userId,
+      workflowId: payload.workflowId,
+    })
     if (usageCheck.isExceeded) {
       logger.warn(
-        `[${requestId}] User ${payload.userId} has exceeded usage limits. Skipping webhook execution.`,
+        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping webhook execution.`,
         {
+          actorUserId: payload.userId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
@@ -192,7 +196,7 @@ async function executeWebhookJobInternal(
       )
       throw new Error(
         usageCheck.message ||
-          'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
+          'Usage limit exceeded. Please upgrade your billing tier to continue using webhooks.'
       )
     }
 
@@ -309,6 +313,7 @@ async function executeWebhookJobInternal(
           contextExtensions: {
             executionId,
             workspaceId: workspaceId || '',
+            userId: payload.userId,
             isDeployedContext: !payload.testMode,
           },
         })

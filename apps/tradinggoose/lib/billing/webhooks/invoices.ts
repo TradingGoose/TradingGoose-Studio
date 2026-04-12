@@ -1,11 +1,25 @@
 import { render } from '@react-email/components'
 import { db } from '@tradinggoose/db'
-import { member, subscription as subscriptionTable, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import {
+  member,
+  organizationBillingLedger,
+  organizationMemberBillingLedger,
+  subscription as subscriptionTable,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import PaymentFailedEmail from '@/components/emails/billing/payment-failed-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
+import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  type BillingTierRecord,
+  hydrateSubscriptionsWithTiers,
+  isOrganizationSubscription,
+  usesIndividualBillingLedger,
+} from '@/lib/billing/tiers'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -22,6 +36,22 @@ const OVERAGE_INVOICE_TYPES = new Set<string>([
 function parseDecimal(value: string | number | null | undefined): number {
   if (value === null || value === undefined) return 0
   return Number.parseFloat(value.toString())
+}
+
+type SubscriptionUsageScope = {
+  referenceId: string
+  tier?: BillingTierRecord | null
+}
+
+async function getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string) {
+  const records = await db
+    .select()
+    .from(subscriptionTable)
+    .where(eq(subscriptionTable.stripeSubscriptionId, stripeSubscriptionId))
+    .limit(1)
+
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(records)
+  return hydratedSubscriptions[0] ?? null
 }
 
 /**
@@ -132,7 +162,7 @@ async function getPaymentMethodDetails(
  * Send payment failure notification emails to affected users
  */
 async function sendPaymentFailureEmails(
-  sub: { plan: string | null; referenceId: string },
+  sub: SubscriptionUsageScope,
   invoice: Stripe.Invoice,
   stripeCustomerId: string
 ): Promise<void> {
@@ -144,8 +174,8 @@ async function sendPaymentFailureEmails(
     // Get users to notify
     let usersToNotify: Array<{ email: string; name: string | null }> = []
 
-    if (sub.plan === 'team' || sub.plan === 'enterprise') {
-      // For team/enterprise, notify all owners and admins
+    if (isOrganizationSubscription(sub)) {
+      // For organization-scoped tiers, notify all owners and admins
       const members = await db
         .select({
           userId: member.userId,
@@ -218,37 +248,17 @@ async function sendPaymentFailureEmails(
 }
 
 /**
- * Get total billed overage for a subscription, handling team vs individual plans
- * For team plans: sums billedOverageThisPeriod across all members
- * For other plans: gets billedOverageThisPeriod for the user
+ * Get total billed overage for a subscription, handling organization vs individual billing scopes.
+ * Organization subscriptions sum billed overage from the owner-tracked pooled record.
+ * Individual subscriptions read the requesting user's billed overage directly.
  */
 export async function getBilledOverageForSubscription(sub: {
-  plan: string | null
   referenceId: string
+  tier?: BillingTierRecord | null
 }): Promise<number> {
-  if (sub.plan === 'team') {
-    const ownerRows = await db
-      .select({ userId: member.userId })
-      .from(member)
-      .where(and(eq(member.organizationId, sub.referenceId), eq(member.role, 'owner')))
-      .limit(1)
-
-    const ownerId = ownerRows[0]?.userId
-
-    if (!ownerId) {
-      logger.warn('Organization has no owner when fetching billed overage', {
-        organizationId: sub.referenceId,
-      })
-      return 0
-    }
-
-    const ownerStats = await db
-      .select({ billedOverageThisPeriod: userStats.billedOverageThisPeriod })
-      .from(userStats)
-      .where(eq(userStats.userId, ownerId))
-      .limit(1)
-
-    return ownerStats.length > 0 ? parseDecimal(ownerStats[0].billedOverageThisPeriod) : 0
+  if (isOrganizationSubscription(sub)) {
+    const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
+    return billingLedger ? billingLedger.billedOverageThisPeriod : 0
   }
 
   const userStatsRecords = await db
@@ -260,62 +270,57 @@ export async function getBilledOverageForSubscription(sub: {
   return userStatsRecords.length > 0 ? parseDecimal(userStatsRecords[0].billedOverageThisPeriod) : 0
 }
 
-export async function resetUsageForSubscription(sub: { plan: string | null; referenceId: string }) {
-  if (sub.plan === 'team' || sub.plan === 'enterprise') {
-    const membersRows = await db
-      .select({ userId: member.userId })
-      .from(member)
-      .where(eq(member.organizationId, sub.referenceId))
+export async function resetUsageForSubscription(sub: SubscriptionUsageScope) {
+  if (isOrganizationSubscription(sub)) {
+    const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
+    if (!billingLedger) {
+      return
+    }
 
-    for (const m of membersRows) {
-      const currentStats = await db
-        .select({
-          current: userStats.currentPeriodCost,
-          currentCopilot: userStats.currentPeriodCopilotCost,
+    await db
+      .update(organizationBillingLedger)
+      .set({
+        lastPeriodCost: sql`${organizationBillingLedger.currentPeriodCost}`,
+        lastPeriodCopilotCost: sql`${organizationBillingLedger.currentPeriodCopilotCost}`,
+        currentPeriodCost: '0',
+        currentPeriodCopilotCost: '0',
+        billedOverageThisPeriod: '0',
+        updatedAt: new Date(),
+      })
+      .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
+
+    if (sub.tier && usesIndividualBillingLedger(sub.tier)) {
+      await db
+        .update(organizationMemberBillingLedger)
+        .set({
+          lastPeriodCost: sql`${organizationMemberBillingLedger.currentPeriodCost}`,
+          lastPeriodCopilotCost: sql`${organizationMemberBillingLedger.currentPeriodCopilotCost}`,
+          currentPeriodCost: '0',
+          currentPeriodCopilotCost: '0',
+          updatedAt: new Date(),
         })
-        .from(userStats)
-        .where(eq(userStats.userId, m.userId))
-        .limit(1)
-      if (currentStats.length > 0) {
-        const current = currentStats[0].current || '0'
-        const currentCopilot = currentStats[0].currentCopilot || '0'
-        await db
-          .update(userStats)
-          .set({
-            lastPeriodCost: current,
-            lastPeriodCopilotCost: currentCopilot,
-            currentPeriodCost: '0',
-            currentPeriodCopilotCost: '0',
-            billedOverageThisPeriod: '0',
-          })
-          .where(eq(userStats.userId, m.userId))
-      }
+        .where(eq(organizationMemberBillingLedger.organizationId, sub.referenceId))
     }
   } else {
     const currentStats = await db
       .select({
         current: userStats.currentPeriodCost,
-        snapshot: userStats.proPeriodCostSnapshot,
         currentCopilot: userStats.currentPeriodCopilotCost,
       })
       .from(userStats)
       .where(eq(userStats.userId, sub.referenceId))
       .limit(1)
     if (currentStats.length > 0) {
-      // For Pro plans, combine current + snapshot for lastPeriodCost, then clear both
       const current = Number.parseFloat(currentStats[0].current?.toString() || '0')
-      const snapshot = Number.parseFloat(currentStats[0].snapshot?.toString() || '0')
-      const totalLastPeriod = (current + snapshot).toString()
       const currentCopilot = currentStats[0].currentCopilot || '0'
 
       await db
         .update(userStats)
         .set({
-          lastPeriodCost: totalLastPeriod,
+          lastPeriodCost: current.toString(),
           lastPeriodCopilotCost: currentCopilot,
           currentPeriodCost: '0',
           currentPeriodCopilotCost: '0',
-          proPeriodCostSnapshot: '0', // Clear snapshot at period end
           billedOverageThisPeriod: '0', // Clear threshold billing tracker at period end
         })
         .where(eq(userStats.userId, sub.referenceId))
@@ -339,31 +344,14 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       })
       return
     }
-    const records = await db
-      .select()
-      .from(subscriptionTable)
-      .where(eq(subscriptionTable.stripeSubscriptionId, stripeSubscriptionId))
-      .limit(1)
-
-    if (records.length === 0) return
-    const sub = records[0]
+    const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    if (!sub) return
 
     // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
     let wasBlocked = false
-    if (sub.plan === 'team' || sub.plan === 'enterprise') {
-      const membersRows = await db
-        .select({ userId: member.userId })
-        .from(member)
-        .where(eq(member.organizationId, sub.referenceId))
-      const memberIds = membersRows.map((m) => m.userId)
-      if (memberIds.length > 0) {
-        const blockedRows = await db
-          .select({ blocked: userStats.billingBlocked })
-          .from(userStats)
-          .where(inArray(userStats.userId, memberIds))
-
-        wasBlocked = blockedRows.some((row) => !!row.blocked)
-      }
+    if (isOrganizationSubscription(sub)) {
+      const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
+      wasBlocked = Boolean(billingLedger?.billingBlocked)
     } else {
       const row = await db
         .select({ blocked: userStats.billingBlocked })
@@ -373,19 +361,11 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       wasBlocked = row.length > 0 ? !!row[0].blocked : false
     }
 
-    if (sub.plan === 'team' || sub.plan === 'enterprise') {
-      const members = await db
-        .select({ userId: member.userId })
-        .from(member)
-        .where(eq(member.organizationId, sub.referenceId))
-      const memberIds = members.map((m) => m.userId)
-
-      if (memberIds.length > 0) {
-        await db
-          .update(userStats)
-          .set({ billingBlocked: false })
-          .where(inArray(userStats.userId, memberIds))
-      }
+    if (isOrganizationSubscription(sub)) {
+      await db
+        .update(organizationBillingLedger)
+        .set({ billingBlocked: false, updatedAt: new Date() })
+        .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
     } else {
       await db
         .update(userStats)
@@ -394,7 +374,7 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     }
 
     if (wasBlocked) {
-      await resetUsageForSubscription({ plan: sub.plan, referenceId: sub.referenceId })
+      await resetUsageForSubscription(sub)
     }
   } catch (error) {
     logger.error('Failed to handle invoice payment succeeded', { eventId: event.id, error })
@@ -467,30 +447,17 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         stripeSubscriptionId,
       })
 
-      const records = await db
-        .select()
-        .from(subscriptionTable)
-        .where(eq(subscriptionTable.stripeSubscriptionId, stripeSubscriptionId))
-        .limit(1)
+      const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
-      if (records.length > 0) {
-        const sub = records[0]
-        if (sub.plan === 'team' || sub.plan === 'enterprise') {
-          const members = await db
-            .select({ userId: member.userId })
-            .from(member)
-            .where(eq(member.organizationId, sub.referenceId))
-          const memberIds = members.map((m) => m.userId)
-
-          if (memberIds.length > 0) {
-            await db
-              .update(userStats)
-              .set({ billingBlocked: true })
-              .where(inArray(userStats.userId, memberIds))
-          }
-          logger.info('Blocked team/enterprise members due to payment failure', {
+      if (sub) {
+        if (isOrganizationSubscription(sub)) {
+          await db
+            .update(organizationBillingLedger)
+            .set({ billingBlocked: true, updatedAt: new Date() })
+            .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
+          logger.info('Blocked organization billing ledger due to payment failure', {
             organizationId: sub.referenceId,
-            memberCount: members.length,
+            billingBlocked: true,
             isOverageInvoice,
           })
         } else {
@@ -538,7 +505,6 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
 
 /**
  * Handle base invoice finalized → create a separate overage-only invoice
- * Note: Enterprise plans no longer have overages
  */
 export async function handleInvoiceFinalized(event: Stripe.Event) {
   try {
@@ -554,27 +520,15 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     }
     if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
 
-    const records = await db
-      .select()
-      .from(subscriptionTable)
-      .where(eq(subscriptionTable.stripeSubscriptionId, stripeSubscriptionId))
-      .limit(1)
-
-    if (records.length === 0) return
-    const sub = records[0]
-
-    // Enterprise plans have no overages - reset usage and exit
-    if (sub.plan === 'enterprise') {
-      await resetUsageForSubscription({ plan: sub.plan, referenceId: sub.referenceId })
-      return
-    }
+    const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    if (!sub) return
 
     const stripe = requireStripeClient()
     const periodEnd =
       invoice.lines?.data?.[0]?.period?.end || invoice.period_end || Math.floor(Date.now() / 1000)
     const billingPeriod = new Date(periodEnd * 1000).toISOString().slice(0, 7)
 
-    // Compute overage (only for team and pro plans), before resetting usage
+    // Compute remaining automated overage before resetting usage
     const totalOverage = await calculateSubscriptionOverage(sub)
 
     // Get already-billed overage from threshold billing
@@ -685,7 +639,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     }
 
     // Finally, reset usage for this subscription after overage handling
-    await resetUsageForSubscription({ plan: sub.plan, referenceId: sub.referenceId })
+    await resetUsageForSubscription(sub)
   } catch (error) {
     logger.error('Failed to handle invoice finalized', { error })
     throw error

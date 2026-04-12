@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubIssueCommentTrigger: TriggerConfig = {
   id: 'github_issue_comment',
   name: 'GitHub Issue Comment',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a comment is added to an issue (not pull requests)',
   version: '1.0.0',
   icon: GithubIcon,

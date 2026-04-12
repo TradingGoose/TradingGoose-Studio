@@ -20,15 +20,109 @@ describe('Workflow Execution API Route', () => {
       endTime: new Date().toISOString(),
     },
   })
+  let resolveWorkspaceBillingContextMock = vi.fn()
+  let checkServerSideUsageLimitsMock = vi.fn()
+  let authenticateApiKeyFromHeaderMock = vi.fn()
+  let updateApiKeyLastUsedMock = vi.fn()
+  let isBillingEnabledForRuntimeMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
+    resolveWorkspaceBillingContextMock = vi.fn().mockResolvedValue({
+      workspaceId: null,
+      actorUserId: 'user-id',
+      billingUserId: 'user-id',
+      billingOwner: {
+        type: 'user',
+        userId: 'user-id',
+      },
+      subscription: {
+        id: 'subscription-id',
+        referenceId: 'user-id',
+        billingTierId: 'tier_default',
+        tier: {
+          id: 'tier_default',
+          displayName: 'Community',
+          ownerType: 'user',
+          usageScope: 'individual',
+          seatMode: 'fixed',
+          monthlyPriceUsd: null,
+          yearlyPriceUsd: null,
+          includedUsageLimitUsd: null,
+          storageLimitGb: null,
+          concurrencyLimit: 5,
+          seatCount: null,
+          seatMaximum: null,
+          stripeMonthlyPriceId: null,
+          stripeYearlyPriceId: null,
+          stripeProductId: null,
+          syncRateLimitPerMinute: 60,
+          asyncRateLimitPerMinute: 30,
+          apiEndpointRateLimitPerMinute: 60,
+          canEditUsageLimit: false,
+          canConfigureSso: false,
+          logRetentionDays: null,
+          workflowModelCostMultiplier: 1,
+          functionExecutionDurationMultiplier: 0,
+          copilotCostMultiplier: 1,
+          pricingFeatures: [],
+          isPublic: true,
+          isDefault: true,
+          displayOrder: 0,
+        },
+      },
+      tier: {
+        id: 'tier_default',
+        displayName: 'Community',
+        ownerType: 'user',
+        usageScope: 'individual',
+        seatMode: 'fixed',
+        monthlyPriceUsd: null,
+        yearlyPriceUsd: null,
+        includedUsageLimitUsd: null,
+        storageLimitGb: null,
+        concurrencyLimit: 5,
+        seatCount: null,
+        seatMaximum: null,
+        stripeMonthlyPriceId: null,
+        stripeYearlyPriceId: null,
+        stripeProductId: null,
+        syncRateLimitPerMinute: 60,
+        asyncRateLimitPerMinute: 30,
+        apiEndpointRateLimitPerMinute: 60,
+        canEditUsageLimit: false,
+        canConfigureSso: false,
+        logRetentionDays: null,
+        workflowModelCostMultiplier: 1,
+        functionExecutionDurationMultiplier: 0,
+        copilotCostMultiplier: 1,
+        pricingFeatures: [],
+        isPublic: true,
+        isDefault: true,
+        displayOrder: 0,
+      },
+      scopeId: 'user-id',
+      scopeType: 'user',
+    })
+    authenticateApiKeyFromHeaderMock = vi.fn().mockResolvedValue({
+      success: true,
+      userId: 'user-id',
+      keyId: 'api-key-id',
+    })
+    checkServerSideUsageLimitsMock = vi.fn().mockResolvedValue({
+      isExceeded: false,
+      currentUsage: 10,
+      limit: 100,
+    })
+    updateApiKeyLastUsedMock = vi.fn().mockResolvedValue(undefined)
+    isBillingEnabledForRuntimeMock = vi.fn().mockResolvedValue(true)
 
     vi.doMock('@/app/api/workflows/middleware', () => ({
       validateWorkflowAccess: vi.fn().mockResolvedValue({
         workflow: {
           id: 'workflow-id',
           userId: 'user-id',
+          workspaceId: null,
         },
       }),
     }))
@@ -37,6 +131,11 @@ describe('Workflow Execution API Route', () => {
       getSession: vi.fn().mockResolvedValue({
         user: { id: 'user-id' },
       }),
+    }))
+
+    vi.doMock('@/lib/api-key/service', () => ({
+      authenticateApiKeyFromHeader: (...args: any[]) => authenticateApiKeyFromHeaderMock(...args),
+      updateApiKeyLastUsed: (...args: any[]) => updateApiKeyLastUsedMock(...args),
     }))
 
     vi.doMock('@/services/queue', () => ({
@@ -64,17 +163,42 @@ describe('Workflow Execution API Route', () => {
     }))
 
     vi.doMock('@/lib/billing', () => ({
-      checkServerSideUsageLimits: vi.fn().mockResolvedValue({
-        isExceeded: false,
-        currentUsage: 10,
-        limit: 100,
-      }),
+      checkServerSideUsageLimits: (...args: any[]) => checkServerSideUsageLimitsMock(...args),
     }))
 
-    vi.doMock('@/lib/billing/core/subscription', () => ({
-      getHighestPrioritySubscription: vi.fn().mockResolvedValue({
-        plan: 'free',
-        referenceId: 'user-id',
+    vi.doMock('@/lib/billing/settings', () => ({
+      isBillingEnabledForRuntime: (...args: any[]) => isBillingEnabledForRuntimeMock(...args),
+    }))
+
+    vi.doMock('@/lib/billing/workspace-billing', () => ({
+      resolveWorkspaceBillingContext: (...args: any[]) =>
+        resolveWorkspaceBillingContextMock(...args),
+      toRateLimitBillingScope: vi.fn((billingContext: any, actorUserId: string) => ({
+        scopeType: billingContext.scopeType,
+        scopeId: billingContext.scopeId,
+        organizationId:
+          billingContext.scopeType === 'organization_member' ||
+          billingContext.scopeType === 'organization'
+            ? billingContext.billingOwner?.type === 'organization'
+              ? billingContext.billingOwner.organizationId
+              : null
+            : null,
+        userId:
+          billingContext.scopeType === 'organization_member'
+            ? actorUserId
+            : billingContext.scopeType === 'user'
+              ? billingContext.billingUserId
+              : null,
+      })),
+      getBillingContextResolutionMessage: vi.fn((error: unknown) => {
+        const message = error instanceof Error ? error.message : ''
+        if (message.includes('No active subscription found')) {
+          return 'No active subscription found for this workspace. Please configure billing before executing workflows.'
+        }
+        if (message.includes('missing billing owner')) {
+          return 'Workspace billing is not configured correctly. Please update billing settings before executing workflows.'
+        }
+        return 'Unable to determine usage limits. Execution blocked until billing is configured correctly.'
       }),
     }))
 
@@ -91,7 +215,7 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@tradinggoose/db/schema', () => ({
       subscription: {
-        plan: 'plan',
+        billingTierId: 'billingTierId',
         referenceId: 'referenceId',
       },
       apiKey: {
@@ -227,8 +351,8 @@ describe('Workflow Execution API Route', () => {
           from: vi.fn().mockImplementation((table) => ({
             where: vi.fn().mockImplementation(() => ({
               limit: vi.fn().mockImplementation(() => {
-                if (table === 'subscription' || columns?.plan) {
-                  return [{ plan: 'free' }]
+                if (table === 'subscription' || columns?.billingTierId) {
+                  return [{ billingTierId: 'tier_default' }]
                 }
                 if (table === 'apiKey' || columns?.userId) {
                   return [{ userId: 'user-id' }]
@@ -382,7 +506,7 @@ describe('Workflow Execution API Route', () => {
         envVarValues: expect.any(Object), // decryptedEnvVars
         workflowInput: requestBody, // processedInput (direct input, not wrapped)
         workflowVariables: expect.any(Object),
-        contextExtensions: expect.any(Object), // Allow any context extensions object
+        contextExtensions: expect.objectContaining({ userId: 'user-id' }),
       })
     )
   })
@@ -568,6 +692,7 @@ describe('Workflow Execution API Route', () => {
         workflow: {
           id: 'workflow-with-vars-id',
           userId: 'user-id',
+          workspaceId: null,
           variables: workflowVariables,
         },
       }),
@@ -651,5 +776,122 @@ describe('Workflow Execution API Route', () => {
         workflowVariables: workflowVariables,
       })
     )
+  })
+
+  it('skips workspace billing resolution during execution when billing is disabled', async () => {
+    isBillingEnabledForRuntimeMock.mockResolvedValue(false)
+    resolveWorkspaceBillingContextMock.mockRejectedValue(
+      new Error('No active default billing tier configured')
+    )
+
+    const req = createMockRequest('GET')
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await GET(req, { params })
+
+    expect(response.status).toBe(200)
+    expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
+  })
+
+  it('skips api rate-limit billing resolution when billing is disabled', async () => {
+    isBillingEnabledForRuntimeMock.mockResolvedValue(false)
+    resolveWorkspaceBillingContextMock.mockRejectedValue(
+      new Error('No active default billing tier configured')
+    )
+
+    const { getSession } = await import('@/lib/auth')
+    vi.mocked(getSession).mockResolvedValueOnce(null)
+
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'GET',
+      headers: {
+        'X-API-Key': 'test-api-key',
+      },
+    })
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await GET(req, { params })
+
+    expect(response.status).toBe(200)
+    expect(authenticateApiKeyFromHeaderMock).toHaveBeenCalledWith('test-api-key')
+    expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
+  })
+
+  it('returns a usage-limit response when api execution cannot resolve billing context', async () => {
+    resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
+      new Error('No active subscription found for user user-id')
+    )
+
+    const { getSession } = await import('@/lib/auth')
+    vi.mocked(getSession).mockResolvedValueOnce(null)
+
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'GET',
+      headers: {
+        'X-API-Key': 'test-api-key',
+      },
+    })
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await GET(req, { params })
+    const payload = await response.json()
+
+    expect(response.status).toBe(402)
+    expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
+    expect(payload.error).toContain('No active subscription found for this workspace')
+  })
+
+  it('returns a usage-limit response instead of a queue failure when async execution cannot resolve billing context', async () => {
+    resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
+      new Error('Workspace workspace-id is missing billing owner')
+    )
+
+    const { getSession } = await import('@/lib/auth')
+    vi.mocked(getSession).mockResolvedValueOnce(null)
+
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'test-api-key',
+        'X-Execution-Mode': 'async',
+      },
+      body: JSON.stringify({}),
+    })
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await POST(req, { params })
+    const payload = await response.json()
+
+    expect(response.status).toBe(402)
+    expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
+    expect(payload.error).toContain('Workspace billing is not configured correctly')
+  })
+
+  it('returns the usage-limit response without re-resolving billing context during execution logging', async () => {
+    checkServerSideUsageLimitsMock.mockResolvedValueOnce({
+      isExceeded: true,
+      currentUsage: 125,
+      limit: 100,
+      message: 'Usage limit exceeded. Please upgrade your billing tier to continue.',
+    })
+    resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
+      new Error('No active subscription found for user user-id')
+    )
+
+    const req = createMockRequest('GET')
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await GET(req, { params })
+    const payload = await response.json()
+
+    expect(response.status).toBe(402)
+    expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
+    expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
   })
 })

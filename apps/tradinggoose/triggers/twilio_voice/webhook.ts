@@ -4,7 +4,7 @@ import type { TriggerConfig } from '../types'
 export const twilioVoiceWebhookTrigger: TriggerConfig = {
   id: 'twilio_voice_webhook',
   name: 'Twilio Voice Webhook',
-  provider: 'twilio_voice',
+  webhookProvider: 'twilio_voice',
   description: 'Trigger workflow when phone calls are received via Twilio Voice',
   version: '1.0.0',
   icon: TwilioIcon,

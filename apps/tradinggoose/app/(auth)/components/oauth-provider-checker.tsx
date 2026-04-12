@@ -1,12 +1,25 @@
 'use server'
 
 import { isProd } from '@/lib/environment'
-import { getOAuthProviderAvailability } from '@/lib/oauth/oauth'
+import { createLogger } from '@/lib/logs/console/logger'
+import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
+
+const logger = createLogger('OAuthProviderChecker')
 
 export async function getOAuthProviderStatus() {
-  const availability = getOAuthProviderAvailability(['github', 'google'])
-  const githubAvailable = Boolean(availability.github)
-  const googleAvailable = Boolean(availability.google)
+  try {
+    const availability = await getOAuthProviderAvailability(['github', 'google'])
+    const githubAvailable = Boolean(availability.github)
+    const googleAvailable = Boolean(availability.google)
 
-  return { githubAvailable, googleAvailable, isProduction: isProd }
+    return { githubAvailable, googleAvailable, isProduction: isProd }
+  } catch (error) {
+    logger.error('Failed to resolve social OAuth provider availability', error)
+
+    return {
+      githubAvailable: false,
+      googleAvailable: false,
+      isProduction: isProd,
+    }
+  }
 }

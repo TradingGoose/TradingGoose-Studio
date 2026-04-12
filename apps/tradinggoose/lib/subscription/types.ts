@@ -1,3 +1,7 @@
+import type { BillingTierSummary } from '@/lib/billing/types'
+
+export type { BillingTierSummary } from '@/lib/billing/types'
+
 export interface UsageData {
   current: number
   limit: number
@@ -15,28 +19,35 @@ export interface UsageLimitData {
   currentLimit: number
   canEdit: boolean
   minimumLimit: number
-  plan: string
   setBy?: string
   updatedAt?: Date
 }
 
 export interface SubscriptionData {
+  id?: string | null
+  billingEnabled?: boolean
   isPaid: boolean
-  isPro: boolean
-  isTeam: boolean
-  isEnterprise: boolean
-  plan: string
   status: string | null
   seats: number | null
   metadata: any | null
   stripeSubscriptionId: string | null
   periodEnd: Date | null
   cancelAtPeriodEnd?: boolean
+  tier: BillingTierSummary
   usage: UsageData
   billingBlocked?: boolean
 }
 
 export type BillingStatus = 'unknown' | 'ok' | 'warning' | 'exceeded' | 'blocked'
+
+export interface SubscriptionStatusData {
+  isPaid: boolean
+  isFree: boolean
+  status: string | null
+  seats: number | null
+  metadata: any | null
+  tier: BillingTierSummary
+}
 
 export interface SubscriptionStore {
   subscriptionData: SubscriptionData | null
@@ -54,22 +65,10 @@ export interface SubscriptionStore {
   refresh: () => Promise<void>
   clearError: () => void
   reset: () => void
-  getSubscriptionStatus: () => {
-    isPaid: boolean
-    isPro: boolean
-    isTeam: boolean
-    isEnterprise: boolean
-    isFree: boolean
-    plan: string
-    status: string | null
-    seats: number | null
-    metadata: any | null
-  }
+  getSubscriptionStatus: () => SubscriptionStatusData
   getUsage: () => UsageData
   getBillingStatus: () => BillingStatus
   getRemainingBudget: () => number
   getDaysRemainingInPeriod: () => number | null
-  isAtLeastPro: () => boolean
-  isAtLeastTeam: () => boolean
   canUpgrade: () => boolean
 }

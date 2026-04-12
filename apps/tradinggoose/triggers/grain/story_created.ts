@@ -5,7 +5,7 @@ import { buildStoryOutputs, grainSetupInstructions } from './utils'
 export const grainStoryCreatedTrigger: TriggerConfig = {
   id: 'grain_story_created',
   name: 'Grain Story Created',
-  provider: 'grain',
+  webhookProvider: 'grain',
   description: 'Trigger workflow when a new story is created in Grain',
   version: '1.0.0',
   icon: GrainIcon,

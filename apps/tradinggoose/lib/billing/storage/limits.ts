@@ -4,16 +4,11 @@
  */
 
 import { db } from '@tradinggoose/db'
-import {
-  DEFAULT_ENTERPRISE_STORAGE_LIMIT_GB,
-  DEFAULT_FREE_STORAGE_LIMIT_GB,
-  DEFAULT_PRO_STORAGE_LIMIT_GB,
-  DEFAULT_TEAM_STORAGE_LIMIT_GB,
-} from '@tradinggoose/db/consts'
-import { organization, subscription, userStats } from '@tradinggoose/db/schema'
+import { organization, userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { getEnv } from '@/lib/env'
-import { isBillingEnabled } from '@/lib/environment'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { type BillingTierRecord, isOrganizationSubscription } from '@/lib/billing/tiers'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('StorageLimits')
@@ -25,98 +20,47 @@ function gbToBytes(gb: number): number {
   return gb * 1024 * 1024 * 1024
 }
 
-/**
- * Get storage limits from environment variables with fallback to constants
- * Returns limits in bytes
- */
-export function getStorageLimits() {
-  return {
-    free: gbToBytes(
-      Number.parseInt(getEnv('FREE_STORAGE_LIMIT_GB') || String(DEFAULT_FREE_STORAGE_LIMIT_GB))
-    ),
-    pro: gbToBytes(
-      Number.parseInt(getEnv('PRO_STORAGE_LIMIT_GB') || String(DEFAULT_PRO_STORAGE_LIMIT_GB))
-    ),
-    team: gbToBytes(
-      Number.parseInt(getEnv('TEAM_STORAGE_LIMIT_GB') || String(DEFAULT_TEAM_STORAGE_LIMIT_GB))
-    ),
-    enterpriseDefault: gbToBytes(
-      Number.parseInt(
-        getEnv('ENTERPRISE_STORAGE_LIMIT_GB') || String(DEFAULT_ENTERPRISE_STORAGE_LIMIT_GB)
-      )
-    ),
+function parseStorageLimitGb(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return value
   }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed
+    }
+  }
+
+  return null
 }
 
-/**
- * Get storage limit for a specific plan
- * Returns limit in bytes
- */
-export function getStorageLimitForPlan(plan: string, metadata?: any): number {
-  const limits = getStorageLimits()
+function getTierStorageLimitBytes(tier: BillingTierRecord): number {
+  const storageLimitGb = parseStorageLimitGb(tier.storageLimitGb)
 
-  switch (plan) {
-    case 'free':
-      return limits.free
-    case 'pro':
-      return limits.pro
-    case 'team':
-      return limits.team
-    case 'enterprise':
-      // Check for custom limit in metadata (stored in GB)
-      if (metadata?.storageLimitGB) {
-        return gbToBytes(Number.parseInt(metadata.storageLimitGB))
-      }
-      return limits.enterpriseDefault
-    default:
-      return limits.free
+  if (storageLimitGb === null) {
+    throw new Error(`Billing tier ${tier.displayName} is missing storageLimitGb`)
   }
-}
 
-/**
- * Get storage limit for a user based on their subscription
- * Returns limit in bytes
- */
-export async function getUserStorageLimit(userId: string): Promise<number> {
+  return gbToBytes(storageLimitGb)
+}
+export async function getUserStorageLimit(
+  userId: string,
+  workspaceId?: string | null
+): Promise<number> {
+  if (!(await isBillingEnabledForRuntime())) {
+    return Number.MAX_SAFE_INTEGER
+  }
+
   try {
-    // Check if user is in a team/enterprise org
-    const { getHighestPrioritySubscription } = await import('@/lib/billing/core/subscription')
-    const sub = await getHighestPrioritySubscription(userId)
-
-    const limits = getStorageLimits()
-
-    if (!sub || sub.plan === 'free') {
-      return limits.free
-    }
-
-    if (sub.plan === 'pro') {
-      return limits.pro
-    }
-
-    // Team/Enterprise: Use organization limit
-    if (sub.plan === 'team' || sub.plan === 'enterprise') {
-      // Get organization storage limit
-      const orgRecord = await db
-        .select({ metadata: subscription.metadata })
-        .from(subscription)
-        .where(eq(subscription.id, sub.id))
-        .limit(1)
-
-      if (orgRecord.length > 0 && orgRecord[0].metadata) {
-        const metadata = orgRecord[0].metadata as any
-        if (metadata.customStorageLimitGB) {
-          return metadata.customStorageLimitGB * 1024 * 1024 * 1024
-        }
-      }
-
-      // Default for team/enterprise
-      return sub.plan === 'enterprise' ? limits.enterpriseDefault : limits.team
-    }
-
-    return limits.free
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId,
+      actorUserId: userId,
+    })
+    return getTierStorageLimitBytes(billingContext.tier)
   } catch (error) {
     logger.error('Error getting user storage limit:', error)
-    return getStorageLimits().free
+    return 0
   }
 }
 
@@ -124,28 +68,36 @@ export async function getUserStorageLimit(userId: string): Promise<number> {
  * Get current storage usage for a user
  * Returns usage in bytes
  */
-export async function getUserStorageUsage(userId: string): Promise<number> {
-  try {
-    // Check if user is in a team/enterprise org
-    const { getHighestPrioritySubscription } = await import('@/lib/billing/core/subscription')
-    const sub = await getHighestPrioritySubscription(userId)
+export async function getUserStorageUsage(
+  userId: string,
+  workspaceId?: string | null
+): Promise<number> {
+  if (!(await isBillingEnabledForRuntime())) {
+    return 0
+  }
 
-    if (sub && (sub.plan === 'team' || sub.plan === 'enterprise')) {
+  try {
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId,
+      actorUserId: userId,
+    })
+
+    if (isOrganizationSubscription(billingContext.subscription)) {
       // Use organization storage
       const orgRecord = await db
         .select({ storageUsedBytes: organization.storageUsedBytes })
         .from(organization)
-        .where(eq(organization.id, sub.referenceId))
+        .where(eq(organization.id, billingContext.scopeId))
         .limit(1)
 
       return orgRecord.length > 0 ? orgRecord[0].storageUsedBytes || 0 : 0
     }
 
-    // Free/Pro: Use user stats
+    // Individual-scope tiers use user stats
     const stats = await db
       .select({ storageUsedBytes: userStats.storageUsedBytes })
       .from(userStats)
-      .where(eq(userStats.userId, userId))
+      .where(eq(userStats.userId, billingContext.billingUserId))
       .limit(1)
 
     return stats.length > 0 ? stats[0].storageUsedBytes || 0 : 0
@@ -161,9 +113,10 @@ export async function getUserStorageUsage(userId: string): Promise<number> {
  */
 export async function checkStorageQuota(
   userId: string,
-  additionalBytes: number
+  additionalBytes: number,
+  workspaceId?: string | null
 ): Promise<{ allowed: boolean; currentUsage: number; limit: number; error?: string }> {
-  if (!isBillingEnabled) {
+  if (!(await isBillingEnabledForRuntime())) {
     return {
       allowed: true,
       currentUsage: 0,
@@ -173,8 +126,8 @@ export async function checkStorageQuota(
 
   try {
     const [currentUsage, limit] = await Promise.all([
-      getUserStorageUsage(userId),
-      getUserStorageLimit(userId),
+      getUserStorageUsage(userId, workspaceId),
+      getUserStorageLimit(userId, workspaceId),
     ])
 
     const newUsage = currentUsage + additionalBytes

@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubPRMergedTrigger: TriggerConfig = {
   id: 'github_pr_merged',
   name: 'GitHub PR Merged',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a pull request is successfully merged in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,

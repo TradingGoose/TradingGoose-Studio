@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
 
     const compiled = await withCodeExecutionConcurrencyLimit({
       userId: auth.userId,
+      workspaceId,
       task: () =>
         executeCompiledIndicator({
           pineCode,

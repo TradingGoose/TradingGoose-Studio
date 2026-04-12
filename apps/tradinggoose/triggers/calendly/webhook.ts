@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const calendlyWebhookTrigger: TriggerConfig = {
   id: 'calendly_webhook',
   name: 'Calendly Webhook',
-  provider: 'calendly',
+  webhookProvider: 'calendly',
   description: 'Trigger workflow from any Calendly webhook event',
   version: '1.0.0',
   icon: CalendlyIcon,

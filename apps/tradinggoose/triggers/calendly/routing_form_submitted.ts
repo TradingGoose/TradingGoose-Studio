@@ -5,7 +5,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const calendlyRoutingFormSubmittedTrigger: TriggerConfig = {
   id: 'calendly_routing_form_submitted',
   name: 'Calendly Routing Form Submitted',
-  provider: 'calendly',
+  webhookProvider: 'calendly',
   description: 'Trigger workflow when someone submits a Calendly routing form',
   version: '1.0.0',
   icon: CalendlyIcon,

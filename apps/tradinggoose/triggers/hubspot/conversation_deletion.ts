@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotConversationDeletionTrigger: TriggerConfig = {
   id: 'hubspot_conversation_deletion',
   name: 'HubSpot Conversation Deletion',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a conversation is deleted in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

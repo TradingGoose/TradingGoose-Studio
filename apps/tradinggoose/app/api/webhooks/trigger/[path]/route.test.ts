@@ -211,9 +211,13 @@ describe('Webhook Trigger API Route', () => {
     // Mock billing and rate limiting dependencies
     beforeEach(() => {
       vi.doMock('@/lib/billing/core/subscription', () => ({
-        getHighestPrioritySubscription: vi.fn().mockResolvedValue({
-          plan: 'pro',
+        getEffectiveSubscription: vi.fn().mockResolvedValue({
+          billingTierId: 'tier_user_fixed',
           status: 'active',
+          tier: {
+            id: 'tier_user_fixed',
+            ownerType: 'user',
+          },
         }),
       }))
 

@@ -1,28 +1,44 @@
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import type { BillingReference } from '@/lib/billing/tiers'
+
+function toBillingReference(
+  userId: string,
+  reference: string | BillingReference
+): BillingReference {
+  if (typeof reference !== 'string') {
+    return reference
+  }
+
+  return {
+    referenceType: reference === userId ? 'user' : 'organization',
+    referenceId: reference,
+  }
+}
 
 /**
- * Check if a user is authorized to manage billing for a given reference ID
- * Reference ID can be either a user ID (individual subscription) or organization ID (team subscription)
+ * Check if a user is authorized to manage billing for a given subject.
  */
 export async function authorizeSubscriptionReference(
   userId: string,
-  referenceId: string
+  reference: string | BillingReference
 ): Promise<boolean> {
-  // User can always manage their own subscriptions
+  const { referenceId, referenceType } = toBillingReference(userId, reference)
+
+  if (referenceType === 'user') {
+    return referenceId === userId
+  }
+
   if (referenceId === userId) {
     return true
   }
 
-  // Check if referenceId is an organizationId the user has admin rights to
   const members = await db
     .select()
     .from(schema.member)
     .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, referenceId)))
 
   const member = members[0]
-
-  // Allow if the user is an owner or admin of the organization
   return member?.role === 'owner' || member?.role === 'admin'
 }

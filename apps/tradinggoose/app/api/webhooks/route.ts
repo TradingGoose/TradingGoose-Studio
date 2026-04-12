@@ -263,9 +263,12 @@ export async function POST(request: NextRequest) {
         .limit(1)
       if (existingByPath.length > 0) {
         if (existingByPath[0].provider === 'indicator') {
-          logger.warn(`[${requestId}] Generic webhook upsert blocked for indicator path collision`, {
-            path: finalPath,
-          })
+          logger.warn(
+            `[${requestId}] Generic webhook upsert blocked for indicator path collision`,
+            {
+              path: finalPath,
+            }
+          )
           return NextResponse.json(
             { error: 'Webhook path already exists.', code: 'PATH_EXISTS' },
             { status: 409 }

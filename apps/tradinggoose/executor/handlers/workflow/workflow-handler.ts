@@ -131,6 +131,7 @@ export class WorkflowBlockHandler implements BlockHandler {
           isChildExecution: true, // Prevent child executor from managing global state
           // Propagate deployed context down to child execution so nested children obey constraints
           isDeployedContext: context.isDeployedContext === true,
+          userId: context.userId,
         },
       })
 

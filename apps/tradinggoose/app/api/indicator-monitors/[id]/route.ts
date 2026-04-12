@@ -127,7 +127,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const workflowRow = await ensureWorkflowInWorkspace(nextWorkflowId, workspaceId)
-    if (payload.blockId !== undefined || payload.workflowId !== undefined || payload.isActive === true) {
+    if (
+      payload.blockId !== undefined ||
+      payload.workflowId !== undefined ||
+      payload.isActive === true
+    ) {
       await ensureIndicatorTriggerBlockInDeployedState(nextWorkflowId, nextTriggerBlockId)
     }
     await ensureTriggerCapableIndicator(
@@ -147,7 +151,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     const nextIsActive =
-      payload.isActive === undefined ? row.webhook.isActive : payload.isActive && workflowRow.isDeployed
+      payload.isActive === undefined
+        ? row.webhook.isActive
+        : payload.isActive && workflowRow.isDeployed
 
     const [updatedMonitor] = await db
       .update(webhook)

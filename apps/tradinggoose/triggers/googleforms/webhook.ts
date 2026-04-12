@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const googleFormsWebhookTrigger: TriggerConfig = {
   id: 'google_forms_webhook',
   name: 'Google Forms Webhook',
-  provider: 'google_forms',
+  webhookProvider: 'google_forms',
   description: 'Trigger workflow from Google Form submissions (via Apps Script forwarder)',
   version: '1.0.0',
   icon: GoogleFormsIcon,

@@ -9,7 +9,6 @@ import type {
   TradingRequestConfig,
 } from '@/providers/trading/types'
 import { alpacaProvider } from '@/providers/trading/alpaca'
-import { robinhoodProvider } from '@/providers/trading/robinhood'
 import { tradierProvider } from '@/providers/trading/tradier'
 
 const logger = createLogger('TradingProviders')
@@ -17,7 +16,6 @@ const logger = createLogger('TradingProviders')
 const providers: Record<string, TradingProvider> = {
   alpaca: alpacaProvider,
   tradier: tradierProvider,
-  robinhood: robinhoodProvider,
 }
 
 export function getProvider(providerId: string): TradingProvider | undefined {
