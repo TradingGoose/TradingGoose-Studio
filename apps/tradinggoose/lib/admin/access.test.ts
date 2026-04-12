@@ -1,22 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const {
-  mockGetSession,
-  mockEq,
-  mockSelect,
-  mockInsert,
-  mockTransaction,
-  mockExecute,
-  mockValues,
-} = vi.hoisted(() => ({
-  mockGetSession: vi.fn(),
-  mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  mockSelect: vi.fn(),
-  mockInsert: vi.fn(),
-  mockTransaction: vi.fn(),
-  mockExecute: vi.fn(),
-  mockValues: vi.fn(),
-}))
+const { mockGetSession, mockEq, mockSelect, mockInsert, mockTransaction, mockExecute, mockValues } =
+  vi.hoisted(() => ({
+    mockGetSession: vi.fn(),
+    mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
+    mockSelect: vi.fn(),
+    mockInsert: vi.fn(),
+    mockTransaction: vi.fn(),
+    mockExecute: vi.fn(),
+    mockValues: vi.fn(),
+  }))
 
 let systemAdminRows: Array<{ userId: string }> = []
 let systemAdminCount = 0
@@ -66,9 +59,9 @@ describe('system admin access', () => {
           where: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue(systemAdminRows),
           })),
-          limit: vi.fn().mockResolvedValue(
-            systemAdminCount > 0 ? [{ userId: 'existing-admin' }] : []
-          ),
+          limit: vi
+            .fn()
+            .mockResolvedValue(systemAdminCount > 0 ? [{ userId: 'existing-admin' }] : []),
         })),
       }
     })
@@ -82,9 +75,9 @@ describe('system admin access', () => {
         execute: mockExecute,
         select: vi.fn(() => ({
           from: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue(
-              systemAdminCount > 0 ? [{ userId: 'existing-admin' }] : []
-            ),
+            limit: vi
+              .fn()
+              .mockResolvedValue(systemAdminCount > 0 ? [{ userId: 'existing-admin' }] : []),
           })),
         })),
         insert: vi.fn(() => ({
@@ -152,6 +145,54 @@ describe('system admin access', () => {
     const claimed = await claimFirstSystemAdmin('user-1')
 
     expect(claimed).toBe(false)
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockExecute).toHaveBeenCalledTimes(1)
+    expect(mockValues).not.toHaveBeenCalled()
+  })
+
+  it('claims bootstrap ownership before allowing shared admin writes', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    })
+
+    const { requireSystemAdminUserId } = await import('./access')
+    await expect(requireSystemAdminUserId({ claimBootstrap: true })).resolves.toBe('user-1')
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockExecute).toHaveBeenCalledTimes(1)
+    expect(mockValues).toHaveBeenCalledWith({
+      id: 'system-admin-id',
+      userId: 'user-1',
+    })
+  })
+
+  it('rejects shared admin writes when bootstrap ownership is lost during claim', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    })
+    mockTransaction.mockImplementation(async (callback: (tx: unknown) => unknown) => {
+      systemAdminCount = 1
+
+      return callback({
+        execute: mockExecute,
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue([{ userId: 'existing-admin' }]),
+          })),
+        })),
+        insert: vi.fn(() => ({
+          values: mockValues,
+        })),
+      })
+    })
+
+    const { requireSystemAdminUserId } = await import('./access')
+    await expect(requireSystemAdminUserId({ claimBootstrap: true })).rejects.toThrow('FORBIDDEN')
+
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(mockExecute).toHaveBeenCalledTimes(1)
     expect(mockValues).not.toHaveBeenCalled()

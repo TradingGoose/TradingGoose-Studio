@@ -8,16 +8,17 @@ const {
   mockAuthHandler,
   mockLoadSystemOAuthClientCredentials,
   mockRunWithSystemOAuthClientCredentials,
-  mockToNextJsHandler,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
   mockRunWithSystemOAuthClientCredentials: vi.fn(),
-  mockToNextJsHandler: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
-  toNextJsHandler: (...args: unknown[]) => mockToNextJsHandler(...args),
+  toNextJsHandler: (handler: (request: Request) => Promise<Response>) => ({
+    GET: handler,
+    POST: handler,
+  }),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -33,113 +34,65 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
     mockRunWithSystemOAuthClientCredentials(...args),
 }))
 
-describe('auth catch-all route', () => {
+describe('/api/auth/[...all] route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-
-    mockToNextJsHandler.mockImplementation((handler: (request: Request) => Promise<Response>) => ({
-      GET: handler,
-      POST: handler,
-    }))
-    mockRunWithSystemOAuthClientCredentials.mockImplementation(
-      async (callback: () => Promise<Response>, _credentials: Record<string, unknown>) => callback()
+    mockLoadSystemOAuthClientCredentials.mockResolvedValue({})
+    mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
+      callback()
     )
-    mockAuthHandler.mockResolvedValue(Response.json({ ok: true }))
   })
 
-  it('hydrates credentials for social sign-in requests', async () => {
-    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
-      github: {
-        clientId: 'github-db-client-id',
-        clientSecret: 'github-db-client-secret',
-        fields: {
-          client_id: 'github-db-client-id',
-          client_secret: 'github-db-client-secret',
-        },
-      },
-    })
+  it('delegates non-system-oauth routes directly to Better Auth', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
 
-    const { POST } = await import('./route')
-    const request = new Request('http://localhost:3000/api/auth/sign-in/social', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        provider: 'github',
-        callbackURL: '/workspace',
-      }),
-    })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['github'])
-    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.objectContaining({
-        github: expect.objectContaining({
-          clientId: 'github-db-client-id',
-        }),
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/sign-in/sso', {
+        method: 'POST',
       })
     )
-    expect(mockAuthHandler).toHaveBeenCalledWith(request)
+
+    expect(response.status).toBe(204)
+    expect(mockLoadSystemOAuthClientCredentials).not.toHaveBeenCalled()
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('hydrates credentials for social callback requests', async () => {
+  it('hydrates configured system oauth credentials before delegating callback routes', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({
-      google: {
-        clientId: 'google-db-client-id',
-        clientSecret: 'google-db-client-secret',
-        fields: {
-          client_id: 'google-db-client-id',
-          client_secret: 'google-db-client-secret',
-        },
+      github: {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
       },
     })
 
-    const { GET } = await import('./route')
-    const request = new Request(
-      'http://localhost:3000/api/auth/callback/google?code=test&state=state',
-      {
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/oauth2/callback/github', {
         method: 'GET',
-      }
+      })
     )
 
-    const response = await GET(request)
-
-    expect(response.status).toBe(200)
-    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['google'])
-    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalled()
-    expect(mockAuthHandler).toHaveBeenCalledWith(request)
+    expect(response.status).toBe(204)
+    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['github'])
+    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('does not hydrate credentials for sso callbacks', async () => {
-    const { POST } = await import('./route')
-    const request = new Request('http://localhost:3000/api/auth/sso/callback/acme-sso', {
-      method: 'POST',
+  it('returns 400 when a system oauth callback provider is not configured', async () => {
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/oauth2/callback/github', {
+        method: 'GET',
+      })
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'OAuth provider is not configured',
     })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    expect(mockLoadSystemOAuthClientCredentials).not.toHaveBeenCalled()
-    expect(mockRunWithSystemOAuthClientCredentials).not.toHaveBeenCalled()
-    expect(mockAuthHandler).toHaveBeenCalledWith(request)
-  })
-
-  it('passes through non-oauth auth routes without hydrating credentials', async () => {
-    const { GET } = await import('./route')
-    const request = new Request('http://localhost:3000/api/auth/session', {
-      method: 'GET',
-    })
-
-    const response = await GET(request)
-
-    expect(response.status).toBe(200)
-    expect(mockLoadSystemOAuthClientCredentials).not.toHaveBeenCalled()
-    expect(mockRunWithSystemOAuthClientCredentials).not.toHaveBeenCalled()
-    expect(mockAuthHandler).toHaveBeenCalledWith(request)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 })
