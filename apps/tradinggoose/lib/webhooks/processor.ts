@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { env, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -355,6 +356,10 @@ export async function checkRateLimits(
       }
     }
 
+    if (!(await isBillingEnabledForRuntime())) {
+      return { allowed: true }
+    }
+
     const billingContext = await resolveWorkspaceBillingContext({
       workspaceId: foundWorkflow.workspaceId,
       actorUserId,
@@ -437,21 +442,27 @@ export async function checkUsageLimits(
       }
     }
 
-    const billingContext = await resolveWorkspaceBillingContext({
-      workspaceId: foundWorkflow.workspaceId,
-      actorUserId,
-    })
+    if (!(await isBillingEnabledForRuntime())) {
+      return { allowed: true }
+    }
+
     const usageCheck = await checkServerSideUsageLimits({
       userId: actorUserId,
       workflowId: foundWorkflow.id,
       workspaceId: foundWorkflow.workspaceId,
     })
     if (usageCheck.isExceeded) {
+      const billingUserId = (
+        await resolveWorkspaceBillingContext({
+          workspaceId: foundWorkflow.workspaceId,
+          actorUserId,
+        })
+      ).billingUserId
       logger.warn(
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping webhook execution.`,
         {
           actorUserId,
-          billingUserId: billingContext.billingUserId,
+          billingUserId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: foundWorkflow.id,

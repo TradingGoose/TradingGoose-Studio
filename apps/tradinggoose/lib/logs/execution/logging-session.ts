@@ -112,11 +112,19 @@ export class LoggingSession {
     workflowExecutionChargeUsd: number
     workflowModelCostMultiplier: number
   }> {
+    const billingSettings = await getResolvedBillingSettings()
+
+    if (!billingSettings.billingEnabled) {
+      return {
+        workflowExecutionChargeUsd: 0,
+        workflowModelCostMultiplier: 1,
+      }
+    }
+
     const billingContext = await resolveWorkflowBillingContext({
       workflowId: this.workflowId,
       actorUserId: this.environment?.userId ?? null,
     })
-    const billingSettings = await getResolvedBillingSettings()
 
     return {
       workflowExecutionChargeUsd: billingSettings.workflowExecutionChargeUsd,

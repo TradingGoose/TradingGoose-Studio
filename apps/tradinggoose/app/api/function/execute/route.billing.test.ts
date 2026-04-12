@@ -8,6 +8,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockWorkflowQueryLimit = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
+const mockIsBillingEnabledForRuntime = vi.fn()
 
 describe('Function Execute Billing', () => {
   beforeEach(() => {
@@ -22,6 +23,8 @@ describe('Function Execute Billing', () => {
       canWrite: true,
       workspace: { id: 'workspace-123', ownerId: 'workflow-owner' },
     })
+    mockIsBillingEnabledForRuntime.mockReset()
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
     vi.doMock('@/lib/auth/hybrid', () => ({
       checkSessionOrInternalAuth: vi.fn().mockResolvedValue({
@@ -96,6 +99,7 @@ describe('Function Execute Billing', () => {
         workflowExecutionChargeUsd: 0,
         functionExecutionChargeUsd: 0.25,
       }),
+      isBillingEnabledForRuntime: (...args: any[]) => mockIsBillingEnabledForRuntime(...args),
     }))
     vi.doMock('@/lib/billing', () => ({
       checkServerSideUsageLimits: vi.fn().mockResolvedValue({
@@ -415,5 +419,101 @@ describe('Function Execute Billing', () => {
       cost: 1,
       reason: 'function_execution',
     })
+  })
+
+  it('skips post-run metering when billing is disabled', async () => {
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+    vi.doMock('@/app/api/function/e2b-execution', () => ({
+      executeFunctionWithRuntimeGate: vi.fn().mockResolvedValue({
+        engine: 'local_vm',
+        success: true,
+        result: 'ok',
+        stdout: '',
+        executionTime: 1200,
+        userCodeStartLine: 3,
+      }),
+    }))
+
+    const { resolveWorkspaceBillingContext } = await import('@/lib/billing/workspace-billing')
+    const { getResolvedBillingSettings } = await import('@/lib/billing/settings')
+    const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
+
+    vi.mocked(resolveWorkspaceBillingContext).mockRejectedValueOnce(
+      new Error('No active default billing tier configured')
+    )
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "no billing"',
+      })
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(resolveWorkspaceBillingContext).not.toHaveBeenCalled()
+    expect(getResolvedBillingSettings).not.toHaveBeenCalled()
+    expect(accrueUserUsageCost).not.toHaveBeenCalled()
+  })
+
+  it('does not turn a successful execution into a 500 when post-run billing fails', async () => {
+    vi.doMock('@/app/api/function/e2b-execution', () => ({
+      executeFunctionWithRuntimeGate: vi.fn().mockResolvedValue({
+        engine: 'local_vm',
+        success: true,
+        result: 'ok',
+        stdout: '',
+        executionTime: 1200,
+        userCodeStartLine: 3,
+      }),
+    }))
+
+    const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
+    vi.mocked(accrueUserUsageCost).mockRejectedValueOnce(new Error('billing ledger unavailable'))
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "still works"',
+      })
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(payload.output.result).toBe('ok')
+  })
+
+  it('preserves the runtime failure response when post-run billing fails', async () => {
+    vi.doMock('@/app/api/function/e2b-execution', () => ({
+      executeFunctionWithRuntimeGate: vi.fn().mockResolvedValue({
+        engine: 'local_vm',
+        success: false,
+        result: null,
+        stdout: 'failure output',
+        executionTime: 1500,
+        userCodeStartLine: 3,
+        error: 'Boom',
+        rawError: new Error('Boom'),
+      }),
+    }))
+
+    const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
+    vi.mocked(accrueUserUsageCost).mockRejectedValueOnce(new Error('billing ledger unavailable'))
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'throw new Error("Boom")',
+      })
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Boom')
+    expect(payload.output.stdout).toBe('failure output')
   })
 })

@@ -3,6 +3,7 @@ import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, inArray, lt } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getTierLogRetentionDays } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -100,6 +101,11 @@ export async function GET(request: NextRequest) {
     const authError = verifyCronAuth(request, 'logs cleanup')
     if (authError) {
       return authError
+    }
+
+    if (!(await isBillingEnabledForRuntime())) {
+      logger.info('Skipping log cleanup because billing is disabled')
+      return NextResponse.json({ message: 'Billing disabled, skipping cleanup' })
     }
 
     const workflowGroups = await getWorkflowRetentionGroups()

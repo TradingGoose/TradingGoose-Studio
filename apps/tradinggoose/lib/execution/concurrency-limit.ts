@@ -2,6 +2,7 @@ import {
   resolveWorkflowBillingContext,
   resolveWorkspaceBillingContext,
 } from '@/lib/billing/workspace-billing'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { env } from '@/lib/env'
 import { getRedisClient } from '@/lib/redis'
 
@@ -196,6 +197,10 @@ export const withCodeExecutionConcurrencyLimit = async <T>({
   task: () => Promise<T>
 }): Promise<T> => {
   if (!userId) {
+    return task()
+  }
+
+  if (!(await isBillingEnabledForRuntime())) {
     return task()
   }
 

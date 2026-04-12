@@ -4,10 +4,10 @@ import { eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import {
+  type BillingScope,
   type BillingScopeType,
   type BillingTierRecord,
   getSubscriptionBillingScope,
-  requireDefaultBillingTier,
   type SubscriptionWithTier,
 } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -35,22 +35,45 @@ export interface WorkspaceBillingContext {
   scopeType: BillingScopeType
 }
 
-function getBillingOwnerId(billingOwner: WorkspaceBillingOwner): string {
-  return billingOwner.type === 'organization' ? billingOwner.organizationId : billingOwner.userId
+export function toRateLimitBillingScope(
+  billingContext: WorkspaceBillingContext,
+  actorUserId: string
+): BillingScope {
+  return {
+    scopeType: billingContext.scopeType,
+    scopeId: billingContext.scopeId,
+    organizationId:
+      billingContext.scopeType === 'organization_member' ||
+      billingContext.scopeType === 'organization'
+        ? billingContext.billingOwner.type === 'organization'
+          ? billingContext.billingOwner.organizationId
+          : null
+        : null,
+    userId:
+      billingContext.scopeType === 'organization_member'
+        ? actorUserId
+        : billingContext.scopeType === 'user'
+          ? billingContext.billingUserId
+          : null,
+  }
 }
 
-function getFallbackBillingScope(billingOwner: WorkspaceBillingOwner): {
-  scopeId: string
-  scopeType: BillingScopeType
-  organizationId: string | null
-  userId: string | null
-} {
-  return {
-    scopeId: getBillingOwnerId(billingOwner),
-    scopeType: billingOwner.type,
-    organizationId: billingOwner.type === 'organization' ? billingOwner.organizationId : null,
-    userId: billingOwner.type === 'user' ? billingOwner.userId : null,
+export function getBillingContextResolutionMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+
+  if (message.includes('No active subscription found')) {
+    return 'No active subscription found for this workspace. Please configure billing before executing workflows.'
   }
+
+  if (message.includes('missing billing owner')) {
+    return 'Workspace billing is not configured correctly. Please update billing settings before executing workflows.'
+  }
+
+  return 'Unable to determine usage limits. Execution blocked until billing is configured correctly.'
+}
+
+function getBillingOwnerId(billingOwner: WorkspaceBillingOwner): string {
+  return billingOwner.type === 'organization' ? billingOwner.organizationId : billingOwner.userId
 }
 
 function resolveBillingUserId(params: {
@@ -124,19 +147,20 @@ async function hydrateBillingContext(params: {
   ownerId: string | null
   billingOwner: WorkspaceBillingOwner
 }): Promise<WorkspaceBillingContext> {
-  const [subscription, defaultTier] = await Promise.all([
-    getBillingOwnerSubscription(params.billingOwner),
-    requireDefaultBillingTier(),
-  ])
-
-  const tier = subscription?.tier ?? defaultTier
+  const subscription = await getBillingOwnerSubscription(params.billingOwner)
   const billingUserId = resolveBillingUserId({
     ownerId: params.ownerId,
     billingOwner: params.billingOwner,
   })
-  const scope = subscription
-    ? getSubscriptionBillingScope(billingUserId, subscription)
-    : getFallbackBillingScope(params.billingOwner)
+  if (!subscription?.tier) {
+    throw new Error(
+      `No active subscription found for ${params.billingOwner.type} ${getBillingOwnerId(
+        params.billingOwner
+      )}`
+    )
+  }
+
+  const scope = getSubscriptionBillingScope(billingUserId, subscription)
 
   return {
     workspaceId: params.workspaceId,
@@ -144,7 +168,7 @@ async function hydrateBillingContext(params: {
     billingUserId,
     billingOwner: params.billingOwner,
     subscription,
-    tier,
+    tier: subscription.tier,
     scopeId: scope.scopeId,
     scopeType: scope.scopeType,
   }

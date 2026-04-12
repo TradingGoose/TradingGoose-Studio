@@ -252,72 +252,36 @@ export class ExecutionLogger implements IExecutionLoggerService {
       throw new Error(`Workflow log not found for execution ${executionId}`)
     }
 
-    try {
-      const billingContext = await resolveWorkflowBillingContext({
-        workflowId: updatedLog.workflowId,
-        actorUserId,
-      })
-      const [billingUser] = await db
-        .select({ id: userTable.id, email: userTable.email, name: userTable.name })
-        .from(userTable)
-        .where(eq(userTable.id, billingContext.billingUserId))
-        .limit(1)
-
-      const costDelta = costSummary.totalCost
-      const planName = getTierDisplayName(billingContext.tier)
-
-      if (billingContext.scopeType === 'user' && billingUser?.email) {
-        const before = await checkUsageStatus(billingContext.billingUserId)
-
-        await this.updateUsageLedger(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type'],
-          actorUserId
-        )
-
-        const limit = before.usageData.limit
-        const percentBefore = before.usageData.percentUsed
-        const percentAfter =
-          limit > 0 ? Math.min(100, percentBefore + (costDelta / limit) * 100) : percentBefore
-        const currentUsageAfter = before.usageData.currentUsage + costDelta
-
-        await maybeSendUsageThresholdEmail({
-          scope: 'user',
-          userId: billingContext.billingUserId,
-          userEmail: billingUser.email,
-          userName: billingUser.name || undefined,
-          planName,
-          isFreeTier: isFreeBillingTier(billingContext.tier),
-          percentBefore,
-          percentAfter,
-          currentUsageAfter,
-          limit,
+    if (await isBillingEnabledForRuntime()) {
+      try {
+        const billingContext = await resolveWorkflowBillingContext({
+          workflowId: updatedLog.workflowId,
+          actorUserId,
         })
-      } else if (billingContext.scopeType === 'organization_member') {
-        const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
+        const [billingUser] = await db
+          .select({ id: userTable.id, email: userTable.email, name: userTable.name })
+          .from(userTable)
+          .where(eq(userTable.id, billingContext.billingUserId))
+          .limit(1)
 
-        await this.updateUsageLedger(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type'],
-          actorUserId
-        )
+        const costDelta = costSummary.totalCost
+        const planName = getTierDisplayName(billingContext.tier)
 
-        if (organizationBillingOwner && billingUser?.email) {
-          const memberLedger = await getOrganizationMemberBillingLedger(
-            organizationBillingOwner.organizationId,
-            billingContext.billingUserId
+        if (billingContext.scopeType === 'user' && billingUser?.email) {
+          const before = await checkUsageStatus(billingContext.billingUserId)
+
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
           )
 
-          const limit = getTierUsageAllowanceUsd(
-            billingContext.subscription?.tier ?? billingContext.tier
-          )
-          const beforeUsage = memberLedger?.currentPeriodCost ?? 0
-          const percentBefore = limit > 0 ? Math.min(100, (beforeUsage / limit) * 100) : 0
-          const currentUsageAfter = beforeUsage + costDelta
+          const limit = before.usageData.limit
+          const percentBefore = before.usageData.percentUsed
           const percentAfter =
-            limit > 0 ? Math.min(100, (currentUsageAfter / limit) * 100) : percentBefore
+            limit > 0 ? Math.min(100, percentBefore + (costDelta / limit) * 100) : percentBefore
+          const currentUsageAfter = before.usageData.currentUsage + costDelta
 
           await maybeSendUsageThresholdEmail({
             scope: 'user',
@@ -331,69 +295,108 @@ export class ExecutionLogger implements IExecutionLoggerService {
             currentUsageAfter,
             limit,
           })
-        }
-      } else if (billingContext.scopeType === 'organization') {
-        const [billingLedger, orgRows] = await Promise.all([
-          getOrganizationBillingLedger(billingContext.scopeId),
-          db
-            .select({ orgUsageLimit: organization.orgUsageLimit })
-            .from(organization)
-            .where(eq(organization.id, billingContext.scopeId))
-            .limit(1),
-        ])
+        } else if (billingContext.scopeType === 'organization_member') {
+          const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
 
-        let orgLimit = 0
-        const { getBillingTierPricing } = await import('@/lib/billing/core/billing')
-        const { usageAllowance } = getBillingTierPricing(billingContext.subscription)
-        if (orgRows.length > 0 && orgRows[0].orgUsageLimit) {
-          const configured = Number.parseFloat(orgRows[0].orgUsageLimit)
-          orgLimit = Math.max(configured, usageAllowance)
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+
+          if (organizationBillingOwner && billingUser?.email) {
+            const memberLedger = await getOrganizationMemberBillingLedger(
+              organizationBillingOwner.organizationId,
+              billingContext.billingUserId
+            )
+
+            const limit = getTierUsageAllowanceUsd(
+              billingContext.subscription?.tier ?? billingContext.tier
+            )
+            const beforeUsage = memberLedger?.currentPeriodCost ?? 0
+            const percentBefore = limit > 0 ? Math.min(100, (beforeUsage / limit) * 100) : 0
+            const currentUsageAfter = beforeUsage + costDelta
+            const percentAfter =
+              limit > 0 ? Math.min(100, (currentUsageAfter / limit) * 100) : percentBefore
+
+            await maybeSendUsageThresholdEmail({
+              scope: 'user',
+              userId: billingContext.billingUserId,
+              userEmail: billingUser.email,
+              userName: billingUser.name || undefined,
+              planName,
+              isFreeTier: isFreeBillingTier(billingContext.tier),
+              percentBefore,
+              percentAfter,
+              currentUsageAfter,
+              limit,
+            })
+          }
+        } else if (billingContext.scopeType === 'organization') {
+          const [billingLedger, orgRows] = await Promise.all([
+            getOrganizationBillingLedger(billingContext.scopeId),
+            db
+              .select({ orgUsageLimit: organization.orgUsageLimit })
+              .from(organization)
+              .where(eq(organization.id, billingContext.scopeId))
+              .limit(1),
+          ])
+
+          let orgLimit = 0
+          const { getBillingTierPricing } = await import('@/lib/billing/core/billing')
+          const { usageAllowance } = getBillingTierPricing(billingContext.subscription)
+          if (orgRows.length > 0 && orgRows[0].orgUsageLimit) {
+            const configured = Number.parseFloat(orgRows[0].orgUsageLimit)
+            orgLimit = Math.max(configured, usageAllowance)
+          } else {
+            orgLimit = usageAllowance
+          }
+
+          const orgUsageBeforeNum = billingLedger?.currentPeriodCost ?? 0
+
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+
+          const percentBefore =
+            orgLimit > 0 ? Math.min(100, (orgUsageBeforeNum / orgLimit) * 100) : 0
+          const currentUsageAfter = orgUsageBeforeNum + costDelta
+          const percentAfter =
+            orgLimit > 0 ? Math.min(100, (currentUsageAfter / orgLimit) * 100) : percentBefore
+
+          await maybeSendUsageThresholdEmail({
+            scope: 'organization',
+            organizationId: billingContext.scopeId,
+            planName,
+            isFreeTier: false,
+            percentBefore,
+            percentAfter,
+            currentUsageAfter,
+            limit: orgLimit,
+          })
         } else {
-          orgLimit = usageAllowance
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
         }
-
-        const orgUsageBeforeNum = billingLedger?.currentPeriodCost ?? 0
-
-        await this.updateUsageLedger(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type'],
-          actorUserId
-        )
-
-        const percentBefore = orgLimit > 0 ? Math.min(100, (orgUsageBeforeNum / orgLimit) * 100) : 0
-        const currentUsageAfter = orgUsageBeforeNum + costDelta
-        const percentAfter =
-          orgLimit > 0 ? Math.min(100, (currentUsageAfter / orgLimit) * 100) : percentBefore
-
-        await maybeSendUsageThresholdEmail({
-          scope: 'organization',
-          organizationId: billingContext.scopeId,
-          planName,
-          isFreeTier: false,
-          percentBefore,
-          percentAfter,
-          currentUsageAfter,
-          limit: orgLimit,
-        })
-      } else {
-        await this.updateUsageLedger(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type'],
-          actorUserId
-        )
+      } catch (e) {
+        try {
+          await this.updateUsageLedger(
+            updatedLog.workflowId,
+            costSummary,
+            updatedLog.trigger as ExecutionTrigger['type'],
+            actorUserId
+          )
+        } catch {}
+        logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
       }
-    } catch (e) {
-      try {
-        await this.updateUsageLedger(
-          updatedLog.workflowId,
-          costSummary,
-          updatedLog.trigger as ExecutionTrigger['type'],
-          actorUserId
-        )
-      } catch {}
-      logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
     }
 
     logger.debug(`Completed workflow execution ${executionId}`)

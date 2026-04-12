@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getResolvedBillingSettings, isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getTierFunctionExecutionDurationMultiplier } from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
@@ -226,31 +226,46 @@ export async function POST(req: NextRequest) {
     const runtimeStdout = runtimeExecution.stdout || stdout
     stdout = runtimeStdout
     userCodeStartLine = runtimeExecution.userCodeStartLine
-    const billingContext = workflowId
-      ? await resolveWorkflowBillingContext({
+    let functionExecutionCost = 0
+
+    if (await isBillingEnabledForRuntime()) {
+      try {
+        const billingContext = workflowId
+          ? await resolveWorkflowBillingContext({
+              workflowId,
+              actorUserId: auth.userId,
+            })
+          : await resolveWorkspaceBillingContext({
+              workspaceId,
+              actorUserId: auth.userId,
+            })
+        const billingSettings = await getResolvedBillingSettings()
+        functionExecutionCost = calculateFunctionExecutionCost({
+          executionTimeMs: runtimeExecution.executionTime,
+          functionExecutionChargeUsd: billingSettings.functionExecutionChargeUsd,
+          functionExecutionDurationMultiplier: getTierFunctionExecutionDurationMultiplier(
+            billingContext.tier
+          ),
+        })
+        if (functionExecutionCost > 0) {
+          await accrueUserUsageCost({
+            userId: auth.userId,
+            workspaceId,
+            workflowId,
+            cost: functionExecutionCost,
+            reason: 'function_execution',
+          })
+        }
+      } catch (billingError) {
+        logger.error(`[${requestId}] Failed to record function execution billing`, {
+          error: billingError,
+          userId: auth.userId,
           workflowId,
-          actorUserId: auth.userId,
-        })
-      : await resolveWorkspaceBillingContext({
           workspaceId,
-          actorUserId: auth.userId,
+          executionTime: runtimeExecution.executionTime,
+          runtimeSuccess: runtimeExecution.success,
         })
-    const billingSettings = await getResolvedBillingSettings()
-    const functionExecutionCost = calculateFunctionExecutionCost({
-      executionTimeMs: runtimeExecution.executionTime,
-      functionExecutionChargeUsd: billingSettings.functionExecutionChargeUsd,
-      functionExecutionDurationMultiplier: getTierFunctionExecutionDurationMultiplier(
-        billingContext.tier
-      ),
-    })
-    if (functionExecutionCost > 0) {
-      await accrueUserUsageCost({
-        userId: auth.userId,
-        workspaceId,
-        workflowId,
-        cost: functionExecutionCost,
-        reason: 'function_execution',
-      })
+      }
     }
 
     if (!runtimeExecution.success) {

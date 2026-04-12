@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import { getTierCopilotCostMultiplier, requireDefaultBillingTier } from '@/lib/billing/tiers'
+import { getTierCopilotCostMultiplier } from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
@@ -82,20 +82,6 @@ export async function POST(req: NextRequest) {
       logger.warn('[Context Usage API] No session/user ID')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const billingContext = workflowId
-      ? await resolveWorkflowBillingContext({
-          workflowId,
-          actorUserId: userId,
-        })
-      : null
-    const [subscription, defaultTier] = await Promise.all([
-      billingContext
-        ? Promise.resolve(billingContext.subscription)
-        : getPersonalEffectiveSubscription(userId),
-      requireDefaultBillingTier(),
-    ])
-    const effectiveTier = billingContext?.tier ?? subscription?.tier ?? defaultTier
 
     logger.info('[Context Usage API] Request validated', {
       conversationId,
@@ -323,13 +309,19 @@ async function billCopilotUsage(params: {
           actorUserId: userId,
         })
       : null
-    const [subscription, defaultTier] = await Promise.all([
-      billingContext
-        ? Promise.resolve(billingContext.subscription)
-        : getPersonalEffectiveSubscription(userId),
-      requireDefaultBillingTier(),
-    ])
-    const effectiveTier = billingContext?.tier ?? subscription?.tier ?? defaultTier
+    const effectiveTier = workflowId
+      ? billingContext?.subscription?.tier ?? null
+      : (await getPersonalEffectiveSubscription(userId))?.tier ?? null
+
+    if (!effectiveTier) {
+      logger.warn('Skipping copilot billing - missing active subscription tier', {
+        userId,
+        workflowId,
+        assistantMessageId,
+      })
+      return
+    }
+
     const costToAdd = Number(costResult.total || 0) * getTierCopilotCostMultiplier(effectiveTier)
 
     const extraUpdates: Record<string, any> = {

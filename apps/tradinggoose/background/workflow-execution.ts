@@ -4,7 +4,6 @@ import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -47,10 +46,6 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
 
   try {
-    const billingContext = await resolveWorkflowBillingContext({
-      workflowId,
-      actorUserId: payload.userId,
-    })
     const usageCheck = await checkServerSideUsageLimits({
       userId: payload.userId,
       workflowId,
@@ -60,7 +55,6 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping workflow execution.`,
         {
           actorUserId: payload.userId,
-          billingUserId: billingContext.billingUserId,
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,

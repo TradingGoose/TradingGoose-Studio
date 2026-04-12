@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { RateLimiter } from '@/services/queue/RateLimiter'
 import { MANUAL_EXECUTION_LIMIT } from '@/services/queue/types'
 
@@ -28,6 +29,12 @@ vi.mock('drizzle-orm', () => ({
 // Mock getEffectiveSubscription
 vi.mock('@/lib/billing/core/subscription', () => ({
   getEffectiveSubscription: vi.fn().mockResolvedValue(null),
+}))
+
+const mockIsBillingEnabledForRuntime = vi.fn().mockResolvedValue(true)
+
+vi.mock('@/lib/billing/settings', () => ({
+  isBillingEnabledForRuntime: (...args: any[]) => mockIsBillingEnabledForRuntime(...args),
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -70,18 +77,6 @@ vi.mock('@/lib/billing/tiers', () => ({
             apiEndpointPerMinute: 0,
           }
   ),
-  requireDefaultBillingTier: vi.fn().mockResolvedValue({
-    id: 'tier_default',
-    displayName: 'Community',
-    ownerType: 'user',
-    usageScope: 'individual',
-    seatMode: 'fixed',
-    syncRateLimitPerMinute: 10,
-    asyncRateLimitPerMinute: 50,
-    apiEndpointRateLimitPerMinute: 10,
-    monthlyPriceUsd: null,
-    yearlyPriceUsd: null,
-  }),
 }))
 
 import { db } from '@tradinggoose/db'
@@ -89,9 +84,29 @@ import { db } from '@tradinggoose/db'
 describe('RateLimiter', () => {
   const rateLimiter = new RateLimiter()
   const testUserId = 'test-user-123'
+  const subscribedTier = {
+    id: 'tier_default',
+    displayName: 'Community',
+    ownerType: 'user' as const,
+    usageScope: 'individual' as const,
+    seatMode: 'fixed' as const,
+    syncRateLimitPerMinute: 10,
+    asyncRateLimitPerMinute: 50,
+    apiEndpointRateLimitPerMinute: 10,
+    monthlyPriceUsd: null,
+    yearlyPriceUsd: null,
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+    vi.mocked(getEffectiveSubscription).mockResolvedValue({
+      id: 'subscription-1',
+      referenceType: 'user',
+      referenceId: testUserId,
+      status: 'active',
+      tier: subscribedTier,
+    } as any)
   })
 
   describe('checkRateLimit', () => {
@@ -202,6 +217,26 @@ describe('RateLimiter', () => {
         expect(result.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute - 1)
       }
     })
+
+    it('skips rate limiting entirely when billing is disabled', async () => {
+      mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+
+      expect(result.allowed).toBe(true)
+      expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
+      expect(db.select).not.toHaveBeenCalled()
+    })
+
+    it('blocks billed requests when the user has no active subscription tier', async () => {
+      vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
+
+      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+
+      expect(result.allowed).toBe(false)
+      expect(result.remaining).toBe(0)
+      expect(db.select).not.toHaveBeenCalled()
+    })
   })
 
   describe('getRateLimitStatus', () => {
@@ -232,6 +267,17 @@ describe('RateLimiter', () => {
       expect(status.limit).toBe(TEST_RATE_LIMITS.syncPerMinute)
       expect(status.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute)
       expect(status.resetAt).toBeInstanceOf(Date)
+    })
+
+    it('returns a blocked rate-limit status when billing is enabled but no subscription exists', async () => {
+      vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
+
+      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
+
+      expect(status.used).toBe(0)
+      expect(status.limit).toBe(0)
+      expect(status.remaining).toBe(0)
+      expect(db.select).not.toHaveBeenCalled()
     })
   })
 

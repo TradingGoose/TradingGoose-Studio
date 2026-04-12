@@ -2,12 +2,12 @@ import { db } from '@tradinggoose/db'
 import { userRateLimits } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import {
   type BillingScope,
   type BillingTierRecord,
   getSubscriptionBillingScope,
   getTierRateLimits,
-  requireDefaultBillingTier,
 } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -18,6 +18,7 @@ import {
 } from '@/services/queue/types'
 
 const logger = createLogger('RateLimiter')
+const UNLIMITED_RATE_LIMIT = Number.MAX_SAFE_INTEGER
 interface SubscriptionInfo {
   referenceType: 'user' | 'organization'
   referenceId: string
@@ -91,7 +92,11 @@ export class RateLimiter {
    * Get the current count from a rate limit record for a specific counter type
    */
   private getCountFromRecord(
-    record: { syncApiRequests: number; asyncApiRequests: number; apiEndpointRequests: number },
+    record: {
+      syncApiRequests: number
+      asyncApiRequests: number
+      apiEndpointRequests: number
+    },
     counterType: RateLimitCounterType
   ): number {
     switch (counterType) {
@@ -116,6 +121,14 @@ export class RateLimiter {
     billingScope?: BillingScope | null
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
     try {
+      if (!(await isBillingEnabledForRuntime())) {
+        return {
+          allowed: true,
+          remaining: UNLIMITED_RATE_LIMIT,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+        }
+      }
+
       if (triggerType === 'manual') {
         return {
           allowed: true,
@@ -124,8 +137,22 @@ export class RateLimiter {
         }
       }
 
-      const defaultTier = await requireDefaultBillingTier()
-      const effectiveTier = subscription?.tier ?? defaultTier
+      if (!subscription?.tier) {
+        logger.error(
+          'Blocking rate-limited execution because no active subscription tier was found',
+          {
+            userId,
+            triggerType,
+          }
+        )
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+        }
+      }
+
+      const effectiveTier = subscription.tier
       const rateLimits = getTierRateLimits(effectiveTier)
       const rateLimitKey = this.getRateLimitKey(userId, subscription, billingScope)
       const resolvedScope = this.getResolvedRateLimitScope(userId, subscription, billingScope)
@@ -229,10 +256,16 @@ export class RateLimiter {
         .update(userRateLimits)
         .set({
           ...(counterType === 'api-endpoint'
-            ? { apiEndpointRequests: sql`${userRateLimits.apiEndpointRequests} + 1` }
+            ? {
+                apiEndpointRequests: sql`${userRateLimits.apiEndpointRequests} + 1`,
+              }
             : counterType === 'async'
-              ? { asyncApiRequests: sql`${userRateLimits.asyncApiRequests} + 1` }
-              : { syncApiRequests: sql`${userRateLimits.syncApiRequests} + 1` }),
+              ? {
+                  asyncApiRequests: sql`${userRateLimits.asyncApiRequests} + 1`,
+                }
+              : {
+                  syncApiRequests: sql`${userRateLimits.syncApiRequests} + 1`,
+                }),
           lastRequestAt: now,
         })
         .where(eq(userRateLimits.referenceId, rateLimitKey))
@@ -291,9 +324,8 @@ export class RateLimiter {
       }
     } catch (error) {
       logger.error('Error checking rate limit:', error)
-      // Allow execution on error to avoid blocking users
       return {
-        allowed: true,
+        allowed: false,
         remaining: 0,
         resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
       }
@@ -319,8 +351,22 @@ export class RateLimiter {
     triggerType: TriggerType = 'manual',
     isAsync = false,
     billingScope?: BillingScope | null
-  ): Promise<{ used: number; limit: number; remaining: number; resetAt: Date }> {
+  ): Promise<{
+    used: number
+    limit: number
+    remaining: number
+    resetAt: Date
+  }> {
     try {
+      if (!(await isBillingEnabledForRuntime())) {
+        return {
+          used: 0,
+          limit: UNLIMITED_RATE_LIMIT,
+          remaining: UNLIMITED_RATE_LIMIT,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+        }
+      }
+
       if (triggerType === 'manual') {
         return {
           used: 0,
@@ -330,8 +376,23 @@ export class RateLimiter {
         }
       }
 
-      const defaultTier = await requireDefaultBillingTier()
-      const effectiveTier = subscription?.tier ?? defaultTier
+      if (!subscription?.tier) {
+        logger.error(
+          'Returning blocked rate-limit status because no active subscription tier was found',
+          {
+            userId,
+            triggerType,
+          }
+        )
+        return {
+          used: 0,
+          limit: 0,
+          remaining: 0,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+        }
+      }
+
+      const effectiveTier = subscription.tier
       const rateLimits = getTierRateLimits(effectiveTier)
       const rateLimitKey = this.getRateLimitKey(userId, subscription, billingScope)
 
@@ -378,7 +439,12 @@ export class RateLimiter {
     userId: string,
     triggerType: TriggerType = 'manual',
     isAsync = false
-  ): Promise<{ used: number; limit: number; remaining: number; resetAt: Date }> {
+  ): Promise<{
+    used: number
+    limit: number
+    remaining: number
+    resetAt: Date
+  }> {
     const subscription = await getEffectiveSubscription(userId)
     return this.getRateLimitStatusWithSubscription(userId, subscription, triggerType, isAsync)
   }

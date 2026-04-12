@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
-import { getTierRateLimits, requireDefaultBillingTier } from '@/lib/billing/tiers'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { RateLimiter } from '@/services/queue/RateLimiter'
 import { authenticateV1Request } from './auth'
@@ -9,8 +9,7 @@ const logger = createLogger('V1Middleware')
 const rateLimiter = new RateLimiter()
 
 async function getDefaultApiEndpointRateLimit(): Promise<number> {
-  const defaultTier = await requireDefaultBillingTier()
-  return getTierRateLimits(defaultTier).apiEndpointPerMinute
+  return (await isBillingEnabledForRuntime()) ? 0 : Number.MAX_SAFE_INTEGER
 }
 
 export interface RateLimitResult {
@@ -25,8 +24,9 @@ export interface RateLimitResult {
 export async function checkRateLimit(
   request: NextRequest,
   endpoint: 'logs' | 'logs-detail' = 'logs'
-): Promise<RateLimitResult> {
+  ): Promise<RateLimitResult> {
   try {
+    const billingEnabled = await isBillingEnabledForRuntime()
     const auth = await authenticateV1Request(request)
     if (!auth.authenticated) {
       const limit = await getDefaultApiEndpointRateLimit()
@@ -40,6 +40,16 @@ export async function checkRateLimit(
     }
 
     const userId = auth.userId!
+    if (!billingEnabled) {
+      return {
+        allowed: true,
+        remaining: Number.MAX_SAFE_INTEGER,
+        limit: Number.MAX_SAFE_INTEGER,
+        resetAt: new Date(Date.now() + 60000),
+        userId,
+      }
+    }
+
     const subscription = await getPersonalEffectiveSubscription(userId)
 
     // Use api-endpoint trigger type for external API rate limiting
