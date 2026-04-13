@@ -47,15 +47,8 @@ const DEFAULT_AUTH_ERROR_CONTENT: AuthErrorContent = {
   secondaryAction: HOME_ACTION,
 }
 
-const GENERIC_AUTH_ERROR_MESSAGES = new Set([
-  'Failed to create user',
-  'Failed to create session',
-  'Failed to get session',
-  'Something went wrong',
-])
-
-export const AUTH_ERROR_MESSAGE_COOKIE_NAME = 'tg-auth-error-message'
-export const AUTH_ERROR_MESSAGE_QUERY_PARAM = 'message'
+const REGISTRATION_WAITLIST_ERROR_CODE = normalizeAuthErrorCode(REGISTRATION_WAITLIST_MESSAGE)
+const REGISTRATION_DISABLED_ERROR_CODE = normalizeAuthErrorCode(REGISTRATION_DISABLED_MESSAGE)
 
 const AUTH_ERROR_CONTENT_BY_CODE: Record<string, AuthErrorContent> = {
   UNABLE_TO_CREATE_USER: {
@@ -186,86 +179,18 @@ const AUTH_ERROR_CONTENT_BY_CODE: Record<string, AuthErrorContent> = {
     primaryAction: LOGIN_ACTION,
     secondaryAction: HOME_ACTION,
   },
-}
-
-function getMessageRegistrationOverride(message: string): AuthErrorContent | null {
-  if (message === REGISTRATION_WAITLIST_MESSAGE) {
-    return {
-      title: 'Registration is limited',
-      description: message,
-      primaryAction: WAITLIST_ACTION,
-      secondaryAction: LOGIN_ACTION,
-    }
-  }
-
-  if (message === REGISTRATION_DISABLED_MESSAGE) {
-    return {
-      title: 'Registration is currently disabled',
-      description: message,
-      primaryAction: LOGIN_ACTION,
-      secondaryAction: HOME_ACTION,
-    }
-  }
-
-  return null
-}
-
-function collectErrorMessages(value: unknown, visited = new Set<unknown>(), depth = 0): string[] {
-  if (value == null || depth > 3) {
-    return []
-  }
-
-  if (typeof value === 'string') {
-    return [value]
-  }
-
-  if (typeof value !== 'object') {
-    return []
-  }
-
-  if (visited.has(value)) {
-    return []
-  }
-
-  visited.add(value)
-
-  const candidates: string[] = []
-  const record = value as Record<string, unknown>
-
-  if (value instanceof Error && value.message) {
-    candidates.push(value.message)
-  }
-
-  if (typeof record.message === 'string') {
-    candidates.push(record.message)
-  }
-
-  for (const key of ['cause', 'error', 'body', 'data', 'meta']) {
-    candidates.push(...collectErrorMessages(record[key], visited, depth + 1))
-  }
-
-  return candidates
-}
-
-function isMeaningfulAuthErrorMessage(message: string) {
-  const trimmedMessage = message.trim()
-  if (!trimmedMessage) {
-    return false
-  }
-
-  return !GENERIC_AUTH_ERROR_MESSAGES.has(trimmedMessage)
-}
-
-export function extractPersistableAuthErrorMessage(error: unknown) {
-  const messages = collectErrorMessages(error)
-
-  for (const message of messages) {
-    if (isMeaningfulAuthErrorMessage(message)) {
-      return message.trim()
-    }
-  }
-
-  return null
+  [REGISTRATION_WAITLIST_ERROR_CODE!]: {
+    title: 'Registration is limited',
+    description: REGISTRATION_WAITLIST_MESSAGE,
+    primaryAction: WAITLIST_ACTION,
+    secondaryAction: LOGIN_ACTION,
+  },
+  [REGISTRATION_DISABLED_ERROR_CODE!]: {
+    title: 'Registration is currently disabled',
+    description: REGISTRATION_DISABLED_MESSAGE,
+    primaryAction: LOGIN_ACTION,
+    secondaryAction: HOME_ACTION,
+  },
 }
 
 export function normalizeAuthErrorCode(error: string | null | undefined) {
@@ -284,28 +209,24 @@ export function normalizeAuthErrorCode(error: string | null | undefined) {
 
 export function getAuthErrorContent(
   error: string | null | undefined,
-  explicitMessage?: string | null
+  errorDescription?: string | null
 ) {
   const code = normalizeAuthErrorCode(error)
-  const normalizedMessage = explicitMessage?.trim() || null
-  const messageOverride = normalizedMessage
-    ? getMessageRegistrationOverride(normalizedMessage)
-    : null
+  const normalizedDescription = errorDescription?.trim() || null
+  const contentForCode = code ? AUTH_ERROR_CONTENT_BY_CODE[code] : null
 
   return {
     code,
-    content:
-      messageOverride ||
-      (code && AUTH_ERROR_CONTENT_BY_CODE[code]
+    content: contentForCode
+      ? {
+          ...contentForCode,
+          description: normalizedDescription || contentForCode.description,
+        }
+      : normalizedDescription
         ? {
-            ...AUTH_ERROR_CONTENT_BY_CODE[code],
-            description: normalizedMessage || AUTH_ERROR_CONTENT_BY_CODE[code].description,
+            ...DEFAULT_AUTH_ERROR_CONTENT,
+            description: normalizedDescription,
           }
-        : normalizedMessage
-          ? {
-              ...DEFAULT_AUTH_ERROR_CONTENT,
-              description: normalizedMessage,
-            }
-          : DEFAULT_AUTH_ERROR_CONTENT),
+        : DEFAULT_AUTH_ERROR_CONTENT,
   }
 }

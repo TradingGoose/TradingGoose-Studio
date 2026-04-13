@@ -4,7 +4,7 @@ import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -19,7 +19,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
 import { and, eq, inArray } from 'drizzle-orm'
-import { cookies, headers } from 'next/headers'
+import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
@@ -80,10 +80,6 @@ import {
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
-import {
-  AUTH_ERROR_MESSAGE_COOKIE_NAME,
-  extractPersistableAuthErrorMessage,
-} from './auth/auth-error-copy'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
@@ -348,11 +344,12 @@ export const auth = betterAuth({
             return
           }
 
-          if (eligibility.reason === 'disabled') {
-            throw new Error(REGISTRATION_DISABLED_MESSAGE)
-          }
-
-          throw new Error(REGISTRATION_WAITLIST_MESSAGE)
+          throw new APIError('BAD_REQUEST', {
+            message:
+              eligibility.reason === 'disabled'
+                ? REGISTRATION_DISABLED_MESSAGE
+                : REGISTRATION_WAITLIST_MESSAGE,
+          })
         },
         after: async (user) => {
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
@@ -1761,21 +1758,7 @@ export const auth = betterAuth({
     }),
   ],
   onAPIError: {
-    errorURL: '/api/auth/error',
-    onError: async (error) => {
-      const message = extractPersistableAuthErrorMessage(error)
-      if (!message) {
-        return
-      }
-
-      const cookieStore = await cookies()
-      cookieStore.set(AUTH_ERROR_MESSAGE_COOKIE_NAME, message, {
-        httpOnly: true,
-        maxAge: 30,
-        path: '/api/auth/error',
-        sameSite: 'lax',
-      })
-    },
+    errorURL: '/error',
   },
   pages: {
     signIn: '/login',

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { getAuthErrorContent, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import {
-  extractPersistableAuthErrorMessage,
-  getAuthErrorContent,
-  normalizeAuthErrorCode,
-} from '@/lib/auth/auth-error-copy'
-import { REGISTRATION_WAITLIST_MESSAGE } from '@/lib/registration/shared'
+  REGISTRATION_DISABLED_MESSAGE,
+  REGISTRATION_WAITLIST_MESSAGE,
+} from '@/lib/registration/shared'
 
 describe('normalizeAuthErrorCode', () => {
   it('normalizes lowercase query values into uppercase snake case', () => {
@@ -34,25 +33,23 @@ describe('getAuthErrorContent', () => {
     expect(content.primaryAction.href).toBe('/login?reauth=1')
   })
 
-  it('prefers the explicit registration message and action when provided', () => {
-    const { content } = getAuthErrorContent('unable_to_create_user', REGISTRATION_WAITLIST_MESSAGE)
+  it('maps the normalized waitlist registration code to waitlist recovery copy', () => {
+    const { code, content } = getAuthErrorContent(
+      'registration_is_limited_to_approved_waitlist_emails'
+    )
 
+    expect(code).toBe('REGISTRATION_IS_LIMITED_TO_APPROVED_WAITLIST_EMAILS')
     expect(content.title).toBe('Registration is limited')
     expect(content.description).toBe(REGISTRATION_WAITLIST_MESSAGE)
     expect(content.primaryAction.href).toBe('/waitlist')
   })
-})
 
-describe('extractPersistableAuthErrorMessage', () => {
-  it('pulls the specific cause message from wrapped auth errors', () => {
-    const error = new Error('Failed to create user', {
-      cause: new Error(REGISTRATION_WAITLIST_MESSAGE),
-    })
+  it('maps the normalized disabled registration code to the disabled recovery copy', () => {
+    const { code, content } = getAuthErrorContent('registration_is_currently_disabled')
 
-    expect(extractPersistableAuthErrorMessage(error)).toBe(REGISTRATION_WAITLIST_MESSAGE)
-  })
-
-  it('ignores generic wrapper messages when nothing more specific exists', () => {
-    expect(extractPersistableAuthErrorMessage(new Error('Failed to create user'))).toBeNull()
+    expect(code).toBe('REGISTRATION_IS_CURRENTLY_DISABLED')
+    expect(content.title).toBe('Registration is currently disabled')
+    expect(content.description).toBe(REGISTRATION_DISABLED_MESSAGE)
+    expect(content.primaryAction.href).toBe('/login?reauth=1')
   })
 })

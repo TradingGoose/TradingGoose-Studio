@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { AUTH_ERROR_MESSAGE_QUERY_PARAM, getAuthErrorContent } from '@/lib/auth/auth-error-copy'
+import { getAuthErrorContent } from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
@@ -17,15 +17,12 @@ export default async function AuthErrorPage({
   searchParams?: Promise<{
     error?: string | string[]
     error_description?: string | string[]
-    message?: string | string[]
   }>
 }) {
   const resolvedSearchParams = (await searchParams) ?? {}
   const error = getSingleSearchParam(resolvedSearchParams.error)
-  const explicitMessage =
-    getSingleSearchParam(resolvedSearchParams[AUTH_ERROR_MESSAGE_QUERY_PARAM]) ||
-    getSingleSearchParam(resolvedSearchParams.error_description)
-  const { code, content } = getAuthErrorContent(error, explicitMessage)
+  const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
+  const { code, content } = getAuthErrorContent(error, errorDescription)
   const brand = getBrandConfig()
   const supportEmail = brand.supportEmail || 'support@tradinggoose.ai'
 
