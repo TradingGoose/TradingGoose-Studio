@@ -30,24 +30,24 @@ const metadataBase: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: '/favicon/web-app-manifest-512x512.png',
-        width: 512,
-        height: 512,
-        alt: 'TradingGoose Logo',
+        url: '/social-preview.png',
+        width: 2559,
+        height: 1398,
+        alt: 'TradingGoose social preview',
         type: 'image/png',
       },
     ],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     site: '@tradinggoose',
     creator: '@tradinggoose',
     title: 'TradingGoose - Visual Workflow Platform for LLM Trading',
     description:
       'Open-source platform for technical LLM-driven trading. Custom indicators, live monitors, AI agent workflows triggered by market signals.',
     images: {
-      url: '/favicon/web-app-manifest-512x512.png',
-      alt: 'TradingGoose Logo',
+      url: '/social-preview.png',
+      alt: 'TradingGoose social preview',
     },
   },
   alternates: {
