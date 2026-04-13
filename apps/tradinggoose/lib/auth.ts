@@ -19,7 +19,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
 import { and, eq, inArray } from 'drizzle-orm'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
@@ -73,13 +73,17 @@ import {
   REGISTRATION_DISABLED_MESSAGE,
   REGISTRATION_WAITLIST_MESSAGE,
 } from '@/lib/registration/shared'
-import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import {
   createStripeClientProxy,
   getCachedStripeServiceConfig,
   hasCachedStripeServiceSecretKey,
 } from '@/lib/system-services/stripe-runtime'
+import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import {
+  AUTH_ERROR_MESSAGE_COOKIE_NAME,
+  extractPersistableAuthErrorMessage,
+} from './auth/auth-error-copy'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
@@ -1756,6 +1760,23 @@ export const auth = betterAuth({
       },
     }),
   ],
+  onAPIError: {
+    errorURL: '/api/auth/error',
+    onError: async (error) => {
+      const message = extractPersistableAuthErrorMessage(error)
+      if (!message) {
+        return
+      }
+
+      const cookieStore = await cookies()
+      cookieStore.set(AUTH_ERROR_MESSAGE_COOKIE_NAME, message, {
+        httpOnly: true,
+        maxAge: 30,
+        path: '/api/auth/error',
+        sameSite: 'lax',
+      })
+    },
+  },
   pages: {
     signIn: '/login',
     signUp: '/signup',
