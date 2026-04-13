@@ -107,11 +107,6 @@ export const resolveMarketApiServiceConfig = createServiceResolver(
   readApiKeyAndBaseUrlConfig
 )
 
-export const resolveAgentIndexerServiceConfig = createServiceResolver(
-  'agent_indexer',
-  readApiKeyAndBaseUrlConfig
-)
-
 export const resolveOllamaServiceConfig = createServiceResolver('ollama', (config) => ({
   baseUrl: asString(config.baseUrl) ?? 'http://localhost:11434',
 }))

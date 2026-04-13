@@ -78,7 +78,6 @@ function safeCreateEnv() {
     // Background Jobs & Scheduling
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
-    TRIGGER_DEV_ENABLED: z.boolean().optional(),                 // Toggle to enable/disable Trigger.dev for async jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
     JOB_RETENTION_DAYS: z.string().optional().default('1'),     // Days to retain job logs/data
 
@@ -159,7 +158,6 @@ function safeCreateEnv() {
     NEXT_PUBLIC_CUSTOM_CSS_URL: z.string().url().optional(),            // Custom CSS stylesheet URL
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),          // Custom support email
 
-    NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: z.string().optional(),
     NEXT_PUBLIC_DOCUMENTATION_URL: z.string().url().optional(),            // Custom documentation URL
     NEXT_PUBLIC_TERMS_URL: z.string().url().optional(),            // Custom terms of service URL
     NEXT_PUBLIC_PRIVACY_URL: z.string().url().optional(),            // Custom privacy policy URL
@@ -172,7 +170,6 @@ function safeCreateEnv() {
     NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Brand background color (hex format)
 
     // Feature Flags
-    NEXT_PUBLIC_TRIGGER_DEV_ENABLED: z.boolean().optional(),                 // Client-side gate for async executions UI
     NEXT_PUBLIC_SSO_ENABLED: z.boolean().optional(),                 // Enable SSO login UI components
   },
 
@@ -201,9 +198,7 @@ function safeCreateEnv() {
     NEXT_PUBLIC_BRAND_ACCENT_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_COLOR,
     NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR,
     NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: process.env.NEXT_PUBLIC_BRAND_BACKGROUND_COLOR,
-    NEXT_PUBLIC_TRIGGER_DEV_ENABLED: process.env.NEXT_PUBLIC_TRIGGER_DEV_ENABLED,
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
-    NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: process.env.NEXT_PUBLIC_COPILOT_TRAINING_ENABLED,
     NEXT_PUBLIC_POSTHOG_DISABLED: process.env.NEXT_PUBLIC_POSTHOG_DISABLED,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NODE_ENV: process.env.NODE_ENV,

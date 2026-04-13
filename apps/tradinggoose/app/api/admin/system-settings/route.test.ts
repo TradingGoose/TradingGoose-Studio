@@ -9,6 +9,7 @@ const {
   mockClaimFirstSystemAdmin,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
+  mockIsTriggerConfigurationReady,
   mockUpsertSystemSettings,
   mockLogger,
 } = vi.hoisted(() => ({
@@ -17,6 +18,7 @@ const {
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
+  mockIsTriggerConfigurationReady: vi.fn(),
   mockUpsertSystemSettings: vi.fn(),
   mockLogger: {
     info: vi.fn(),
@@ -37,6 +39,10 @@ vi.mock('@/lib/billing/core/subscription', () => ({
 
 vi.mock('@/lib/billing/settings', () => ({
   isBillingConfigurationReady: mockIsBillingConfigurationReady,
+}))
+
+vi.mock('@/lib/trigger/settings', () => ({
+  isTriggerConfigurationReady: mockIsTriggerConfigurationReady,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -63,10 +69,12 @@ describe('/api/admin/system-settings route', () => {
     })
     mockClaimFirstSystemAdmin.mockResolvedValue(true)
     mockIsBillingConfigurationReady.mockResolvedValue(true)
+    mockIsTriggerConfigurationReady.mockResolvedValue(true)
     mockGetResolvedSystemSettings.mockResolvedValue({
       settings: null,
       registrationMode: 'open',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
@@ -75,6 +83,7 @@ describe('/api/admin/system-settings route', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
@@ -92,10 +101,12 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toMatchObject({
       registrationMode: 'open',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
       billingReady: true,
+      triggerReady: true,
     })
     expect(payload).not.toHaveProperty('stripeSecretKey')
     expect(payload).not.toHaveProperty('stripeWebhookSecret')
@@ -117,6 +128,7 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toEqual({ error: 'Forbidden' })
     expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
     expect(mockIsBillingConfigurationReady).not.toHaveBeenCalled()
+    expect(mockIsTriggerConfigurationReady).not.toHaveBeenCalled()
   })
 
   it('backfills default subscriptions only after enabling billing is saved', async () => {
@@ -124,6 +136,7 @@ describe('/api/admin/system-settings route', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: false,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
@@ -136,6 +149,7 @@ describe('/api/admin/system-settings route', () => {
         body: JSON.stringify({
           registrationMode: 'open',
           billingEnabled: true,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
         }),
       }) as any
@@ -146,6 +160,8 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toMatchObject({
       billingEnabled: true,
       billingReady: true,
+      triggerDevEnabled: true,
+      triggerReady: true,
     })
     expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(1)
     expect(mockUpsertSystemSettings.mock.invocationCallOrder[0]).toBeLessThan(
@@ -154,6 +170,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       registrationMode: 'open',
       billingEnabled: true,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
     })
   })
@@ -163,6 +180,7 @@ describe('/api/admin/system-settings route', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
@@ -171,6 +189,7 @@ describe('/api/admin/system-settings route', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: false,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
@@ -183,6 +202,7 @@ describe('/api/admin/system-settings route', () => {
         body: JSON.stringify({
           registrationMode: 'open',
           billingEnabled: false,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
         }),
       }) as any
@@ -197,6 +217,7 @@ describe('/api/admin/system-settings route', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: false,
+      triggerDevEnabled: false,
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: '',
@@ -210,6 +231,7 @@ describe('/api/admin/system-settings route', () => {
         body: JSON.stringify({
           registrationMode: 'open',
           billingEnabled: true,
+          triggerDevEnabled: false,
           allowPromotionCodes: true,
         }),
       }) as any
@@ -224,6 +246,40 @@ describe('/api/admin/system-settings route', () => {
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
+  it('rejects enabling Trigger.dev before trigger configuration is ready', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
+    })
+    mockIsTriggerConfigurationReady.mockResolvedValueOnce(false)
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'open',
+          billingEnabled: false,
+          triggerDevEnabled: true,
+          allowPromotionCodes: true,
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(payload).toEqual({
+      error:
+        'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
+    })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
   it('rejects invalid request data', async () => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
@@ -232,6 +288,7 @@ describe('/api/admin/system-settings route', () => {
         body: JSON.stringify({
           registrationMode: 'open',
           billingEnabled: true,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
           emailDomain: '   ',
         }),

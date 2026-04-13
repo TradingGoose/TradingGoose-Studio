@@ -20,6 +20,7 @@ import { processDocument } from '@/lib/knowledge/documents/document-processor'
 import { getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getStorageMethod, isRedisStorage } from '@/lib/storage'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import type { DocumentProcessingPayload } from '@/background/knowledge-processing'
 import { DocumentProcessingQueue } from './queue'
 import type { DocumentSortField, SortOrder } from './types'
@@ -209,7 +210,7 @@ export async function processDocumentsWithQueue(
   requestId: string
 ): Promise<void> {
   // Priority 1: Trigger.dev
-  if (isTriggerAvailable()) {
+  if (await isTriggerExecutionEnabled()) {
     try {
       logger.info(
         `[${requestId}] Using Trigger.dev background processing for ${createdDocuments.length} documents`
@@ -472,21 +473,14 @@ export async function processDocumentAsync(
 }
 
 /**
- * Check if Trigger.dev is available and configured
- */
-export function isTriggerAvailable(): boolean {
-  return !!(env.TRIGGER_SECRET_KEY && env.TRIGGER_DEV_ENABLED !== false)
-}
-
-/**
  * Process documents using Trigger.dev
  */
 export async function processDocumentsWithTrigger(
   documents: DocumentProcessingPayload[],
   requestId: string
 ): Promise<{ success: boolean; message: string; jobIds?: string[] }> {
-  if (!isTriggerAvailable()) {
-    throw new Error('Trigger.dev is not configured - TRIGGER_SECRET_KEY missing')
+  if (!(await isTriggerExecutionEnabled())) {
+    throw new Error('Trigger.dev execution is disabled or not configured')
   }
 
   try {

@@ -6,7 +6,6 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
-import { env, isTruthy } from '@/lib/env'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { IdempotencyService } from '@/lib/idempotency'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
@@ -30,6 +29,7 @@ import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { acquireLock, getRedisClient, getRedisStorageMode, releaseLock } from '@/lib/redis'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import { decryptSecret } from '@/lib/utils-server'
 import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
 import { executeWorkflowJob } from '@/background/workflow-execution'
@@ -1166,7 +1166,7 @@ export class IndicatorMonitorRuntime {
         'workflow-execution',
         eventId,
         async () => {
-          if (isTruthy(env.TRIGGER_DEV_ENABLED)) {
+          if (await isTriggerExecutionEnabled()) {
             return tasks.trigger('workflow-execution', workflowPayload)
           }
 

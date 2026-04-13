@@ -42,11 +42,8 @@ describe('Scheduled Workflow Execution API Route', () => {
       executeScheduleJob: mockExecuteScheduleJob,
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        TRIGGER_DEV_ENABLED: false,
-      },
-      isTruthy: vi.fn(() => false),
+    vi.doMock('@/lib/trigger/settings', () => ({
+      isTriggerExecutionEnabled: vi.fn().mockResolvedValue(false),
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -103,11 +100,8 @@ describe('Scheduled Workflow Execution API Route', () => {
       },
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        TRIGGER_DEV_ENABLED: true,
-      },
-      isTruthy: vi.fn(() => true),
+    vi.doMock('@/lib/trigger/settings', () => ({
+      isTriggerExecutionEnabled: vi.fn().mockResolvedValue(true),
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -159,11 +153,8 @@ describe('Scheduled Workflow Execution API Route', () => {
       executeScheduleJob: vi.fn().mockResolvedValue(undefined),
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        TRIGGER_DEV_ENABLED: false,
-      },
-      isTruthy: vi.fn(() => false),
+    vi.doMock('@/lib/trigger/settings', () => ({
+      isTriggerExecutionEnabled: vi.fn().mockResolvedValue(false),
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -206,11 +197,8 @@ describe('Scheduled Workflow Execution API Route', () => {
       executeScheduleJob: vi.fn().mockResolvedValue(undefined),
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        TRIGGER_DEV_ENABLED: false,
-      },
-      isTruthy: vi.fn(() => false),
+    vi.doMock('@/lib/trigger/settings', () => ({
+      isTriggerExecutionEnabled: vi.fn().mockResolvedValue(false),
     }))
 
     vi.doMock('drizzle-orm', () => ({

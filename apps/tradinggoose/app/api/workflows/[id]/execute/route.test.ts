@@ -25,6 +25,8 @@ describe('Workflow Execution API Route', () => {
   let authenticateApiKeyFromHeaderMock = vi.fn()
   let updateApiKeyLastUsedMock = vi.fn()
   let isBillingEnabledForRuntimeMock = vi.fn()
+  let isTriggerExecutionEnabledMock = vi.fn()
+  let tasksTriggerMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -116,6 +118,8 @@ describe('Workflow Execution API Route', () => {
     })
     updateApiKeyLastUsedMock = vi.fn().mockResolvedValue(undefined)
     isBillingEnabledForRuntimeMock = vi.fn().mockResolvedValue(true)
+    isTriggerExecutionEnabledMock = vi.fn().mockResolvedValue(true)
+    tasksTriggerMock = vi.fn().mockResolvedValue({ id: 'task-id-123' })
 
     vi.doMock('@/app/api/workflows/middleware', () => ({
       validateWorkflowAccess: vi.fn().mockResolvedValue({
@@ -168,6 +172,16 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@/lib/billing/settings', () => ({
       isBillingEnabledForRuntime: (...args: any[]) => isBillingEnabledForRuntimeMock(...args),
+    }))
+
+    vi.doMock('@/lib/trigger/settings', () => ({
+      isTriggerExecutionEnabled: (...args: any[]) => isTriggerExecutionEnabledMock(...args),
+    }))
+
+    vi.doMock('@trigger.dev/sdk', () => ({
+      tasks: {
+        trigger: (...args: any[]) => tasksTriggerMock(...args),
+      },
     }))
 
     vi.doMock('@/lib/billing/workspace-billing', () => ({
@@ -873,6 +887,33 @@ describe('Workflow Execution API Route', () => {
     expect(response.status).toBe(402)
     expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
     expect(payload.error).toContain('Workspace billing is not configured correctly')
+  })
+
+  it('returns a clean error when async execution is disabled', async () => {
+    isTriggerExecutionEnabledMock.mockResolvedValueOnce(false)
+
+    const { getSession } = await import('@/lib/auth')
+    vi.mocked(getSession).mockResolvedValueOnce(null)
+
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'test-api-key',
+        'X-Execution-Mode': 'async',
+      },
+      body: JSON.stringify({}),
+    })
+    const params = Promise.resolve({ id: 'workflow-id' })
+
+    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
+    const response = await POST(req, { params })
+    const payload = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(payload.code).toBe('ASYNC_EXECUTION_DISABLED')
+    expect(payload.error).toContain('Async execution is unavailable')
+    expect(tasksTriggerMock).not.toHaveBeenCalled()
   })
 
   it('returns the usage-limit response without re-resolving billing context during execution logging', async () => {

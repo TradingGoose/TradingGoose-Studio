@@ -6,8 +6,8 @@ import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
-import { env, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import {
   handleSlackChallenge,
   handleWhatsAppVerification,
@@ -603,7 +603,7 @@ export async function queueWebhookExecutionInternal(
       ...(credentialId ? { credentialId } : {}),
     }
 
-    const useTrigger = isTruthy(env.TRIGGER_DEV_ENABLED)
+    const useTrigger = await isTriggerExecutionEnabled()
 
     if (useTrigger) {
       const handle = await tasks.trigger('webhook-execution', payload)

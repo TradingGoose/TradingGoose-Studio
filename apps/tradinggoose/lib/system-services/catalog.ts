@@ -289,26 +289,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
-    id: 'agent_indexer',
-    displayName: 'Agent Indexer',
-    description: 'Training indexer service used for example and operation ingestion.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for agent indexer service authentication.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the agent indexer service.',
-        type: 'url',
-      },
-    ],
-  },
-  {
     id: 'ollama',
     displayName: 'Ollama',
     description: 'Base URL for the local or remote Ollama service.',

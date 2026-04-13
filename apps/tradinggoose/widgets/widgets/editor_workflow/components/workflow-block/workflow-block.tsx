@@ -736,6 +736,7 @@ export const WorkflowBlock = memo(
         isPureTriggerBlock,
         availableTriggerIds: config.triggers?.available,
         hideFromPreview: true,
+        triggerSubBlockOwner: 'all',
       })
 
       // Return both rows and state for stable key generation

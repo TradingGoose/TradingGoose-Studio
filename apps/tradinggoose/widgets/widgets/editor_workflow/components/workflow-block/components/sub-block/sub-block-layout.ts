@@ -12,7 +12,7 @@ interface BuildSubBlockRowsParams {
   isPureTriggerBlock: boolean
   availableTriggerIds?: string[]
   hideFromPreview?: boolean
-  triggerSubBlockOwner?: 'editor' | 'deploy'
+  triggerSubBlockOwner?: 'editor' | 'deploy' | 'all'
 }
 
 type ConditionValue = string | number | boolean | Array<string | number | boolean>

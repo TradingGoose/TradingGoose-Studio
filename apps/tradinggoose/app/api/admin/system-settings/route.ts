@@ -10,6 +10,7 @@ import {
   upsertSystemSettings,
   type ResolvedSystemSettings,
 } from '@/lib/system-settings/service'
+import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('AdminSystemSettingsAPI')
@@ -54,11 +55,12 @@ export async function GET() {
       }
     }
 
-    const [snapshot, billingReady] = await Promise.all([
+    const [snapshot, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
       isBillingConfigurationReady(),
+      isTriggerConfigurationReady(),
     ])
-    return NextResponse.json(serializeSnapshot(snapshot, billingReady), {
+    return NextResponse.json(serializeSnapshot(snapshot, billingReady, triggerReady), {
       status: 200,
       headers: NO_STORE_HEADERS,
     })
@@ -107,9 +109,10 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
-    const [currentSettings, billingReady] = await Promise.all([
+    const [currentSettings, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
       isBillingConfigurationReady(),
+      isTriggerConfigurationReady(),
     ])
     const isEnablingBilling = payload.billingEnabled === true && !currentSettings.billingEnabled
     if (payload.billingEnabled && !billingReady) {
@@ -121,6 +124,15 @@ export async function PATCH(request: NextRequest) {
         { status: 409, headers: NO_STORE_HEADERS }
       )
     }
+    if (payload.triggerDevEnabled && !triggerReady) {
+      return NextResponse.json(
+        {
+          error:
+            'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
 
     const snapshot = await upsertSystemSettings(payload)
 
@@ -128,7 +140,7 @@ export async function PATCH(request: NextRequest) {
       await backfillDefaultUserSubscriptions()
     }
 
-    return NextResponse.json(serializeSnapshot(snapshot, billingReady), {
+    return NextResponse.json(serializeSnapshot(snapshot, billingReady, triggerReady), {
       status: 200,
       headers: NO_STORE_HEADERS,
     })
@@ -151,11 +163,17 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-function serializeSnapshot(snapshot: ResolvedSystemSettings, billingReady: boolean) {
+function serializeSnapshot(
+  snapshot: ResolvedSystemSettings,
+  billingReady: boolean,
+  triggerReady: boolean
+) {
   return {
     registrationMode: snapshot.registrationMode,
     billingEnabled: snapshot.billingEnabled,
     billingReady,
+    triggerDevEnabled: snapshot.triggerDevEnabled,
+    triggerReady,
     allowPromotionCodes: snapshot.allowPromotionCodes,
     emailDomain: snapshot.emailDomain,
     fromEmailAddress: snapshot.fromEmailAddress ?? '',

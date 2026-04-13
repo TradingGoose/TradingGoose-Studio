@@ -17,6 +17,7 @@ import { processExecutionFiles } from '@/lib/execution/files'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 import { decryptSecret } from '@/lib/utils-server'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
@@ -717,6 +718,14 @@ export async function POST(
 
     if (isAsync) {
       try {
+        if (!(await isTriggerExecutionEnabled())) {
+          return createErrorResponse(
+            'Async execution is unavailable because Trigger.dev is disabled or not configured.',
+            409,
+            'ASYNC_EXECUTION_DISABLED'
+          )
+        }
+
         if (billingEnabled) {
           const billingContext = await resolveExecutionBillingContext({
             requestId,

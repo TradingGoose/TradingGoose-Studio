@@ -88,6 +88,7 @@ export const systemSettings = pgTable('system_settings', {
   id: text('id').primaryKey(),
   registrationMode: registrationModeEnum('registration_mode').notNull().default('open'),
   billingEnabled: boolean('billing_enabled').notNull().default(false),
+  triggerDevEnabled: boolean('trigger_dev_enabled').notNull().default(false),
   allowPromotionCodes: boolean('allow_promotion_codes').notNull().default(true),
   emailDomain: text('email_domain').notNull().default('tradinggoose.ai'),
   fromEmailAddress: text('from_email_address'),

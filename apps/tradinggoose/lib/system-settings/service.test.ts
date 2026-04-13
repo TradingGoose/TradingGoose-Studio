@@ -69,6 +69,7 @@ describe('system settings service', () => {
       settings: null,
       registrationMode: 'open',
       billingEnabled: false,
+      triggerDevEnabled: false,
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: null,
@@ -84,6 +85,7 @@ describe('system settings service', () => {
           id: 'global',
           registrationMode: 'waitlist',
           billingEnabled: false,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
           emailDomain: 'old.example.com',
           fromEmailAddress: 'TradingGoose <noreply@old.example.com>',
@@ -96,6 +98,7 @@ describe('system settings service', () => {
           id: 'global',
           registrationMode: 'waitlist',
           billingEnabled: true,
+          triggerDevEnabled: true,
           allowPromotionCodes: false,
           emailDomain: 'mail.example.com',
           fromEmailAddress: null,
@@ -106,6 +109,7 @@ describe('system settings service', () => {
 
     const result = await upsertSystemSettings({
       billingEnabled: true,
+      triggerDevEnabled: true,
       emailDomain: 'mail.example.com',
       fromEmailAddress: '',
     })
@@ -117,6 +121,7 @@ describe('system settings service', () => {
       id: 'global',
       registrationMode: 'waitlist',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
@@ -128,6 +133,7 @@ describe('system settings service', () => {
       set: {
         registrationMode: 'waitlist',
         billingEnabled: true,
+        triggerDevEnabled: true,
         allowPromotionCodes: false,
         emailDomain: 'mail.example.com',
         fromEmailAddress: null,
@@ -137,9 +143,40 @@ describe('system settings service', () => {
     expect(result).toMatchObject({
       registrationMode: 'waitlist',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
     })
+  })
+})
+
+describe('trigger settings helper', () => {
+  it('reports ready only when both Trigger.dev credentials are configured', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        TRIGGER_PROJECT_ID: 'proj_123',
+        TRIGGER_SECRET_KEY: 'tr_dev_123',
+      },
+    }))
+
+    const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
+
+    expect(isTriggerConfigurationReady()).toBe(true)
+  })
+
+  it('reports not ready when either Trigger.dev credential is missing', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        TRIGGER_PROJECT_ID: 'proj_123',
+        TRIGGER_SECRET_KEY: '',
+      },
+    }))
+
+    const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
+
+    expect(isTriggerConfigurationReady()).toBe(false)
   })
 })

@@ -176,6 +176,13 @@
       "when": 1776042745910,
       "tag": "0024_polite_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1776102340299,
+      "tag": "0025_glamorous_giant_man",
+      "breakpoints": true
     }
   ]
 }

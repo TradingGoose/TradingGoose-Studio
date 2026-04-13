@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
-import { getEnv, isTruthy } from '@/lib/env'
 import { OutputSelect } from '@/widgets/widgets/workflow_chat/components/output-select/output-select'
 
 interface ExampleCommandProps {
@@ -21,6 +20,7 @@ interface ExampleCommandProps {
   showLabel?: boolean
   getInputFormatExample?: (includeStreaming?: boolean) => string
   workflowId: string | null
+  asyncExecutionEnabled: boolean
   selectedStreamingOutputs: string[]
   onSelectedStreamingOutputsChange: (outputs: string[]) => void
 }
@@ -35,12 +35,19 @@ export function ExampleCommand({
   showLabel = true,
   getInputFormatExample,
   workflowId,
+  asyncExecutionEnabled,
   selectedStreamingOutputs,
   onSelectedStreamingOutputsChange,
 }: ExampleCommandProps) {
   const [mode, setMode] = useState<ExampleMode>('sync')
   const [exampleType, setExampleType] = useState<ExampleType>('execute')
-  const isAsyncEnabled = isTruthy(getEnv('NEXT_PUBLIC_TRIGGER_DEV_ENABLED'))
+
+  useEffect(() => {
+    if (!asyncExecutionEnabled && mode === 'async') {
+      setMode('sync')
+      setExampleType('execute')
+    }
+  }, [asyncExecutionEnabled, mode])
 
   const formatCurlCommand = (command: string, apiKey: string) => {
     if (!command.includes('curl')) return command
@@ -170,7 +177,7 @@ export function ExampleCommand({
             >
               Stream
             </Button>
-            {isAsyncEnabled && (
+            {asyncExecutionEnabled && (
               <>
                 <Button
                   variant='outline'

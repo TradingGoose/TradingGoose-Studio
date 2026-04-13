@@ -29,6 +29,8 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
   registrationMode: 'open',
   billingEnabled: false,
   billingReady: false,
+  triggerDevEnabled: false,
+  triggerReady: false,
   allowPromotionCodes: true,
   emailDomain: 'tradinggoose.ai',
   fromEmailAddress: '',
@@ -73,6 +75,7 @@ export function AdminSystemSettingsSection() {
       const input = {
         registrationMode: settings.registrationMode,
         billingEnabled: settings.billingEnabled,
+        triggerDevEnabled: settings.triggerDevEnabled,
         allowPromotionCodes: settings.allowPromotionCodes,
         emailDomain: settings.emailDomain,
         fromEmailAddress: settings.fromEmailAddress,
@@ -131,6 +134,12 @@ export function AdminSystemSettingsSection() {
                 {settings.allowPromotionCodes ? 'Allowed' : 'Blocked'}
               </span>
             </div>
+            <div className='flex items-baseline gap-1 whitespace-nowrap'>
+              <span className='text-[11px] text-muted-foreground'>Trigger.dev</span>
+              <span className='font-medium text-[11px] text-foreground'>
+                {settings.triggerDevEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -161,7 +170,7 @@ export function AdminSystemSettingsSection() {
                 <p className='font-medium text-sm'>Access controls</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
                   Registration mode drives public signups, while billing flags control paid flows
-                  and checkout behavior.
+                  and execution behavior.
                 </p>
               </div>
 
@@ -214,6 +223,26 @@ export function AdminSystemSettingsSection() {
                   hint='Controls whether promo codes are allowed during checkout.'
                   checked={settings.allowPromotionCodes}
                   onCheckedChange={(checked) => updateField('allowPromotionCodes', checked)}
+                />
+                {!settings.triggerReady ? (
+                  <Alert>
+                    <AlertDescription>
+                      Trigger.dev stays disabled until both `TRIGGER_PROJECT_ID` and
+                      `TRIGGER_SECRET_KEY` are configured in the deployment environment.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <SettingSwitch
+                  id='trigger-dev-enabled'
+                  label='Trigger.dev enabled'
+                  hint={
+                    settings.triggerReady
+                      ? 'Routes supported async jobs through Trigger.dev instead of direct in-process execution.'
+                      : 'Requires Trigger.dev project credentials in the deployment environment.'
+                  }
+                  checked={settings.triggerDevEnabled}
+                  disabled={!settings.triggerReady}
+                  onCheckedChange={(checked) => updateField('triggerDevEnabled', checked)}
                 />
               </div>
             </div>

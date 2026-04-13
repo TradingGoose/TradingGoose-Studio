@@ -22,6 +22,8 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
       registrationMode: 'open',
       billingEnabled: false,
       billingReady: false,
+      triggerDevEnabled: false,
+      triggerReady: false,
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: '',
@@ -39,6 +41,9 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
         : 'open',
     billingEnabled: typeof data.billingEnabled === 'boolean' ? data.billingEnabled : false,
     billingReady: typeof data.billingReady === 'boolean' ? data.billingReady : false,
+    triggerDevEnabled:
+      typeof data.triggerDevEnabled === 'boolean' ? data.triggerDevEnabled : false,
+    triggerReady: typeof data.triggerReady === 'boolean' ? data.triggerReady : false,
     allowPromotionCodes:
       typeof data.allowPromotionCodes === 'boolean' ? data.allowPromotionCodes : true,
     emailDomain:

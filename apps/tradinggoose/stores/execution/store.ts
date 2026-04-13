@@ -6,7 +6,6 @@ import {
   type PanToBlockCallback,
   type SetPanToBlockCallback,
 } from '@/stores/execution/types'
-import { useGeneralStore } from '@/stores/settings/general/store'
 
 // Global callback for panning to active blocks
 let panToBlockCallback: PanToBlockCallback | null = null
@@ -21,11 +20,10 @@ export const useExecutionStore = create<ExecutionState & ExecutionActions>()((se
   setActiveBlocks: (blockIds) => {
     set({ activeBlockIds: new Set(blockIds) })
 
-    // Pan to the first active block if auto-pan is enabled and we have a callback and blocks are active
+    // Auto-pan is always enabled by default unless the execution session disables it.
     const { autoPanDisabled } = get()
-    const isAutoPanEnabled = useGeneralStore.getState().isAutoPanEnabled
 
-    if (panToBlockCallback && !autoPanDisabled && isAutoPanEnabled && blockIds.size > 0) {
+    if (panToBlockCallback && !autoPanDisabled && blockIds.size > 0) {
       const firstActiveBlockId = Array.from(blockIds)[0]
       panToBlockCallback(firstActiveBlockId)
     }
@@ -34,17 +32,10 @@ export const useExecutionStore = create<ExecutionState & ExecutionActions>()((se
   setPendingBlocks: (pendingBlocks) => {
     set({ pendingBlocks })
 
-    // Pan to the first pending block if auto-pan is enabled, we have a callback, blocks are pending, and we're in debug mode
+    // Auto-pan is always enabled by default unless the execution session disables it.
     const { isDebugging, autoPanDisabled } = get()
-    const isAutoPanEnabled = useGeneralStore.getState().isAutoPanEnabled
 
-    if (
-      panToBlockCallback &&
-      !autoPanDisabled &&
-      isAutoPanEnabled &&
-      pendingBlocks.length > 0 &&
-      isDebugging
-    ) {
+    if (panToBlockCallback && !autoPanDisabled && pendingBlocks.length > 0 && isDebugging) {
       const firstPendingBlockId = pendingBlocks[0]
       panToBlockCallback(firstPendingBlockId)
     }

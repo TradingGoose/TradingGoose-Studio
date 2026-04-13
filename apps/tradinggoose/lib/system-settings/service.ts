@@ -8,6 +8,7 @@ export const GLOBAL_SYSTEM_SETTINGS_ID = 'global'
 export const DEFAULT_SYSTEM_SETTINGS = {
   registrationMode: DEFAULT_REGISTRATION_MODE,
   billingEnabled: false,
+  triggerDevEnabled: false,
   allowPromotionCodes: true,
   emailDomain: 'tradinggoose.ai',
   fromEmailAddress: null,
@@ -18,6 +19,7 @@ type SystemSettingsRecord = typeof systemSettings.$inferSelect
 export type UpsertSystemSettingsInput = {
   registrationMode?: RegistrationMode
   billingEnabled?: boolean
+  triggerDevEnabled?: boolean
   allowPromotionCodes?: boolean
   emailDomain?: string
   fromEmailAddress?: string | null
@@ -26,6 +28,7 @@ export type UpsertSystemSettingsInput = {
 type ResolvedSystemSettingsFlags = {
   registrationMode: RegistrationMode
   billingEnabled: boolean
+  triggerDevEnabled: boolean
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
@@ -35,6 +38,7 @@ export type ResolvedSystemSettings = {
   settings: SystemSettingsRecord | null
   registrationMode: RegistrationMode
   billingEnabled: boolean
+  triggerDevEnabled: boolean
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
@@ -53,12 +57,18 @@ export async function getSystemSettingsRecord(): Promise<SystemSettingsRecord | 
 export function resolveSystemSettingsFlags(
   settings: Pick<
     SystemSettingsRecord,
-    'registrationMode' | 'billingEnabled' | 'allowPromotionCodes' | 'emailDomain' | 'fromEmailAddress'
+    | 'registrationMode'
+    | 'billingEnabled'
+    | 'triggerDevEnabled'
+    | 'allowPromotionCodes'
+    | 'emailDomain'
+    | 'fromEmailAddress'
   > | null
 ): ResolvedSystemSettingsFlags {
   return {
     registrationMode: settings?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode,
     billingEnabled: settings?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled,
+    triggerDevEnabled: settings?.triggerDevEnabled ?? DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled,
     allowPromotionCodes:
       settings?.allowPromotionCodes ?? DEFAULT_SYSTEM_SETTINGS.allowPromotionCodes,
     emailDomain: normalizeRequiredSystemSetting(
@@ -92,6 +102,10 @@ export async function upsertSystemSettings(
     input.registrationMode ?? existing?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode
   const nextBillingEnabled =
     input.billingEnabled ?? existing?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled
+  const nextTriggerDevEnabled =
+    input.triggerDevEnabled ??
+    existing?.triggerDevEnabled ??
+    DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled
   const nextAllowPromotionCodes =
     input.allowPromotionCodes ??
     existing?.allowPromotionCodes ??
@@ -115,6 +129,7 @@ export async function upsertSystemSettings(
       id: GLOBAL_SYSTEM_SETTINGS_ID,
       registrationMode: nextRegistrationMode,
       billingEnabled: nextBillingEnabled,
+      triggerDevEnabled: nextTriggerDevEnabled,
       allowPromotionCodes: nextAllowPromotionCodes,
       emailDomain: nextEmailDomain,
       fromEmailAddress: nextFromEmailAddress,
@@ -126,6 +141,7 @@ export async function upsertSystemSettings(
       set: {
         registrationMode: nextRegistrationMode,
         billingEnabled: nextBillingEnabled,
+        triggerDevEnabled: nextTriggerDevEnabled,
         allowPromotionCodes: nextAllowPromotionCodes,
         emailDomain: nextEmailDomain,
         fromEmailAddress: nextFromEmailAddress,

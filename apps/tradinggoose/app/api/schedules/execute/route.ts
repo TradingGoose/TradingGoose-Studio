@@ -3,8 +3,8 @@ import { tasks } from '@trigger.dev/sdk'
 import { and, eq, lte, not } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
-import { env, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 import { executeScheduleJob } from '@/background/schedule-execution'
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     logger.debug(`[${requestId}] Successfully queried schedules: ${dueSchedules.length} found`)
     logger.info(`[${requestId}] Processing ${dueSchedules.length} due scheduled workflows`)
 
-    const useTrigger = isTruthy(env.TRIGGER_DEV_ENABLED)
+    const useTrigger = await isTriggerExecutionEnabled()
 
     if (useTrigger) {
       const triggerPromises = dueSchedules.map(async (schedule) => {

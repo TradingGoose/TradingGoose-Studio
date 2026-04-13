@@ -85,6 +85,7 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
       isPureTriggerBlock,
       availableTriggerIds: blockConfig.triggers?.available,
       hideFromPreview: true,
+      triggerSubBlockOwner: 'all',
     }).flat()
   }, [
     blockConfig.subBlocks,
