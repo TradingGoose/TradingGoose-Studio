@@ -90,7 +90,6 @@ describe('adaptPreviewPayloadToCanvas', () => {
       id: 'loop_parent',
       type: 'subflowNode',
       position: { x: 100, y: 50 },
-      draggable: false,
       data: {
         width: 640,
         height: 360,
@@ -104,7 +103,6 @@ describe('adaptPreviewPayloadToCanvas', () => {
       id: 'agent_inside_loop',
       type: 'previewNode',
       position: { x: 124, y: 66 },
-      draggable: false,
       data: {
         type: 'agent',
         name: 'Agent Inside Loop',

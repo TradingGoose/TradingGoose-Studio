@@ -79,7 +79,6 @@ export function adaptPreviewPayloadToCanvas(
         id: block.id,
         type: 'subflowNode',
         position: absolutePosition,
-        draggable: false,
         data: {
           name: block.name,
           width: block.data?.width || 500,
@@ -102,7 +101,6 @@ export function adaptPreviewPayloadToCanvas(
       id: block.id,
       type: 'previewNode',
       position: absolutePosition,
-      draggable: false,
       data: {
         type: block.type,
         name: block.name,
