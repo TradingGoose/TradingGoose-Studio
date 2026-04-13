@@ -1,8 +1,11 @@
 import { type Chunk, JsonYamlChunker, StructuredDataChunker, TextChunker } from '@/lib/chunkers'
-import { env } from '@/lib/env'
 import { parseBuffer, parseFile } from '@/lib/file-parsers'
 import { retryWithExponentialBackoff } from '@/lib/knowledge/documents/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  resolveAzureMistralOcrServiceConfig,
+  resolveMistralServiceConfig,
+} from '@/lib/system-services/runtime'
 import { StorageService } from '@/lib/uploads'
 import { mistralParserTool } from '@/tools/mistral/parser'
 
@@ -138,9 +141,13 @@ async function parseDocument(
   metadata?: any
 }> {
   const isPDF = mimeType === 'application/pdf'
+  const [azureOcrConfig, mistralConfig] = await Promise.all([
+    resolveAzureMistralOcrServiceConfig(),
+    resolveMistralServiceConfig(),
+  ])
   const hasAzureMistralOCR =
-    env.OCR_AZURE_API_KEY && env.OCR_AZURE_ENDPOINT && env.OCR_AZURE_MODEL_NAME
-  const hasMistralOCR = env.MISTRAL_API_KEY
+    azureOcrConfig.apiKey && azureOcrConfig.endpoint && azureOcrConfig.modelName
+  const hasMistralOCR = mistralConfig.apiKey
 
   if (isPDF && (hasAzureMistralOCR || hasMistralOCR)) {
     if (hasAzureMistralOCR) {
@@ -308,10 +315,13 @@ async function makeOCRRequest(
 }
 
 async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeType: string) {
+  const azureOcrConfig = await resolveAzureMistralOcrServiceConfig()
+  const azureApiKey = azureOcrConfig.apiKey || ''
+
   validateOCRConfig(
-    env.OCR_AZURE_API_KEY,
-    env.OCR_AZURE_ENDPOINT,
-    env.OCR_AZURE_MODEL_NAME,
+    azureApiKey,
+    azureOcrConfig.endpoint ?? undefined,
+    azureOcrConfig.modelName ?? undefined,
     'Azure Mistral OCR'
   )
 
@@ -323,13 +333,13 @@ async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeT
     const response = await retryWithExponentialBackoff(
       () =>
         makeOCRRequest(
-          env.OCR_AZURE_ENDPOINT!,
+          azureOcrConfig.endpoint!,
           {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.OCR_AZURE_API_KEY}`,
+            Authorization: `Bearer ${azureApiKey}`,
           },
           {
-            model: env.OCR_AZURE_MODEL_NAME!,
+            model: azureOcrConfig.modelName!,
             document: {
               type: 'document_url',
               document_url: dataUri,
@@ -354,14 +364,19 @@ async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeT
       message: error instanceof Error ? error.message : String(error),
     })
 
-    return env.MISTRAL_API_KEY
+    const mistralConfig = await resolveMistralServiceConfig()
+
+    return mistralConfig.apiKey
       ? parseWithMistralOCR(fileUrl, filename, mimeType)
       : parseWithFileParser(fileUrl, filename, mimeType)
   }
 }
 
 async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: string) {
-  if (!env.MISTRAL_API_KEY) {
+  const mistralConfig = await resolveMistralServiceConfig()
+  const mistralApiKey = mistralConfig.apiKey || ''
+
+  if (!mistralApiKey) {
     throw new Error('Mistral API key required')
   }
 
@@ -370,7 +385,7 @@ async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: 
   }
 
   const { httpsUrl, cloudUrl } = await handleFileForOCR(fileUrl, filename, mimeType)
-  const params = { filePath: httpsUrl, apiKey: env.MISTRAL_API_KEY, resultType: 'text' as const }
+  const params = { filePath: httpsUrl, apiKey: mistralApiKey, resultType: 'text' as const }
 
   try {
     const response = await retryWithExponentialBackoff(

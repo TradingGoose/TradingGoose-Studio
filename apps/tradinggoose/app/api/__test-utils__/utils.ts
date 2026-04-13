@@ -331,8 +331,8 @@ export function createMockRequest(
 }
 
 export function mockExecutionDependencies() {
-  vi.mock('@/lib/utils', async () => {
-    const actual = await vi.importActual('@/lib/utils')
+  vi.mock('@/lib/utils-server', async () => {
+    const actual = await vi.importActual('@/lib/utils-server')
     return {
       ...(actual as any),
       decryptSecret: vi.fn().mockImplementation((encrypted: string) => {
@@ -481,7 +481,7 @@ export function mockWorkflowAccessValidation(shouldSucceed = true) {
 }
 
 export async function getMockedDependencies() {
-  const utilsModule = await import('@/lib/utils')
+  const utilsServerModule = await import('@/lib/utils-server')
   const traceSpansModule = await import('@/lib/logs/execution/trace-spans/trace-spans')
   const workflowUtilsModule = await import('@/lib/workflows/utils')
   const executorModule = await import('@/executor')
@@ -489,7 +489,7 @@ export async function getMockedDependencies() {
   const dbModule = await import('@tradinggoose/db')
 
   return {
-    decryptSecret: utilsModule.decryptSecret,
+    decryptSecret: utilsServerModule.decryptSecret,
     buildTraceSpans: traceSpansModule.buildTraceSpans,
     updateWorkflowRunCounts: workflowUtilsModule.updateWorkflowRunCounts,
     Executor: executorModule.Executor,
@@ -827,7 +827,7 @@ export function mockFileSystem(
 export function mockEncryption(options: { encryptedValue?: string; decryptedValue?: string } = {}) {
   const { encryptedValue = 'encrypted-value', decryptedValue = 'decrypted-value' } = options
 
-  vi.doMock('@/lib/utils', () => ({
+  vi.doMock('@/lib/utils-server', () => ({
     encryptSecret: vi.fn().mockResolvedValue({ encrypted: encryptedValue }),
     decryptSecret: vi.fn().mockResolvedValue({ decrypted: decryptedValue }),
   }))

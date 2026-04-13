@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveAgentIndexerServiceConfig } from '@/lib/system-services/runtime'
 
 const logger = createLogger('CopilotTrainingExamplesAPI')
 
@@ -8,16 +8,18 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const baseUrl = env.AGENT_INDEXER_URL
+  const { baseUrl, apiKey } = await resolveAgentIndexerServiceConfig()
   if (!baseUrl) {
-    logger.error('Missing AGENT_INDEXER_URL environment variable')
-    return NextResponse.json({ error: 'Missing AGENT_INDEXER_URL env' }, { status: 500 })
+    logger.error('Missing agent indexer base URL')
+    return NextResponse.json({ error: 'Agent indexer not configured' }, { status: 500 })
   }
 
-  const apiKey = env.AGENT_INDEXER_API_KEY
   if (!apiKey) {
-    logger.error('Missing AGENT_INDEXER_API_KEY environment variable')
-    return NextResponse.json({ error: 'Missing AGENT_INDEXER_API_KEY env' }, { status: 500 })
+    logger.error('Missing agent indexer API key')
+    return NextResponse.json(
+      { error: 'Agent indexer authentication not configured' },
+      { status: 500 }
+    )
   }
 
   try {

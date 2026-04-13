@@ -160,6 +160,8 @@ export async function proxy(request: NextRequest) {
 
   if (
     url.pathname.startsWith('/workspace') ||
+    url.pathname === '/admin' ||
+    url.pathname.startsWith('/admin/') ||
     url.pathname === '/w' ||
     url.pathname.startsWith('/w/')
   ) {
@@ -197,7 +199,7 @@ export async function proxy(request: NextRequest) {
     url.pathname.startsWith('/chat') ||
     url.pathname === '/'
   ) {
-    response.headers.set('Content-Security-Policy', generateRuntimeCSP())
+    response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
   }
 
   return response

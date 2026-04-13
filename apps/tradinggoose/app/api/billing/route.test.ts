@@ -236,4 +236,19 @@ describe('/api/billing route', () => {
     expect(payload.data.minimumUsageLimit).toBe(90)
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
   })
+
+  it('returns 500 when personal billing summary resolution fails', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    mockGetSimplifiedBillingSummary.mockRejectedValue(new Error('billing invariant failure'))
+
+    const { GET } = await import('@/app/api/billing/route')
+    const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(payload.error).toBe('Internal server error')
+  })
 })

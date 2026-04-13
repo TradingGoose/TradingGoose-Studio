@@ -25,6 +25,23 @@ interface SubscriptionInfo {
   tier?: BillingTierRecord | null
 }
 
+function createPermissiveRateLimitResult() {
+  return {
+    allowed: true,
+    remaining: UNLIMITED_RATE_LIMIT,
+    resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+  }
+}
+
+function createPermissiveRateLimitStatus() {
+  return {
+    used: 0,
+    limit: UNLIMITED_RATE_LIMIT,
+    remaining: UNLIMITED_RATE_LIMIT,
+    resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+  }
+}
+
 export class RateLimiter {
   /**
    * Determine the rate limit key based on subscription
@@ -122,11 +139,7 @@ export class RateLimiter {
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
     try {
       if (!(await isBillingEnabledForRuntime())) {
-        return {
-          allowed: true,
-          remaining: UNLIMITED_RATE_LIMIT,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitResult()
       }
 
       if (triggerType === 'manual') {
@@ -139,17 +152,13 @@ export class RateLimiter {
 
       if (!subscription?.tier) {
         logger.error(
-          'Blocking rate-limited execution because no active subscription tier was found',
+          'Missing active subscription tier during billed rate-limit check; allowing request',
           {
             userId,
             triggerType,
           }
         )
-        return {
-          allowed: false,
-          remaining: 0,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitResult()
       }
 
       const effectiveTier = subscription.tier
@@ -323,12 +332,8 @@ export class RateLimiter {
         resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
       }
     } catch (error) {
-      logger.error('Error checking rate limit:', error)
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-      }
+      logger.error('Error checking rate limit; allowing request', error)
+      return createPermissiveRateLimitResult()
     }
   }
 
@@ -359,12 +364,7 @@ export class RateLimiter {
   }> {
     try {
       if (!(await isBillingEnabledForRuntime())) {
-        return {
-          used: 0,
-          limit: UNLIMITED_RATE_LIMIT,
-          remaining: UNLIMITED_RATE_LIMIT,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitStatus()
       }
 
       if (triggerType === 'manual') {
@@ -378,18 +378,13 @@ export class RateLimiter {
 
       if (!subscription?.tier) {
         logger.error(
-          'Returning blocked rate-limit status because no active subscription tier was found',
+          'Missing active subscription tier during billed rate-limit status check; returning permissive status',
           {
             userId,
             triggerType,
           }
         )
-        return {
-          used: 0,
-          limit: 0,
-          remaining: 0,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitStatus()
       }
 
       const effectiveTier = subscription.tier
@@ -425,13 +420,8 @@ export class RateLimiter {
         resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
       }
     } catch (error) {
-      logger.error('Error getting rate limit status:', error)
-      return {
-        used: 0,
-        limit: 0,
-        remaining: 0,
-        resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-      }
+      logger.error('Error getting rate limit status; returning permissive status', error)
+      return createPermissiveRateLimitStatus()
     }
   }
 

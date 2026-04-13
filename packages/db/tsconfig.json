@@ -9,7 +9,6 @@
     "skipLibCheck": true,
     "types": ["node"],
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@tradinggoose/db": ["./index.ts"],
       "@tradinggoose/db/schema": ["./schema.ts"],

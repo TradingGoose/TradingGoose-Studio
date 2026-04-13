@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   cn,
   convertScheduleOptionsToCron,
-  decryptSecret,
-  encryptSecret,
   formatDate,
   formatDateTime,
   formatDuration,
@@ -13,6 +11,7 @@ import {
   redactApiKeys,
   validateName,
 } from '@/lib/utils'
+import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const { createCipherivMock, createDecipherivMock, randomBytesMock } = vi.hoisted(() => {
   const cipherMock = vi.fn().mockReturnValue({

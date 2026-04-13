@@ -44,8 +44,12 @@ export class SearchOnlineClientTool extends BaseClientTool {
         body: JSON.stringify({ toolName: 'search_online', payload: args || {} }),
       })
       if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
+        const json = await res.json().catch(() => null)
+        const message =
+          (json && typeof json.error === 'string' ? json.error : null) ||
+          (json && typeof json.message === 'string' ? json.message : null) ||
+          `Server error (${res.status})`
+        throw new Error(message)
       }
       const json = await res.json()
       const parsed = ExecuteResponseSuccessSchema.parse(json)

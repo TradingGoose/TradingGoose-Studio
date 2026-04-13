@@ -5,6 +5,7 @@ describe('copilot runtime tool manifest', () => {
   it('exposes the Studio tool surface and workflow document instructions', () => {
     const manifest = getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)
+    const joinedInstructions = manifest.instructions?.join(' ') ?? ''
 
     expect(manifest.version).toBe('v1')
     expect(manifest.instructions).toEqual(
@@ -15,6 +16,8 @@ describe('copilot runtime tool manifest', () => {
         expect.stringContaining('Keep TradingGoose surfaces distinct'),
       ])
     )
+    expect(joinedInstructions).not.toContain('user accepts')
+    expect(joinedInstructions).not.toContain('confirmation')
     expect(manifest.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -64,6 +67,12 @@ describe('copilot runtime tool manifest', () => {
           rules: expect.stringContaining('full edited monitor document'),
         }),
       ])
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_workflow')?.rules).not.toContain(
+      'accept'
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
+      'confirmation'
     )
   })
 })

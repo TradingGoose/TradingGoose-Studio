@@ -13,7 +13,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { WorkspaceInvitationEmail } from '@/components/emails/workspace-invitation'
 import { getSession } from '@/lib/auth'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -282,7 +281,6 @@ export async function POST(
       to: invitation.email,
       subject: `You've been invited to join "${ws.name}" on TradingGoose`,
       html: emailHtml,
-      from: getFromEmailAddress(),
       emailType: 'transactional',
     })
 

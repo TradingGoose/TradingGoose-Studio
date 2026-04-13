@@ -11,13 +11,11 @@ describe('Wand Copilot API Route', () => {
 
     mockAuth().setAuthenticated()
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-copilot-key',
-        INTERNAL_API_SECRET: 'test-internal-secret',
-        WAND_OPENAI_MODEL_NAME: 'gpt-4.1-mini',
-      },
+    vi.doMock('@/lib/system-services/runtime', () => ({
+      resolveCopilotApiServiceConfig: vi.fn(async () => ({
+        baseUrl: 'http://localhost:8000',
+        apiKey: 'test-copilot-key',
+      })),
     }))
 
     vi.doMock('@/lib/copilot/config', () => ({
@@ -72,7 +70,7 @@ describe('Wand Copilot API Route', () => {
 
     const payload = JSON.parse(init.body)
     expect(payload).toEqual({
-      model: 'openai/gpt-4.1-mini',
+      model: 'anthropic/claude-4.5-sonnet',
       stream: true,
       messages: [
         { role: 'system', content: 'You are a code assistant.' },
@@ -87,17 +85,7 @@ describe('Wand Copilot API Route', () => {
     expect(text).toContain('data: {"done":true}')
   })
 
-  it('inherits the shared copilot provider/model when no wand override is configured', async () => {
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-copilot-key',
-        INTERNAL_API_SECRET: 'test-internal-secret',
-        COPILOT_PROVIDER: 'azure-openai',
-        COPILOT_MODEL: 'gpt-4.1',
-      },
-    }))
-
+  it('uses the default copilot provider and model without env overrides', async () => {
     const upstreamStream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder()
@@ -123,7 +111,7 @@ describe('Wand Copilot API Route', () => {
     const [, init] = (global.fetch as any).mock.calls[0]
     const payload = JSON.parse(init.body)
     expect(payload).toMatchObject({
-      model: 'azure-openai/gpt-4.1',
+      model: 'anthropic/claude-4.5-sonnet',
       stream: true,
     })
   })

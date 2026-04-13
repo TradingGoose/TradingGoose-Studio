@@ -3,8 +3,6 @@ import { compileIndicator } from '@/lib/indicators/custom/compile'
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 
-const INDICATOR_RUNTIME_CONFIG = resolveExecutionRuntimeConfig()
-
 const runWithExecutionTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   Promise.race([
     promise,
@@ -35,7 +33,8 @@ export const executeCompiledIndicator = async ({
   executionTimeoutMs: number
   userId?: string
 }) => {
-  const useE2B = INDICATOR_RUNTIME_CONFIG.useE2B
+  const runtimeConfig = await resolveExecutionRuntimeConfig()
+  const useE2B = runtimeConfig.useE2B
 
   return runWithExecutionTimeout(
     compileIndicator({
@@ -47,8 +46,8 @@ export const executeCompiledIndicator = async ({
       intervalMs: intervalMs ?? null,
       useE2B,
       executionTimeoutMs,
-      e2bTemplate: INDICATOR_RUNTIME_CONFIG.e2bTemplate,
-      e2bKeepWarmMs: INDICATOR_RUNTIME_CONFIG.e2bKeepWarmMs,
+      e2bTemplate: runtimeConfig.e2bTemplate ?? undefined,
+      e2bKeepWarmMs: runtimeConfig.e2bKeepWarmMs,
       userId,
     }),
     executionTimeoutMs

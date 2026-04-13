@@ -56,9 +56,8 @@ import {
   handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env } from '@/lib/env'
+import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -77,9 +76,9 @@ import {
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import {
   createStripeClientProxy,
-  getCachedStripeSettings,
-  hasCachedStripeSecretKey,
-} from '@/lib/system-settings/stripe-runtime'
+  getCachedStripeServiceConfig,
+  hasCachedStripeServiceSecretKey,
+} from '@/lib/system-services/stripe-runtime'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
@@ -122,7 +121,7 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
 }
 
 type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
-type SystemManagedSocialProviderConfig = {
+type EnvBackedSocialProviderConfig = {
   clientId: string
   clientSecret: string
 }
@@ -160,15 +159,27 @@ function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthCo
   return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
 }
 
-function toSystemManagedSocialProviderConfig<T extends SystemManagedSocialProviderConfig>(
-  providerId: string,
+function toEnvBackedSocialProviderConfig<T extends EnvBackedSocialProviderConfig>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
   config: Omit<T, 'clientId' | 'clientSecret'>
 ): T
-function toSystemManagedSocialProviderConfig<T extends Record<string, unknown>>(
-  providerId: string,
+function toEnvBackedSocialProviderConfig<T extends Record<string, unknown>>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
   config: T
-): T & SystemManagedSocialProviderConfig
-function toSystemManagedSocialProviderConfig(providerId: string, config: Record<string, unknown>) {
+): T & EnvBackedSocialProviderConfig
+function toEnvBackedSocialProviderConfig(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
+  config: Record<string, unknown>
+) {
   const providerConfig = {
     ...config,
     clientId: '',
@@ -180,19 +191,69 @@ function toSystemManagedSocialProviderConfig(providerId: string, config: Record<
       enumerable: true,
       configurable: true,
       get() {
-        return getSystemOAuthClientCredentialsForRequest(providerId).clientId
+        return getEnv(envKeys.clientId)?.trim() ?? ''
       },
     },
     clientSecret: {
       enumerable: true,
       configurable: true,
       get() {
-        return getSystemOAuthClientCredentialsForRequest(providerId).clientSecret
+        return getEnv(envKeys.clientSecret)?.trim() ?? ''
       },
     },
   })
 
   return providerConfig
+}
+
+function hasEnvBackedSocialProviderCredentials(envKeys: {
+  clientId: string
+  clientSecret: string
+}) {
+  return Boolean(getEnv(envKeys.clientId)?.trim() && getEnv(envKeys.clientSecret)?.trim())
+}
+
+function buildSocialProviders() {
+  const socialProviders: Record<string, Record<string, unknown>> = {}
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GITHUB_CLIENT_ID',
+      clientSecret: 'GITHUB_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.github = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GITHUB_CLIENT_ID',
+        clientSecret: 'GITHUB_CLIENT_SECRET',
+      },
+      {
+        scopes: ['user:email', 'repo'],
+      }
+    )
+  }
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GOOGLE_CLIENT_ID',
+      clientSecret: 'GOOGLE_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.google = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GOOGLE_CLIENT_ID',
+        clientSecret: 'GOOGLE_CLIENT_SECRET',
+      },
+      {
+        scopes: [
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile',
+        ],
+      }
+    )
+  }
+
+  return socialProviders
 }
 
 const MICROSOFT_OAUTH_BASE_CONFIG = {
@@ -397,17 +458,7 @@ export const auth = betterAuth({
       ],
     },
   },
-  socialProviders: {
-    github: toSystemManagedSocialProviderConfig('github', {
-      scopes: ['user:email', 'repo'],
-    }),
-    google: toSystemManagedSocialProviderConfig('google', {
-      scopes: [
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ],
-    }),
-  },
+  socialProviders: buildSocialProviders(),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
@@ -423,7 +474,6 @@ export const auth = betterAuth({
         to: user.email,
         subject: getEmailSubject('reset-password'),
         html,
-        from: getFromEmailAddress(),
         emailType: 'transactional',
       })
 
@@ -510,7 +560,6 @@ export const auth = betterAuth({
             to: data.email,
             subject: getEmailSubject(data.type),
             html,
-            from: getFromEmailAddress(),
             emailType: 'transactional',
           })
 
@@ -1364,10 +1413,10 @@ export const auth = betterAuth({
     stripe({
       stripeClient,
       get stripeWebhookSecret() {
-        return getCachedStripeSettings().stripeWebhookSecret ?? ''
+        return getCachedStripeServiceConfig().webhookSecret ?? ''
       },
       get createCustomerOnSignUp() {
-        return hasCachedStripeSecretKey()
+        return hasCachedStripeServiceSecretKey()
       },
       onCustomerCreate: async ({ stripeCustomer, user }) => {
         logger.info('[onCustomerCreate] Stripe customer created', {
@@ -1681,7 +1730,6 @@ export const auth = betterAuth({
             to: invitation.email,
             subject: `${inviterName} has invited you to join ${organization.name} on TradingGoose`,
             html,
-            from: getFromEmailAddress(),
             emailType: 'transactional',
           })
 

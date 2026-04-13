@@ -200,11 +200,23 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_PROVIDER: 'anthropic',
-        COPILOT_API_KEY: 'test-copilot-key',
-      },
+    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
+      buildCopilotRuntimeProviderConfig: vi.fn(
+        async ({
+          model,
+          provider,
+        }: {
+          model: string
+          provider?: string
+        }) => ({
+          provider: provider ?? 'openai',
+          providerConfig: {
+            provider: provider ?? 'openai',
+            model,
+            apiKey: 'test-copilot-key',
+          },
+        })
+      ),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({

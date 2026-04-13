@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       hasMessage: parsed.message !== undefined,
       hasData: parsed.data !== undefined,
       messagePreview,
-      agentUrl: getCopilotApiUrl('/api/tools/mark-complete'),
+      agentUrl: await getCopilotApiUrl('/api/tools/mark-complete'),
     })
 
     const agentRes = await proxyCopilotRequest({

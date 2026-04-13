@@ -220,15 +220,6 @@ describe('Copilot Chat Review Session GET', () => {
       REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-key',
-        BETTER_AUTH_URL: 'http://localhost:3000',
-        NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
-      },
-    }))
-
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn(() => ({
         info: vi.fn(),

@@ -9,7 +9,6 @@ import { executeFunctionInLocalVm } from './local-execution'
 import { extractJavaScriptImports } from './typescript-utils'
 
 const E2B_JS_WRAPPER_LINES = 3
-const FUNCTION_RUNTIME_CONFIG = resolveExecutionRuntimeConfig()
 
 type ExecuteFunctionInE2BArgs = {
   transpiledCode: string
@@ -209,7 +208,8 @@ export const executeFunctionWithRuntimeGate = async ({
   onWarn,
   onError,
 }: ExecuteFunctionWithRuntimeGateArgs): Promise<RuntimeGateResult> => {
-  const useE2B = FUNCTION_RUNTIME_CONFIG.useE2B
+  const runtimeConfig = await resolveExecutionRuntimeConfig()
+  const useE2B = runtimeConfig.useE2B
 
   if (useE2B) {
     try {
@@ -221,8 +221,8 @@ export const executeFunctionWithRuntimeGate = async ({
         contextVariables,
         isCustomTool,
         timeout,
-        e2bTemplate: FUNCTION_RUNTIME_CONFIG.e2bTemplate,
-        e2bKeepWarmMs: FUNCTION_RUNTIME_CONFIG.e2bKeepWarmMs,
+        e2bTemplate: runtimeConfig.e2bTemplate ?? undefined,
+        e2bKeepWarmMs: runtimeConfig.e2bKeepWarmMs,
         e2bUserScope,
         onImportExtractionError,
         onSandboxResult,

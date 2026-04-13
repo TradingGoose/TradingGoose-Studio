@@ -292,12 +292,15 @@ describe('Workflow Execution API Route', () => {
     }))
 
     vi.doMock('@/lib/utils', () => ({
+      isHosted: vi.fn().mockReturnValue(false),
+      generateRequestId: vi.fn(() => 'test-request-id'),
+    }))
+
+    vi.doMock('@/lib/utils-server', () => ({
       decryptSecret: vi.fn().mockResolvedValue({
         decrypted: 'decrypted-secret-value',
       }),
-      isHosted: vi.fn().mockReturnValue(false),
       getRotatingApiKey: vi.fn().mockReturnValue('rotated-api-key'),
-      generateRequestId: vi.fn(() => 'test-request-id'),
     }))
 
     vi.doMock('@/lib/logs/execution/logging-session', () => ({

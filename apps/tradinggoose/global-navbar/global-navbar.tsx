@@ -14,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
+import { isHosted } from '@/lib/environment'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -93,11 +94,8 @@ export function GlobalNavbar({
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
-    readOnly: navigationMode === 'admin',
   })
   const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
-  const workspaceSwitcherActiveWorkspace =
-    navigationMode === 'admin' ? null : workspaceSwitcher.activeWorkspace
   const systemNavigation = React.useMemo(() => {
     if (!isSystemAdmin || navigationMode === 'admin') {
       return null
@@ -111,6 +109,9 @@ export function GlobalNavbar({
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
+      if (section === 'service' && !isHosted) {
+        return 'account'
+      }
       if (section === 'subscription' && !billingEnabled) {
         return 'account'
       }
@@ -304,7 +305,7 @@ export function GlobalNavbar({
           <Sidebar collapsible='icon'>
             <SidebarHeader>
               <WorkspaceSwitcher
-                activeWorkspace={workspaceSwitcherActiveWorkspace}
+                activeWorkspace={workspaceSwitcher.activeWorkspace}
                 workspaces={workspaceSwitcher.workspaces}
                 isLoading={workspaceSwitcher.isWorkspacesLoading}
                 canManageWorkspaces={canManageWorkspaces}
@@ -329,7 +330,6 @@ export function GlobalNavbar({
                   workspaceSwitcher.handleDeleteDialogChange(true)
                 }}
                 brandName={brand.name}
-                fallbackSubtitle={navigationMode === 'admin' ? 'admin' : 'Workspace'}
                 fallbackImageUrl={brand.logoUrl ?? brand.faviconUrl ?? '/favicon/favicon.ico'}
               />
             </SidebarHeader>
@@ -356,7 +356,7 @@ export function GlobalNavbar({
           <SidebarInset className='flex h-full min-h-0 flex-1 overflow-hidden bg-background'>
             <div className='flex h-full min-h-0 flex-col bg-background'>
               <NavbarHeader
-                workspaceName={workspaceSwitcherActiveWorkspace?.name}
+                workspaceName={workspaceSwitcher.activeWorkspace?.name}
                 brandName={brand.name}
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}

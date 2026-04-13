@@ -24,6 +24,11 @@ export const waitlistStatusEnum = pgEnum('waitlist_status', [
   'signed_up',
 ])
 
+export const systemServiceValueKindEnum = pgEnum('system_service_value_kind', [
+  'credential',
+  'setting',
+])
+
 export type SystemBillingTierOwnerType = 'user' | 'organization'
 export type SystemBillingTierStatus = 'active' | 'draft' | 'archived'
 export type SystemBillingTierUsageScope = 'individual' | 'pooled'
@@ -78,15 +83,40 @@ export const systemAdmin = pgTable(
 )
 
 export const systemSettings = pgTable('system_settings', {
+  // Global app-owned settings. Use this for platform behavior and identity fields,
+  // not for third-party provider credentials or provider-specific runtime config.
   id: text('id').primaryKey(),
   registrationMode: registrationModeEnum('registration_mode').notNull().default('open'),
   billingEnabled: boolean('billing_enabled').notNull().default(false),
   allowPromotionCodes: boolean('allow_promotion_codes').notNull().default(true),
-  stripeSecretKey: text('stripe_secret_key'),
-  stripeWebhookSecret: text('stripe_webhook_secret'),
+  emailDomain: text('email_domain').notNull().default('tradinggoose.ai'),
+  fromEmailAddress: text('from_email_address'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
+export const systemServiceValue = pgTable(
+  'system_service_values',
+  {
+    // Provider-owned runtime config. Credential rows are encrypted; setting rows are plain text.
+    id: text('id').primaryKey(),
+    service: text('service').notNull(),
+    kind: systemServiceValueKindEnum('kind').notNull(),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    serviceIdx: index('system_service_values_service_idx').on(table.service),
+    serviceKindIdx: index('system_service_values_service_kind_idx').on(table.service, table.kind),
+    serviceKeyUnique: uniqueIndex('system_service_values_service_kind_key_unique').on(
+      table.service,
+      table.kind,
+      table.key
+    ),
+  })
+)
 
 export const systemBillingSettings = pgTable(
   'system_billing_settings',

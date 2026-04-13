@@ -292,7 +292,7 @@ interface MemberUsageData {
 }
 
 export function getOrganizationMinimumUsageLimitUsd(
-  subscription: Awaited<ReturnType<typeof getOrganizationSubscription>>
+  subscription: Awaited<ReturnType<typeof getOrganizationSubscription>> | null
 ): number {
   return roundCurrency(getSubscriptionUsageAllowanceUsd(subscription))
 }

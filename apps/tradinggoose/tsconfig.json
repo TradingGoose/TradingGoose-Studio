@@ -8,11 +8,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
       "@apps/tradinggoose/hooks/queries/*": ["./hooks/queries/*"],
-      "@/components/*": ["components/*"],
+      "@/components/*": ["./components/*"],
       "@/lib/*": ["./lib/*"],
       "@/stores": ["./stores"],
       "@/stores/*": ["./stores/*"],

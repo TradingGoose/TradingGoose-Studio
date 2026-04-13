@@ -1,4 +1,4 @@
-import type { ListingInputValue } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import type { HttpMethod } from '@/tools/types'
@@ -46,11 +46,9 @@ export interface TradingSymbolInput {
   marketCode?: string
   countryCode?: string
   cityName?: string
-  timeZoneName?: string
 }
 
 export interface TradingOrderInput extends TradingSymbolInput {
-  symbol?: string
   side: 'buy' | 'sell'
   quantity?: number
   notional?: number
@@ -160,6 +158,7 @@ export type UnifiedTradingSymbolAssetClass =
 export interface UnifiedTradingSymbol {
   base: string
   quote: string
+  listing?: ListingIdentity
   name?: string | null
   assetClass: UnifiedTradingSymbolAssetClass
   active: boolean

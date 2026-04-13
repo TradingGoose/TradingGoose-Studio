@@ -121,24 +121,6 @@ describe('Copilot Context Usage API', () => {
       getTierCopilotCostMultiplier: (...args: any[]) => mockGetTierCopilotCostMultiplier(...args),
     }))
 
-    vi.doMock('@/lib/env', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@/lib/env')>()
-
-      return {
-        ...actual,
-        env: {
-          ...actual.env,
-          COPILOT_PROVIDER: 'anthropic',
-          COPILOT_API_KEY: 'test-copilot-key',
-        },
-        getEnv: vi.fn((key: string) => {
-          if (key === 'COPILOT_PROVIDER') return 'anthropic'
-          if (key === 'COPILOT_API_KEY') return 'test-copilot-key'
-          return actual.getEnv(key)
-        }),
-      }
-    })
-
     vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
       buildCopilotRuntimeProviderConfig: vi.fn(() => ({
         providerConfig: {
@@ -322,5 +304,41 @@ describe('Copilot Context Usage API', () => {
       extraUpdates: expect.any(Object),
       reason: 'copilot_context_usage',
     })
+  })
+
+  it('does not silently bill billed copilot usage when no active subscription tier exists', async () => {
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+    mockGetPersonalEffectiveSubscription.mockResolvedValue(null)
+
+    mockProxyCopilotRequest.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tokensUsed: 100,
+          model: 'gpt-5.4',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    )
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/context-usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        conversationId: 'conversation-4',
+        model: 'gpt-5.4',
+        bill: true,
+        assistantMessageId: 'assistant-message-3',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/context-usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(mockGetPersonalEffectiveSubscription).toHaveBeenCalledWith('user-1')
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
   })
 })

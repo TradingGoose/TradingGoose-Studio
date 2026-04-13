@@ -3,7 +3,7 @@ import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggo
 import { inArray } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSystemIntegrationCatalogSeedSnapshot } from '@/lib/system-integrations/catalog'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('SystemIntegrationResolver')
 

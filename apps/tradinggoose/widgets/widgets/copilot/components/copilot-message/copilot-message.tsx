@@ -36,6 +36,7 @@ import {
   ThinkingBlock,
 } from './components'
 import CopilotMarkdownRenderer from './components/markdown-renderer'
+import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
 
@@ -887,17 +888,28 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             )}
 
             {/* Options selector when agent presents choices - streams in but disabled until complete */}
-            {parsedTags?.options && Object.keys(parsedTags.options).length > 0 && (
+            {(() => {
+              const options = parsedTags?.options
+              const shouldRenderOptions = shouldRenderAssistantOptions({
+                role: message.role,
+                isLastMessage,
+                hasOptions: Boolean(options && Object.keys(options).length > 0),
+              })
+
+              if (!shouldRenderOptions || !options) return null
+
+              return (
               <OptionsSelector
-                options={parsedTags.options}
+                options={options}
                 onSelect={handleOptionSelect}
                 disabled={!isLastMessage || isSendingMessage || isStreaming}
                 enableKeyboardNav={
-                  isLastMessage && !isStreaming && parsedTags.optionsComplete === true
+                  isLastMessage && !isStreaming && parsedTags?.optionsComplete === true
                 }
-                streaming={isStreaming || parsedTags.optionsComplete === false}
+                streaming={isStreaming || parsedTags?.optionsComplete === false}
               />
-            )}
+              )
+            })()}
           </div>
         </div>
       )

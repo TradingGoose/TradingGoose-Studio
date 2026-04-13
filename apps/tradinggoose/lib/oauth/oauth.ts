@@ -849,21 +849,6 @@ export function getBaseProviderForService(providerId: string): string {
   return serviceLookup?.baseProvider || parseProvider(normalizedProviderId).baseProvider
 }
 
-export function getCredentialProviderForService(providerId: string): string {
-  const normalizedProviderId = normalizeOAuthIdentifier(providerId)
-  const providerConfig = resolveOAuthProviderConfig(normalizedProviderId)
-  const serviceLookup =
-    OAUTH_PROVIDER_LOOKUP[normalizedProviderId] ?? OAUTH_SERVICE_LOOKUP[normalizedProviderId]
-  const serviceConfig = serviceLookup ? providerConfig?.services[serviceLookup.serviceId] : null
-
-  return (
-    serviceConfig?.credentialProvider?.trim() ||
-    providerConfig?.credentialProvider?.trim() ||
-    providerConfig?.id ||
-    parseProvider(normalizedProviderId).baseProvider
-  )
-}
-
 /**
  * Parse a provider string into its base provider and feature type
  * This is a server-safe utility that can be used in both client and server code

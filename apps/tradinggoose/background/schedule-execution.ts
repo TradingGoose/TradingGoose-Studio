@@ -22,7 +22,7 @@ import {
   getSubBlockValue,
 } from '@/lib/schedules/utils'
 import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 import { blockExistsInDeployment, loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'

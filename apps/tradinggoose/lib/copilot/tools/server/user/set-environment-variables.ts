@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 
 interface SetEnvironmentVariablesParams {
   variables: Record<string, any> | Array<{ name: string; value: string }>

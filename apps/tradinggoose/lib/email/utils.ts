@@ -1,13 +1,24 @@
-import { env } from '@/lib/env'
-import { getEmailDomain } from '@/lib/urls/utils'
+import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 
 /**
- * Get the from email address, preferring FROM_EMAIL_ADDRESS over EMAIL_DOMAIN
+ * Get the platform email domain from DB-backed system settings.
  */
-export function getFromEmailAddress(): string {
-  if (env.FROM_EMAIL_ADDRESS?.trim()) {
-    return env.FROM_EMAIL_ADDRESS
-  }
-  // Fallback to constructing from EMAIL_DOMAIN
-  return `noreply@${env.EMAIL_DOMAIN || getEmailDomain()}`
+export async function getConfiguredEmailDomain(): Promise<string> {
+  const settings = await getResolvedSystemSettings()
+  return settings.emailDomain
+}
+
+/**
+ * Get the from email address from DB-backed system settings.
+ */
+export async function getFromEmailAddress(): Promise<string> {
+  const settings = await getResolvedSystemSettings()
+  return settings.fromEmailAddress?.trim() || `noreply@${settings.emailDomain}`
+}
+
+/**
+ * Get the help/support inbox address from DB-backed system settings.
+ */
+export async function getHelpEmailAddress(): Promise<string> {
+  return `help@${await getConfiguredEmailDomain()}`
 }

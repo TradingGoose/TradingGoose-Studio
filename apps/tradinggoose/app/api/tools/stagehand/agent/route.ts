@@ -1,15 +1,11 @@
 import { Stagehand } from '@browserbasehq/stagehand'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveBrowserbaseServiceConfig } from '@/lib/system-services/runtime'
 import { ensureZodObject, normalizeUrl } from '@/app/api/tools/stagehand/utils'
 
 const logger = createLogger('StagehandAgentAPI')
-
-// Environment variables for Browserbase
-const BROWSERBASE_API_KEY = env.BROWSERBASE_API_KEY
-const BROWSERBASE_PROJECT_ID = env.BROWSERBASE_PROJECT_ID
 
 const requestSchema = z.object({
   task: z.string().min(1),
@@ -532,15 +528,21 @@ export async function POST(request: NextRequest) {
       hasVariables: !!variablesObject && Object.keys(variablesObject).length > 0,
     })
 
-    // Check for required environment variables
-    if (!BROWSERBASE_API_KEY || !BROWSERBASE_PROJECT_ID) {
-      logger.error('Missing required environment variables', {
-        hasBrowserbaseApiKey: !!BROWSERBASE_API_KEY,
-        hasBrowserbaseProjectId: !!BROWSERBASE_PROJECT_ID,
+    const browserbaseConfig = await resolveBrowserbaseServiceConfig()
+    const browserbaseApiKey = browserbaseConfig.apiKey
+
+    // Check for required Browserbase system service configuration.
+    if (!browserbaseApiKey || !browserbaseConfig.projectId) {
+      logger.error('Missing required Browserbase configuration', {
+        hasBrowserbaseApiKey: !!browserbaseApiKey,
+        hasBrowserbaseProjectId: !!browserbaseConfig.projectId,
       })
 
       return NextResponse.json(
-        { error: 'Server configuration error: Missing required environment variables' },
+        {
+          error:
+            'Server configuration error: Browserbase system service is missing its API key or project id.',
+        },
         { status: 500 }
       )
     }
@@ -550,8 +552,8 @@ export async function POST(request: NextRequest) {
       logger.info('Initializing Stagehand with Browserbase')
       stagehand = new Stagehand({
         env: 'BROWSERBASE',
-        apiKey: BROWSERBASE_API_KEY,
-        projectId: BROWSERBASE_PROJECT_ID,
+        apiKey: browserbaseApiKey,
+        projectId: browserbaseConfig.projectId,
         verbose: 1,
         // Use a custom logger wrapper that adapts our logger to Stagehand's expected format
         logger: (msg) => logger.info(typeof msg === 'string' ? msg : JSON.stringify(msg)),

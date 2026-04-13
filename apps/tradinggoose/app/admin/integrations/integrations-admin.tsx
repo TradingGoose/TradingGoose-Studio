@@ -428,19 +428,16 @@ export function AdminIntegrations() {
                                         >
                                           <div className='min-w-0 flex-1 space-y-1'>
                                             <div className='flex flex-wrap items-center gap-2'>
-                                              <p className='font-medium text-sm'>
-                                                {service.displayName}
-                                              </p>
-                                              <Badge
-                                                variant='outline'
-                                                className={ADMIN_META_BADGE_CLASSNAME}
-                                              >
-                                                service
-                                              </Badge>
+                                              <p className='font-medium text-sm'>{service.displayName}</p>
                                             </div>
-                                            <div className='text-muted-foreground text-xs'>
-                                              {service.id}
-                                            </div>
+                                            {hasDistinctDefinitionIdentifier(
+                                              service.displayName,
+                                              service.id
+                                            ) ? (
+                                              <div className='text-muted-foreground text-xs'>
+                                                {service.id}
+                                              </div>
+                                            ) : null}
                                             <p className='text-muted-foreground text-xs'>
                                               Uses secrets from{' '}
                                               {parent?.displayName ?? bundle.displayName}.
@@ -773,6 +770,14 @@ function matchesSecretSearch(secret: AdminIntegrationSecret, searchTerm: string)
   }
 
   return [secret.credentialKey, secret.id].join(' ').toLowerCase().includes(searchTerm)
+}
+
+function hasDistinctDefinitionIdentifier(displayName: string, identifier: string) {
+  return normalizeIdentifierValue(displayName) !== normalizeIdentifierValue(identifier)
+}
+
+function normalizeIdentifierValue(value: string) {
+  return value.replaceAll(/[^a-z0-9]+/gi, '').toLowerCase()
 }
 
 function getErrorMessage(error: unknown) {

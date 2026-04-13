@@ -1,56 +1,56 @@
 import Stripe from 'stripe'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getResolvedSystemSettings } from './service'
+import { resolveStripeServiceConfig } from './runtime'
 
 const STRIPE_API_VERSION = '2025-08-27.basil'
 const MISSING_STRIPE_CLIENT_ERROR =
-  'Stripe client is not available. Configure STRIPE_SECRET_KEY in system settings.'
+  'Stripe client is not available. Configure Stripe in admin services.'
 
 const logger = createLogger('SystemStripeRuntime')
 
-type CachedStripeSettings = {
-  stripeSecretKey: string | null
-  stripeWebhookSecret: string | null
+type CachedStripeServiceConfig = {
+  secretKey: string | null
+  webhookSecret: string | null
 }
 
 const stripeClientsBySecret = new Map<string, Stripe>()
 
-let cachedStripeSettings: CachedStripeSettings = {
-  stripeSecretKey: null,
-  stripeWebhookSecret: null,
+let cachedStripeServiceConfig: CachedStripeServiceConfig = {
+  secretKey: null,
+  webhookSecret: null,
 }
 
-export function getCachedStripeSettings(): CachedStripeSettings {
-  return cachedStripeSettings
+export function getCachedStripeServiceConfig(): CachedStripeServiceConfig {
+  return cachedStripeServiceConfig
 }
 
-export function hasCachedStripeSecretKey() {
-  return Boolean(cachedStripeSettings.stripeSecretKey)
+export function hasCachedStripeServiceSecretKey() {
+  return Boolean(cachedStripeServiceConfig.secretKey)
 }
 
-export function setCachedStripeSettings(settings: CachedStripeSettings) {
-  cachedStripeSettings = {
-    stripeSecretKey: normalizeSecret(settings.stripeSecretKey),
-    stripeWebhookSecret: normalizeSecret(settings.stripeWebhookSecret),
+function setCachedStripeServiceConfig(settings: CachedStripeServiceConfig) {
+  cachedStripeServiceConfig = {
+    secretKey: normalizeSecret(settings.secretKey),
+    webhookSecret: normalizeSecret(settings.webhookSecret),
   }
 }
 
-export async function refreshCachedStripeSettings() {
+async function refreshCachedStripeServiceConfig() {
   try {
-    const settings = await getResolvedSystemSettings()
-    setCachedStripeSettings({
-      stripeSecretKey: settings.stripeSecretKey,
-      stripeWebhookSecret: settings.stripeWebhookSecret,
+    const settings = await resolveStripeServiceConfig()
+    setCachedStripeServiceConfig({
+      secretKey: settings.secretKey,
+      webhookSecret: settings.webhookSecret,
     })
   } catch (error) {
     logger.error('Failed to refresh cached Stripe settings', { error })
   }
 
-  return getCachedStripeSettings()
+  return getCachedStripeServiceConfig()
 }
 
 export function getCurrentStripeClient(): Stripe | null {
-  const secretKey = cachedStripeSettings.stripeSecretKey
+  const secretKey = cachedStripeServiceConfig.secretKey
   if (!secretKey) {
     return null
   }
@@ -86,7 +86,7 @@ export function createStripeClientProxy(): Stripe {
   }) as Stripe
 }
 
-await refreshCachedStripeSettings()
+await refreshCachedStripeServiceConfig()
 
 function normalizeSecret(value: string | null) {
   const trimmed = value?.trim() ?? ''

@@ -7,12 +7,11 @@ describe('requestCopilotTitle', () => {
   beforeEach(() => {
     vi.resetModules()
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-copilot-key',
-        INTERNAL_API_SECRET: 'test-internal-secret',
-      },
+    vi.doMock('@/lib/system-services/runtime', () => ({
+      resolveCopilotApiServiceConfig: vi.fn(async () => ({
+        baseUrl: 'http://localhost:8000',
+        apiKey: 'test-copilot-key',
+      })),
     }))
 
     vi.doMock('@/lib/copilot/config', () => ({

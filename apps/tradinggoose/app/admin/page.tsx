@@ -50,14 +50,34 @@ export default function AdminHomePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Integrations</CardTitle>
+              <CardTitle>Services</CardTitle>
               <CardDescription>
-                Configure system-level providers, services, and secrets.
+                Configure system-owned API credentials for search, embeddings, OCR, and browser
+                automation.
               </CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>
-                Start with service registration and admin-managed credentials.
+                Manage platform-wide service credentials without mixing them into OAuth
+                integrations.
+              </p>
+              <Button asChild>
+                <Link href='/admin/services'>Open</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Integrations</CardTitle>
+              <CardDescription>
+                Configure system-managed OAuth integrations and provider bundles.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className='flex items-center justify-between gap-4'>
+              <p className='text-muted-foreground text-sm'>
+                Manage OAuth-backed integration bundles separately from system service
+                credentials.
               </p>
               <Button asChild>
                 <Link href='/admin/integrations'>Open</Link>

@@ -1,4 +1,5 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import type {
   TradingHoldingsInput,
   TradingHoldingsNormalizationContext,
@@ -7,6 +8,7 @@ import type {
   UnifiedTradingPosition,
   UnifiedTradingSymbol,
 } from '@/providers/trading/types'
+import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
 const DEFAULT_BASE_CURRENCY = 'USD'
 
@@ -37,30 +39,6 @@ const mapAssetClass = (value: unknown): UnifiedTradingSymbol['assetClass'] => {
     default:
       return 'stock'
   }
-}
-
-const parseSymbol = (symbol?: string, assetClass?: UnifiedTradingSymbol['assetClass']) => {
-  if (!symbol) {
-    return { base: 'UNKNOWN', quote: DEFAULT_BASE_CURRENCY }
-  }
-
-  if (assetClass === 'crypto' && symbol.includes('/')) {
-    const [base, quote] = symbol.split('/')
-    return {
-      base: base || symbol,
-      quote: quote || DEFAULT_BASE_CURRENCY,
-    }
-  }
-
-  if (symbol.includes('/')) {
-    const [base, quote] = symbol.split('/')
-    return {
-      base: base || symbol,
-      quote: quote || DEFAULT_BASE_CURRENCY,
-    }
-  }
-
-  return { base: symbol, quote: DEFAULT_BASE_CURRENCY }
 }
 
 const getCurrencySymbol = (currency?: string) => {
@@ -103,7 +81,14 @@ export const normalizeAlpacaHoldings = (
   const normalizedPositions: UnifiedTradingPosition[] = list.map((position: any) => {
     const assetClass = mapAssetClass(position?.asset_class)
     const symbolValue = typeof position?.symbol === 'string' ? position.symbol : undefined
-    const { base, quote } = parseSymbol(symbolValue, assetClass)
+    const resolvedSymbol = tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+      symbol: symbolValue,
+      assetClass,
+      defaultQuote: DEFAULT_BASE_CURRENCY,
+    })
+    const base = resolvedSymbol?.base ?? 'UNKNOWN'
+    const quote = resolvedSymbol?.quote ?? DEFAULT_BASE_CURRENCY
+    const symbolAssetClass = resolvedSymbol?.assetClass ?? assetClass
     const side = mapSide(position?.side)
     const rawQuantity = toNumber(position?.qty ?? position?.quantity) ?? 0
     const quantity = side === 'short' ? -Math.abs(rawQuantity) : rawQuantity
@@ -115,8 +100,9 @@ export const normalizeAlpacaHoldings = (
       symbol: {
         base,
         quote,
+        listing: resolvedSymbol?.listing,
         name: null,
-        assetClass,
+        assetClass: symbolAssetClass,
         active: true,
         rank: 0,
       },

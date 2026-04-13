@@ -37,34 +37,55 @@ export function useMarketListingSearch({
   const providerConfig =
     providerType === 'trading' ? tradingProviderConfig : marketProviderConfig
 
+  const abortInFlightRequest = () => {
+    requestKeyRef.current = ''
+    if (!abortRef.current) {
+      return
+    }
+    abortRef.current.abort()
+    abortRef.current = null
+  }
+
   useEffect(() => {
-    const effectiveQuery = open && !query.trim() ? query : debouncedQuery
-    const rawQuery = effectiveQuery
-    const trimmed = rawQuery.trim()
+    const trimmedQuery = query.trim()
+    const trimmedDebouncedQuery = debouncedQuery.trim()
 
     if (!open) {
-      if (!trimmed) {
-        updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
-      }
+      abortInFlightRequest()
+      updateInstance(
+        instanceId,
+        trimmedQuery
+          ? { isLoading: false, error: undefined }
+          : { results: [], isLoading: false, error: undefined }
+      )
       return
     }
 
-    if (isVariableInput(trimmed)) {
+    if (isVariableInput(trimmedQuery)) {
+      abortInFlightRequest()
       updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
       return
     }
 
+    if (trimmedDebouncedQuery !== trimmedQuery) {
+      abortInFlightRequest()
+      updateInstance(instanceId, {
+        isLoading: true,
+        error: undefined,
+      })
+      return
+    }
+
     const { queryParams, requestKey } = buildMarketSearchRequest({
-      rawQuery,
+      rawQuery: debouncedQuery,
       providerId,
       providerType,
       providerConfig,
     })
     requestKeyRef.current = requestKey
 
-    if (abortRef.current) {
-      abortRef.current.abort()
-    }
+    abortInFlightRequest()
+    requestKeyRef.current = requestKey
     const controller = new AbortController()
     abortRef.current = controller
 
@@ -75,6 +96,9 @@ export function useMarketListingSearch({
     requestPromise
       .then((rows) => {
         if (requestKeyRef.current !== requestKey || controller.signal.aborted) return
+        if (abortRef.current === controller) {
+          abortRef.current = null
+        }
         updateInstance(instanceId, {
           results: rows,
           isLoading: false,
@@ -83,6 +107,9 @@ export function useMarketListingSearch({
       })
       .catch((err) => {
         if (controller.signal.aborted) return
+        if (abortRef.current === controller) {
+          abortRef.current = null
+        }
         updateInstance(instanceId, {
           isLoading: false,
           error: err instanceof Error ? err.message : 'Search failed',

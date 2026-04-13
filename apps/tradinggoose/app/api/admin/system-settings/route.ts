@@ -5,8 +5,11 @@ import { adminSystemSettingsMutationSchema } from '@/lib/admin/system-settings/m
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getResolvedSystemSettings, upsertSystemSettings } from '@/lib/system-settings/service'
-import { setCachedStripeSettings } from '@/lib/system-settings/stripe-runtime'
+import {
+  getResolvedSystemSettings,
+  upsertSystemSettings,
+  type ResolvedSystemSettings,
+} from '@/lib/system-settings/service'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('AdminSystemSettingsAPI')
@@ -125,11 +128,6 @@ export async function PATCH(request: NextRequest) {
       await backfillDefaultUserSubscriptions()
     }
 
-    setCachedStripeSettings({
-      stripeSecretKey: snapshot.stripeSecretKey,
-      stripeWebhookSecret: snapshot.stripeWebhookSecret,
-    })
-
     return NextResponse.json(serializeSnapshot(snapshot, billingReady), {
       status: 200,
       headers: NO_STORE_HEADERS,
@@ -153,16 +151,13 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-function serializeSnapshot(
-  snapshot: Awaited<ReturnType<typeof getResolvedSystemSettings>>,
-  billingReady: boolean
-) {
+function serializeSnapshot(snapshot: ResolvedSystemSettings, billingReady: boolean) {
   return {
     registrationMode: snapshot.registrationMode,
     billingEnabled: snapshot.billingEnabled,
     billingReady,
     allowPromotionCodes: snapshot.allowPromotionCodes,
-    hasStripeSecretKey: Boolean(snapshot.stripeSecretKey?.trim()),
-    hasStripeWebhookSecret: Boolean(snapshot.stripeWebhookSecret?.trim()),
+    emailDomain: snapshot.emailDomain,
+    fromEmailAddress: snapshot.fromEmailAddress ?? '',
   }
 }

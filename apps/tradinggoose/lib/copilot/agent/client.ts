@@ -1,6 +1,6 @@
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { COPILOT_API_URL_DEFAULT, COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
+import { resolveCopilotApiServiceConfig } from '@/lib/system-services/runtime'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SimAgentClient')
@@ -19,11 +19,9 @@ export interface SimAgentResponse<T = any> {
 }
 
 class SimAgentClient {
-  private baseUrl: string
-
-  constructor() {
-    // Move environment variable access inside the constructor
-    this.baseUrl = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
+  private async getBaseUrl() {
+    const config = await resolveCopilotApiServiceConfig()
+    return config.baseUrl || COPILOT_API_URL_DEFAULT
   }
 
   /**
@@ -35,14 +33,13 @@ class SimAgentClient {
       method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
       body?: Record<string, any>
       headers?: Record<string, string>
-      apiKey?: string // Allow passing API key directly
     } = {}
   ): Promise<SimAgentResponse<T>> {
     const requestId = generateRequestId()
     const { method = 'POST', body, headers = {} } = options
 
     try {
-      const url = `${this.baseUrl}${endpoint}`
+      const url = `${await this.getBaseUrl()}${endpoint}`
 
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -131,29 +128,6 @@ class SimAgentClient {
         ...request.data,
       },
     })
-  }
-
-  /**
-   * Get the current configuration
-   */
-  getConfig() {
-    return {
-      baseUrl: this.baseUrl,
-      environment: process.env.NODE_ENV,
-    }
-  }
-
-  /**
-   * Check if the copilot service is healthy
-   */
-  async healthCheck() {
-    try {
-      const response = await this.makeRequest('/health', { method: 'GET' })
-      return response.success && response.data?.healthy === true
-    } catch (error) {
-      logger.error('Copilot health check failed:', error)
-      return false
-    }
   }
 }
 

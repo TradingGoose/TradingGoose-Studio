@@ -13,7 +13,6 @@ import {
 } from '@/lib/billing/tiers'
 import { resolveBillingTierForPersistence } from '@/lib/billing/tiers/persistence'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { EnterpriseSubscriptionMetadata } from '../types'
 
@@ -235,7 +234,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         to: user.email,
         subject: getEmailSubject('enterprise-subscription'),
         html,
-        from: getFromEmailAddress(),
         emailType: 'transactional',
       })
 

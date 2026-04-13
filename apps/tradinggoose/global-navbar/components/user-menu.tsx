@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
 import { canTierConfigureSso } from '@/lib/billing/tier-summary'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
@@ -332,21 +333,23 @@ export function UserMenu({
                   <User />
                   Account Detail
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('service')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'service' } })
-                      )
-                    }
-                  }}
-                >
-                  <KeyRound />
-                  Service API Keys
-                </DropdownMenuItem>
+                {isHosted ? (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      if (onOpenSettings) {
+                        onOpenSettings('service')
+                      } else if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('open-settings', { detail: { tab: 'service' } })
+                        )
+                      }
+                    }}
+                  >
+                    <KeyRound />
+                    Service API Keys
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
               {billingEnabled ? (
                 <>

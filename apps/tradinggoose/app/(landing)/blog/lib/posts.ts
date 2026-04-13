@@ -2,6 +2,7 @@ import { cache } from 'react'
 import fs from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
+import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
 import { normalizeHeadingText, textToSlug } from './heading-slugs'
 import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
 
@@ -21,7 +22,8 @@ import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
  * are auto-resolved to raw.githubusercontent.com URLs.
  *
  * Set BLOG_GITHUB_BRANCH to specify the branch (defaults to "main").
- * Set GITHUB_TOKEN to increase API rate limits (optional for public repos).
+ * Configure the GitHub system service token to increase API rate limits
+ * (optional for public repos).
  *
  * When BLOG_GITHUB_REPO is not set, falls back to local filesystem at
  * app/(landing)/blog/content/.
@@ -156,8 +158,13 @@ interface GitHubTreeItem {
 async function fetchPostsFromGitHub(): Promise<Post[]> {
   const treeUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`
   const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' }
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+  try {
+    const githubConfig = await resolveGitHubServiceConfig()
+    if (githubConfig.token) {
+      headers.Authorization = `Bearer ${githubConfig.token}`
+    }
+  } catch (error) {
+    console.warn('[blog] Failed to resolve GitHub service config, continuing without token')
   }
 
   const treeRes = await fetch(treeUrl, {

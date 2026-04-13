@@ -228,14 +228,25 @@ describe('RateLimiter', () => {
       expect(db.select).not.toHaveBeenCalled()
     })
 
-    it('blocks billed requests when the user has no active subscription tier', async () => {
+    it('allows billed requests when the user has no active subscription tier', async () => {
       vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
 
       const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
 
-      expect(result.allowed).toBe(false)
-      expect(result.remaining).toBe(0)
+      expect(result.allowed).toBe(true)
+      expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
       expect(db.select).not.toHaveBeenCalled()
+    })
+
+    it('allows billed requests when rate limit storage throws', async () => {
+      vi.mocked(db.select).mockImplementationOnce(() => {
+        throw new Error('rate limit storage unavailable')
+      })
+
+      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+
+      expect(result.allowed).toBe(true)
+      expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
     })
   })
 
@@ -269,15 +280,27 @@ describe('RateLimiter', () => {
       expect(status.resetAt).toBeInstanceOf(Date)
     })
 
-    it('returns a blocked rate-limit status when billing is enabled but no subscription exists', async () => {
+    it('returns a permissive rate-limit status when billing is enabled but no subscription exists', async () => {
       vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
 
       const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
 
       expect(status.used).toBe(0)
-      expect(status.limit).toBe(0)
-      expect(status.remaining).toBe(0)
+      expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
+      expect(status.remaining).toBe(Number.MAX_SAFE_INTEGER)
       expect(db.select).not.toHaveBeenCalled()
+    })
+
+    it('returns a permissive rate-limit status when rate limit storage throws', async () => {
+      vi.mocked(db.select).mockImplementationOnce(() => {
+        throw new Error('rate limit storage unavailable')
+      })
+
+      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
+
+      expect(status.used).toBe(0)
+      expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
+      expect(status.remaining).toBe(Number.MAX_SAFE_INTEGER)
     })
   })
 

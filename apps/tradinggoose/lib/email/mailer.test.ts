@@ -4,6 +4,11 @@ const mockSend = vi.fn()
 const mockBatchSend = vi.fn()
 const mockAzureBeginSend = vi.fn()
 const mockAzurePollUntilDone = vi.fn()
+const { mockResolveResendServiceConfig, mockResolveAzureCommunicationEmailServiceConfig } =
+  vi.hoisted(() => ({
+    mockResolveResendServiceConfig: vi.fn(),
+    mockResolveAzureCommunicationEmailServiceConfig: vi.fn(),
+  }))
 
 vi.mock('resend', () => {
   return {
@@ -31,18 +36,16 @@ vi.mock('@/lib/email/unsubscribe', () => ({
   generateUnsubscribeToken: vi.fn(),
 }))
 
-vi.mock('@/lib/env', () => ({
-  env: {
-    RESEND_API_KEY: 'test-api-key',
-    AZURE_ACS_CONNECTION_STRING: 'test-azure-connection-string',
-    AZURE_COMMUNICATION_EMAIL_DOMAIN: 'test.azurecomm.net',
-    NEXT_PUBLIC_APP_URL: 'https://test.tradinggoose.ai',
-    FROM_EMAIL_ADDRESS: 'TradingGoose <noreply@tradinggoose.ai>',
-  },
+vi.mock('@/lib/email/utils', () => ({
+  getFromEmailAddress: vi.fn().mockResolvedValue('TradingGoose <noreply@tradinggoose.ai>'),
+}))
+
+vi.mock('@/lib/system-services/runtime', () => ({
+  resolveResendServiceConfig: mockResolveResendServiceConfig,
+  resolveAzureCommunicationEmailServiceConfig: mockResolveAzureCommunicationEmailServiceConfig,
 }))
 
 vi.mock('@/lib/urls/utils', () => ({
-  getEmailDomain: vi.fn().mockReturnValue('tradinggoose.ai'),
   getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
 }))
 
@@ -60,6 +63,13 @@ describe('mailer', () => {
     vi.clearAllMocks()
     ;(isUnsubscribed as Mock).mockResolvedValue(false)
     ;(generateUnsubscribeToken as Mock).mockReturnValue('mock-token-123')
+    mockResolveResendServiceConfig.mockResolvedValue({
+      apiKey: 'test-api-key',
+      audienceId: 'audience-123',
+    })
+    mockResolveAzureCommunicationEmailServiceConfig.mockResolvedValue({
+      connectionString: 'test-azure-connection-string',
+    })
 
     // Mock successful Resend response
     mockSend.mockResolvedValue({

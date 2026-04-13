@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveAgentIndexerServiceConfig } from '@/lib/system-services/runtime'
 
 const logger = createLogger('CopilotTrainingAPI')
 
@@ -16,16 +16,14 @@ const TrainingDataSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for required environment variables
-    const baseUrl = env.AGENT_INDEXER_URL
+    const { baseUrl, apiKey } = await resolveAgentIndexerServiceConfig()
     if (!baseUrl) {
-      logger.error('Missing AGENT_INDEXER_URL environment variable')
+      logger.error('Missing agent indexer base URL')
       return NextResponse.json({ error: 'Agent indexer not configured' }, { status: 500 })
     }
 
-    const apiKey = env.AGENT_INDEXER_API_KEY
     if (!apiKey) {
-      logger.error('Missing AGENT_INDEXER_API_KEY environment variable')
+      logger.error('Missing agent indexer API key')
       return NextResponse.json(
         { error: 'Agent indexer authentication not configured' },
         { status: 500 }

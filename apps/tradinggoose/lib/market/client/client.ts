@@ -1,6 +1,6 @@
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
+import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketClient')
@@ -13,10 +13,12 @@ export interface MarketClientResponse<T = any> {
 }
 
 class MarketClient {
-  private baseUrl: string
-
-  constructor() {
-    this.baseUrl = env.MARKET_API_URL || MARKET_API_URL_DEFAULT
+  private async getServiceConfig() {
+    const config = await resolveMarketApiServiceConfig()
+    return {
+      baseUrl: config.baseUrl || MARKET_API_URL_DEFAULT,
+      apiKey: config.apiKey,
+    }
   }
 
   async makeRequest<T = any>(
@@ -48,7 +50,8 @@ class MarketClient {
     }
 
     try {
-      const url = `${this.baseUrl}${endpoint}`
+      const serviceConfig = await this.getServiceConfig()
+      const url = `${serviceConfig.baseUrl}${endpoint}`
 
       const requestHeaders: Record<string, string> = {
         ...headers,
@@ -58,7 +61,7 @@ class MarketClient {
         requestHeaders['Content-Type'] = 'application/json'
       }
 
-      const key = apiKey ?? env.MARKET_API_KEY
+      const key = apiKey ?? serviceConfig.apiKey
       if (key) {
         requestHeaders['x-api-key'] = key
       }
@@ -124,13 +127,6 @@ class MarketClient {
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
-    }
-  }
-
-  getConfig() {
-    return {
-      baseUrl: this.baseUrl,
-      environment: process.env.NODE_ENV,
     }
   }
 }

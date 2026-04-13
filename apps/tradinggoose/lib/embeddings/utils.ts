@@ -1,6 +1,9 @@
-import { env } from '@/lib/env'
 import { isRetryableError, retryWithExponentialBackoff } from '@/lib/knowledge/documents/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  resolveAzureOpenAIServiceConfig,
+  resolveOpenAIServiceConfig,
+} from '@/lib/system-services/runtime'
 import { batchByTokenLimit, getTotalTokenCount } from '@/lib/tokenization'
 
 const logger = createLogger('EmbeddingUtils')
@@ -24,18 +27,22 @@ interface EmbeddingConfig {
   modelName: string
 }
 
-function getEmbeddingConfig(embeddingModel = 'text-embedding-3-small'): EmbeddingConfig {
-  const azureApiKey = env.AZURE_OPENAI_API_KEY
-  const azureEndpoint = env.AZURE_OPENAI_ENDPOINT
-  const azureApiVersion = env.AZURE_OPENAI_API_VERSION
-  const kbModelName = env.KB_OPENAI_MODEL_NAME || embeddingModel
-  const openaiApiKey = env.OPENAI_API_KEY
+async function getEmbeddingConfig(embeddingModel = 'text-embedding-3-small'): Promise<EmbeddingConfig> {
+  const [azureConfig, openaiConfig] = await Promise.all([
+    resolveAzureOpenAIServiceConfig(),
+    resolveOpenAIServiceConfig(),
+  ])
+  const azureApiKey = azureConfig.apiKey || ''
+  const azureEndpoint = azureConfig.endpoint
+  const azureApiVersion = azureConfig.apiVersion
+  const kbModelName = azureConfig.embeddingModel || embeddingModel
+  const openaiApiKey = openaiConfig.defaultApiKey || ''
 
   const useAzure = !!(azureApiKey && azureEndpoint)
 
   if (!useAzure && !openaiApiKey) {
     throw new Error(
-      'Either OPENAI_API_KEY or Azure OpenAI configuration (AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT) must be configured'
+      'Either the OpenAI default API key or Azure OpenAI service config must be configured'
     )
   }
 
@@ -114,7 +121,7 @@ export async function generateEmbeddings(
   texts: string[],
   embeddingModel = 'text-embedding-3-small'
 ): Promise<number[][]> {
-  const config = getEmbeddingConfig(embeddingModel)
+  const config = await getEmbeddingConfig(embeddingModel)
 
   logger.info(
     `Using ${config.useAzure ? 'Azure OpenAI' : 'OpenAI'} for embeddings generation (${texts.length} texts)`
@@ -165,7 +172,7 @@ export async function generateSearchEmbedding(
   query: string,
   embeddingModel = 'text-embedding-3-small'
 ): Promise<number[]> {
-  const config = getEmbeddingConfig(embeddingModel)
+  const config = await getEmbeddingConfig(embeddingModel)
 
   logger.info(
     `Using ${config.useAzure ? 'Azure OpenAI' : 'OpenAI'} for search embedding generation`

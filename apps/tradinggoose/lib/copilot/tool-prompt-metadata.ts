@@ -22,9 +22,6 @@ const WORKFLOW_DOCUMENT_RULES = [
 	"If you add new blocks or reconnect handles, call `get_blocks_metadata` for the block types you need before editing the workflow document.",
 ].join(" ");
 
-const ENTITY_REVIEW_DRAFT_RULE =
-	"`edit_skill`, `edit_custom_tool`, `edit_indicator`, and `edit_mcp_server` use review drafts. They update the active review draft for that entity kind and do not directly persist the canonical entity until the user accepts the review.";
-
 const SKILL_DOCUMENT_RULES = [
 	"Skills are edited as full document updates.",
 	"`get_skill` returns `entityDocument` in `documentFormat: tg-skill-document-v1`.",
@@ -75,8 +72,6 @@ export const GLOBAL_TOOL_MANIFEST_INSTRUCTIONS: string[] = [
 	"Custom tools are executable function tools with schema plus code. Use them for runtime behavior, validation, deterministic computation, or side effects.",
 	"MCP work is server configuration plus exposed external tool inventory. Be explicit about transport, URL, headers, timeout, enablement, and expected tool exposure.",
 	"For PineTS or indicator work, call out timeframe, repainting, lookahead bias, execution timing, and signal drift risks when they matter.",
-	"`edit_monitor` applies the monitor only after the user accepts the tool call. It does not use an entity review draft.",
-	ENTITY_REVIEW_DRAFT_RULE,
 	"When the user wants live market monitoring or signal trigger configuration, prefer `get_monitor` plus `edit_monitor`.",
 	"When the user wants reusable instructions or agent behavior, prefer `get_skill` plus `edit_skill`.",
 	"When the user wants executable runtime behavior, prefer `get_custom_tool` plus `edit_custom_tool`.",
@@ -110,9 +105,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_workflow: {
 		description:
-			"Stage workflow changes from a full workflow document and return a reviewed workflow proposal.",
-		rules:
-			"Do not send operation arrays. Send the full edited workflow document. The tool stages a review proposal and does not apply the workflow until the user accepts.",
+			"Update the current workflow from a full workflow document and return the resulting workflow state.",
+		rules: "Do not send operation arrays. Send the full edited workflow document.",
 		instructions: [WORKFLOW_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "workflow",
@@ -179,8 +173,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	search_online: {
 		description: "Search web, news, places, or images.",
-		rules:
-			"Avoid sending secrets or sensitive data in external searches. Ask for confirmation when the request is sensitive.",
+		rules: "Avoid sending secrets or sensitive data in external searches.",
 		kind: "search",
 		entityKind: "external",
 	},
@@ -200,7 +193,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	set_environment_variables: {
 		description: "Set environment variables.",
 		rules:
-			"Never overwrite secrets without explicit confirmation. Prefer minimal changes.",
+			"Prefer minimal changes. Do not overwrite or remove secrets unless the user explicitly asks.",
 		kind: "edit",
 		entityKind: "environment",
 		mutatesState: true,
@@ -238,7 +231,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	set_global_workflow_variables: {
 		description: "Add, edit, or delete global workflow variables.",
 		rules:
-			"Prefer targeted updates. Do not remove secrets without explicit confirmation.",
+			"Prefer targeted updates. Do not remove secrets or sensitive values unless the user explicitly asks.",
 		kind: "edit",
 		entityKind: "workflow",
 		mutatesState: true,
@@ -257,8 +250,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	deploy_workflow: {
 		description: "Deploy or undeploy the active workflow.",
-		rules:
-			"Confirm before deploy or undeploy when the user did not explicitly request it.",
+		rules: "Deploy or undeploy only when the user explicitly asks for it.",
 		kind: "deploy",
 		entityKind: "workflow",
 		mutatesState: true,
@@ -273,7 +265,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	knowledge_base: {
 		description: "Create, list, get, or query knowledge bases.",
-		rules: "Confirm before creating a knowledge base. Avoid duplicates.",
+		rules: "Avoid duplicates. Only create a knowledge base when the user explicitly asks.",
 		kind: "knowledge",
 		entityKind: "knowledge_base",
 	},
@@ -291,9 +283,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_custom_tool: {
 		description:
-			"Stage custom tool changes from a full custom tool document and update the active custom-tool review draft.",
-		rules:
-			"Do not send partial patches. Send the full edited custom tool document. The tool updates the active review draft and does not persist until the user accepts.",
+			"Update the current custom tool from a full custom tool document and return the resulting document.",
+		rules: "Do not send partial patches. Send the full edited custom tool document.",
 		instructions: [CUSTOM_TOOL_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "custom_tool",
@@ -317,9 +308,9 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_monitor: {
 		description:
-			"Apply monitor changes from a full monitor document after user confirmation.",
+			"Update the target monitor from a full monitor document and return the resulting monitor document.",
 		rules:
-			"Do not send partial patches. Send the full edited monitor document with the target entityId. The tool applies the monitor only after the user accepts.",
+			"Do not send partial patches. Send the full edited monitor document with the target entityId.",
 		instructions: [MONITOR_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "monitor",
@@ -343,9 +334,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_indicator: {
 		description:
-			"Stage indicator changes from a full indicator document and update the active indicator review draft.",
-		rules:
-			"Do not send partial patches. Send the full edited indicator document. The tool updates the active review draft and does not persist until the user accepts.",
+			"Update the current indicator from a full indicator document and return the resulting document.",
+		rules: "Do not send partial patches. Send the full edited indicator document.",
 		instructions: [INDICATOR_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "indicator",
@@ -369,9 +359,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_skill: {
 		description:
-			"Stage skill changes from a full skill document and update the active skill review draft.",
-		rules:
-			"Do not send partial patches. Send the full edited skill document. The tool updates the active review draft and does not persist until the user accepts.",
+			"Update the current skill from a full skill document and return the resulting document.",
+		rules: "Do not send partial patches. Send the full edited skill document.",
 		instructions: [SKILL_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "skill",
@@ -395,9 +384,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	edit_mcp_server: {
 		description:
-			"Stage MCP server changes from a full server document and update the active MCP-server review draft.",
-		rules:
-			"Do not send partial patches. Send the full edited MCP server document. The tool updates the active review draft and does not persist until the user accepts.",
+			"Update the current MCP server from a full server document and return the resulting document.",
+		rules: "Do not send partial patches. Send the full edited MCP server document.",
 		instructions: [MCP_SERVER_DOCUMENT_RULES],
 		kind: "edit",
 		entityKind: "mcp_server",

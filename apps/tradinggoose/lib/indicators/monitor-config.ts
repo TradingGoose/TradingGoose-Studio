@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
-import { encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
   getMarketLiveCapabilities,

@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       assistantMessageId,
     })
 
-    const { providerConfig } = buildCopilotRuntimeProviderConfig({
+    const { providerConfig } = await buildCopilotRuntimeProviderConfig({
       model,
       provider,
     })
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info('[Context Usage API] Calling copilot', {
-      url: getCopilotApiUrl('/api/get-context-usage'),
+      url: await getCopilotApiUrl('/api/get-context-usage'),
       payload: requestPayload,
     })
 
@@ -314,12 +314,11 @@ async function billCopilotUsage(params: {
       : (await getPersonalEffectiveSubscription(userId))?.tier ?? null
 
     if (!effectiveTier) {
-      logger.warn('Skipping copilot billing - missing active subscription tier', {
-        userId,
-        workflowId,
-        assistantMessageId,
-      })
-      return
+      throw new Error(
+        workflowId
+          ? `No active workflow subscription tier found for billed copilot usage on workflow ${workflowId}`
+          : `No active personal subscription tier found for billed copilot usage for user ${userId}`
+      )
     }
 
     const costToAdd = Number(costResult.total || 0) * getTierCopilotCostMultiplier(effectiveTier)

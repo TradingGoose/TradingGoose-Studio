@@ -27,12 +27,18 @@ export const useChartInstance = (resetKey?: string | number) => {
   useEffect(() => {
     const container = chartContainerRef.current
     if (!container) return
+    const chartHost = document.createElement('div')
+    chartHost.style.width = '100%'
+    chartHost.style.height = '100%'
+    chartHost.style.position = 'relative'
+    container.replaceChildren(chartHost)
+
     const computedStyles = window.getComputedStyle(container)
     const fontFamily = computedStyles.fontFamily?.trim() ?? ''
     const textColor = computedStyles.color?.trim() ?? ''
     const backgroundColor = computedStyles.backgroundColor?.trim() ?? ''
 
-    const chart = createChart(container, {
+    const chart = createChart(chartHost, {
       layout: {
         ...(fontFamily ? { fontFamily } : {}),
         ...(textColor ? { textColor } : {}),
@@ -93,11 +99,18 @@ export const useChartInstance = (resetKey?: string | number) => {
       chartRef.current = null
       mainSeriesRef.current = null
       resizeObserver.disconnect()
-      try {
-        chart.remove()
-      } catch {
-        // Ignore disposal races from chart internals during reset.
+
+      if (container.contains(chartHost)) {
+        chartHost.remove()
       }
+
+      window.requestAnimationFrame(() => {
+        try {
+          chart.remove()
+        } catch {
+          // Ignore disposal races from chart internals during reset.
+        }
+      })
     }
   }, [resetKey, containerVersion])
 

@@ -611,7 +611,15 @@ export const ToolResultSchemas = {
     ),
   }),
   search_documentation: z.object({ results: z.array(z.any()) }),
-  search_online: z.object({ results: z.array(z.any()) }),
+  search_online: z.object({
+    results: z.array(z.any()),
+    query: z.string().optional(),
+    type: z.string().optional(),
+    requestedType: z.string().optional(),
+    totalResults: z.number().optional(),
+    source: z.enum(['exa', 'serper', 'duckduckgo']).optional(),
+    warnings: z.array(z.string()).optional(),
+  }),
   make_api_request: z.object({
     status: z.number(),
     statusText: z.string().optional(),

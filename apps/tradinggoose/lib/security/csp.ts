@@ -79,7 +79,6 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.blob.core.windows.net',
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
-    ...getOriginFromUrl(env.MARKET_API_URL),
     ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_FAVICON_URL),
@@ -92,7 +91,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
   'connect-src': [
     "'self'",
     env.NEXT_PUBLIC_APP_URL || '',
-    env.OLLAMA_URL || 'http://localhost:11434',
+    'http://localhost:11434',
     env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002',
     env.NEXT_PUBLIC_SOCKET_URL?.replace('http://', 'ws://').replace('https://', 'wss://') ||
       'ws://localhost:3002',
@@ -108,7 +107,6 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://api.github.com',
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
-    ...getOriginFromUrl(env.MARKET_API_URL),
     ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_PRIVACY_URL),
@@ -144,13 +142,15 @@ export function buildCSPString(directives: CSPDirectives): string {
  * Generate runtime CSP header with dynamic environment variables (safer approach)
  * This maintains compatibility with existing inline scripts while fixing Docker env var issues
  */
-export function generateRuntimeCSP(): string {
+export async function generateRuntimeCSP(): Promise<string> {
   const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL') || 'http://localhost:3002'
   const socketWsUrl =
     socketUrl.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:3002'
   const appUrl = getEnv('NEXT_PUBLIC_APP_URL') || ''
-  const ollamaUrl = getEnv('OLLAMA_URL') || 'http://localhost:11434'
-  const marketUrl = getEnv('MARKET_API_URL') || MARKET_API_URL_DEFAULT
+  // Proxy/middleware runs outside the Node server bundle, so CSP generation here cannot depend on
+  // DB-backed system-service resolution. Allow generic outbound schemes and keep the known defaults.
+  const ollamaUrl = 'http://localhost:11434'
+  const marketUrl = MARKET_API_URL_DEFAULT
   const devMarketUrl = getEnv('NODE_ENV') === 'development' ? 'http://localhost:3001' : ''
 
   const brandLogoDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL'))
@@ -173,10 +173,10 @@ export function generateRuntimeCSP(): string {
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google.com https://apis.google.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com https://*.atlassian.com https://cdn.discordapp.com https://cdn.jsdelivr.net https://*.githubusercontent.com ${brandLogoDomain} ${brandFaviconDomain} ${marketUrl} ${devMarketUrl};
+    img-src 'self' data: blob: http: https: https://*.googleusercontent.com https://*.google.com https://*.atlassian.com https://cdn.discordapp.com https://cdn.jsdelivr.net https://*.githubusercontent.com ${brandLogoDomain} ${brandFaviconDomain} ${marketUrl} ${devMarketUrl};
     media-src 'self' blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} ${marketUrl} ${devMarketUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
+    connect-src 'self' http: https: ws: wss: ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} ${marketUrl} ${devMarketUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
     worker-src 'self' blob:;
     frame-src https://drive.google.com https://docs.google.com https://*.google.com;
     frame-ancestors 'self';

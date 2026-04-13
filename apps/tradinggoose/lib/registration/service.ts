@@ -283,7 +283,6 @@ async function sendWaitlistConfirmationEmail(email: string) {
       to: email,
       subject: getEmailSubject('waitlist-confirmation'),
       html,
-      from: getFromEmailAddress(),
       emailType: 'transactional',
     })
 
@@ -309,7 +308,6 @@ async function sendWaitlistApprovalEmail(email: string) {
       to: email,
       subject: getEmailSubject('waitlist-approved'),
       html,
-      from: getFromEmailAddress(),
       emailType: 'transactional',
     })
 

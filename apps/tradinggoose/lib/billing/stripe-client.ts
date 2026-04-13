@@ -1,14 +1,14 @@
 import type Stripe from 'stripe'
 import {
   getCurrentStripeClient,
-  hasCachedStripeSecretKey,
-} from '@/lib/system-settings/stripe-runtime'
+  hasCachedStripeServiceSecretKey,
+} from '@/lib/system-services/stripe-runtime'
 
 /**
  * Check if Stripe credentials are valid
  */
 export function hasValidStripeCredentials(): boolean {
-  return hasCachedStripeSecretKey()
+  return hasCachedStripeServiceSecretKey()
 }
 
 /**
@@ -27,9 +27,7 @@ export function requireStripeClient(): Stripe {
   const client = getStripeClient()
 
   if (!client) {
-    throw new Error(
-      'Stripe client is not available. Configure STRIPE_SECRET_KEY in system settings.'
-    )
+    throw new Error('Stripe client is not available. Configure Stripe in admin services.')
   }
 
   return client

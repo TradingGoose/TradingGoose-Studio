@@ -5,6 +5,6 @@ export interface AdminSystemSettingsSnapshot {
   billingEnabled: boolean
   billingReady: boolean
   allowPromotionCodes: boolean
-  hasStripeSecretKey: boolean
-  hasStripeWebhookSecret: boolean
+  emailDomain: string
+  fromEmailAddress: string
 }

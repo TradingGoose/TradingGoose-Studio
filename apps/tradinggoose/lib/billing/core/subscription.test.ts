@@ -146,7 +146,7 @@ describe('subscription billing helpers', () => {
     expect(snapshot.currentPeriodCost).toBe(12.5)
   })
 
-  it('blocks the personal snapshot when billing is enabled but no active subscription exists', async () => {
+  it('throws when billing is enabled but no active subscription exists', async () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       billingEnabled: true,
     })
@@ -164,11 +164,8 @@ describe('subscription billing helpers', () => {
       )
 
     const { getPersonalBillingSnapshot } = await import('./subscription')
-    const snapshot = await getPersonalBillingSnapshot('user_123')
-
-    expect(snapshot.subscription).toBeNull()
-    expect(snapshot.limit).toBe(0)
-    expect(snapshot.isExceeded).toBe(true)
-    expect(snapshot.currentPeriodCost).toBe(12.5)
+    await expect(getPersonalBillingSnapshot('user_123')).rejects.toThrow(
+      'No active personal subscription found for billed user user_123'
+    )
   })
 })

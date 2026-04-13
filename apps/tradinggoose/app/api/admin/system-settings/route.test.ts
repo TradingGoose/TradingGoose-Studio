@@ -9,7 +9,6 @@ const {
   mockClaimFirstSystemAdmin,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
-  mockSetCachedStripeSettings,
   mockUpsertSystemSettings,
   mockLogger,
 } = vi.hoisted(() => ({
@@ -18,7 +17,6 @@ const {
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
-  mockSetCachedStripeSettings: vi.fn(),
   mockUpsertSystemSettings: vi.fn(),
   mockLogger: {
     info: vi.fn(),
@@ -50,10 +48,6 @@ vi.mock('@/lib/system-settings/service', () => ({
   upsertSystemSettings: mockUpsertSystemSettings,
 }))
 
-vi.mock('@/lib/system-settings/stripe-runtime', () => ({
-  setCachedStripeSettings: mockSetCachedStripeSettings,
-}))
-
 describe('/api/admin/system-settings route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -74,21 +68,21 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
     mockUpsertSystemSettings.mockResolvedValue({
       settings: null,
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
     mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
   })
 
-  it('claims bootstrap ownership before returning secret presence flags', async () => {
+  it('claims bootstrap ownership before returning the system settings snapshot', async () => {
     const { GET } = await import('./route')
 
     const response = await GET()
@@ -99,8 +93,8 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      hasStripeSecretKey: true,
-      hasStripeWebhookSecret: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
       billingReady: true,
     })
     expect(payload).not.toHaveProperty('stripeSecretKey')
@@ -131,8 +125,8 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: false,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
 
     const { PATCH } = await import('./route')
@@ -143,8 +137,6 @@ describe('/api/admin/system-settings route', () => {
           registrationMode: 'open',
           billingEnabled: true,
           allowPromotionCodes: false,
-          stripeSecretKey: 'sk_test_123',
-          stripeWebhookSecret: 'whsec_456',
         }),
       }) as any
     )
@@ -153,11 +145,8 @@ describe('/api/admin/system-settings route', () => {
     expect(response.status).toBe(200)
     expect(payload).toMatchObject({
       billingEnabled: true,
-      hasStripeSecretKey: true,
-      hasStripeWebhookSecret: true,
+      billingReady: true,
     })
-    expect(payload).not.toHaveProperty('stripeSecretKey')
-    expect(payload).not.toHaveProperty('stripeWebhookSecret')
     expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(1)
     expect(mockUpsertSystemSettings.mock.invocationCallOrder[0]).toBeLessThan(
       mockBackfillDefaultUserSubscriptions.mock.invocationCallOrder[0]
@@ -166,12 +155,6 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
-    })
-    expect(mockSetCachedStripeSettings).toHaveBeenCalledWith({
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
     })
   })
 
@@ -181,16 +164,16 @@ describe('/api/admin/system-settings route', () => {
       registrationMode: 'open',
       billingEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
     mockUpsertSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
       billingEnabled: false,
       allowPromotionCodes: false,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
 
     const { PATCH } = await import('./route')
@@ -201,8 +184,6 @@ describe('/api/admin/system-settings route', () => {
           registrationMode: 'open',
           billingEnabled: false,
           allowPromotionCodes: false,
-          stripeSecretKey: 'sk_test_123',
-          stripeWebhookSecret: 'whsec_456',
         }),
       }) as any
     )
@@ -211,22 +192,23 @@ describe('/api/admin/system-settings route', () => {
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
-  it('preserves stored Stripe credentials when they are omitted from updates', async () => {
-    mockUpsertSystemSettings.mockResolvedValueOnce({
+  it('rejects enabling billing before billing configuration is ready', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
-      registrationMode: 'waitlist',
-      billingEnabled: true,
+      registrationMode: 'open',
+      billingEnabled: false,
       allowPromotionCodes: true,
-      stripeSecretKey: 'sk_test_123',
-      stripeWebhookSecret: 'whsec_456',
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
     })
+    mockIsBillingConfigurationReady.mockResolvedValueOnce(false)
 
     const { PATCH } = await import('./route')
     const response = await PATCH(
       new Request('http://localhost/api/admin/system-settings', {
         method: 'PATCH',
         body: JSON.stringify({
-          registrationMode: 'waitlist',
+          registrationMode: 'open',
           billingEnabled: true,
           allowPromotionCodes: true,
         }),
@@ -234,25 +216,15 @@ describe('/api/admin/system-settings route', () => {
     )
     const payload = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
-      registrationMode: 'waitlist',
-      billingEnabled: true,
-      allowPromotionCodes: true,
+    expect(response.status).toBe(409)
+    expect(payload).toEqual({
+      error: 'Billing cannot be enabled until an active public default user tier is configured.',
     })
-    expect(payload).toMatchObject({
-      registrationMode: 'waitlist',
-      billingEnabled: true,
-      allowPromotionCodes: true,
-      hasStripeSecretKey: true,
-      hasStripeWebhookSecret: true,
-      billingReady: true,
-    })
-    expect(payload).not.toHaveProperty('stripeSecretKey')
-    expect(payload).not.toHaveProperty('stripeWebhookSecret')
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
-  it('rejects empty Stripe credential replacements', async () => {
+  it('rejects invalid request data', async () => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
       new Request('http://localhost/api/admin/system-settings', {
@@ -261,7 +233,7 @@ describe('/api/admin/system-settings route', () => {
           registrationMode: 'open',
           billingEnabled: true,
           allowPromotionCodes: false,
-          stripeSecretKey: '   ',
+          emailDomain: '   ',
         }),
       }) as any
     )

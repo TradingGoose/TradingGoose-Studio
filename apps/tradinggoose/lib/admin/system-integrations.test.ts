@@ -37,7 +37,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils-server', () => ({
   encryptSecret: vi.fn(async (value: string) => ({
     encrypted: `encrypted:${value}`,
   })),

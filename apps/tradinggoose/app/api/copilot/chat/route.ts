@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { provider: runtimeProvider, providerConfig } = buildCopilotRuntimeProviderConfig({
+    const { provider: runtimeProvider, providerConfig } = await buildCopilotRuntimeProviderConfig({
       model,
       provider,
     })

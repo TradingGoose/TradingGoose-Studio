@@ -7,7 +7,6 @@ import {
   readCompletionError,
 } from '@/lib/copilot/completion'
 import { getCopilotModel } from '@/lib/copilot/config'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
@@ -98,12 +97,8 @@ export async function POST(req: NextRequest) {
 
   const { prompt, systemPrompt, history } = parsed.data
   const defaultModel = getCopilotModel('chat')
-  const providerEnv = env.COPILOT_PROVIDER as typeof defaultModel.provider | undefined
-  const sharedModel = providerEnv ? env.COPILOT_MODEL || defaultModel.model : defaultModel.model
-  const configuredModel = env.WAND_OPENAI_MODEL_NAME || sharedModel
-  const configuredProvider = env.WAND_OPENAI_MODEL_NAME
-    ? 'openai'
-    : providerEnv || defaultModel.provider
+  const configuredModel = defaultModel.model
+  const configuredProvider = defaultModel.provider
   const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
     ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
     ...(history || []).map((message) => ({

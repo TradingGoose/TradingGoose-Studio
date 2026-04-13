@@ -18,7 +18,7 @@ describe('oauth provider checker', () => {
     vi.clearAllMocks()
   })
 
-  it('uses system-managed provider availability for social login buttons', async () => {
+  it('uses provider availability for social login buttons', async () => {
     mockGetOAuthProviderAvailability.mockResolvedValue({
       github: true,
       google: false,

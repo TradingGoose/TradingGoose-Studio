@@ -24,22 +24,38 @@ export interface RateLimitResult {
 export async function checkRateLimit(
   request: NextRequest,
   endpoint: 'logs' | 'logs-detail' = 'logs'
-  ): Promise<RateLimitResult> {
+): Promise<RateLimitResult> {
+  let auth
+
+  try {
+    auth = await authenticateV1Request(request)
+  } catch (error) {
+    logger.error('Authentication error during rate limit check', { error })
+    const limit = await getDefaultApiEndpointRateLimit().catch(() => 0)
+    return {
+      allowed: false,
+      remaining: 0,
+      limit,
+      resetAt: new Date(Date.now() + 60000),
+      error: 'Authentication failed',
+    }
+  }
+
+  if (!auth.authenticated) {
+    const limit = await getDefaultApiEndpointRateLimit()
+    return {
+      allowed: false,
+      remaining: 0,
+      limit,
+      resetAt: new Date(),
+      error: auth.error,
+    }
+  }
+
+  const userId = auth.userId!
+
   try {
     const billingEnabled = await isBillingEnabledForRuntime()
-    const auth = await authenticateV1Request(request)
-    if (!auth.authenticated) {
-      const limit = await getDefaultApiEndpointRateLimit()
-      return {
-        allowed: false,
-        remaining: 0,
-        limit,
-        resetAt: new Date(),
-        error: auth.error,
-      }
-    }
-
-    const userId = auth.userId!
     if (!billingEnabled) {
       return {
         allowed: true,
@@ -52,12 +68,11 @@ export async function checkRateLimit(
 
     const subscription = await getPersonalEffectiveSubscription(userId)
 
-    // Use api-endpoint trigger type for external API rate limiting
     const result = await rateLimiter.checkRateLimitWithSubscription(
       userId,
       subscription,
       'api-endpoint',
-      false // Not relevant for api-endpoint trigger type
+      false
     )
 
     if (!result.allowed) {
@@ -68,7 +83,6 @@ export async function checkRateLimit(
       })
     }
 
-    // Get the actual rate limit for this user's tier
     const rateLimitStatus = await rateLimiter.getRateLimitStatusWithSubscription(
       userId,
       subscription,
@@ -82,14 +96,13 @@ export async function checkRateLimit(
       userId,
     }
   } catch (error) {
-    logger.error('Rate limit check error', { error })
-    const limit = await getDefaultApiEndpointRateLimit().catch(() => 0)
+    logger.error('Rate limit check error; allowing request', { error, endpoint, userId })
     return {
-      allowed: false,
-      remaining: 0,
-      limit,
+      allowed: true,
+      remaining: Number.MAX_SAFE_INTEGER,
+      limit: Number.MAX_SAFE_INTEGER,
       resetAt: new Date(Date.now() + 60000),
-      error: 'Rate limit check failed',
+      userId,
     }
   }
 }
