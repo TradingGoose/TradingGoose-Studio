@@ -7,6 +7,7 @@ export interface SystemServiceCredentialFieldDefinition {
   key: string
   label: string
   description: string
+  required?: boolean
 }
 
 export interface SystemServiceSettingFieldDefinition {
@@ -15,6 +16,7 @@ export interface SystemServiceSettingFieldDefinition {
   description: string
   type: SystemServiceSettingFieldType
   defaultValue?: string | number | boolean
+  required?: boolean
 }
 
 export interface SystemServiceDefinition {
@@ -276,6 +278,7 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         key: 'apiKey',
         label: 'API Key',
         description: 'Used for TradingGoose-Market service authentication.',
+        required: false,
       },
     ],
     settingFields: [
@@ -394,6 +397,7 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         label: 'Max Active Per Owner',
         description: 'Maximum concurrent local VM executions per owner key.',
         type: 'number',
+        required: false,
       },
     ],
   },

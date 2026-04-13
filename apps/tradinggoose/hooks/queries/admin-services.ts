@@ -44,6 +44,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemServicesSnapshot {
                     description: typeof field.description === 'string' ? field.description : '',
                     value: '',
                     hasValue: typeof field.hasValue === 'boolean' ? field.hasValue : false,
+                    required: typeof field.required === 'boolean' ? field.required : true,
                   }
                 })
               : [],
@@ -66,6 +67,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemServicesSnapshot {
                     value: typeof field.value === 'string' ? field.value : '',
                     hasValue: typeof field.hasValue === 'boolean' ? field.hasValue : false,
                     defaultValue: typeof field.defaultValue === 'string' ? field.defaultValue : '',
+                    required: typeof field.required === 'boolean' ? field.required : true,
                   }
                 })
               : [],

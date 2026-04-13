@@ -46,6 +46,7 @@ export async function listAdminSystemServices() {
           label: field.label,
           description: field.description,
           value: '',
+          required: field.required !== false,
           hasValue:
             current?.credentials.find((credential) => credential.key === field.key)?.hasValue ??
             false,
@@ -58,6 +59,7 @@ export async function listAdminSystemServices() {
             description: field.description,
             type: field.type,
             value: currentSetting?.storedValue ?? '',
+            required: field.required !== false,
             hasValue: currentSetting?.hasValue ?? false,
             defaultValue:
               field.defaultValue === undefined || field.defaultValue === null

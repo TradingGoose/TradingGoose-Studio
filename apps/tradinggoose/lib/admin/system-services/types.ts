@@ -4,6 +4,7 @@ export interface AdminSystemServiceCredential {
   description: string
   value: string
   hasValue: boolean
+  required: boolean
 }
 
 export interface AdminSystemServiceSetting {
@@ -14,6 +15,7 @@ export interface AdminSystemServiceSetting {
   value: string
   hasValue: boolean
   defaultValue: string
+  required: boolean
 }
 
 export interface AdminSystemService {

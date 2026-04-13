@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, KeyRound, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, KeyRound, Pencil, Trash2, X } from 'lucide-react'
 import {
   Alert,
   AlertDescription,
@@ -13,13 +13,14 @@ import {
   Input,
   Switch,
 } from '@/components/ui'
-import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
-import { AdminPageShell } from '@/app/admin/page-shell'
-import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import type {
   AdminSystemService,
   AdminSystemServicesSnapshot,
 } from '@/lib/admin/system-services/types'
+import { AdminInlineSecretField } from '@/app/admin/admin-inline-secret-field'
+import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
+import { AdminPageShell } from '@/app/admin/page-shell'
+import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useAdminServicesSnapshot, useSaveAdminService } from '@/hooks/queries/admin-services'
 
 const EMPTY_SNAPSHOT: AdminSystemServicesSnapshot = {
@@ -37,20 +38,27 @@ const SERVICE_SECTION_STATUS_BADGE_CLASSNAME = {
   review: 'bg-destructive/15 text-destructive border-destructive/20',
 } as const
 
+type EditingSetting = {
+  serviceId: string
+  key: string
+  value: string
+}
+
 export function AdminServices() {
   const servicesQuery = useAdminServicesSnapshot()
   const saveServiceMutation = useSaveAdminService()
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminSystemServicesSnapshot | null>(null)
   const [expandedServices, setExpandedServices] = useState<Record<string, boolean>>({})
+  const [editingSetting, setEditingSetting] = useState<EditingSetting | null>(null)
 
   useEffect(() => {
-    if (!servicesQuery.data || draft !== null) {
+    if (!servicesQuery.data || editingSetting || saveServiceMutation.isPending) {
       return
     }
 
-    setDraft(structuredClone(servicesQuery.data))
-  }, [draft, servicesQuery.data])
+    setDraft(cloneSnapshot(servicesQuery.data))
+  }, [editingSetting, saveServiceMutation.isPending, servicesQuery.data])
 
   const snapshot = draft ?? EMPTY_SNAPSHOT
   const normalizedSearchTerm = searchTerm.trim().toLowerCase()
@@ -203,86 +211,40 @@ export function AdminServices() {
                               ) : (
                                 <div className='grid gap-3 md:grid-cols-2'>
                                   {service.credentials.map((credential) => {
-                                    const isFilled =
-                                      credential.hasValue || Boolean(credential.value.trim())
+                                    const isFilled = credential.hasValue
 
                                     return (
-                                      <div
+                                      <AdminInlineSecretField
                                         key={`${service.id}:${credential.key}`}
-                                        className='rounded-md border border-border/60 bg-muted/20 p-3'
-                                      >
-                                        <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
-                                          <div className='min-w-0 space-y-1'>
-                                            <div className='font-medium text-sm'>
-                                              {credential.label}
-                                            </div>
-                                            <div className='text-muted-foreground text-xs leading-relaxed'>
-                                              {credential.description}
-                                            </div>
-                                          </div>
-                                          <Badge
-                                            variant={isFilled ? 'default' : 'secondary'}
-                                            className={ADMIN_STATUS_BADGE_CLASSNAME}
-                                          >
-                                            {isFilled ? 'Configured' : 'Incomplete'}
-                                          </Badge>
-                                        </div>
-                                        <div className='flex gap-2'>
-                                          <Input
-                                            type='password'
-                                            value={credential.value}
-                                            placeholder={
-                                              credential.hasValue
-                                                ? `Enter a new ${credential.label.toLowerCase()} to replace the stored value`
-                                                : `Enter ${credential.label.toLowerCase()}`
-                                            }
-                                            onChange={(event) =>
-                                              setDraft((current) =>
-                                                updateCredentialDraft(
-                                                  current,
-                                                  service.id,
-                                                  credential.key,
-                                                  {
-                                                    value: event.target.value,
-                                                    hasValue:
-                                                      credential.hasValue ||
-                                                      event.target.value.trim().length > 0,
-                                                  }
-                                                )
-                                              )
-                                            }
-                                            autoComplete='new-password'
-                                            data-1p-ignore='true'
-                                            data-lpignore='true'
-                                            data-bwignore='true'
-                                            data-form-type='other'
-                                          />
-                                          <Button
-                                            type='button'
-                                            variant='outline'
-                                            size='icon'
-                                            disabled={isSaving}
-                                            onClick={() =>
-                                              setDraft((current) =>
-                                                updateCredentialDraft(
-                                                  current,
-                                                  service.id,
-                                                  credential.key,
-                                                  {
-                                                    value: '',
-                                                    hasValue: false,
-                                                  }
-                                                )
-                                              )
-                                            }
-                                          >
-                                            <Trash2 className='h-4 w-4' />
-                                            <span className='sr-only'>
-                                              Clear {credential.label}
-                                            </span>
-                                          </Button>
-                                        </div>
-                                      </div>
+                                        id={`system-service-credential-${service.id}-${credential.key}`}
+                                        label={credential.label}
+                                        description={
+                                          credential.required
+                                            ? credential.description
+                                            : `${credential.description} Optional.`
+                                        }
+                                        hasValue={isFilled}
+                                        required={credential.required}
+                                        statusClassName={ADMIN_STATUS_BADGE_CLASSNAME}
+                                        disabled={isSaving}
+                                        placeholder={
+                                          credential.hasValue
+                                            ? `Enter a new ${credential.label.toLowerCase()} to replace the stored value`
+                                            : `Enter ${credential.label.toLowerCase()}`
+                                        }
+                                        onSave={(value) =>
+                                          persistCredentialPatch(service.id, credential.key, {
+                                            value,
+                                            hasValue: true,
+                                          })
+                                        }
+                                        onClear={() =>
+                                          persistCredentialPatch(service.id, credential.key, {
+                                            value: '',
+                                            hasValue: false,
+                                          })
+                                        }
+                                      />
                                     )
                                   })}
                                 </div>
@@ -349,38 +311,27 @@ export function AdminServices() {
                                             </div>
                                             <div className='flex items-center gap-2'>
                                               <Switch
-                                                checked={setting.value === 'true'}
+                                                checked={resolveBooleanSettingValue(setting)}
+                                                disabled={saveServiceMutation.isPending}
                                                 onCheckedChange={(checked) =>
-                                                  setDraft((current) =>
-                                                    updateSettingDraft(
-                                                      current,
-                                                      service.id,
-                                                      setting.key,
-                                                      {
-                                                        value: checked ? 'true' : 'false',
-                                                        hasValue: true,
-                                                      }
-                                                    )
-                                                  )
+                                                  persistSettingPatch(service.id, setting.key, {
+                                                    value: checked ? 'true' : 'false',
+                                                    hasValue: true,
+                                                  })
                                                 }
                                               />
                                               <Button
                                                 type='button'
                                                 variant='outline'
                                                 size='icon'
-                                                disabled={isSaving}
+                                                disabled={
+                                                  saveServiceMutation.isPending || !setting.hasValue
+                                                }
                                                 onClick={() =>
-                                                  setDraft((current) =>
-                                                    updateSettingDraft(
-                                                      current,
-                                                      service.id,
-                                                      setting.key,
-                                                      {
-                                                        value: '',
-                                                        hasValue: false,
-                                                      }
-                                                    )
-                                                  )
+                                                  persistSettingPatch(service.id, setting.key, {
+                                                    value: '',
+                                                    hasValue: false,
+                                                  })
                                                 }
                                               >
                                                 <Trash2 className='h-4 w-4' />
@@ -391,58 +342,49 @@ export function AdminServices() {
                                             </div>
                                           </div>
                                         ) : (
-                                          <div className='flex gap-2'>
-                                            <Input
-                                              type={setting.type === 'number' ? 'number' : setting.type}
-                                              value={setting.value}
-                                              placeholder={
-                                                setting.hasValue
-                                                  ? `Enter a new ${setting.label.toLowerCase()}`
-                                                  : setting.defaultValue
-                                                    ? `Default: ${setting.defaultValue}`
-                                                    : `Enter ${setting.label.toLowerCase()}`
-                                              }
-                                              onChange={(event) =>
-                                                setDraft((current) =>
-                                                  updateSettingDraft(
-                                                    current,
-                                                    service.id,
-                                                    setting.key,
-                                                    {
-                                                      value: event.target.value,
-                                                      hasValue:
-                                                        setting.hasValue ||
-                                                        event.target.value.trim().length > 0,
+                                          <TextSettingField
+                                            isEditing={
+                                              editingSetting?.serviceId === service.id &&
+                                              editingSetting.key === setting.key
+                                            }
+                                            isSaving={saveServiceMutation.isPending}
+                                            setting={setting}
+                                            editingValue={
+                                              editingSetting?.serviceId === service.id &&
+                                              editingSetting.key === setting.key
+                                                ? editingSetting.value
+                                                : ''
+                                            }
+                                            onStartEditing={() =>
+                                              startEditingSetting({
+                                                serviceId: service.id,
+                                                key: setting.key,
+                                                value: setting.hasValue ? setting.value : '',
+                                              })
+                                            }
+                                            onChange={(value) =>
+                                              setEditingSetting((current) =>
+                                                current &&
+                                                current.serviceId === service.id &&
+                                                current.key === setting.key
+                                                  ? {
+                                                      ...current,
+                                                      value,
                                                     }
-                                                  )
-                                                )
-                                              }
-                                            />
-                                            <Button
-                                              type='button'
-                                              variant='outline'
-                                              size='icon'
-                                              disabled={isSaving}
-                                              onClick={() =>
-                                                setDraft((current) =>
-                                                  updateSettingDraft(
-                                                    current,
-                                                    service.id,
-                                                    setting.key,
-                                                    {
-                                                      value: '',
-                                                      hasValue: false,
-                                                    }
-                                                  )
-                                                )
-                                              }
-                                            >
-                                              <Trash2 className='h-4 w-4' />
-                                              <span className='sr-only'>
-                                                Clear {setting.label}
-                                              </span>
-                                            </Button>
-                                          </div>
+                                                  : current
+                                              )
+                                            }
+                                            onSave={() =>
+                                              persistSettingEdit(service.id, setting.key)
+                                            }
+                                            onCancel={cancelEditingSetting}
+                                            onClear={() =>
+                                              persistSettingPatch(service.id, setting.key, {
+                                                value: '',
+                                                hasValue: false,
+                                              })
+                                            }
+                                          />
                                         )}
                                       </div>
                                     )
@@ -453,33 +395,12 @@ export function AdminServices() {
 
                             <div className='flex items-center justify-between gap-3 border-border/60 border-t pt-2'>
                               <p className='text-muted-foreground text-xs'>
-                                {isConfigured
-                                  ? 'This service has everything required for runtime use.'
-                                  : 'Review missing credentials or settings before saving.'}
+                                {isSaving
+                                  ? 'Saving changes...'
+                                  : isConfigured
+                                    ? 'This service has everything required for runtime use. Changes save immediately.'
+                                    : 'Review missing credentials or settings. Changes save immediately.'}
                               </p>
-                              <Button
-                                type='button'
-                                disabled={isSaving}
-                                onClick={async () => {
-                                  const nextSnapshot = await saveServiceMutation.mutateAsync({
-                                    serviceId: service.id,
-                                    credentials: service.credentials.map((credential) => ({
-                                      key: credential.key,
-                                      value: credential.value,
-                                      hasValue: credential.hasValue,
-                                    })),
-                                    settings: service.settings.map((setting) => ({
-                                      key: setting.key,
-                                      value: setting.value,
-                                      hasValue: setting.hasValue,
-                                    })),
-                                  })
-
-                                  setDraft(structuredClone(nextSnapshot))
-                                }}
-                              >
-                                {isSaving ? 'Saving...' : 'Save service'}
-                              </Button>
                             </div>
                           </div>
                         </CollapsibleContent>
@@ -494,6 +415,218 @@ export function AdminServices() {
       </div>
     </AdminPageShell>
   )
+
+  function startEditingSetting(nextSetting: EditingSetting) {
+    setEditingSetting(nextSetting)
+  }
+
+  function cancelEditingSetting() {
+    setEditingSetting(null)
+  }
+
+  function resetDraftToPersisted() {
+    setDraft(servicesQuery.data ? cloneSnapshot(servicesQuery.data) : null)
+    cancelEditingSetting()
+  }
+
+  async function persistServiceSnapshot(
+    serviceId: string,
+    nextSnapshot: AdminSystemServicesSnapshot
+  ) {
+    const service = nextSnapshot.services.find((candidate) => candidate.id === serviceId)
+    if (!service) {
+      return
+    }
+
+    try {
+      const serverSnapshot = await saveServiceMutation.mutateAsync({
+        serviceId,
+        credentials: service.credentials.map((credential) => ({
+          key: credential.key,
+          value: credential.value,
+          hasValue: credential.hasValue,
+        })),
+        settings: service.settings.map((setting) => ({
+          key: setting.key,
+          value: setting.value,
+          hasValue: setting.hasValue,
+        })),
+      })
+
+      setDraft(cloneSnapshot(serverSnapshot))
+    } catch (error) {
+      resetDraftToPersisted()
+      throw error
+    }
+  }
+
+  function persistCredentialPatch(
+    serviceId: string,
+    key: string,
+    patch: { value: string; hasValue: boolean }
+  ) {
+    const nextSnapshot = updateCredentialDraft(draft, serviceId, key, {
+      value: patch.value,
+      hasValue: patch.hasValue,
+    })
+    if (!nextSnapshot) {
+      return Promise.resolve()
+    }
+
+    return persistServiceSnapshot(serviceId, nextSnapshot)
+  }
+
+  function persistSettingPatch(
+    serviceId: string,
+    key: string,
+    patch: { value: string; hasValue: boolean }
+  ) {
+    const nextSnapshot = updateSettingDraft(draft, serviceId, key, patch)
+    if (!nextSnapshot) {
+      return
+    }
+
+    if (editingSetting && editingSetting.serviceId === serviceId && editingSetting.key === key) {
+      cancelEditingSetting()
+    }
+
+    void persistServiceSnapshot(serviceId, nextSnapshot)
+  }
+
+  function persistSettingEdit(serviceId: string, key: string) {
+    if (!editingSetting || editingSetting.serviceId !== serviceId || editingSetting.key !== key) {
+      return
+    }
+
+    const nextValue = editingSetting.value.trim()
+    if (!nextValue) {
+      return
+    }
+
+    persistSettingPatch(serviceId, key, {
+      value: editingSetting.value,
+      hasValue: true,
+    })
+  }
+}
+
+type TextSettingFieldProps = {
+  isEditing: boolean
+  isSaving: boolean
+  setting: AdminSystemService['settings'][number]
+  editingValue: string
+  onStartEditing: () => void
+  onChange: (value: string) => void
+  onSave: () => void
+  onCancel: () => void
+  onClear: () => void
+}
+
+function TextSettingField({
+  isEditing,
+  isSaving,
+  setting,
+  editingValue,
+  onStartEditing,
+  onChange,
+  onSave,
+  onCancel,
+  onClear,
+}: TextSettingFieldProps) {
+  if (isEditing) {
+    return (
+      <div className='flex items-center gap-2'>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          className='h-8 w-8 text-muted-foreground'
+          disabled={isSaving || !editingValue.trim()}
+          onClick={onSave}
+        >
+          <Check className='h-4 w-4' />
+          <span className='sr-only'>Save {setting.label}</span>
+        </Button>
+        <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-2'>
+          <Input
+            type={setting.type === 'number' ? 'number' : setting.type}
+            className='h-4 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0'
+            value={editingValue}
+            placeholder={
+              setting.hasValue
+                ? `Enter a new ${setting.label.toLowerCase()}`
+                : setting.defaultValue
+                  ? `Default: ${setting.defaultValue}`
+                  : `Enter ${setting.label.toLowerCase()}`
+            }
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                onSave()
+              }
+
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                onCancel()
+              }
+            }}
+            autoComplete='off'
+          />
+        </div>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          className='h-8 w-8 text-muted-foreground'
+          disabled={isSaving}
+          onClick={onCancel}
+        >
+          <X className='h-4 w-4' />
+          <span className='sr-only'>Cancel editing {setting.label}</span>
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className='flex items-center gap-2'>
+      <div className='min-w-0 flex-1 rounded-md bg-background px-3 py-2'>
+        <code className='block truncate font-mono text-xs'>{getSettingDisplayValue(setting)}</code>
+      </div>
+      <Button
+        type='button'
+        variant='ghost'
+        size='icon'
+        className='h-8 w-8 text-muted-foreground'
+        disabled={isSaving}
+        onClick={onStartEditing}
+      >
+        <Pencil className='h-4 w-4' />
+        <span className='sr-only'>Edit {setting.label}</span>
+      </Button>
+      <Button
+        type='button'
+        variant='outline'
+        size='icon'
+        disabled={isSaving || !setting.hasValue}
+        onClick={onClear}
+      >
+        <Trash2 className='h-4 w-4' />
+        <span className='sr-only'>Clear {setting.label}</span>
+      </Button>
+    </div>
+  )
+}
+
+function cloneSnapshot(snapshot: AdminSystemServicesSnapshot): AdminSystemServicesSnapshot {
+  return {
+    services: snapshot.services.map((service) => ({
+      ...service,
+      credentials: service.credentials.map((credential) => ({ ...credential })),
+      settings: service.settings.map((setting) => ({ ...setting })),
+    })),
+  }
 }
 
 function updateCredentialDraft(
@@ -511,11 +644,11 @@ function updateCredentialDraft(
       service.id !== serviceId
         ? service
         : {
-          ...service,
-          credentials: service.credentials.map((credential) =>
-            credential.key !== key ? credential : { ...credential, ...patch }
-          ),
-        }
+            ...service,
+            credentials: service.credentials.map((credential) =>
+              credential.key !== key ? credential : { ...credential, ...patch }
+            ),
+          }
     ),
   }
 }
@@ -535,34 +668,38 @@ function updateSettingDraft(
       service.id !== serviceId
         ? service
         : {
-          ...service,
-          settings: service.settings.map((setting) =>
-            setting.key !== key ? setting : { ...setting, ...patch }
-          ),
-        }
+            ...service,
+            settings: service.settings.map((setting) =>
+              setting.key !== key ? setting : { ...setting, ...patch }
+            ),
+          }
     ),
   }
 }
 
 function isServiceConfigured(service: AdminSystemService) {
-  const credentialsReady = service.credentials.every((credential) => credential.hasValue)
+  const credentialsReady = service.credentials.every(
+    (credential) => !credential.required || credential.hasValue
+  )
   const settingsReady = service.settings.every(
-    (setting) => setting.hasValue || setting.defaultValue.trim().length > 0
+    (setting) => !setting.required || setting.hasValue || setting.defaultValue.trim().length > 0
   )
 
   return credentialsReady && settingsReady
 }
 
 function getServiceSectionSummary(service: AdminSystemService): ServiceSectionSummary {
-  const configuredCredentialCount = service.credentials.filter((credential) => credential.hasValue).length
-  const configuredSettingCount = service.settings.filter(
+  const requiredCredentials = service.credentials.filter((credential) => credential.required)
+  const requiredSettings = service.settings.filter((setting) => setting.required)
+  const configuredCredentialCount = requiredCredentials.filter((credential) => credential.hasValue).length
+  const configuredSettingCount = requiredSettings.filter(
     (setting) => setting.hasValue || setting.defaultValue.trim().length > 0
   ).length
   const missingLabels = [
-    ...service.credentials
+    ...requiredCredentials
       .filter((credential) => !credential.hasValue)
       .map((credential) => credential.label),
-    ...service.settings
+    ...requiredSettings
       .filter((setting) => !setting.hasValue && setting.defaultValue.trim().length === 0)
       .map((setting) => setting.label),
   ]
@@ -570,8 +707,12 @@ function getServiceSectionSummary(service: AdminSystemService): ServiceSectionSu
   return {
     preview: joinSummaryParts([
       service.description,
-      `${configuredCredentialCount}/${service.credentials.length} credentials set`,
-      `${configuredSettingCount}/${service.settings.length} settings resolved`,
+      requiredCredentials.length > 0
+        ? `${configuredCredentialCount}/${requiredCredentials.length} required credentials set`
+        : 'No required credentials',
+      requiredSettings.length > 0
+        ? `${configuredSettingCount}/${requiredSettings.length} required settings resolved`
+        : 'No required settings',
     ]),
     missing: missingLabels.length > 0 ? `Missing ${missingLabels.join(', ')}.` : null,
     status: missingLabels.length === 0 ? 'ready' : 'review',
@@ -580,6 +721,22 @@ function getServiceSectionSummary(service: AdminSystemService): ServiceSectionSu
 
 function joinSummaryParts(parts: Array<string | null>) {
   return parts.filter((part): part is string => Boolean(part)).join(' • ')
+}
+
+function getSettingDisplayValue(setting: AdminSystemService['settings'][number]) {
+  if (setting.hasValue && setting.value.trim()) {
+    return setting.value
+  }
+
+  if (setting.defaultValue.trim()) {
+    return setting.defaultValue
+  }
+
+  return 'Not set'
+}
+
+function resolveBooleanSettingValue(setting: AdminSystemService['settings'][number]) {
+  return (setting.hasValue ? setting.value : setting.defaultValue) === 'true'
 }
 
 function matchesServiceSearch(service: AdminSystemService, searchTerm: string) {
