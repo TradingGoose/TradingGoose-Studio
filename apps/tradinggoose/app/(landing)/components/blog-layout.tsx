@@ -1,7 +1,5 @@
-'use client'
-
 import Footer from '@/app/(landing)/components/footer/footer'
-import Nav from '@/app/(landing)/components/nav/nav'
+import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
 interface BlogLayoutProps {
@@ -54,7 +52,7 @@ export default function BlogLayout({ children, path, title }: BlogLayoutProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c') }}
         />
       )}
-      <Nav variant="legal" />
+      <PublicNav />
 
       <div className="border-b border-border px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60">{children}</div>
 

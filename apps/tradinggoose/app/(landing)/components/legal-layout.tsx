@@ -1,8 +1,5 @@
-'use client'
-
-import { isHosted } from '@/lib/environment'
 import Footer from '@/app/(landing)/components/footer/footer'
-import Nav from '@/app/(landing)/components/nav/nav'
+import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
 interface LegalLayoutProps {
@@ -46,8 +43,7 @@ export default function LegalLayout({ title, children, path }: LegalLayoutProps)
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
         />
       )}
-      {/* Header - Nav handles all conditional logic */}
-      <Nav variant='legal' />
+      <PublicNav />
 
       {/* Content */}
       <div className='px-40 pt-[40px] pb-[40px]'>

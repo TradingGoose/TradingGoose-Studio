@@ -33,6 +33,8 @@ export default function LandingPricing() {
   const router = useRouter()
   const registrationQuery = useRegistrationState()
   const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
+  const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
+  const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
   const featuredTierId =
     publicBillingCatalog?.publicTiers.find((tier) => !tier.isDefault)?.id ?? null
@@ -82,7 +84,11 @@ export default function LandingPricing() {
       return
     }
 
-    router.push(getRegistrationPrimaryHref(registrationMode))
+    if (!registrationPrimaryHref) {
+      return
+    }
+
+    router.push(registrationPrimaryHref)
   }
 
   return (
@@ -124,7 +130,8 @@ export default function LandingPricing() {
             const ctaText =
               tier.ctaKind === 'contact'
                 ? 'Contact Sales'
-                : getRegistrationPrimaryLabel(registrationMode)
+                : registrationPrimaryLabel
+            const isSignupDisabled = tier.ctaKind === 'signup' && !registrationPrimaryHref
 
             return (
               <MotionPreset
@@ -188,6 +195,7 @@ export default function LandingPricing() {
                         size='lg'
                         className='border-primary'
                         variant={buttonVariant}
+                        disabled={isSignupDisabled}
                         onClick={() => handleCta(tier)}
                       >
                         {ctaText}
