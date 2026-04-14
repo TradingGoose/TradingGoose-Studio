@@ -150,6 +150,74 @@ describe('copilot streaming regressions', () => {
     ensureRequestAnimationFrame()
   })
 
+  it('preserves thinking, text, tool, and continuation text ordering within one streamed assistant message', async () => {
+    const channelId = 'copilot-streaming-progress-order'
+    const store = getCopilotStore(channelId)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-stream-order',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [
+        {
+          id: 'assistant-message',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        { type: 'reasoning', phase: 'start', data: '' },
+        { type: 'reasoning', data: 'Inspecting the current workflow and tool options.' },
+        { type: 'reasoning', phase: 'end', data: '' },
+        { type: 'content', data: "I'm checking the current workflow before I edit it." },
+        { type: 'tool_generating', toolCallId: 'tool-1', toolName: 'get_user_workflow' },
+        {
+          type: 'tool_call',
+          data: {
+            id: 'tool-1',
+            name: 'get_user_workflow',
+            arguments: { workflowId: 'wf-stream-order' },
+            partial: false,
+          },
+        },
+        {
+          type: 'tool_result',
+          toolCallId: 'tool-1',
+          success: true,
+          failedDependency: false,
+          result: { workflowDocument: 'flowchart TD' },
+        },
+        { type: 'content', data: "I found the current workflow and I'm preparing the edit now." },
+        { type: 'done' },
+      ]),
+      'assistant-message'
+    )
+
+    const blocks = store.getState().messages[0]?.contentBlocks as any[]
+
+    expect(blocks.map((block) => block.type)).toEqual([
+      'thinking',
+      'text',
+      'tool_call',
+      'text',
+    ])
+    expect(blocks[0]?.content).toContain('Inspecting the current workflow')
+    expect(blocks[1]?.content).toContain('checking the current workflow')
+    expect(blocks[2]?.toolCall?.id).toBe('tool-1')
+    expect(blocks[2]?.toolCall?.state).toBe(ClientToolCallState.success)
+    expect(blocks[3]?.content).toContain('preparing the edit now')
+  })
+
   it('starts a new generic copilot chat without deleting prior panel history', async () => {
     const channelId = 'copilot-new-chat-scope'
     const store = getCopilotStore(channelId)
@@ -663,7 +731,7 @@ describe('copilot context usage', () => {
     const store = getCopilotStore(channelId)
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/context-usage') {
+      if (url === '/api/copilot/usage') {
         return {
           ok: true,
           status: 200,
@@ -713,7 +781,7 @@ describe('copilot context usage', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/copilot/context-usage',
+      '/api/copilot/usage',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -723,6 +791,7 @@ describe('copilot context usage', () => {
     const [, requestInit] = fetchMock.mock.calls[0]
     const requestBody = JSON.parse((requestInit as RequestInit).body as string)
     expect(requestBody).toEqual({
+      kind: 'context',
       conversationId: 'conversation-context-usage-generic',
       model: 'claude-sonnet-4.6',
       provider: 'anthropic',

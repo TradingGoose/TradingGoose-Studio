@@ -2171,6 +2171,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           }
 
           const requestPayload: Record<string, any> = {
+            kind: 'context',
             conversationId: currentChat.conversationId,
             model: selectedModel,
             provider: selectedProvider,
@@ -2187,7 +2188,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           logger.info('[Context Usage] Calling API', requestPayload)
 
           // Call the backend API route which proxies to copilot
-          const response = await fetch('/api/copilot/context-usage', {
+          const response = await fetch('/api/copilot/usage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestPayload),
