@@ -34,7 +34,6 @@ const CopilotWidgetBody = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading,
     workflowIds,
   } = useWorkflowWidgetState({
     workspaceId,
@@ -46,7 +45,7 @@ const CopilotWidgetBody = ({
     fallbackWidgetKey: COPILOT_WIDGET_KEY,
     loggerScope: 'workflow copilot widget',
     activateWorkflow: true,
-    usePairWorkflowContext: false,
+    usePairWorkflowContext: true,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -77,7 +76,9 @@ const CopilotWidgetBody = ({
     return <WidgetStateMessage message={loadError} />
   }
 
-  if (!hasLoadedWorkflows || isLoading) {
+  // Keep the copilot mounted while the linked workflow session rehydrates.
+  // Pair changes should update live context/session ownership without resetting the chat UI.
+  if (!hasLoadedWorkflows) {
     return (
       <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
