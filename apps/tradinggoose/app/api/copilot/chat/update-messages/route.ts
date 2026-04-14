@@ -110,6 +110,15 @@ function arePersistedMessagesEqual(
   })
 }
 
+async function lockReviewSessionForHistoryMutation(tx: any, reviewSessionId: string) {
+  await tx
+    .update(copilotReviewSessions)
+    .set({
+      updatedAt: new Date(),
+    })
+    .where(eq(copilotReviewSessions.id, reviewSessionId))
+}
+
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
 
@@ -139,6 +148,8 @@ export async function POST(req: NextRequest) {
     // session is low (< 200), so the overhead is acceptable.  If performance
     // becomes a concern, consider an incremental diff that recomputes sequences.
     await db.transaction(async (tx) => {
+      await lockReviewSessionForHistoryMutation(tx, reviewSessionId)
+
       const currentItems = await tx
         .select()
         .from(copilotReviewItems)

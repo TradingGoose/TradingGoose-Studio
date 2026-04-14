@@ -9,6 +9,7 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { validateWorkflowState } from '@/lib/workflows/validation'
+import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
 
 interface EditWorkflowParams {
   workflowId: string
@@ -55,9 +56,6 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     if (!workflowDocument || workflowDocument.trim().length === 0) {
       throw new Error('workflowDocument is required')
     }
-    if (documentFormat && documentFormat !== TG_MERMAID_DOCUMENT_FORMAT) {
-      throw new Error(`Unsupported workflow document format: ${documentFormat}`)
-    }
 
     logger.info('Executing edit_workflow', {
       workflowId,
@@ -69,9 +67,9 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       parseCurrentWorkflowState(currentWorkflowState) ??
       (await getCurrentWorkflowStateFromDb(workflowId))
 
-    const parsedWorkflowState = createWorkflowSnapshot(
-      parseTgMermaidToWorkflow(workflowDocument)
-    )
+    const parsedWorkflowDocument = parseTgMermaidToWorkflow(workflowDocument)
+    const requestedDirection = parsedWorkflowDocument.direction
+    const parsedWorkflowState = createWorkflowSnapshot(parsedWorkflowDocument)
     const validation = validateWorkflowState(parsedWorkflowState, { sanitize: true })
 
     if (!validation.valid) {
@@ -82,11 +80,25 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       throw new Error(`Invalid edited workflow: ${validation.errors.join('; ')}`)
     }
 
-    const finalWorkflowState = createWorkflowSnapshot(
+    let finalWorkflowState = createWorkflowSnapshot(
       (validation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ?? parsedWorkflowState
     )
+    const orientationWarnings: string[] = []
+    const normalizedWorkflow = normalizeWorkflowStateToMermaidDirection(
+      finalWorkflowState,
+      requestedDirection
+    )
+
+    if (normalizedWorkflow.didRelayout) {
+      finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
+      orientationWarnings.push(
+        `Re-laid out workflow blocks to match Mermaid direction ${requestedDirection}.`
+      )
+    } else {
+      finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
+    }
     const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-    const combinedWarnings = [...preview.warnings, ...validation.warnings]
+    const combinedWarnings = [...orientationWarnings, ...preview.warnings, ...validation.warnings]
 
     logger.info('edit_workflow successfully parsed workflow document', {
       workflowId,
@@ -98,7 +110,9 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     return {
       success: true,
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-      workflowDocument: serializeWorkflowToTgMermaid(finalWorkflowState),
+      workflowDocument: serializeWorkflowToTgMermaid(finalWorkflowState, {
+        direction: requestedDirection,
+      }),
       workflowState: finalWorkflowState,
       preview: {
         ...preview,

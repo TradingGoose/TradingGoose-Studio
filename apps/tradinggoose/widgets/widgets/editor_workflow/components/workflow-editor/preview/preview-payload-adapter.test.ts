@@ -132,6 +132,27 @@ describe('adaptPreviewPayloadToCanvas', () => {
     ])
   })
 
+  it('synthesizes stable edge ids when preview payload edges omit them', () => {
+    const workflowState = createWorkflowState()
+    workflowState.edges = [
+      {
+        source: 'loop_parent',
+        target: 'agent_inside_loop',
+      } as any,
+    ]
+
+    const result = adaptPreviewPayloadToCanvas(workflowState)
+
+    expect(result.edges).toEqual([
+      expect.objectContaining({
+        id: 'loop_parent-source-agent_inside_loop-target',
+        source: 'loop_parent',
+        target: 'agent_inside_loop',
+        type: 'workflowEdge',
+      }),
+    ])
+  })
+
   it('maps diff operations into preview node and subflow statuses', () => {
     const workflowState = createWorkflowState()
     const result = adaptPreviewPayloadToCanvas(workflowState, {

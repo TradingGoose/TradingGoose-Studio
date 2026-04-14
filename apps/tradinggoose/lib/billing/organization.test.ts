@@ -4,7 +4,14 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockAnd, mockEq, mockInArray, mockSelect, mockSyncUsageLimits, mockTransaction } =
+const {
+  mockAnd,
+  mockEq,
+  mockInArray,
+  mockSelect,
+  mockSyncUsageLimits,
+  mockTransaction,
+} =
   vi.hoisted(() => ({
     mockAnd: vi.fn((...conditions: unknown[]) => conditions),
     mockEq: vi.fn((left: unknown, right: unknown) => ({ left, right, type: 'eq' })),

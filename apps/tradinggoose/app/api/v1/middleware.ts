@@ -8,6 +8,8 @@ import { authenticateV1Request } from './auth'
 const logger = createLogger('V1Middleware')
 const rateLimiter = new RateLimiter()
 
+type RateLimitFailureKind = 'auth' | 'dependency'
+
 async function getDefaultApiEndpointRateLimit(): Promise<number> {
   return (await isBillingEnabledForRuntime()) ? 0 : Number.MAX_SAFE_INTEGER
 }
@@ -19,6 +21,29 @@ export interface RateLimitResult {
   limit: number
   userId?: string
   error?: string
+  failureKind?: RateLimitFailureKind
+}
+
+function createAuthFailureResult(error: string, limit: number): RateLimitResult {
+  return {
+    allowed: false,
+    remaining: 0,
+    limit,
+    resetAt: new Date(),
+    error,
+    failureKind: 'auth',
+  }
+}
+
+function createDependencyFailureResult(error: string): RateLimitResult {
+  return {
+    allowed: false,
+    remaining: 0,
+    limit: 0,
+    resetAt: new Date(Date.now() + 60000),
+    error,
+    failureKind: 'dependency',
+  }
 }
 
 export async function checkRateLimit(
@@ -32,24 +57,12 @@ export async function checkRateLimit(
   } catch (error) {
     logger.error('Authentication error during rate limit check', { error })
     const limit = await getDefaultApiEndpointRateLimit().catch(() => 0)
-    return {
-      allowed: false,
-      remaining: 0,
-      limit,
-      resetAt: new Date(Date.now() + 60000),
-      error: 'Authentication failed',
-    }
+    return createAuthFailureResult('Authentication failed', limit)
   }
 
   if (!auth.authenticated) {
     const limit = await getDefaultApiEndpointRateLimit()
-    return {
-      allowed: false,
-      remaining: 0,
-      limit,
-      resetAt: new Date(),
-      error: auth.error,
-    }
+    return createAuthFailureResult(auth.error || 'Unauthorized', limit)
   }
 
   const userId = auth.userId!
@@ -96,12 +109,9 @@ export async function checkRateLimit(
       userId,
     }
   } catch (error) {
-    logger.error('Rate limit check error; allowing request', { error, endpoint, userId })
+    logger.error('Rate limit check error; failing closed', { error, endpoint, userId })
     return {
-      allowed: true,
-      remaining: Number.MAX_SAFE_INTEGER,
-      limit: Number.MAX_SAFE_INTEGER,
-      resetAt: new Date(Date.now() + 60000),
+      ...createDependencyFailureResult('Rate limit service unavailable'),
       userId,
     }
   }
@@ -114,8 +124,24 @@ export function createRateLimitResponse(result: RateLimitResult): NextResponse {
     'X-RateLimit-Reset': result.resetAt.toISOString(),
   }
 
-  if (result.error) {
+  if (result.failureKind === 'auth') {
     return NextResponse.json({ error: result.error || 'Unauthorized' }, { status: 401, headers })
+  }
+
+  if (result.failureKind === 'dependency') {
+    return NextResponse.json(
+      { error: result.error || 'Rate limit service unavailable' },
+      {
+        status: 503,
+        headers: {
+          ...headers,
+          'Retry-After': Math.max(
+            0,
+            Math.ceil((result.resetAt.getTime() - Date.now()) / 1000)
+          ).toString(),
+        },
+      }
+    )
   }
 
   if (!result.allowed) {
@@ -129,7 +155,10 @@ export function createRateLimitResponse(result: RateLimitResult): NextResponse {
         status: 429,
         headers: {
           ...headers,
-          'Retry-After': Math.ceil((result.resetAt.getTime() - Date.now()) / 1000).toString(),
+          'Retry-After': Math.max(
+            0,
+            Math.ceil((result.resetAt.getTime() - Date.now()) / 1000)
+          ).toString(),
         },
       }
     )

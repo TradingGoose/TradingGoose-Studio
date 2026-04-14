@@ -4,7 +4,10 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface SearchOnlineArgs {
@@ -38,28 +41,19 @@ export class SearchOnlineClientTool extends BaseClientTool {
     const logger = createLogger('SearchOnlineClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'search_online', payload: args || {} }),
+      const result = await executeCopilotServerTool({
+        toolName: 'search_online',
+        payload: args || {},
       })
-      if (!res.ok) {
-        const json = await res.json().catch(() => null)
-        const message =
-          (json && typeof json.error === 'string' ? json.error : null) ||
-          (json && typeof json.message === 'string' ? json.message : null) ||
-          `Server error (${res.status})`
-        throw new Error(message)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Online search complete', parsed.result)
+      await this.markToolComplete(200, 'Online search complete', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Search failed')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Search failed'
+      )
     }
   }
 }

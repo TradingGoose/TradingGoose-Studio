@@ -20,6 +20,13 @@ const WORKFLOW_DOCUMENT_RULES = [
 	"`edit_workflow` must receive the full edited `workflowDocument` and `documentFormat: tg-mermaid-v1`.",
 	"Call `get_user_workflow` before `edit_workflow` so your edit starts from the current workflow document.",
 	"If you add new blocks or reconnect handles, call `get_blocks_metadata` for the block types you need before editing the workflow document.",
+	"`TG_BLOCK` payloads must keep the canonical workflow state shape from `get_user_workflow`; workflow documents use `type` and `name`.",
+	"`TG_EDGE` payloads are the canonical workflow edge state. When you add, remove, or reconnect blocks, keep the visible Mermaid connection lines and matching `TG_EDGE` comments in sync.",
+	"Preserve the current `flowchart TD` or `flowchart LR` direction unless the user explicitly asks to change layout orientation. Prefer `flowchart LR` for new workflows because the Studio canvas defaults to left-to-right flow.",
+	"Preserve the exact visible container-edge forms returned by `get_user_workflow`. Loop and parallel edges may connect through block aliases or explicit container start/end nodes depending on the canonical handle stored in `TG_EDGE`.",
+	"Do not rewrite bare loop or parallel block edges into explicit `__loop_start`, `__loop_end`, `__parallel_start`, or `__parallel_end` node connections unless the canonical `TG_EDGE` handle requires that exact visible form.",
+	"Workflow inspection tools may return `blockType` and `blockName` metadata. Do not paste those metadata objects into `TG_BLOCK` payloads.",
+	"Do not rewrite workflow blocks into simplified metadata objects from `get_block_config` or `get_blocks_metadata`; edit the exact document structure returned by `get_user_workflow`.",
 ].join(" ");
 
 const SKILL_DOCUMENT_RULES = [
@@ -66,6 +73,7 @@ export const GLOBAL_TOOL_MANIFEST_INSTRUCTIONS: string[] = [
 	"Workflow edits should preserve existing behavior unless the user explicitly asks for a behavior change.",
 	WORKFLOW_DOCUMENT_RULES,
 	"Treat workflow graphs, block metadata, upstream references, deployments, and variables as separate facts that may each need explicit inspection.",
+	"Tool payloads prefer entity-prefixed identifiers such as `blockType`, `blockName`, `entityId`, and `entityName` so metadata is easy to distinguish from editable documents.",
 	MONITOR_DOCUMENT_RULES,
 	"Monitor work is live signal configuration. Be explicit about workflow target, trigger block, provider, interval, listing, indicator, auth requirements, and whether the monitor should be active.",
 	"Skills are reusable instruction assets. Use them for reusable behavior, guidance, and operating procedures, not executable runtime code.",
@@ -137,6 +145,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_blocks_metadata: {
 		description: "Fetch metadata for workflow blocks.",
+		rules: "This returns block catalog metadata with `blockType` and `blockName`, not `TG_BLOCK` document payloads.",
 		kind: "inspect",
 		entityKind: "workflow",
 	},
@@ -148,22 +157,9 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	get_block_config: {
 		description:
 			"Get block input and output config for a block type and optional operation.",
+		rules:
+			"This returns block config metadata with `blockType` and `blockName`, not workflow-document `TG_BLOCK` JSON.",
 		kind: "inspect",
-		entityKind: "workflow",
-	},
-	get_trigger_examples: {
-		description: "Get trigger examples.",
-		kind: "search",
-		entityKind: "workflow",
-	},
-	get_examples_rag: {
-		description: "Retrieve related examples through RAG search.",
-		kind: "search",
-		entityKind: "workflow",
-	},
-	get_operations_examples: {
-		description: "Retrieve operation examples.",
-		kind: "search",
 		entityKind: "workflow",
 	},
 	search_documentation: {

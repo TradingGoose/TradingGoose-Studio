@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       .insert(copilotFeedback)
       .values({
         userId: authenticatedUserId,
-        // Maps to legacy chatId column — refers to reviewSessionId
+        // Persist the review session identifier in the existing chatId column.
         chatId: reviewSessionId,
         userQuery,
         agentResponse,

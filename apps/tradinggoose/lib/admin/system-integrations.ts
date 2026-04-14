@@ -83,7 +83,7 @@ export async function listSystemIntegrations(): Promise<SystemIntegrationState> 
     return {
       id: definition.id,
       parentId: persistedDefinition?.parentId ?? definition.parentId,
-      name: persistedDefinition?.name ?? definition.name,
+      name: definition.name,
       isEnabled: definition.parentId
         ? (persistedDefinition?.isEnabled ?? definition.isEnabled)
         : null,

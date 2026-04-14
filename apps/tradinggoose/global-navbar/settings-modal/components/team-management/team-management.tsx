@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import {
@@ -112,7 +113,6 @@ export function TeamManagement() {
   const releaseWorkspaceFromOrganizationMutation = useReleaseWorkspaceFromOrganization()
   const {
     data: adminWorkspaces = [],
-    isLoading: isLoadingWorkspaces,
     refetch: refetchAdminWorkspaces,
   } = useAdminWorkspaces(session?.user?.id)
   const {
@@ -133,7 +133,6 @@ export function TeamManagement() {
   const [selectedWorkspaces, setSelectedWorkspaces] = useState<
     Array<{ workspaceId: string; permission: string }>
   >([])
-  const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false)
   const [removeMemberDialog, setRemoveMemberDialog] = useState<{
     open: boolean
     memberId: string
@@ -148,11 +147,12 @@ export function TeamManagement() {
   const [isUpdatingSeats, setIsUpdatingSeats] = useState(false)
 
   const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
+  const organizationSubscriptionTier = organizationBillingData?.subscriptionTier ?? null
   const organizationSubscriptionData: TeamSubscriptionData | null = organizationBillingData
     ? {
         id: organizationBillingData.organizationId,
         billingEnabled: organizationBillingData.billingEnabled,
-        isPaid: (organizationBillingData.subscriptionTier.monthlyPriceUsd ?? 0) > 0,
+        isPaid: safeNumber(organizationSubscriptionTier?.monthlyPriceUsd) > 0,
         status: organizationBillingData.subscriptionStatus,
         seats: organizationBillingData.totalSeats,
         referenceId: organizationBillingData.organizationId,
@@ -162,20 +162,20 @@ export function TeamManagement() {
           ? new Date(organizationBillingData.billingPeriodEnd)
           : undefined,
         cancelAtPeriodEnd: false,
-        tier: {
-          id: organizationBillingData.subscriptionTier.id,
-          displayName: organizationBillingData.subscriptionTier.displayName,
-          ownerType: organizationBillingData.subscriptionTier.ownerType,
-          seatMode:
-            organizationBillingData.subscriptionTier.seatMode === 'adjustable'
-              ? 'adjustable'
-              : 'fixed',
-          monthlyPriceUsd: organizationBillingData.subscriptionTier.monthlyPriceUsd,
-          seatCount: organizationBillingData.subscriptionTier.seatCount,
-          seatMaximum: organizationBillingData.subscriptionTier.seatMaximum,
-          canEditUsageLimit: organizationBillingData.subscriptionTier.canEditUsageLimit,
-          canConfigureSso: organizationBillingData.subscriptionTier.canConfigureSso,
-        },
+        tier: organizationSubscriptionTier
+          ? {
+              id: organizationSubscriptionTier.id,
+              displayName: organizationSubscriptionTier.displayName,
+              ownerType: organizationSubscriptionTier.ownerType,
+              seatMode:
+                organizationSubscriptionTier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
+              monthlyPriceUsd: organizationSubscriptionTier.monthlyPriceUsd,
+              seatCount: organizationSubscriptionTier.seatCount,
+              seatMaximum: organizationSubscriptionTier.seatMaximum,
+              canEditUsageLimit: organizationSubscriptionTier.canEditUsageLimit,
+              canConfigureSso: organizationSubscriptionTier.canConfigureSso,
+            }
+          : null,
         usage: {
           current: organizationBillingData.totalCurrentUsage,
           limit: organizationBillingData.totalUsageLimit,
@@ -209,10 +209,18 @@ export function TeamManagement() {
   const billingPayload = displayOrganization ? organizationSubscriptionData : personalBillingPayload
   const subscriptionData = billingPayload as TeamSubscriptionData | null
   const currentTier = subscriptionData?.tier ?? null
-  const personalTier = (personalBillingPayload as TeamSubscriptionData | null)?.tier ?? null
-  const hasOrganizationWorkspaceAccess = displayOrganization
-    ? currentTier?.ownerType === 'organization'
-    : personalTier?.ownerType === 'organization'
+  const billingEnabled =
+    organizationBillingData?.billingEnabled ??
+    personalBillingPayload?.billingEnabled ??
+    organizationsData?.billingData?.data?.billingEnabled ??
+    true
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled,
+    hasOrganization: Boolean(displayOrganization),
+    isOrganizationAdmin: adminOrOwner,
+    userTier: personalBillingPayload?.tier,
+    organizationTier: organizationSubscriptionTier,
+  })
   const isLoadingSubscription = displayOrganization
     ? isLoadingOrganizationBilling
     : isLoadingPersonalSubscription
@@ -230,12 +238,12 @@ export function TeamManagement() {
   const usedSeats = getUsedSeats(displayOrganization)
 
   useEffect(() => {
-    if (hasOrganizationWorkspaceAccess && session?.user?.name && !orgName) {
+    if (session?.user?.name && !orgName) {
       const defaultName = `${session.user.name}'s Team`
       setOrgName(defaultName)
       setOrgSlug(generateSlug(defaultName))
     }
-  }, [hasOrganizationWorkspaceAccess, session?.user?.name, orgName])
+  }, [session?.user?.name, orgName])
 
   useEffect(() => {
     if (session?.user?.id && activeOrgId && adminOrOwner) {
@@ -258,7 +266,6 @@ export function TeamManagement() {
         slug: orgSlug.trim(),
       })
 
-      setCreateOrgDialogOpen(false)
       setOrgName('')
       setOrgSlug('')
     } catch (error) {
@@ -517,7 +524,7 @@ export function TeamManagement() {
       ? releaseWorkspaceFromOrganizationMutation.error.message
       : null)
 
-  if (isLoading && !displayOrganization && !hasOrganizationWorkspaceAccess) {
+  if (isLoading && !displayOrganization) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='space-y-4'>
@@ -532,17 +539,14 @@ export function TeamManagement() {
   if (!displayOrganization) {
     return (
       <NoOrganizationView
-        hasOrganizationWorkspaceAccess={Boolean(hasOrganizationWorkspaceAccess)}
+        canCreateOrganization={organizationAccess.canCreateOrganization}
         orgName={orgName}
-        setOrgName={setOrgName}
         orgSlug={orgSlug}
         setOrgSlug={setOrgSlug}
         onOrgNameChange={handleOrgNameChange}
         onCreateOrganization={handleCreateOrganization}
         isCreatingOrg={createOrgMutation.isPending}
         error={errorMessage}
-        createOrgDialogOpen={createOrgDialogOpen}
-        setCreateOrgDialogOpen={setCreateOrgDialogOpen}
       />
     )
   }

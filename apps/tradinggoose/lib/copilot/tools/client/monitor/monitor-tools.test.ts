@@ -107,7 +107,8 @@ describe('monitor tools', () => {
       count: 1,
     })
     expect(body.data.entities[0]).toMatchObject({
-      id: 'monitor-1',
+      entityId: 'monitor-1',
+      entityName: 'rsi on Apple Inc. (1m)',
       workflowId: 'wf-1',
       blockId: 'trigger-1',
       providerId: 'alpaca',

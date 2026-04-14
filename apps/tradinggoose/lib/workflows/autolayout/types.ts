@@ -1,6 +1,8 @@
+import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 
 export interface LayoutOptions {
+  direction?: AutoLayoutDirection
   horizontalSpacing?: number
   verticalSpacing?: number
   padding?: { x: number; y: number }

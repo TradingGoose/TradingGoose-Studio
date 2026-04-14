@@ -12,6 +12,7 @@ describe('copilot runtime tool manifest', () => {
       expect.arrayContaining([
         expect.stringContaining('You are TradingGoose Copilot'),
         expect.stringContaining('Workflows are edited as full document updates'),
+        expect.stringContaining('TG_EDGE'),
         expect.stringContaining('Monitors are edited as full document updates'),
         expect.stringContaining('Keep TradingGoose surfaces distinct'),
       ])
@@ -32,6 +33,21 @@ describe('copilot runtime tool manifest', () => {
           requiresCurrentState: true,
           verificationToolNames: ['get_user_workflow'],
           requiredToolResults: ['get_user_workflow'],
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'workflowDocument',
+              kind: 'string_requires_real_newlines',
+            }),
+            expect.objectContaining({
+              path: 'workflowDocument',
+              kind: 'string_mermaid_flowchart_edge_metadata_matches_canonical',
+            }),
+            expect.objectContaining({
+              path: 'workflowDocument',
+              kind: 'string_line_prefix_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
           parameters: expect.objectContaining({
             type: 'object',
           }),
@@ -45,6 +61,22 @@ describe('copilot runtime tool manifest', () => {
           kind: 'read',
           entityKind: 'skill',
           discoveryToolNames: ['list_skills'],
+        }),
+        expect.objectContaining({
+          name: 'edit_skill',
+          kind: 'edit',
+          entityKind: 'skill',
+          mutatesState: true,
+          requiresCurrentState: true,
+          verificationToolNames: ['get_skill'],
+          requiredToolResults: ['get_skill'],
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
         }),
         expect.objectContaining({
           name: 'edit_custom_tool',
@@ -64,6 +96,13 @@ describe('copilot runtime tool manifest', () => {
           requiresCurrentState: true,
           verificationToolNames: ['get_monitor'],
           requiredToolResults: ['get_monitor'],
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
           rules: expect.stringContaining('full edited monitor document'),
         }),
       ])
@@ -71,6 +110,20 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_workflow')?.rules).not.toContain(
       'accept'
     )
+    const edgeValidator = manifest.tools
+      .find((tool) => tool.name === 'edit_workflow')
+      ?.semanticValidators?.find(
+        (validator) => validator.kind === 'string_mermaid_flowchart_edge_metadata_matches_canonical'
+      )
+    expect(edgeValidator).toBeDefined()
+    expect(edgeValidator).not.toHaveProperty('message')
+    expect(
+      manifest.tools
+        .find((tool) => tool.name === 'edit_workflow')
+        ?.semanticValidators?.some(
+          (validator) => validator.kind === 'string_requires_line_prefix_if_substring_present'
+        )
+    ).toBe(false)
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )

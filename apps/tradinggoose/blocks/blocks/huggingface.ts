@@ -12,7 +12,7 @@ export const HuggingFaceBlock: BlockConfig<HuggingFaceChatResponse> = {
     'Integrate Hugging Face into the workflow. Can generate completions using the Hugging Face Inference API.',
   docsLink: 'https://docs.tradinggoose.ai/tools/huggingface',
   category: 'tools',
-  bgColor: '',
+  bgColor: '#FFD21E',
   icon: HuggingFaceIcon,
   subBlocks: [
     {

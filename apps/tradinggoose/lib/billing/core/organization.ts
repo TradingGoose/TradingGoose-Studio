@@ -251,12 +251,12 @@ interface OrganizationUsageData {
     seatMaximum: number | null
     canEditUsageLimit: boolean
     canConfigureSso: boolean
-  }
-  subscriptionStatus: string
+  } | null
+  subscriptionStatus: string | null
   seatPriceUsd: number
   seatCount: number | null
   seatMaximum: number | null
-  seatMode: 'fixed' | 'adjustable'
+  seatMode: 'fixed' | 'adjustable' | null
   totalSeats: number
   usedSeats: number
   seatsCount: number
@@ -319,16 +319,12 @@ export async function getOrganizationBillingData(
     const organizationData = orgRecord[0]
 
     // Get organization subscription directly (referenceId = organizationId)
-    const [{ usageWarningThresholdPercent }, subscription, billingLedger] = await Promise.all([
+    const [{ billingEnabled, usageWarningThresholdPercent }, subscription, billingLedger] =
+      await Promise.all([
       getResolvedBillingSettings(),
       getOrganizationSubscription(organizationId),
       getOrganizationBillingLedger(organizationId),
     ])
-
-    if (!subscription) {
-      logger.warn('No subscription found for organization', { organizationId })
-      return null
-    }
 
     if (!billingLedger) {
       logger.warn('Organization billing ledger not found', { organizationId })
@@ -348,6 +344,63 @@ export async function getOrganizationBillingData(
       .innerJoin(user, eq(member.userId, user.id))
       .leftJoin(userStats, eq(member.userId, userStats.userId))
       .where(eq(member.organizationId, organizationId))
+
+    if (!billingEnabled) {
+      const memberLedgers = await getOrganizationMemberBillingLedgers(organizationId)
+      const memberLedgerByUserId = new Map(memberLedgers.map((ledger) => [ledger.userId, ledger]))
+      const members: MemberUsageData[] = memberRows.map((memberRecord) => ({
+        userId: memberRecord.userId,
+        userName: memberRecord.userName,
+        userEmail: memberRecord.userEmail,
+        currentUsage: memberLedgerByUserId.get(memberRecord.userId)?.currentPeriodCost ?? 0,
+        usageLimit: Number.MAX_SAFE_INTEGER,
+        percentUsed: 0,
+        isOverLimit: false,
+        role: memberRecord.role,
+        joinedAt: memberRecord.joinedAt,
+        lastActive: memberRecord.lastActive,
+      }))
+      const totalCurrentUsage =
+        memberLedgers.length > 0
+          ? memberLedgers.reduce((total, ledger) => total + ledger.currentPeriodCost, 0)
+          : billingLedger.currentPeriodCost
+      const averageUsagePerMember = members.length > 0 ? totalCurrentUsage / members.length : 0
+
+      return {
+        organizationId,
+        organizationName: organizationData.name || '',
+        subscriptionTier: null,
+        subscriptionStatus: null,
+        seatPriceUsd: 0,
+        seatCount: null,
+        seatMaximum: null,
+        seatMode: null,
+        totalSeats: members.length,
+        usedSeats: members.length,
+        seatsCount: members.length,
+        totalCurrentUsage: roundCurrency(totalCurrentUsage),
+        totalUsageLimit: Number.MAX_SAFE_INTEGER,
+        warningThresholdPercent: 0,
+        minimumUsageLimit: 0,
+        averageUsagePerMember: roundCurrency(averageUsagePerMember),
+        billingPeriodStart: null,
+        billingPeriodEnd: null,
+        members: members.sort((a, b) => b.currentUsage - a.currentUsage),
+        currentPeriodCost: roundCurrency(billingLedger.currentPeriodCost),
+        lastPeriodCost: roundCurrency(billingLedger.lastPeriodCost),
+        billedOverageThisPeriod: 0,
+        currentPeriodCopilotCost: roundCurrency(billingLedger.currentPeriodCopilotCost),
+        lastPeriodCopilotCost: roundCurrency(billingLedger.lastPeriodCopilotCost),
+        totalCost: roundCurrency(billingLedger.totalCost),
+        totalCopilotCost: roundCurrency(billingLedger.totalCopilotCost),
+        billingBlocked: false,
+      }
+    }
+
+    if (!subscription) {
+      logger.warn('No subscription found for organization', { organizationId })
+      return null
+    }
 
     const memberLedgers =
       subscription.tier.usageScope === 'individual'

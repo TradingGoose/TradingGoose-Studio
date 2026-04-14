@@ -53,9 +53,9 @@ export class ListMonitorsClientTool extends BaseClientTool {
 
       const monitors = Array.isArray(payload?.data) ? (payload.data as IndicatorMonitorRecord[]) : []
       const entities = monitors.map((monitor) => ({
-        id: monitor.monitorId,
-        name: buildMonitorName(monitor),
-        description: `Workflow ${monitor.workflowId}, block ${monitor.blockId}`,
+        entityId: monitor.monitorId,
+        entityName: buildMonitorName(monitor),
+        entityDescription: `Workflow ${monitor.workflowId}, block ${monitor.blockId}`,
         workflowId: monitor.workflowId,
         blockId: monitor.blockId,
         providerId: monitor.providerConfig.monitor.providerId,

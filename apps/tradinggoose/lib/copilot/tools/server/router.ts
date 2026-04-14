@@ -17,12 +17,7 @@ import { getOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/g
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { getWorkflowConsoleServerTool } from '@/lib/copilot/tools/server/workflow/get-workflow-console'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-
-// Generic execute response schemas (success path only for this route; errors handled via HTTP status)
-export { ExecuteResponseSuccessSchema }
-export type ExecuteResponseSuccess = (typeof ExecuteResponseSuccessSchema)['_type']
 
 const logger = createLogger('ServerToolRouter')
 

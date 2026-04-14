@@ -50,8 +50,8 @@ describe('processContextsServer', () => {
       metadata: {
         'block-1': {
           blockType: 'block-1',
-          name: 'RSI',
-          description: 'Relative Strength Index',
+          blockName: 'RSI',
+          blockDescription: 'Relative Strength Index',
         },
       },
     })
@@ -71,8 +71,8 @@ describe('processContextsServer', () => {
           metadata: {
             'block-1': {
               blockType: 'block-1',
-              name: 'RSI',
-              description: 'Relative Strength Index',
+              blockName: 'RSI',
+              blockDescription: 'Relative Strength Index',
             },
           },
         }),

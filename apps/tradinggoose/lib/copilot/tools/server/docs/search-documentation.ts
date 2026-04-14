@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -9,6 +10,9 @@ interface DocsSearchParams {
   topK?: number
   threshold?: number
 }
+
+const EMBEDDING_CONFIG_MISSING_ERROR =
+  'Either the OpenAI default API key or Azure OpenAI service config must be configured'
 
 export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any> = {
   name: 'search_documentation',
@@ -23,8 +27,51 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
     const config = getCopilotConfig()
     const similarityThreshold = threshold ?? config.rag.similarityThreshold
 
-    const { generateSearchEmbedding } = await import('@/lib/embeddings/utils')
-    const queryEmbedding = await generateSearchEmbedding(query)
+    const indexedChunks = await db
+      .select({ chunkId: docsEmbeddings.chunkId })
+      .from(docsEmbeddings)
+      .limit(1)
+
+    if (indexedChunks.length === 0) {
+      logger.info('Skipping docs search because no documentation embeddings are indexed')
+      return { results: [], query, totalResults: 0 }
+    }
+
+    const { EmbeddingAPIError, generateSearchEmbedding } = await import('@/lib/embeddings/utils')
+    let queryEmbedding: number[]
+    try {
+      queryEmbedding = await generateSearchEmbedding(query)
+    } catch (error) {
+      if (error instanceof Error && error.message === EMBEDDING_CONFIG_MISSING_ERROR) {
+        throw new StructuredServerToolError({
+          status: 503,
+          body: {
+            code: 'search_documentation_unavailable',
+            error:
+              'Documentation search is unavailable because no embedding provider is configured.',
+            hint:
+              'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
+            retryable: false,
+          },
+        })
+      }
+
+      if (error instanceof EmbeddingAPIError) {
+        throw new StructuredServerToolError({
+          status: error.status === 429 || error.status >= 500 ? 503 : 502,
+          body: {
+            code: 'search_documentation_backend_failed',
+            error: 'Documentation search failed while generating the query embedding.',
+            hint:
+              'Check the configured OpenAI or Azure OpenAI embedding service and retry the search.',
+            retryable: error.status === 429 || error.status >= 500,
+          },
+        })
+      }
+
+      throw error
+    }
+
     if (!queryEmbedding || queryEmbedding.length === 0) {
       return { results: [], query, totalResults: 0 }
     }

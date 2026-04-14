@@ -37,10 +37,10 @@ export interface OrganizationWorkspaceRecord {
  * Fetch all organizations for the current user
  */
 async function fetchOrganizations() {
-  const [orgsResponse, activeOrgResponse, billingResponse] = await Promise.all([
+  const [billingResponse, orgsResponse, activeOrgResponse] = await Promise.all([
+    fetch('/api/billing?context=user').then((r) => r.json()),
     client.organization.list(),
     client.organization.getFullOrganization(),
-    fetch('/api/billing?context=user').then((r) => r.json()),
   ])
 
   return {
@@ -442,20 +442,30 @@ export function useCreateOrganization() {
 
   return useMutation({
     mutationFn: async ({ name, slug }: CreateOrganizationParams) => {
-      const response = await client.organization.create({
-        name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+      const response = await fetch('/api/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+        }),
       })
 
-      if (!response.data) {
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || error.message || 'Failed to create organization')
+      }
+
+      const data = await response.json()
+      if (!data.organizationId) {
         throw new Error('Failed to create organization')
       }
 
       await client.organization.setActive({
-        organizationId: response.data.id,
+        organizationId: data.organizationId,
       })
 
-      return response.data
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.all })

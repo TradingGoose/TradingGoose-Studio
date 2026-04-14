@@ -5,7 +5,10 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  ExecuteResponseSuccessSchema,
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
+import {
   GetBlocksMetadataInput,
   GetBlocksMetadataResult,
 } from '@/lib/copilot/tools/shared/schemas'
@@ -44,25 +47,19 @@ export class GetBlocksMetadataClientTool extends BaseClientTool {
 
       const { blockIds } = GetBlocksMetadataInput.parse(args || {})
 
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'get_blocks_metadata', payload: { blockIds } }),
-      })
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '')
-        throw new Error(errorText || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      const result = GetBlocksMetadataResult.parse(parsed.result)
+      const result = GetBlocksMetadataResult.parse(
+        await executeCopilotServerTool({
+          toolName: 'get_blocks_metadata',
+          payload: { blockIds },
+        })
+      )
 
       await this.markToolComplete(200, { retrieved: Object.keys(result.metadata).length }, result)
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('Execute failed', { message })
-      await this.markToolComplete(500, message)
+      await this.markToolComplete(getCopilotServerToolErrorStatus(error) ?? 500, message)
       this.setState(ClientToolCallState.error)
     }
   }

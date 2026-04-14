@@ -400,7 +400,7 @@ export default function LoginPage({
 
       <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
         <div className='space-y-6'>
-          <div className='space-y-2'>
+          <div className='space-y-2' suppressHydrationWarning>
             <div className='flex items-center justify-between'>
               <Label htmlFor='email'>Email</Label>
             </div>
@@ -440,7 +440,7 @@ export default function LoginPage({
                 Forgot password?
               </button>
             </div>
-            <div className='relative'>
+            <div className='relative' suppressHydrationWarning>
               <Input
                 id='password'
                 name='password'

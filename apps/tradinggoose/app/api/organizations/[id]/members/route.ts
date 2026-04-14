@@ -85,7 +85,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
       const organizationBillingData = await getOrganizationBillingData(organizationId)
 
-      if (organizationBillingData) {
+      if (organizationBillingData?.subscriptionTier) {
         const usageScope = organizationBillingData.subscriptionTier.usageScope
         const memberUsageByUserId = new Map(
           organizationBillingData.members.map((organizationMember) => [

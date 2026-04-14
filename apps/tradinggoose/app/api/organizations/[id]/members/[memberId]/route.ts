@@ -102,7 +102,7 @@ export async function GET(
 
       const organizationBillingData = await getOrganizationBillingData(organizationId)
 
-      if (organizationBillingData) {
+      if (organizationBillingData?.subscriptionTier) {
         const usageScope = organizationBillingData.subscriptionTier.usageScope
         const memberUsage = organizationBillingData.members.find(
           (organizationMember) => organizationMember.userId === memberId

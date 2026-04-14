@@ -3,10 +3,15 @@ import { member, organization } from '@tradinggoose/db/schema'
 import { and, eq, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { createOrganizationForOrganizationTier } from '@/lib/billing/organization'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 
 const logger = createLogger('OrganizationsAPI')
+const ORGANIZATION_CREATION_FORBIDDEN_ERROR =
+  'Organization creation is not enabled for this billing tier.'
 
 export async function GET() {
   try {
@@ -78,7 +83,7 @@ export async function POST(request: Request) {
       // If no body or invalid JSON, use defaults
     }
 
-    logger.info('Creating organization for organization tier', {
+    logger.info('Creating organization', {
       userId: user.id,
       userName: user.name,
       userEmail: user.email,
@@ -99,6 +104,24 @@ export async function POST(request: Request) {
             'You are already a member of an organization. Leave your current organization before creating a new one.',
         },
         { status: 409 }
+      )
+    }
+
+    const [{ billingEnabled }, personalSubscription] = await Promise.all([
+      getBillingGateState(),
+      getEffectiveSubscription(user.id),
+    ])
+    const access = getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: false,
+      isOrganizationAdmin: false,
+      userTier: personalSubscription?.tier,
+    })
+
+    if (!access.canCreateOrganization) {
+      return NextResponse.json(
+        { error: ORGANIZATION_CREATION_FORBIDDEN_ERROR },
+        { status: 403 }
       )
     }
 

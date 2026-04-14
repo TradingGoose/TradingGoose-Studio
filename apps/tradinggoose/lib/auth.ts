@@ -29,19 +29,21 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
-import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
+import {
+  ensureDefaultUserSubscription,
+  getEffectiveSubscription,
+} from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
 } from '@/lib/billing/organization'
 import { getPlans } from '@/lib/billing/plans'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import {
   hydrateSubscriptionsWithTiers,
   isOrganizationSubscription,
-  isPaidBillingTier,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
@@ -60,6 +62,7 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import {
   getCanonicalScopesForProvider,
   getMicrosoftRefreshTokenExpiry,
@@ -75,8 +78,8 @@ import {
 } from '@/lib/registration/shared'
 import {
   createStripeClientProxy,
-  getCachedStripeServiceConfig,
-  hasCachedStripeServiceSecretKey,
+  getStripeServiceConfig,
+  hasStripeSecretKey,
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -369,7 +372,7 @@ export const auth = betterAuth({
           try {
             await handleNewUser(user.id)
 
-            const { billingEnabled } = await getResolvedBillingSettings()
+            const { billingEnabled } = await getBillingGateState()
             if (billingEnabled) {
               await ensureDefaultUserSubscription(user.id)
             }
@@ -1411,13 +1414,14 @@ export const auth = betterAuth({
     }),
     // Include SSO plugin when enabled
     ...(env.SSO_ENABLED ? [sso()] : []),
+    // Stripe is deployment-owned and env-backed; update it through deployment secrets.
     stripe({
       stripeClient,
       get stripeWebhookSecret() {
-        return getCachedStripeServiceConfig().webhookSecret ?? ''
+        return getStripeServiceConfig().webhookSecret ?? ''
       },
       get createCustomerOnSignUp() {
-        return hasCachedStripeServiceSecretKey()
+        return hasStripeSecretKey()
       },
       onCustomerCreate: async ({ stripeCustomer, user }) => {
         logger.info('[onCustomerCreate] Stripe customer created', {
@@ -1563,7 +1567,7 @@ export const auth = betterAuth({
 
             await handleSubscriptionDeleted(subscriptionRecord)
 
-            const { billingEnabled } = await getResolvedBillingSettings()
+            const { billingEnabled } = await getBillingGateState()
             const nextSubscriptionRecord =
               billingEnabled && subscriptionRecord.referenceType === 'user'
                 ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
@@ -1635,30 +1639,22 @@ export const auth = betterAuth({
     }),
     organization({
       allowUserToCreateOrganization: async (user) => {
-        const { billingEnabled } = await getResolvedBillingSettings()
-        if (!billingEnabled) {
-          return true
-        }
+        const [{ billingEnabled }, personalSubscription, memberships] = await Promise.all([
+          getBillingGateState(),
+          getEffectiveSubscription(user.id),
+          db
+            .select({ id: schema.member.id })
+            .from(schema.member)
+            .where(eq(schema.member.userId, user.id))
+            .limit(1),
+        ])
 
-        const subscriptions = await db
-          .select()
-          .from(schema.subscription)
-          .where(
-            and(
-              eq(schema.subscription.referenceId, user.id),
-              inArray(schema.subscription.status, [
-                ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
-                'past_due',
-              ])
-            )
-          )
-
-        const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(subscriptions)
-
-        return hydratedSubscriptions.some(
-          (subscription) =>
-            subscription.tier?.ownerType === 'organization' && isPaidBillingTier(subscription.tier)
-        )
+        return getOrganizationAccessState({
+          billingEnabled,
+          hasOrganization: memberships.length > 0,
+          isOrganizationAdmin: false,
+          userTier: personalSubscription?.tier,
+        }).canCreateOrganization
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
       membershipLimit: 50,
@@ -1681,7 +1677,7 @@ export const auth = betterAuth({
         )
 
         if (!organizationSubscription) {
-          throw new Error('No active organization subscription for this organization')
+          return
         }
 
         if (organizationSubscription.tier.ownerType !== 'organization') {

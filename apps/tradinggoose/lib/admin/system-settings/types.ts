@@ -3,6 +3,7 @@ import type { RegistrationMode } from '@/lib/registration/shared'
 export interface AdminSystemSettingsSnapshot {
   registrationMode: RegistrationMode
   billingEnabled: boolean
+  stripeConfigured: boolean
   billingReady: boolean
   triggerDevEnabled: boolean
   triggerReady: boolean

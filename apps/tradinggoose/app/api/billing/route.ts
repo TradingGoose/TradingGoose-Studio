@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getSimplifiedBillingSummary } from '@/lib/billing/core/billing'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UnifiedBillingAPI')
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { billingEnabled } = await getResolvedBillingSettings()
+    const billingGate = await getBillingGateState()
     let billingData
 
     if (context === 'user') {
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         .limit(1)
       billingData = {
         ...billingData,
-        billingEnabled,
+        billingEnabled: billingGate.billingEnabled,
         billingBlocked: stats.length > 0 ? !!stats[0].blocked : false,
       }
     } else {
@@ -126,12 +126,12 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      billingData = toOrganizationBillingPayload(rawBillingData, billingEnabled)
+      billingData = toOrganizationBillingPayload(rawBillingData, billingGate.billingEnabled)
 
       return NextResponse.json({
         success: true,
         context,
-        billingEnabled,
+        billingEnabled: billingGate.billingEnabled,
         data: billingData,
         userRole,
         billingBlocked: billingData.billingBlocked,
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       context,
-      billingEnabled,
+      billingEnabled: billingGate.billingEnabled,
       data: billingData,
     })
   } catch (error) {

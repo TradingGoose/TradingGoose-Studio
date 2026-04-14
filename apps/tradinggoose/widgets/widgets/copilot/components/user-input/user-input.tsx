@@ -27,7 +27,7 @@ import {
   Paperclip,
   Send,
   Shapes,
-  Shield,
+  ShieldAlert,
   ShieldCheck,
   SquareChevronRight,
   Workflow,
@@ -254,7 +254,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Use controlled value if provided, otherwise use internal state
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
 
     // Load workflows on mount if we have a workflowId
     useEffect(() => {
@@ -638,11 +638,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             prev.map((f) =>
               f.id === tempFile.id
                 ? {
-                    ...f,
-                    path: presignedData.fileInfo.path,
-                    key: presignedData.fileInfo.key, // Store the actual storage key
-                    uploading: false,
-                  }
+                  ...f,
+                  path: presignedData.fileInfo.path,
+                  key: presignedData.fileInfo.key, // Store the actual storage key
+                  uploading: false,
+                }
                 : f
             )
           )
@@ -738,25 +738,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const aggregatedList =
           !openSubmenuFor && mainQ.length > 0
             ? [
-                ...workflowBlocks
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
-                ...workflows
-                  .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
-                  .map((w) => ({ type: 'Workflows' as const, value: w })),
-                ...blocksList
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Blocks' as const, value: b })),
-                ...knowledgeBases
-                  .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
-                  .map((k) => ({ type: 'Knowledge' as const, value: k })),
-                ...templatesList
-                  .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
-                  .map((t) => ({ type: 'Templates' as const, value: t })),
-                ...pastChats
-                  .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
-                  .map((c) => ({ type: 'Chats' as const, value: c })),
-              ]
+              ...workflowBlocks
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
+              ...workflows
+                .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
+                .map((w) => ({ type: 'Workflows' as const, value: w })),
+              ...blocksList
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Blocks' as const, value: b })),
+              ...knowledgeBases
+                .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
+                .map((k) => ({ type: 'Knowledge' as const, value: k })),
+              ...templatesList
+                .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
+                .map((t) => ({ type: 'Templates' as const, value: t })),
+              ...pastChats
+                .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
+                .map((c) => ({ type: 'Chats' as const, value: c })),
+            ]
             : []
 
         if (openSubmenuFor === 'Chats' && pastChats.length > 0) {
@@ -1723,9 +1723,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const getAccessLevelIcon = () => {
       if (accessLevel === 'full') {
-        return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+        return <ShieldAlert className='h-3 w-3 text-muted-foreground' />
       }
-      return <Shield className='h-3 w-3 text-muted-foreground' />
+      return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
     }
 
     const getAccessLevelText = () => {
@@ -2103,7 +2103,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -3246,7 +3246,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <Shield className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Limited
                             </span>
                             {accessLevel === 'limited' && (
@@ -3273,7 +3273,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Full
                             </span>
                             {accessLevel === 'full' && (
@@ -3303,7 +3303,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   (isBrainModel || isBrainCircuitModel || isFastModel) && !agentPrefetch
 
                 return (
-                  <DropdownMenu onOpenChange={() => {}}>
+                  <DropdownMenu onOpenChange={() => { }}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant='ghost'

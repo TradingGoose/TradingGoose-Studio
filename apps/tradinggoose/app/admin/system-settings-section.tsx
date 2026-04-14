@@ -28,6 +28,7 @@ import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
 const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
   registrationMode: 'open',
   billingEnabled: false,
+  stripeConfigured: false,
   billingReady: false,
   triggerDevEnabled: false,
   triggerReady: false,
@@ -111,8 +112,8 @@ export function AdminSystemSettingsSection() {
             </div>
             <CardTitle className='text-sm'>Platform controls</CardTitle>
             <CardDescription>
-              Manage the global app-owned settings that control registration, billing behavior, and
-              platform sender identity.
+              Manage the global app-owned settings that control registration, supported platform
+              behavior, and sender identity.
             </CardDescription>
           </div>
           <div className='hidden items-center gap-3 rounded-md border bg-background px-3 py-1.5 xl:flex'>
@@ -122,24 +123,30 @@ export function AdminSystemSettingsSection() {
                 {settings.registrationMode}
               </span>
             </div>
-            <div className='flex items-baseline gap-1 whitespace-nowrap'>
-              <span className='text-[11px] text-muted-foreground'>Billing</span>
-              <span className='font-medium text-[11px] text-foreground'>
-                {settings.billingEnabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
-            <div className='flex items-baseline gap-1 whitespace-nowrap'>
-              <span className='text-[11px] text-muted-foreground'>Promo Codes</span>
-              <span className='font-medium text-[11px] text-foreground'>
-                {settings.allowPromotionCodes ? 'Allowed' : 'Blocked'}
-              </span>
-            </div>
-            <div className='flex items-baseline gap-1 whitespace-nowrap'>
-              <span className='text-[11px] text-muted-foreground'>Trigger.dev</span>
-              <span className='font-medium text-[11px] text-foreground'>
-                {settings.triggerDevEnabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
+            {settings.stripeConfigured ? (
+              <>
+                <div className='flex items-baseline gap-1 whitespace-nowrap'>
+                  <span className='text-[11px] text-muted-foreground'>Billing</span>
+                  <span className='font-medium text-[11px] text-foreground'>
+                    {settings.billingEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <div className='flex items-baseline gap-1 whitespace-nowrap'>
+                  <span className='text-[11px] text-muted-foreground'>Promo Codes</span>
+                  <span className='font-medium text-[11px] text-foreground'>
+                    {settings.allowPromotionCodes ? 'Allowed' : 'Blocked'}
+                  </span>
+                </div>
+              </>
+            ) : null}
+            {settings.triggerReady ? (
+              <div className='flex items-baseline gap-1 whitespace-nowrap'>
+                <span className='text-[11px] text-muted-foreground'>Trigger.dev</span>
+                <span className='font-medium text-[11px] text-foreground'>
+                  {settings.triggerDevEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </CardHeader>
@@ -169,8 +176,8 @@ export function AdminSystemSettingsSection() {
               <div className='space-y-1'>
                 <p className='font-medium text-sm'>Access controls</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Registration mode drives public signups, while billing flags control paid flows
-                  and execution behavior.
+                  Registration mode drives public signups. Billing and background execution
+                  controls appear here only when their deployment-owned configuration is present.
                 </p>
               </div>
 
@@ -195,56 +202,51 @@ export function AdminSystemSettingsSection() {
                 </div>
               </div>
 
-              <div className='space-y-3 rounded-md border border-border/60 bg-muted/20 px-3 py-3'>
-                {!settings.billingReady ? (
-                  <Alert>
-                    <AlertDescription>
-                      Billing stays disabled until an active public default user tier exists. You
-                      can keep the default tier in draft while editing, then activate it and turn
-                      billing back on here.
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <SettingSwitch
-                  id='billing-enabled'
-                  label='Billing enabled'
-                  hint={
-                    settings.billingReady
-                      ? 'Turns paid billing flows on across the platform.'
-                      : 'Requires an active public default user tier before billing can be enabled.'
-                  }
-                  checked={settings.billingEnabled}
-                  disabled={!settings.billingReady}
-                  onCheckedChange={(checked) => updateField('billingEnabled', checked)}
-                />
-                <SettingSwitch
-                  id='allow-promotion-codes'
-                  label='Allow promotion codes'
-                  hint='Controls whether promo codes are allowed during checkout.'
-                  checked={settings.allowPromotionCodes}
-                  onCheckedChange={(checked) => updateField('allowPromotionCodes', checked)}
-                />
-                {!settings.triggerReady ? (
-                  <Alert>
-                    <AlertDescription>
-                      Trigger.dev stays disabled until both `TRIGGER_PROJECT_ID` and
-                      `TRIGGER_SECRET_KEY` are configured in the deployment environment.
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <SettingSwitch
-                  id='trigger-dev-enabled'
-                  label='Trigger.dev enabled'
-                  hint={
-                    settings.triggerReady
-                      ? 'Routes supported async jobs through Trigger.dev instead of direct in-process execution.'
-                      : 'Requires Trigger.dev project credentials in the deployment environment.'
-                  }
-                  checked={settings.triggerDevEnabled}
-                  disabled={!settings.triggerReady}
-                  onCheckedChange={(checked) => updateField('triggerDevEnabled', checked)}
-                />
-              </div>
+              {settings.stripeConfigured || settings.triggerReady ? (
+                <div className='space-y-3 rounded-md border border-border/60 bg-muted/20 px-3 py-3'>
+                  {settings.stripeConfigured ? (
+                    <>
+                      {!settings.billingReady ? (
+                        <Alert>
+                          <AlertDescription>
+                            Billing stays disabled until an active public default user tier exists.
+                            You can keep the default tier in draft while editing, then activate it
+                            and turn billing back on here.
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                      <SettingSwitch
+                        id='billing-enabled'
+                        label='Billing enabled'
+                        hint={
+                          settings.billingReady
+                            ? 'Turns paid billing flows on across the platform.'
+                            : 'Requires an active public default user tier before billing can be enabled.'
+                        }
+                        checked={settings.billingEnabled}
+                        disabled={!settings.billingReady}
+                        onCheckedChange={(checked) => updateField('billingEnabled', checked)}
+                      />
+                      <SettingSwitch
+                        id='allow-promotion-codes'
+                        label='Allow promotion codes'
+                        hint='Controls whether promo codes are allowed during checkout.'
+                        checked={settings.allowPromotionCodes}
+                        onCheckedChange={(checked) => updateField('allowPromotionCodes', checked)}
+                      />
+                    </>
+                  ) : null}
+                  {settings.triggerReady ? (
+                    <SettingSwitch
+                      id='trigger-dev-enabled'
+                      label='Trigger.dev enabled'
+                      hint='Routes supported async jobs through Trigger.dev instead of direct in-process execution.'
+                      checked={settings.triggerDevEnabled}
+                      onCheckedChange={(checked) => updateField('triggerDevEnabled', checked)}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>

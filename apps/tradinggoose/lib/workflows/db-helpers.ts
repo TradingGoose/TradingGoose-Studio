@@ -18,13 +18,20 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import type { Variable } from '@/stores/variables/types'
-import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
+import type {
+  BlockState,
+  Loop,
+  Parallel,
+  WorkflowDirection,
+  WorkflowState,
+} from '@/stores/workflows/workflow/types'
 import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
@@ -75,6 +82,7 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 }
 
 export type PersistedWorkflowState = {
+  direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
   loops: Record<string, any>
@@ -217,6 +225,12 @@ export async function loadWorkflowStateWithFallback(
   }
 
   return {
+    direction: normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
+      ? inferMermaidDirectionFromWorkflowState({
+          blocks: normalizedData.blocks,
+          edges: normalizedData.edges,
+        })
+      : undefined,
     blocks: normalizedData.blocks,
     edges: normalizedData.edges,
     loops: normalizedData.loops,

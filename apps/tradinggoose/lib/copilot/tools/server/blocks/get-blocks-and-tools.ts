@@ -17,9 +17,9 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
     logger.debug('Executing get_blocks_and_tools')
 
     type BlockListItem = {
-      type: string
-      name: string
-      description?: string
+      blockType: string
+      blockName: string
+      blockDescription?: string
       triggerAllowed?: boolean
     }
     const blocks: BlockListItem[] = []
@@ -28,9 +28,9 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
       .filter(([, blockConfig]: [string, BlockConfig]) => !blockConfig.hideFromToolbar)
       .forEach(([blockType, blockConfig]: [string, BlockConfig]) => {
         blocks.push({
-          type: blockType,
-          name: blockConfig.name,
-          description: blockConfig.longDescription,
+          blockType,
+          blockName: blockConfig.name,
+          blockDescription: blockConfig.longDescription,
           triggerAllowed: 'triggerAllowed' in blockConfig ? !!blockConfig.triggerAllowed : false,
         })
       })
@@ -47,11 +47,11 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
       },
     }
     Object.entries(specialBlocks).forEach(([blockType, info]) => {
-      if (!blocks.some((b) => b.type === blockType)) {
+      if (!blocks.some((b) => b.blockType === blockType)) {
         blocks.push({
-          type: blockType,
-          name: info.name,
-          description: info.description,
+          blockType,
+          blockName: info.name,
+          blockDescription: info.description,
         })
       }
     })

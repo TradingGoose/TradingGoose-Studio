@@ -47,7 +47,7 @@ const McpServerDocumentSchema = z.object({
   enabled: z.boolean(),
 })
 
-const EntityDocumentSchemas = {
+export const EntityDocumentSchemas = {
   skill: SkillDocumentSchema,
   custom_tool: CustomToolDocumentSchema,
   indicator: IndicatorDocumentSchema,
@@ -127,6 +127,10 @@ function normalizeEntityFields(
 
 export function getEntityDocumentFormat(kind: EntityDocumentKind): string {
   return ENTITY_DOCUMENT_FORMATS[kind]
+}
+
+export function getEntityDocumentSchema<K extends EntityDocumentKind>(kind: K) {
+  return EntityDocumentSchemas[kind]
 }
 
 export function parseEntityDocument<K extends EntityDocumentKind>(

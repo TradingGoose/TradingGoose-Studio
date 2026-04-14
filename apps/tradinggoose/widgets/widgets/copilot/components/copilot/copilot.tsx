@@ -14,20 +14,21 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
 import { areCopilotContextsEqual } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { ChatContext } from '@/stores/copilot/types'
+import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
+import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
 const logger = createLogger('Copilot')
+const COPILOT_MESSAGE_VIEWPORT_CLASSNAME = '[&>div]:!block [&>div]:!min-w-0 [&>div]:!w-full'
 
 interface CopilotProps {
   panelWidth: number
@@ -41,14 +42,7 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  (
-    {
-      panelWidth,
-      channelId,
-      pairColor = 'gray',
-    },
-    ref
-  ) => {
+  ({ panelWidth, channelId, pairColor = 'gray' }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [isInitialized, setIsInitialized] = useState(false)
@@ -429,7 +423,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
     }, [])
 
-
     return (
       <>
         <div className='flex h-full flex-col overflow-hidden'>
@@ -445,14 +438,16 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             <>
               {/* Messages area */}
               <div className='relative flex-1 overflow-hidden'>
-                <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
-                  <div className='w-full max-w-full space-y-2 overflow-hidden'>
+                <ScrollArea
+                  ref={scrollAreaRef}
+                  className='h-full'
+                  viewportClassName={COPILOT_MESSAGE_VIEWPORT_CLASSNAME}
+                  hideScrollbar={true}
+                >
+                  <div className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'>
                     {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
                       <div className='flex h-full items-center justify-center p-4'>
-                        <CopilotWelcome
-                          onQuestionClick={handleSubmit}
-                          accessLevel={accessLevel}
-                        />
+                        <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
                       </div>
                     ) : (
                       messages.map((message, index) => {
@@ -461,9 +456,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
                         // Dim messages after the one being edited
                         if (editingMessageId) {
-                          const editingIndex = messages.findIndex(
-                            (m) => m.id === editingMessageId
-                          )
+                          const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
                           isDimmed = editingIndex !== -1 && index > editingIndex
                         }
 
