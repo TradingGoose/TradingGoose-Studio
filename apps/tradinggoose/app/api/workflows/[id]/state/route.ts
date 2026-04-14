@@ -105,6 +105,7 @@ const ParallelSchema = z.object({
 })
 
 const WorkflowStateSchema = z.object({
+  direction: z.enum(['TD', 'LR']).optional(),
   blocks: z.record(BlockStateSchema),
   edges: z.array(EdgeSchema),
   loops: z.record(LoopSchema).optional(),
@@ -196,6 +197,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     )
 
     const workflowState = {
+      ...(state.direction !== undefined ? { direction: state.direction } : {}),
       blocks: filteredBlocks,
       edges: state.edges,
       loops: state.loops || {},

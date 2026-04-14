@@ -48,6 +48,7 @@ import {
   readWorkflowTextFieldValue,
   replaceWorkflowTextField,
   getVariablesMap,
+  createWorkflowSnapshot,
   getWorkflowSnapshot,
   setWorkflowState,
   type WorkflowSnapshot,
@@ -1397,8 +1398,11 @@ export function useWorkflowDoc() {
 
     // Compat: methods that still exist on the type but map to Yjs
     getWorkflowState: (): WorkflowState => {
-      if (!session?.doc) return { blocks: {}, edges: [], loops: {}, parallels: {} }
-      return getWorkflowSnapshot(session.doc) as any
+      if (!session?.doc) {
+        return createWorkflowSnapshot()
+      }
+
+      return getWorkflowSnapshot(session.doc)
     },
 
     triggerUpdate: () => {}, // no-op, Yjs observer handles reactivity

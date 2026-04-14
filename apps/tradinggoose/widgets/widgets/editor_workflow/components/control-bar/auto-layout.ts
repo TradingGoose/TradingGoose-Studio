@@ -38,6 +38,40 @@ export interface AutoLayoutOptions {
   }
 }
 
+function sanitizeEdgesForStateSave(edges: any[]): any[] {
+  return edges.flatMap((edge: any, index: number) => {
+    const source = typeof edge?.source === 'string' ? edge.source.trim() : ''
+    const target = typeof edge?.target === 'string' ? edge.target.trim() : ''
+
+    if (!source || !target) {
+      return []
+    }
+
+    const sourceHandle =
+      typeof edge?.sourceHandle === 'string' && edge.sourceHandle.length > 0
+        ? edge.sourceHandle
+        : undefined
+    const targetHandle =
+      typeof edge?.targetHandle === 'string' && edge.targetHandle.length > 0
+        ? edge.targetHandle
+        : undefined
+
+    return [
+      {
+        ...edge,
+        id:
+          typeof edge?.id === 'string' && edge.id.length > 0
+            ? edge.id
+            : `${source}-${sourceHandle || 'source'}-${target}-${targetHandle || 'target'}-${index}`,
+        source,
+        target,
+        ...(sourceHandle ? { sourceHandle } : {}),
+        ...(targetHandle ? { targetHandle } : {}),
+      },
+    ]
+  })
+}
+
 /**
  * Apply auto layout to workflow blocks and update the store
  */
@@ -269,18 +303,7 @@ export async function applyAutoLayoutAndUpdateStore({
         // Ensure other optional fields are properly handled
         loops: stateToSave.loops || {},
         parallels: stateToSave.parallels || {},
-        // Sanitize edges: remove null/empty handle fields to satisfy schema (optional strings)
-        edges: (stateToSave.edges || []).map((edge: any) => {
-          const { sourceHandle, targetHandle, ...rest } = edge || {}
-          const sanitized: any = { ...rest }
-          if (typeof sourceHandle === 'string' && sourceHandle.length > 0) {
-            sanitized.sourceHandle = sourceHandle
-          }
-          if (typeof targetHandle === 'string' && targetHandle.length > 0) {
-            sanitized.targetHandle = targetHandle
-          }
-          return sanitized
-        }),
+        edges: sanitizeEdgesForStateSave(stateToSave.edges || []),
       }
 
       // Save the updated workflow state to the database

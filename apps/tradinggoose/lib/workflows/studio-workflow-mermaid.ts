@@ -1,14 +1,13 @@
 import type { Edge } from 'reactflow'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
+import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
+import type { BlockState, Loop, Parallel, WorkflowDirection } from '@/stores/workflows/workflow/types'
 
 export const TG_MERMAID_DOCUMENT_FORMAT = 'tg-mermaid-v1' as const
 
-type MermaidDirection = 'TD' | 'LR'
-
 type WorkflowDocumentMetadata = {
   version: typeof TG_MERMAID_DOCUMENT_FORMAT
-  direction: MermaidDirection
+  direction: WorkflowDirection
   lastSaved?: string
   isDeployed?: boolean
   deployedAt?: string
@@ -40,6 +39,17 @@ type ConditionBranchOverlay = {
 type ParsedMermaidLabelOverlays = {
   blocks: Map<string, MermaidLabelOverlay>
   conditionBranches: Map<string, ConditionEntry[]>
+}
+
+type VisibleNodeRef =
+  | { kind: 'block'; blockId: string }
+  | { kind: 'condition-branch'; blockId: string; sourceHandle: string }
+  | { kind: 'container-start'; blockId: string; blockType: 'loop' | 'parallel' }
+  | { kind: 'container-end'; blockId: string; blockType: 'loop' | 'parallel' }
+
+type ParsedVisibleWorkflowEdges = {
+  edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
+  preferredBlockNodeIds: Map<string, string>
 }
 
 const COMMENT_PREFIX = '%% '
@@ -85,6 +95,30 @@ function unescapeMermaidLabel(value: string): string {
 
 function buildAliasMap(blockIds: string[]): Map<string, string> {
   return new Map(blockIds.map((blockId, index) => [blockId, `n${index + 1}`]))
+}
+
+function resolveBlockIdFromVisibleNodeId(
+  nodeId: string,
+  knownBlockIds: Set<string>,
+  aliasToBlockId: Map<string, string>
+): string | undefined {
+  return aliasToBlockId.get(nodeId) ?? (knownBlockIds.has(nodeId) ? nodeId : undefined)
+}
+
+function parseRectNodeLine(
+  line: string
+): { nodeId: string; label: string } | null {
+  const rectMatch = line.match(/^([A-Za-z0-9_]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
+  const label = rectMatch?.[2] ?? rectMatch?.[3]
+
+  if (!rectMatch?.[1] || !label) {
+    return null
+  }
+
+  return {
+    nodeId: rectMatch[1],
+    label,
+  }
 }
 
 function getChildrenByParent(blocks: Record<string, BlockState>): Map<string, string[]> {
@@ -315,6 +349,21 @@ function buildConditionHandleId(blockId: string, key: string): string {
   return `condition-${blockId}-${key}`
 }
 
+function buildStableEdgeId(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+): string {
+  const sourceHandle =
+    !edge.sourceHandle || edge.sourceHandle === 'source' || edge.sourceHandle === 'output'
+      ? 'source'
+      : edge.sourceHandle
+  const targetHandle =
+    !edge.targetHandle || edge.targetHandle === 'target' || edge.targetHandle === 'input'
+      ? 'target'
+      : edge.targetHandle
+
+  return `${edge.source}-${sourceHandle}-${edge.target}-${targetHandle}`
+}
+
 function buildConditionBranchLabelLines(blockId: string, entry: ConditionEntry): string[] {
   const lines = [entry.key, `id: ${buildConditionHandleId(blockId, entry.key)}`]
   if (entry.value.trim().length > 0) {
@@ -424,9 +473,10 @@ function extractConditionDisplayKey(blockId: string, sourceHandle: string | null
 function resolveVisibleSourceNodeId(
   edge: Edge,
   blocks: Record<string, BlockState>,
+  preferredBlockNodeIds: Map<string, string>,
   aliases: Map<string, string>
 ): string | null {
-  const sourceAlias = aliases.get(edge.source)
+  const sourceAlias = preferredBlockNodeIds.get(edge.source) ?? aliases.get(edge.source)
   const sourceBlock = blocks[edge.source]
 
   if (!sourceAlias || !sourceBlock) {
@@ -464,9 +514,10 @@ function resolveVisibleSourceNodeId(
 function resolveVisibleTargetNodeId(
   edge: Edge,
   blocks: Record<string, BlockState>,
+  preferredBlockNodeIds: Map<string, string>,
   aliases: Map<string, string>
 ): string | null {
-  const targetAlias = aliases.get(edge.target)
+  const targetAlias = preferredBlockNodeIds.get(edge.target) ?? aliases.get(edge.target)
   const targetBlock = blocks[edge.target]
 
   if (!targetAlias || !targetBlock) {
@@ -525,10 +576,11 @@ function resolveVisibleEdgeLabel(edge: Edge, blocks: Record<string, BlockState>)
 function emitEdgeGraphLine(
   edge: Edge,
   blocks: Record<string, BlockState>,
+  preferredBlockNodeIds: Map<string, string>,
   aliases: Map<string, string>
 ): string | null {
-  const sourceNodeId = resolveVisibleSourceNodeId(edge, blocks, aliases)
-  const targetNodeId = resolveVisibleTargetNodeId(edge, blocks, aliases)
+  const sourceNodeId = resolveVisibleSourceNodeId(edge, blocks, preferredBlockNodeIds, aliases)
+  const targetNodeId = resolveVisibleTargetNodeId(edge, blocks, preferredBlockNodeIds, aliases)
 
   if (!sourceNodeId || !targetNodeId) {
     return null
@@ -730,9 +782,9 @@ function parseMermaidLabelOverlays(
       continue
     }
 
-    const rectMatch = trimmed.match(/^[A-Za-z0-9_]+\["(.*)"\]$/)
-    if (rectMatch?.[1]) {
-      const conditionOverlay = parseConditionBranchOverlayFromLabel(rectMatch[1], knownBlockIds)
+    const rectNode = parseRectNodeLine(trimmed)
+    if (rectNode) {
+      const conditionOverlay = parseConditionBranchOverlayFromLabel(rectNode.label, knownBlockIds)
       if (conditionOverlay) {
         const entries = conditionBranches.get(conditionOverlay.blockId) ?? []
         entries.push({ key: conditionOverlay.key, value: conditionOverlay.value })
@@ -740,7 +792,7 @@ function parseMermaidLabelOverlays(
         continue
       }
 
-      const overlay = parseOverlayFromLabel(rectMatch[1])
+      const overlay = parseOverlayFromLabel(rectNode.label)
       if (overlay) {
         blocks.set(overlay.id, overlay)
       }
@@ -757,6 +809,258 @@ function parseMermaidLabelOverlays(
   }
 
   return { blocks, conditionBranches }
+}
+
+function parseVisibleEdgeLabel(
+  rawLabel: string
+): { sourceHandle: string; targetHandle: string } | null {
+  const label = unescapeMermaidLabel(rawLabel).trim()
+  const separator = ' -> '
+  const separatorIndex = label.indexOf(separator)
+  if (separatorIndex === -1) {
+    return null
+  }
+
+  const sourceHandle = label.slice(0, separatorIndex).trim()
+  const targetHandle = label.slice(separatorIndex + separator.length).trim()
+
+  if (!sourceHandle || !targetHandle) {
+    return null
+  }
+
+  return { sourceHandle, targetHandle }
+}
+
+function getDefaultVisibleSourceHandle(nodeRef: VisibleNodeRef): string {
+  switch (nodeRef.kind) {
+    case 'condition-branch':
+      return nodeRef.sourceHandle
+    case 'container-start':
+      return `${nodeRef.blockType}-start-source`
+    case 'container-end':
+      return `${nodeRef.blockType}-end-source`
+    case 'block':
+    default:
+      return 'source'
+  }
+}
+
+function getDefaultVisibleTargetHandle(nodeRef: VisibleNodeRef): string {
+  switch (nodeRef.kind) {
+    case 'container-end':
+      return `${nodeRef.blockType}-end-target`
+    case 'block':
+    case 'condition-branch':
+    case 'container-start':
+    default:
+      return 'target'
+  }
+}
+
+function toComparableEdgeKey(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+): string {
+  const sourceHandle =
+    !edge.sourceHandle || edge.sourceHandle === 'source' || edge.sourceHandle === 'output'
+      ? 'source'
+      : edge.sourceHandle
+  const targetHandle =
+    !edge.targetHandle || edge.targetHandle === 'target' || edge.targetHandle === 'input'
+      ? 'target'
+      : edge.targetHandle
+
+  return `${edge.source}:${sourceHandle}->${edge.target}:${targetHandle}`
+}
+
+function parseVisibleWorkflowEdges(
+  document: string,
+  knownBlockIds: string[]
+): ParsedVisibleWorkflowEdges {
+  const nodeRefs = new Map<string, VisibleNodeRef>()
+  const aliasToBlockId = new Map<string, string>()
+  const preferredBlockNodeIds = new Map<string, string>()
+  const knownBlockIdSet = new Set(knownBlockIds)
+
+  for (const rawLine of document.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+
+    const subgraphMatch = trimmed.match(/^subgraph\s+(sg_[A-Za-z0-9_]+)\["(.*)"\]$/)
+    if (subgraphMatch?.[1] && subgraphMatch[2]) {
+      const overlay = parseOverlayFromLabel(subgraphMatch[2])
+      if (overlay) {
+        const nodeId = subgraphMatch[1].slice(3)
+        aliasToBlockId.set(nodeId, overlay.id)
+        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id })
+        if (!preferredBlockNodeIds.has(overlay.id)) {
+          preferredBlockNodeIds.set(overlay.id, nodeId)
+        }
+      }
+      continue
+    }
+
+    const rectNode = parseRectNodeLine(trimmed)
+    if (rectNode) {
+      const nodeId = rectNode.nodeId
+      const conditionOverlay = parseConditionBranchOverlayFromLabel(rectNode.label, knownBlockIds)
+      if (conditionOverlay) {
+        nodeRefs.set(nodeId, {
+          kind: 'condition-branch',
+          blockId: conditionOverlay.blockId,
+          sourceHandle: buildConditionHandleId(conditionOverlay.blockId, conditionOverlay.key),
+        })
+        continue
+      }
+
+      const directBlockId = resolveBlockIdFromVisibleNodeId(nodeId, knownBlockIdSet, aliasToBlockId)
+      if (directBlockId) {
+        nodeRefs.set(nodeId, { kind: 'block', blockId: directBlockId })
+        if (!preferredBlockNodeIds.has(directBlockId)) {
+          preferredBlockNodeIds.set(directBlockId, nodeId)
+        }
+        continue
+      }
+
+      const overlay = parseOverlayFromLabel(rectNode.label)
+      if (overlay) {
+        aliasToBlockId.set(nodeId, overlay.id)
+        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id })
+        if (!preferredBlockNodeIds.has(overlay.id)) {
+          preferredBlockNodeIds.set(overlay.id, nodeId)
+        }
+        continue
+      }
+
+      const containerMatch = nodeId.match(/^([A-Za-z0-9_]+)__(loop|parallel)_(start|end)$/)
+      if (containerMatch?.[1] && containerMatch[2] && containerMatch[3]) {
+        const blockId = resolveBlockIdFromVisibleNodeId(
+          containerMatch[1],
+          knownBlockIdSet,
+          aliasToBlockId
+        )
+        const blockType = containerMatch[2] as 'loop' | 'parallel'
+        if (blockId) {
+          nodeRefs.set(nodeId, {
+            kind: containerMatch[3] === 'start' ? 'container-start' : 'container-end',
+            blockId,
+            blockType,
+          })
+        }
+      }
+      continue
+    }
+
+    const diamondMatch = trimmed.match(/^([A-Za-z0-9_]+)\{"(.*)"\}$/)
+    if (diamondMatch?.[1] && diamondMatch[2]) {
+      const overlay = parseOverlayFromLabel(diamondMatch[2])
+      if (overlay) {
+        aliasToBlockId.set(diamondMatch[1], overlay.id)
+        nodeRefs.set(diamondMatch[1], { kind: 'block', blockId: overlay.id })
+        if (!preferredBlockNodeIds.has(overlay.id)) {
+          preferredBlockNodeIds.set(overlay.id, diamondMatch[1])
+        }
+      }
+    }
+  }
+
+  const visibleEdges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>> = []
+
+  for (const rawLine of document.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+    const edgeMatch = trimmed.match(
+      /^([A-Za-z0-9_]+)\s*(?:--\s*"((?:\\"|[^"])*)"\s*)?-->\s*([A-Za-z0-9_]+)$/
+    )
+    if (!edgeMatch?.[1] || !edgeMatch[3]) {
+      continue
+    }
+
+    const sourceRef = nodeRefs.get(edgeMatch[1])
+    const targetRef = nodeRefs.get(edgeMatch[3])
+    if (!sourceRef || !targetRef) {
+      continue
+    }
+
+    if (
+      sourceRef.kind === 'block' &&
+      targetRef.kind === 'condition-branch' &&
+      sourceRef.blockId === targetRef.blockId
+    ) {
+      continue
+    }
+
+    const parsedLabel = edgeMatch[2] ? parseVisibleEdgeLabel(edgeMatch[2]) : null
+    const sourceHandle = parsedLabel?.sourceHandle ?? getDefaultVisibleSourceHandle(sourceRef)
+    const targetHandle = parsedLabel?.targetHandle ?? getDefaultVisibleTargetHandle(targetRef)
+
+    visibleEdges.push({
+      source: sourceRef.blockId,
+      target: targetRef.blockId,
+      ...(sourceHandle === 'source' ? {} : { sourceHandle }),
+      ...(targetHandle === 'target' ? {} : { targetHandle }),
+    })
+  }
+
+  return {
+    edges: visibleEdges,
+    preferredBlockNodeIds,
+  }
+}
+
+function assertVisibleEdgesMatchCanonical(
+  document: string,
+  blocks: Record<string, BlockState>,
+  edges: Edge[]
+): void {
+  const { edges: visibleEdges, preferredBlockNodeIds } = parseVisibleWorkflowEdges(
+    document,
+    Object.keys(blocks)
+  )
+  const visibleEdgeKeys = new Set(visibleEdges.map(toComparableEdgeKey))
+  const canonicalEdgeKeys = new Set(edges.map(toComparableEdgeKey))
+
+  if (visibleEdgeKeys.size === 0 && canonicalEdgeKeys.size === 0) {
+    return
+  }
+
+  const missingCanonical = [...visibleEdgeKeys].filter((key) => !canonicalEdgeKeys.has(key))
+  const missingVisible = [...canonicalEdgeKeys].filter((key) => !visibleEdgeKeys.has(key))
+  const canonicalEdgeByKey = new Map(edges.map((edge) => [toComparableEdgeKey(edge), edge] as const))
+  const aliases = buildAliasMap(Object.keys(blocks))
+
+  if (missingCanonical.length === 0 && missingVisible.length === 0) {
+    return
+  }
+
+  if (canonicalEdgeKeys.size === 0 && visibleEdgeKeys.size > 0) {
+    throw new Error(
+      'Workflow document contains Mermaid connection lines but no TG_EDGE entries. Every visible workflow connection must have a matching TG_EDGE payload.'
+    )
+  }
+
+  const detailParts: string[] = []
+  if (missingCanonical.length > 0) {
+    detailParts.push(`missing TG_EDGE entries for ${missingCanonical.slice(0, 3).join(', ')}`)
+  }
+  if (missingVisible.length > 0) {
+    detailParts.push(`missing visible connection lines for ${missingVisible.slice(0, 3).join(', ')}`)
+    const expectedVisibleLines = missingVisible
+      .map((key) => canonicalEdgeByKey.get(key))
+      .filter((edge): edge is Edge => !!edge)
+      .map((edge) => emitEdgeGraphLine(edge, blocks, preferredBlockNodeIds, aliases))
+      .filter((line): line is string => typeof line === 'string' && line.trim().length > 0)
+
+    if (expectedVisibleLines.length > 0) {
+      detailParts.push(
+        `expected visible lines like ${expectedVisibleLines
+          .slice(0, 3)
+          .map((line) => `\`${line.trim()}\``)
+          .join(', ')}`
+      )
+    }
+  }
+
+  throw new Error(
+    `Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must match exactly.${detailParts.length > 0 ? ` ${detailParts.join('; ')}.` : ''}`
+  )
 }
 
 function mergeOverlayIntoBlock(
@@ -839,12 +1143,45 @@ function mergeConditionEntriesIntoBlock(
 
 function assertBlockState(value: unknown): asserts value is BlockState {
   if (!value || typeof value !== 'object') {
-    throw new Error('Invalid TG_BLOCK payload')
+    throw new Error(
+      'Invalid TG_BLOCK payload: expected object with string id and string type. Workflow documents use `type`, not `blockType`.'
+    )
   }
 
   const candidate = value as Partial<BlockState>
   if (typeof candidate.id !== 'string' || typeof candidate.type !== 'string') {
-    throw new Error('Invalid TG_BLOCK payload')
+    throw new Error(
+      'Invalid TG_BLOCK payload: expected object with string id and string type. Workflow documents use `type`, not `blockType`.'
+    )
+  }
+
+  if (typeof candidate.name !== 'string') {
+    throw new Error(
+      'Invalid TG_BLOCK payload: expected string name. Workflow documents use canonical TG_BLOCK objects, not block metadata aliases.'
+    )
+  }
+
+  if (
+    !candidate.position ||
+    typeof candidate.position !== 'object' ||
+    typeof candidate.position.x !== 'number' ||
+    typeof candidate.position.y !== 'number'
+  ) {
+    throw new Error(
+      'Invalid TG_BLOCK payload: expected position with numeric x and y values.'
+    )
+  }
+
+  if (!candidate.subBlocks || typeof candidate.subBlocks !== 'object' || Array.isArray(candidate.subBlocks)) {
+    throw new Error('Invalid TG_BLOCK payload: expected subBlocks object.')
+  }
+
+  if (!candidate.outputs || typeof candidate.outputs !== 'object' || Array.isArray(candidate.outputs)) {
+    throw new Error('Invalid TG_BLOCK payload: expected outputs object.')
+  }
+
+  if (typeof candidate.enabled !== 'boolean') {
+    throw new Error('Invalid TG_BLOCK payload: expected boolean enabled flag.')
   }
 }
 
@@ -883,9 +1220,12 @@ function assertParallel(value: unknown): asserts value is Parallel {
 
 export function serializeWorkflowToTgMermaid(
   workflowState: WorkflowSnapshot,
-  options: { direction?: MermaidDirection } = {}
+  options: { direction?: WorkflowDirection } = {}
 ): string {
-  const direction = options.direction ?? 'TD'
+  const direction =
+    options.direction ??
+    workflowState.direction ??
+    inferMermaidDirectionFromWorkflowState(workflowState)
   const blocks = workflowState.blocks ?? {}
   const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
   const aliases = buildAliasMap(blockIds)
@@ -911,7 +1251,7 @@ export function serializeWorkflowToTgMermaid(
   }
 
   for (const edge of workflowState.edges ?? []) {
-    const line = emitEdgeGraphLine(edge, blocks, aliases)
+    const line = emitEdgeGraphLine(edge, blocks, aliases, aliases)
     if (line) {
       lines.push(line)
     }
@@ -940,7 +1280,9 @@ export function serializeWorkflowToTgMermaid(
   return lines.join('\n')
 }
 
-export function parseTgMermaidToWorkflow(document: string): WorkflowSnapshot {
+export function parseTgMermaidToWorkflow(
+  document: string
+): WorkflowSnapshot & { direction: WorkflowDirection } {
   if (typeof document !== 'string' || document.trim().length === 0) {
     throw new Error('Workflow document is required')
   }
@@ -956,6 +1298,10 @@ export function parseTgMermaidToWorkflow(document: string): WorkflowSnapshot {
 
   if (metadata.version !== TG_MERMAID_DOCUMENT_FORMAT) {
     throw new Error(`Unsupported workflow document version: ${metadata.version}`)
+  }
+
+  if (metadata.direction !== 'TD' && metadata.direction !== 'LR') {
+    throw new Error('Invalid TG_WORKFLOW metadata: direction must be TD or LR')
   }
 
   const blocks: Record<string, BlockState> = {}
@@ -976,7 +1322,10 @@ export function parseTgMermaidToWorkflow(document: string): WorkflowSnapshot {
     const edge = parseCommentPayload<Edge>(line, TG_EDGE_PREFIX)
     if (edge) {
       assertEdge(edge)
-      edges.push(edge)
+      edges.push({
+        ...edge,
+        id: edge.id || buildStableEdgeId(edge),
+      })
       continue
     }
 
@@ -1013,7 +1362,10 @@ export function parseTgMermaidToWorkflow(document: string): WorkflowSnapshot {
     throw new Error('Workflow document did not contain any TG_BLOCK entries')
   }
 
+  assertVisibleEdgesMatchCanonical(document, blocks, edges)
+
   return {
+    direction: metadata.direction,
     blocks,
     edges,
     loops,

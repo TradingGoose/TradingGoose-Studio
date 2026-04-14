@@ -90,7 +90,7 @@ import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/work
 const logger = createLogger('Workflow')
 
 // Memoized ReactFlow props to prevent unnecessary re-renders
-const defaultEdgeOptions = { type: 'custom' }
+const defaultEdgeOptions = { type: 'workflowEdge' }
 const connectionLineStyle = {
   stroke: '#94a3b8',
   strokeWidth: 2,
