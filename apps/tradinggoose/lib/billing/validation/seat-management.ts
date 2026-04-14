@@ -45,11 +45,10 @@ export async function validateSeatAvailability(
 
     if (!subscription) {
       return {
-        canInvite: false,
-        reason: 'No active subscription found',
+        canInvite: true,
         currentSeats: 0,
-        maxSeats: 0,
-        availableSeats: 0,
+        maxSeats: Number.MAX_SAFE_INTEGER,
+        availableSeats: Number.MAX_SAFE_INTEGER,
       }
     }
 
@@ -63,11 +62,10 @@ export async function validateSeatAvailability(
 
     if (subscription.tier.ownerType !== 'organization') {
       return {
-        canInvite: false,
-        reason: 'Seat limits are only available for organization subscriptions',
+        canInvite: true,
         currentSeats,
-        maxSeats: 0,
-        availableSeats: 0,
+        maxSeats: Number.MAX_SAFE_INTEGER,
+        availableSeats: Number.MAX_SAFE_INTEGER,
       }
     }
 

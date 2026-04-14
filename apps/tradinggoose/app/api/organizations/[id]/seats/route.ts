@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -28,8 +28,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!(await isBillingEnabledForRuntime())) {
-      return NextResponse.json({ error: 'Billing is not enabled' }, { status: 400 })
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
     }
 
     const { id: organizationId } = await params
@@ -249,6 +249,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
     }
 
     const { id: organizationId } = await params

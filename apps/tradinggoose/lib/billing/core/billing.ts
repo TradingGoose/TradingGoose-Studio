@@ -279,12 +279,13 @@ export async function getSimplifiedBillingSummary(
         ? getOrganizationSubscription(organizationId)
         : getEffectiveSubscription(userId),
     ])
+    const exposedSubscription = billingEnabled ? subscription : null
 
     // Build a canonical tier-backed summary once and share it across the response.
     const isPaid = Boolean(
-      billingEnabled && subscription?.tier && !isFreeBillingTier(subscription.tier)
+      exposedSubscription?.tier && !isFreeBillingTier(exposedSubscription.tier)
     )
-    const tier = toBillingTierSummary(subscription?.tier)
+    const tier = toBillingTierSummary(exposedSubscription?.tier)
 
     if (organizationId) {
       // Organization billing summary
@@ -366,7 +367,7 @@ export async function getSimplifiedBillingSummary(
 
       return {
         type: 'organization',
-        id: subscription.id,
+        id: exposedSubscription?.id ?? null,
         basePrice: totalBasePrice,
         currentUsage: totalCurrentUsage,
         overageAmount: totalOverage,
@@ -378,12 +379,12 @@ export async function getSimplifiedBillingSummary(
         daysRemaining,
         // Subscription details
         isPaid,
-        status: subscription.status || null,
-        seats: licensedSeats,
-        metadata: subscription.metadata || null,
-        stripeSubscriptionId: subscription.stripeSubscriptionId || null,
-        periodEnd: subscription.periodEnd || null,
-        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd || undefined,
+        status: exposedSubscription?.status || null,
+        seats: exposedSubscription ? licensedSeats : null,
+        metadata: exposedSubscription?.metadata || null,
+        stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
+        periodEnd: exposedSubscription?.periodEnd || null,
+        cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
         tier,
         // Usage details
         usage: {
@@ -458,7 +459,7 @@ export async function getSimplifiedBillingSummary(
 
     return {
       type: 'individual',
-      id: subscription?.id ?? null,
+      id: exposedSubscription?.id ?? null,
       basePrice: effectiveBasePrice,
       currentUsage: currentUsage,
       overageAmount,
@@ -470,12 +471,12 @@ export async function getSimplifiedBillingSummary(
       daysRemaining,
       // Subscription details
       isPaid,
-      status: subscription?.status || null,
-      seats: subscription?.seats || null,
-      metadata: subscription?.metadata || null,
-      stripeSubscriptionId: subscription?.stripeSubscriptionId || null,
-      periodEnd: subscription?.periodEnd || null,
-      cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd || undefined,
+      status: exposedSubscription?.status || null,
+      seats: exposedSubscription?.seats || null,
+      metadata: exposedSubscription?.metadata || null,
+      stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
+      periodEnd: exposedSubscription?.periodEnd || null,
+      cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
       tier,
       // Usage details
       usage: {

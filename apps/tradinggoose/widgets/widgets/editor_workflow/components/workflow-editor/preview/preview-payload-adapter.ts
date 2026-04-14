@@ -38,6 +38,19 @@ export type PreviewPayloadAdapterResult = {
   edges: Edge[]
 }
 
+function buildPreviewEdgeId(edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>): string {
+  const sourceHandle =
+    !edge.sourceHandle || edge.sourceHandle === 'source' || edge.sourceHandle === 'output'
+      ? 'source'
+      : edge.sourceHandle
+  const targetHandle =
+    !edge.targetHandle || edge.targetHandle === 'target' || edge.targetHandle === 'input'
+      ? 'target'
+      : edge.targetHandle
+
+  return `${edge.source}-${sourceHandle}-${edge.target}-${targetHandle}`
+}
+
 function calculateAbsolutePosition(
   block: BlockState,
   blocks: Record<string, BlockState>
@@ -116,6 +129,7 @@ export function adaptPreviewPayloadToCanvas(
 
   const edges = (workflowState.edges || []).map((edge) => ({
     ...edge,
+    id: edge.id || buildPreviewEdgeId(edge),
     type: edge.type || 'workflowEdge',
   }))
 

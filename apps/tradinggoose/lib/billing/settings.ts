@@ -1,11 +1,15 @@
 import { db } from '@tradinggoose/db'
 import { systemBillingSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
+import { hasStripeSecretKey } from '@/lib/system-services/stripe-runtime'
 import { getDefaultBillingTier } from '@/lib/billing/tiers'
 import { getSystemSettingsRecord, resolveSystemSettingsFlags } from '@/lib/system-settings/service'
 
 type BillingSettingsRecord = typeof systemBillingSettings.$inferSelect
 export const GLOBAL_BILLING_SETTINGS_ID = 'global'
+export const ADMIN_BILLING_UNAVAILABLE_ERROR =
+  'Billing admin is unavailable until STRIPE_SECRET_KEY is configured.'
+export const BILLING_DISABLED_ERROR = 'Billing is not enabled.'
 
 export const DEFAULT_BILLING_SETTINGS = {
   onboardingAllowanceUsd: 0,
@@ -36,6 +40,7 @@ export async function getResolvedBillingSettings() {
     getSystemSettingsRecord(),
   ])
   const systemFlags = resolveSystemSettingsFlags(systemSettings)
+  const stripeConfigured = hasStripeSecretKey()
   const parsedOverageThreshold = Number.parseFloat(
     settings?.overageThresholdDollars?.toString() ?? ''
   )
@@ -51,7 +56,8 @@ export async function getResolvedBillingSettings() {
 
   return {
     settings,
-    billingEnabled: systemFlags.billingEnabled,
+    billingEnabled: systemFlags.billingEnabled && stripeConfigured,
+    stripeConfigured,
     onboardingAllowanceUsd:
       Number.isFinite(parsedOnboardingAllowance) && parsedOnboardingAllowance >= 0
         ? parsedOnboardingAllowance
@@ -79,7 +85,16 @@ export async function getResolvedBillingSettings() {
   }
 }
 
+export async function getBillingGateState() {
+  const { billingEnabled, stripeConfigured } = await getResolvedBillingSettings()
+
+  return {
+    billingEnabled,
+    stripeConfigured,
+  }
+}
+
 export async function isBillingEnabledForRuntime(): Promise<boolean> {
-  const { billingEnabled } = await getResolvedBillingSettings()
+  const { billingEnabled } = await getBillingGateState()
   return billingEnabled
 }

@@ -66,6 +66,28 @@ interface PersistChatMessagesResult {
   savedAssistantMessage: boolean
 }
 
+async function lockReviewSessionForHistoryMutation(tx: any, reviewSessionId: string) {
+  await tx
+    .update(copilotReviewSessions)
+    .set({
+      updatedAt: new Date(),
+    })
+    .where(eq(copilotReviewSessions.id, reviewSessionId))
+}
+
+function getPersistedReviewMessageId(message: ReviewMessageApi | Record<string, unknown>): string {
+  if (typeof message.id === 'string') {
+    return message.id
+  }
+
+  const itemId = (message as Record<string, unknown>).itemId
+  if (typeof itemId === 'string') {
+    return itemId
+  }
+
+  return ''
+}
+
 // Generic copilot chats are grouped by widget panel channel + workspace for
 // history lists. Creating a new generic chat inserts a fresh session unless a
 // specific reviewSessionId is explicitly supplied by the client.
@@ -87,14 +109,10 @@ async function persistChatMessages(params: {
     (Array.isArray(params.toolCalls) && params.toolCalls.length > 0)
 
   await db.transaction(async (tx) => {
-    // Serialize append operations per session so sequence numbers are derived
-    // from the latest committed ledger, not from the pre-request snapshot.
-    await tx
-      .update(copilotReviewSessions)
-      .set({
-        updatedAt: new Date(),
-      })
-      .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+    // Serialize history mutations per review session. The stream route appends
+    // here while the client may also POST `/update-messages` immediately after
+    // the SSE `done` event, so both paths need to contend on the same row lock.
+    await lockReviewSessionForHistoryMutation(tx, params.reviewSessionId)
 
     const currentItems = await tx
       .select()
@@ -107,6 +125,20 @@ async function persistChatMessages(params: {
       )
       .orderBy(asc(copilotReviewItems.sequence))
     const currentMessages = currentItems.map(mapReviewItemToApi)
+    const hasPersistedUserMessage = currentMessages.some(
+      (message) => getPersistedReviewMessageId(message) === params.userMessageId
+    )
+
+    if (hasPersistedUserMessage) {
+      await tx
+        .update(copilotReviewSessions)
+        .set({
+          updatedAt: new Date(),
+          ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+        })
+        .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+      return
+    }
 
     const assistantMessage = hasAssistantMessage
       ? {
@@ -285,6 +317,18 @@ const ChatMessageSchema = z.object({
 /** POST /api/copilot/chat */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
+  const upstreamAbortController = new AbortController()
+  const abortUpstream = () => {
+    if (!upstreamAbortController.signal.aborted) {
+      upstreamAbortController.abort()
+    }
+  }
+
+  if (req.signal.aborted) {
+    abortUpstream()
+  } else {
+    req.signal.addEventListener('abort', abortUpstream, { once: true })
+  }
 
   try {
     const session = await getSession()
@@ -466,6 +510,7 @@ export async function POST(req: NextRequest) {
     const copilotResponse = await proxyCopilotRequest({
       endpoint: '/api/copilot',
       body: requestPayload,
+      signal: upstreamAbortController.signal,
     })
 
     if (!copilotResponse.ok) {
@@ -500,6 +545,7 @@ export async function POST(req: NextRequest) {
           }),
       }
 
+      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
       const transformedStream = new ReadableStream({
         async start(controller) {
           let assistantContent = ''
@@ -522,11 +568,15 @@ export async function POST(req: NextRequest) {
             logger.debug(`[${tracker.requestId}] Sent initial reviewSessionId event to client`)
           }
 
-          const reader = copilotResponse.body!.getReader()
+          reader = copilotResponse.body!.getReader()
           const decoder = new TextDecoder()
 
           try {
             while (true) {
+              if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+                break
+              }
+
               const { done, value } = await reader.read()
               if (done) {
                 break
@@ -745,10 +795,23 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (error) {
-            logger.error(`[${tracker.requestId}] Error processing stream:`, error)
-            controller.error(error)
+            if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+              logger.info(`[${tracker.requestId}] Copilot stream aborted by client disconnect`)
+            } else {
+              logger.error(`[${tracker.requestId}] Error processing stream:`, error)
+              controller.error(error)
+            }
           } finally {
-            controller.close()
+            reader = null
+            try {
+              controller.close()
+            } catch {}
+          }
+        },
+        cancel() {
+          abortUpstream()
+          if (reader) {
+            void reader.cancel().catch(() => {})
           }
         },
       })
@@ -838,6 +901,13 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const duration = tracker.getDuration()
 
+    if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+      logger.info(`[${tracker.requestId}] Copilot chat request aborted`, {
+        duration,
+      })
+      return new NextResponse(null, { status: 204 })
+    }
+
     if (error instanceof z.ZodError) {
       logger.error(`[${tracker.requestId}] Validation error:`, {
         duration,
@@ -859,6 +929,8 @@ export async function POST(req: NextRequest) {
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
+  } finally {
+    req.signal.removeEventListener('abort', abortUpstream)
   }
 }
 

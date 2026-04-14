@@ -2,7 +2,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import {
   type KnowledgeBaseArgs,
-  KnowledgeBaseArgsSchema,
   type KnowledgeBaseResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
@@ -14,11 +13,6 @@ import {
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 
 const logger = createLogger('KnowledgeBaseServerTool')
-
-// Re-export for backwards compatibility
-export const KnowledgeBaseInput = KnowledgeBaseArgsSchema
-export type KnowledgeBaseInputType = KnowledgeBaseArgs
-export type KnowledgeBaseResultType = KnowledgeBaseResult
 
 /**
  * Knowledge base tool for copilot to create, list, and get knowledge bases

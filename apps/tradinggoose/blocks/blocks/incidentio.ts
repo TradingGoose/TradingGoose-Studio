@@ -13,7 +13,7 @@ export const IncidentioBlock: BlockConfig<IncidentioResponse> = {
     'Integrate incident.io into the workflow. Manage incidents, actions, follow-ups, workflows, schedules, escalations, custom fields, and more.',
   docsLink: 'https://docs.tradinggoose.ai/tools/incidentio',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: '#ff6600',
   icon: IncidentioIcon,
   subBlocks: [
     {

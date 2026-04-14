@@ -17,11 +17,11 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
+import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
   hasAcceptedLiveMutationAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
-import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -39,6 +39,7 @@ import CopilotMarkdownRenderer from './components/markdown-renderer'
 import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
+const WORKFLOW_TOOL_NAMES = ['edit_workflow'] as const
 
 interface CopilotMessageProps {
   message: CopilotMessageType
@@ -49,13 +50,7 @@ interface CopilotMessageProps {
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({
-    message,
-    isStreaming,
-    panelWidth = 308,
-    isDimmed = false,
-    onEditModeChange,
-  }) => {
+  ({ message, isStreaming, panelWidth = 308, isDimmed = false, onEditModeChange }) => {
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
     const [showCopySuccess, setShowCopySuccess] = useState(false)
@@ -82,9 +77,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       setAccessLevel,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
-
-    // Import COPILOT_TOOL_IDS - placing it here since it's needed in multiple functions
-    const WORKFLOW_TOOL_NAMES = ['edit_workflow']
 
     // Check if this is the last user message (for showing abort button)
     const isLastUserMessage = useMemo(() => {
@@ -218,7 +210,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           throw new Error(`Failed to submit feedback: ${response.statusText}`)
         }
 
-        const result = await response.json()
+        await response.json()
       } catch (error) {
         logger.error('Error submitting feedback:', error)
       }
@@ -488,7 +480,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     useEffect(() => {
       if (messageContentRef.current && isUser) {
         const scrollHeight = messageContentRef.current.scrollHeight
-        const clientHeight = messageContentRef.current.clientHeight
         // If content is taller than the max height (3 lines ~60px), mark as needing expansion
         setNeedsExpansion(scrollHeight > 60)
       }
@@ -578,7 +569,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           )
         }
         if (block.type === 'thinking') {
-          const isLastBlock = index === message.contentBlocks!.length - 1
           // Consider the thinking block streaming if the overall message is streaming
           // and the block has not been finalized with a duration yet. This avoids
           // freezing the timer when new blocks are appended after the thinking block.
@@ -614,7 +604,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     if (isUser) {
       return (
         <div
-          className={`w-full max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+          className={`w-full min-w-0 max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
         >
           {isEditMode ? (
             <div ref={editContainerRef} className='relative w-full'>
@@ -635,7 +625,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               />
             </div>
           ) : (
-            <div className='w-full'>
+            <div className='w-full min-w-0'>
               {editBlockedReason && (
                 <div className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'>
                   {editBlockedReason}
@@ -732,11 +722,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onClick={handleMessageClick}
                 onMouseEnter={() => setIsHoveringMessage(true)}
                 onMouseLeave={() => setIsHoveringMessage(false)}
-                className='group relative cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200 '
+                className='group relative min-w-0 cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200'
               >
                 <div
                   ref={messageContentRef}
-                  className={`whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
+                  className={`min-w-0 whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
                   style={{
                     maxHeight: !isExpanded && needsExpansion ? '60px' : 'none',
                     overflow: !isExpanded && needsExpansion ? 'hidden' : 'visible',
@@ -799,7 +789,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                     </button>
                   </div>
                 )}
-
               </div>
             </div>
           )}
@@ -899,15 +888,15 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               if (!shouldRenderOptions || !options) return null
 
               return (
-              <OptionsSelector
-                options={options}
-                onSelect={handleOptionSelect}
-                disabled={!isLastMessage || isSendingMessage || isStreaming}
-                enableKeyboardNav={
-                  isLastMessage && !isStreaming && parsedTags?.optionsComplete === true
-                }
-                streaming={isStreaming || parsedTags?.optionsComplete === false}
-              />
+                <OptionsSelector
+                  options={options}
+                  onSelect={handleOptionSelect}
+                  disabled={!isLastMessage || isSendingMessage || isStreaming}
+                  enableKeyboardNav={
+                    isLastMessage && !isStreaming && parsedTags?.optionsComplete === true
+                  }
+                  streaming={isStreaming || parsedTags?.optionsComplete === false}
+                />
               )
             })()}
           </div>

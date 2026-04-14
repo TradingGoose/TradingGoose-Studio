@@ -7,14 +7,17 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockGetSession = vi.fn()
 const mockCreateOrganizationForOrganizationTier = vi.fn()
 const selectMock = vi.fn()
+let selectResult: unknown = []
 
 function createSelectLimitedBuilder(result: unknown) {
-  return {
-    from: vi.fn().mockReturnThis(),
-    innerJoin: vi.fn(),
-    where: vi.fn().mockReturnThis(),
+  const builder = {
+    from: vi.fn(() => builder),
+    innerJoin: vi.fn(() => builder),
+    where: vi.fn(() => builder),
     limit: vi.fn().mockResolvedValue(result),
   }
+
+  return builder
 }
 
 vi.mock('@tradinggoose/db', () => ({
@@ -64,6 +67,8 @@ describe('/api/organizations route', () => {
     mockGetSession.mockReset()
     mockCreateOrganizationForOrganizationTier.mockReset()
     selectMock.mockReset()
+    selectResult = []
+    selectMock.mockImplementation(() => createSelectLimitedBuilder(selectResult))
 
     mockGetSession.mockResolvedValue({
       user: {
@@ -72,7 +77,6 @@ describe('/api/organizations route', () => {
         name: 'User One',
       },
     })
-
     mockCreateOrganizationForOrganizationTier.mockResolvedValue('org-new')
   })
 
@@ -89,7 +93,7 @@ describe('/api/organizations route', () => {
   })
 
   it('returns 409 when the user already belongs to an organization', async () => {
-    selectMock.mockImplementation(() => createSelectLimitedBuilder([{ id: 'member-1' }]))
+    selectResult = [{ id: 'member-1' }]
 
     const { POST } = await import('@/app/api/organizations/route')
     const response = await POST(createMockRequest('POST', { name: 'Acme', slug: 'acme' }))

@@ -11,7 +11,7 @@ const MonitorListingSchema = z
   })
   .passthrough()
 
-const MonitorDocumentSchema = z.object({
+export const MonitorDocumentSchema = z.object({
   workflowId: z.string(),
   blockId: z.string(),
   providerId: z.string(),

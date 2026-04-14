@@ -422,21 +422,20 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(() => ({ workspaceId }), [workspaceId])
 
   const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
-    setTree((prev) => {
-      const previousColor = findPanelPairColor(prev, panelId)
-      if (previousColor === color) {
-        return prev
-      }
+    const currentTree = latestLayoutRef.current
+    const previousColor = findPanelPairColor(currentTree, panelId)
+    if (previousColor === color) {
+      return
+    }
 
-      const next = updatePanelPairColor(prev, panelId, color)
+    const nextTree = updatePanelPairColor(currentTree, panelId, color)
+    if (nextTree === currentTree) {
+      return
+    }
 
-      if (next !== prev) {
-        clonePairContextIfEmpty(previousColor, color)
-        cleanupUnusedPairContexts(next)
-      }
-
-      return next === prev ? prev : next
-    })
+    latestLayoutRef.current = nextTree
+    setTree(nextTree)
+    clonePairContextIfEmpty(previousColor, color)
   }, [])
 
   const searchKnowledgeBases = useMemo(

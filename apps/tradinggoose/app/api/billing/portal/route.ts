@@ -3,6 +3,8 @@ import { subscription as subscriptionTable, user } from '@tradinggoose/db/schema
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
+import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -23,6 +25,11 @@ export async function POST(request: NextRequest) {
       body?.context === 'organization' ? 'organization' : 'user'
     const organizationId: string | undefined = body?.organizationId || undefined
     const returnUrl: string = body?.returnUrl || `${getBaseUrl()}/workspace?billing=updated`
+    const { billingEnabled } = await getBillingGateState()
+
+    if (!billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
+    }
 
     const stripe = requireStripeClient()
 
@@ -31,6 +38,14 @@ export async function POST(request: NextRequest) {
     if (context === 'organization') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId is required' }, { status: 400 })
+      }
+
+      const canManageOrganization = await isOrganizationOwnerOrAdmin(
+        session.user.id,
+        organizationId
+      )
+      if (!canManageOrganization) {
+        return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
       }
 
       const rows = await db

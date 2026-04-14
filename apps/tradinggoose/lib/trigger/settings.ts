@@ -1,6 +1,7 @@
 import { env } from '@/lib/env'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 
+// Trigger.dev credentials remain deployment-owned in env; DB-backed settings only gate execution.
 export function isTriggerConfigurationReady() {
   return Boolean(env.TRIGGER_PROJECT_ID?.trim() && env.TRIGGER_SECRET_KEY?.trim())
 }

@@ -13,16 +13,16 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 type EntityListEntry = {
-  id: string
-  name: string
-  description?: string
-  title?: string
-  functionName?: string
-  color?: string
-  transport?: string
-  url?: string
-  enabled?: boolean
-  connectionStatus?: string
+  entityId: string
+  entityName: string
+  entityDescription?: string
+  entityTitle?: string
+  entityFunctionName?: string
+  entityColor?: string
+  entityTransport?: string
+  entityUrl?: string
+  entityEnabled?: boolean
+  entityConnectionStatus?: string
 }
 
 type EntityApiConfig = {
@@ -44,9 +44,9 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
       content: item?.content ?? '',
     }),
     toListEntry: (item) => ({
-      id: String(item?.id ?? ''),
-      name: String(item?.name ?? ''),
-      description: typeof item?.description === 'string' ? item.description : '',
+      entityId: String(item?.id ?? ''),
+      entityName: String(item?.name ?? ''),
+      entityDescription: typeof item?.description === 'string' ? item.description : '',
     }),
   },
   custom_tool: {
@@ -64,12 +64,12 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
       codeText: item?.code ?? item?.codeText ?? '',
     }),
     toListEntry: (item) => ({
-      id: String(item?.id ?? ''),
-      name: String(item?.title ?? item?.schema?.function?.name ?? ''),
-      title: typeof item?.title === 'string' ? item.title : '',
-      functionName:
+      entityId: String(item?.id ?? ''),
+      entityName: String(item?.title ?? item?.schema?.function?.name ?? ''),
+      entityTitle: typeof item?.title === 'string' ? item.title : '',
+      entityFunctionName:
         typeof item?.schema?.function?.name === 'string' ? item.schema.function.name : undefined,
-      description:
+      entityDescription:
         typeof item?.schema?.function?.description === 'string'
           ? item.schema.function.description
           : undefined,
@@ -89,9 +89,9 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
           : null,
     }),
     toListEntry: (item) => ({
-      id: String(item?.id ?? ''),
-      name: String(item?.name ?? ''),
-      color: typeof item?.color === 'string' ? item.color : '',
+      entityId: String(item?.id ?? ''),
+      entityName: String(item?.name ?? ''),
+      entityColor: typeof item?.color === 'string' ? item.color : '',
     }),
   },
   mcp_server: {
@@ -115,12 +115,12 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
       enabled: typeof item?.enabled === 'boolean' ? item.enabled : true,
     }),
     toListEntry: (item) => ({
-      id: String(item?.id ?? ''),
-      name: String(item?.name ?? ''),
-      transport: typeof item?.transport === 'string' ? item.transport : undefined,
-      url: typeof item?.url === 'string' ? item.url : undefined,
-      enabled: typeof item?.enabled === 'boolean' ? item.enabled : undefined,
-      connectionStatus:
+      entityId: String(item?.id ?? ''),
+      entityName: String(item?.name ?? ''),
+      entityTransport: typeof item?.transport === 'string' ? item.transport : undefined,
+      entityUrl: typeof item?.url === 'string' ? item.url : undefined,
+      entityEnabled: typeof item?.enabled === 'boolean' ? item.enabled : undefined,
+      entityConnectionStatus:
         typeof item?.connectionStatus === 'string' ? item.connectionStatus : undefined,
     }),
   },

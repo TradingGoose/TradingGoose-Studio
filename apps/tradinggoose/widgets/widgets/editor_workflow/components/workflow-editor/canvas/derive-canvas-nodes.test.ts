@@ -148,4 +148,31 @@ describe('derive-canvas-nodes', () => {
 
     expect(resizedHash).not.toBe(initialHash)
   })
+
+  it('falls back to origin for malformed block positions instead of throwing', () => {
+    const blocks = {
+      agent1: {
+        ...createBlock({ id: 'agent1', type: 'agent', name: 'Agent' }),
+        position: undefined,
+      },
+    } as unknown as Record<string, BlockState>
+
+    const prevBlocksRef = { current: {} as Record<string, BlockState> }
+    const prevHashRef = { current: '' }
+
+    expect(() => getStableBlocksHash(blocks, prevBlocksRef, prevHashRef)).not.toThrow()
+
+    const nodes = deriveCanvasNodes({
+      blocks,
+      activeBlockIds: new Set(),
+      pendingBlocks: [],
+      isDebugging: false,
+      nestedSubflowErrors: new Set(),
+      resolveBlockConfig: (type) =>
+        type === 'agent' ? ({ category: 'blocks' } as any) : undefined,
+      resolveNodeDescriptor: resolveCanvasNodeDescriptor,
+    })
+
+    expect(nodes[0]?.position).toEqual({ x: 0, y: 0 })
+  })
 })

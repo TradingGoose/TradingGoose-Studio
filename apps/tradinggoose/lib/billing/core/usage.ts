@@ -156,7 +156,7 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
         currentLimit: Number.MAX_SAFE_INTEGER,
         canEdit: false,
         minimumLimit: 0,
-        tier: toBillingTierSummary(subscription?.tier),
+        tier: toBillingTierSummary(null),
         updatedAt: stats.customUsageLimitUpdatedAt,
       }
     }

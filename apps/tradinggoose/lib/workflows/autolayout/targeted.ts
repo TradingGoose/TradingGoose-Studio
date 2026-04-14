@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { assignLayers, groupByLayer } from './layering'
 import { calculatePositions } from './positioning'
@@ -30,7 +31,12 @@ export function applyTargetedLayout(
   edges: Edge[],
   options: TargetedLayoutOptions
 ): Record<string, BlockState> {
-  const { changedBlockIds, verticalSpacing = 200, horizontalSpacing = 550 } = options
+  const {
+    changedBlockIds,
+    direction = 'horizontal',
+    verticalSpacing = 200,
+    horizontalSpacing = 550,
+  } = options
 
   if (!changedBlockIds || changedBlockIds.length === 0) {
     return blocks
@@ -41,7 +47,16 @@ export function applyTargetedLayout(
 
   const groups = getBlocksByParent(blocksCopy)
 
-  layoutGroup(null, groups.root, blocksCopy, edges, changedSet, verticalSpacing, horizontalSpacing)
+  layoutGroup(
+    null,
+    groups.root,
+    blocksCopy,
+    edges,
+    changedSet,
+    direction,
+    verticalSpacing,
+    horizontalSpacing
+  )
 
   for (const [parentId, childIds] of groups.children.entries()) {
     layoutGroup(
@@ -50,6 +65,7 @@ export function applyTargetedLayout(
       blocksCopy,
       edges,
       changedSet,
+      direction,
       verticalSpacing,
       horizontalSpacing
     )
@@ -64,6 +80,7 @@ function layoutGroup(
   blocks: Record<string, BlockState>,
   edges: Edge[],
   changedSet: Set<string>,
+  direction: AutoLayoutDirection,
   verticalSpacing: number,
   horizontalSpacing: number
 ): void {
@@ -110,6 +127,7 @@ function layoutGroup(
     blocks,
     edges,
     parentBlock,
+    direction,
     horizontalSpacing,
     verticalSpacing
   )
@@ -158,6 +176,7 @@ function computeLayoutPositions(
   blocks: Record<string, BlockState>,
   edges: Edge[],
   parentBlock: BlockState | undefined,
+  direction: AutoLayoutDirection,
   horizontalSpacing: number,
   verticalSpacing: number
 ): Map<string, { x: number; y: number }> {
@@ -179,12 +198,14 @@ function computeLayoutPositions(
 
   const layoutOptions: LayoutOptions = parentBlock
     ? {
+        direction,
         horizontalSpacing: horizontalSpacing * 0.85,
         verticalSpacing,
         padding: { x: CONTAINER_PADDING_X, y: CONTAINER_PADDING_Y },
         alignment: 'center',
       }
     : {
+        direction,
         horizontalSpacing,
         verticalSpacing,
         padding: { x: ROOT_PADDING_X, y: ROOT_PADDING_Y },

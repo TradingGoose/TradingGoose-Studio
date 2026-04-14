@@ -171,7 +171,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
   }
 
   async execute(args?: RunWorkflowArgs): Promise<void> {
-    // For compatibility if execute() is explicitly invoked, route to handleAccept
+    // Route explicit execute() calls through the same accept path.
     await this.handleAccept(args)
   }
 }

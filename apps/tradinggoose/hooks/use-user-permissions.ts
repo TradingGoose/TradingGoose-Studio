@@ -31,18 +31,35 @@ export function useUserPermissions(
   permissionsLoading = false,
   permissionsError: string | null = null
 ): WorkspaceUserPermissions {
-  const { data: session } = useSession()
+  const {
+    data: session,
+    isPending: isSessionPending,
+    error: sessionError,
+  } = useSession()
 
   const userPermissions = useMemo((): WorkspaceUserPermissions => {
     const sessionEmail = session?.user?.email
-    if (permissionsLoading || !sessionEmail) {
+    const resolvedError = permissionsError ?? sessionError?.message ?? null
+
+    if (permissionsLoading || isSessionPending) {
       return {
         canRead: false,
         canEdit: false,
         canAdmin: false,
         userPermissions: 'read',
-        isLoading: permissionsLoading,
-        error: permissionsError,
+        isLoading: true,
+        error: resolvedError,
+      }
+    }
+
+    if (!sessionEmail) {
+      return {
+        canRead: false,
+        canEdit: false,
+        canAdmin: false,
+        userPermissions: 'read',
+        isLoading: false,
+        error: resolvedError ?? 'Authentication required',
       }
     }
 
@@ -65,7 +82,7 @@ export function useUserPermissions(
         canAdmin: false,
         userPermissions: 'read',
         isLoading: false,
-        error: permissionsError || 'User not found in workspace',
+        error: resolvedError || 'User not found in workspace',
       }
     }
 
@@ -82,9 +99,9 @@ export function useUserPermissions(
       canAdmin,
       userPermissions: userPerms,
       isLoading: false,
-      error: permissionsError,
+      error: resolvedError,
     }
-  }, [session, workspacePermissions, permissionsLoading, permissionsError])
+  }, [session, workspacePermissions, permissionsLoading, permissionsError, isSessionPending, sessionError])
 
   return userPermissions
 }

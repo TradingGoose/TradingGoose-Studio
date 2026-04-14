@@ -892,4 +892,163 @@ describe('copilot tool user action delegation', () => {
 
     unregisterClientTool(toolCallId)
   })
+
+  it('auto-executes pending reviewed API tools when access switches to full', async () => {
+    vi.useFakeTimers()
+    try {
+      const channelId = 'copilot-api-request-access-switch'
+      const toolCallId = 'make-api-request-pending-tool'
+      const store = getCopilotStore(channelId)
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url === '/api/copilot/execute-copilot-server-tool') {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              result: {
+                data: 'ok',
+                status: 200,
+                headers: {},
+              },
+            }),
+          }
+        }
+
+        if (url === '/api/copilot/tools/mark-complete') {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, continued: true }),
+          }
+        }
+
+        throw new Error(`Unexpected fetch: ${url} ${init?.method || 'GET'}`)
+      })
+
+      vi.stubGlobal('fetch', fetchMock)
+
+      store.setState({
+        accessLevel: 'limited',
+        liveContext: {
+          workflowId: 'wf-api-request-access-switch',
+          workspaceId: 'workspace-1',
+        },
+        toolCallsById: {
+          [toolCallId]: {
+            id: toolCallId,
+            name: 'make_api_request',
+            state: ClientToolCallState.pending,
+            params: {
+              url: 'https://example.com/data',
+              method: 'GET',
+            },
+            provenance: {
+              channelId,
+              workflowId: 'wf-api-request-access-switch',
+              workspaceId: 'workspace-1',
+            },
+          } as any,
+        },
+      })
+
+      store.getState().setAccessLevel('full')
+      await vi.runAllTimersAsync()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/copilot/execute-copilot-server-tool',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            toolName: 'make_api_request',
+            payload: {
+              url: 'https://example.com/data',
+              method: 'GET',
+            },
+          }),
+        })
+      )
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(
+        ClientToolCallState.success
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('auto-executes review-state client tools when access switches to full', async () => {
+    vi.useFakeTimers()
+    try {
+      const channelId = 'copilot-review-access-switch'
+      const toolCallId = 'edit-workflow-access-switch-tool'
+      const store = getCopilotStore(channelId)
+      const calls: string[] = []
+      const fakeTool = {
+        setExecutionContext: vi.fn(),
+        handleUserAction: vi.fn(async () => {
+          calls.push('userAction')
+        }),
+        execute: vi.fn(async () => {
+          calls.push('execute')
+        }),
+        handleAccept: vi.fn(async () => {
+          calls.push('accept')
+        }),
+      }
+
+      registerClientTool(toolCallId, fakeTool)
+
+      store.setState({
+        accessLevel: 'limited',
+        liveContext: {
+          workflowId: 'wf-review-access-switch',
+          workspaceId: 'workspace-1',
+        },
+        currentChat: {
+          reviewSessionId: 'review-access-switch',
+          workspaceId: null,
+          channelId: null,
+          entityKind: 'workflow',
+          entityId: 'wf-review-access-switch',
+          draftSessionId: null,
+          title: null,
+          messages: [],
+          messageCount: 0,
+          conversationId: null,
+          createdAt: new Date('2026-03-30T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+        },
+        toolCallsById: {
+          [toolCallId]: {
+            id: toolCallId,
+            name: 'edit_workflow',
+            state: ClientToolCallState.review,
+            params: {
+              workflowDocument:
+                'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+              workflowId: 'wf-review-access-switch',
+            },
+            provenance: {
+              channelId,
+              workflowId: 'wf-review-access-switch',
+              reviewSessionId: 'review-access-switch',
+              entityKind: 'workflow',
+              entityId: 'wf-review-access-switch',
+              workspaceId: 'workspace-1',
+            },
+          } as any,
+        },
+      })
+
+      store.getState().setAccessLevel('full')
+      await vi.runAllTimersAsync()
+
+      expect(calls).toEqual(['userAction'])
+
+      unregisterClientTool(toolCallId)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

@@ -11,9 +11,6 @@ import { GetBlockOptionsClientTool } from '@/lib/copilot/tools/client/blocks/get
 import { GetBlocksAndToolsClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-and-tools'
 import { GetBlocksMetadataClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-metadata'
 import { GetTriggerBlocksClientTool } from '@/lib/copilot/tools/client/blocks/get-trigger-blocks'
-import { GetExamplesRagClientTool } from '@/lib/copilot/tools/client/examples/get-examples-rag'
-import { GetOperationsExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-operations-examples'
-import { GetTriggerExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-trigger-examples'
 import {
   EditCustomToolClientTool,
   EditIndicatorClientTool,
@@ -199,9 +196,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   get_workflow_from_name: clientTool(GetWorkflowFromNameClientTool),
   get_global_workflow_variables: clientTool(GetGlobalWorkflowVariablesClientTool),
   set_global_workflow_variables: clientTool(SetGlobalWorkflowVariablesClientTool),
-  get_trigger_examples: clientTool(GetTriggerExamplesClientTool),
-  get_examples_rag: clientTool(GetExamplesRagClientTool),
-  get_operations_examples: clientTool(GetOperationsExamplesClientTool),
   deploy_workflow: clientTool(DeployWorkflowClientTool),
   check_deployment_status: clientTool(CheckDeploymentStatusClientTool),
   sleep: clientTool(SleepClientTool),

@@ -5,7 +5,6 @@ export const ExecuteResponseSuccessSchema = z.object({
   success: z.literal(true),
   result: z.unknown(),
 })
-export type ExecuteResponseSuccess = z.infer<typeof ExecuteResponseSuccessSchema>
 
 // get_blocks_and_tools
 export const GetBlocksAndToolsInput = z.object({})
@@ -13,10 +12,10 @@ export const GetBlocksAndToolsResult = z.object({
   blocks: z.array(
     z
       .object({
-        type: z.string(),
-        name: z.string(),
+        blockType: z.string(),
+        blockName: z.string(),
+        blockDescription: z.string().optional(),
         triggerAllowed: z.boolean().optional(),
-        longDescription: z.string().optional(),
       })
       .passthrough()
   ),

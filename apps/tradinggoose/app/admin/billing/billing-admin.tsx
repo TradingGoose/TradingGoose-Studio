@@ -1780,8 +1780,9 @@ function BillingSettingsCard({
                   />
                 </FieldShell>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Manage registration, billing activation, promotion codes, and Stripe secrets from
-                  the system settings section on the main admin page.
+                  Manage registration, billing activation, and promotion codes from the system
+                  settings section on the main admin page. Stripe credentials stay deployment-owned
+                  in env.
                 </p>
               </div>
             </div>

@@ -7,6 +7,7 @@ const {
   mockBackfillDefaultUserSubscriptions,
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
+  mockGetBillingGateState,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
   mockIsTriggerConfigurationReady,
@@ -16,6 +17,7 @@ const {
   mockBackfillDefaultUserSubscriptions: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
+  mockGetBillingGateState: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
   mockIsTriggerConfigurationReady: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock('@/lib/billing/core/subscription', () => ({
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
+  getBillingGateState: mockGetBillingGateState,
   isBillingConfigurationReady: mockIsBillingConfigurationReady,
 }))
 
@@ -68,6 +71,10 @@ describe('/api/admin/system-settings route', () => {
       canBootstrapSystemAdmin: true,
     })
     mockClaimFirstSystemAdmin.mockResolvedValue(true)
+    mockGetBillingGateState.mockResolvedValue({
+      billingEnabled: true,
+      stripeConfigured: true,
+    })
     mockIsBillingConfigurationReady.mockResolvedValue(true)
     mockIsTriggerConfigurationReady.mockResolvedValue(true)
     mockGetResolvedSystemSettings.mockResolvedValue({
@@ -101,6 +108,7 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toMatchObject({
       registrationMode: 'open',
       billingEnabled: true,
+      stripeConfigured: true,
       triggerDevEnabled: true,
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
@@ -127,6 +135,7 @@ describe('/api/admin/system-settings route', () => {
     expect(response.status).toBe(403)
     expect(payload).toEqual({ error: 'Forbidden' })
     expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
+    expect(mockGetBillingGateState).not.toHaveBeenCalled()
     expect(mockIsBillingConfigurationReady).not.toHaveBeenCalled()
     expect(mockIsTriggerConfigurationReady).not.toHaveBeenCalled()
   })
@@ -160,6 +169,7 @@ describe('/api/admin/system-settings route', () => {
     expect(payload).toMatchObject({
       billingEnabled: true,
       billingReady: true,
+      stripeConfigured: true,
       triggerDevEnabled: true,
       triggerReady: true,
     })
@@ -241,6 +251,61 @@ describe('/api/admin/system-settings route', () => {
     expect(response.status).toBe(409)
     expect(payload).toEqual({
       error: 'Billing cannot be enabled until an active public default user tier is configured.',
+    })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+  })
+
+  it('serializes billing as disabled when Stripe is not configured', async () => {
+    mockGetBillingGateState.mockResolvedValueOnce({
+      billingEnabled: false,
+      stripeConfigured: false,
+    })
+
+    const { GET } = await import('./route')
+
+    const response = await GET()
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toMatchObject({
+      billingEnabled: false,
+      stripeConfigured: false,
+    })
+  })
+
+  it('rejects enabling billing before Stripe is configured', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
+    })
+    mockGetBillingGateState.mockResolvedValueOnce({
+      billingEnabled: false,
+      stripeConfigured: false,
+    })
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          registrationMode: 'open',
+          billingEnabled: true,
+          triggerDevEnabled: false,
+          allowPromotionCodes: true,
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(payload).toEqual({
+      error: 'Billing cannot be enabled until STRIPE_SECRET_KEY is configured.',
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()

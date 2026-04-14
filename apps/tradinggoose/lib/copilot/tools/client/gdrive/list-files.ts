@@ -4,7 +4,10 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -12,7 +15,6 @@ interface ListGDriveFilesArgs {
   userId?: string
   workflowId?: string
   search_query?: string
-  searchQuery?: string
   num_results?: number
 }
 
@@ -45,25 +47,19 @@ export class ListGDriveFilesClientTool extends BaseClientTool {
         const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
-
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'list_gdrive_files', payload }),
+      const result = await executeCopilotServerTool({
+        toolName: 'list_gdrive_files',
+        payload,
       })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Listed Google Drive files', parsed.result)
+      await this.markToolComplete(200, 'Listed Google Drive files', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to list Google Drive files')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Failed to list Google Drive files'
+      )
     }
   }
 }

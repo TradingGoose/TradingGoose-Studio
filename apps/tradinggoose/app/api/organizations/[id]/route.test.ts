@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Organization DELETE route', () => {
+  const mockGetBillingGateState = vi.fn()
   const selectResults: any[][] = []
   const deleteMock = vi.fn()
   const selectMock = vi.fn(() => ({
@@ -52,6 +53,10 @@ describe('Organization DELETE route', () => {
       }),
     }))
 
+    vi.doMock('@/lib/billing/settings', () => ({
+      getBillingGateState: mockGetBillingGateState,
+    }))
+
     vi.doMock('@/lib/billing/validation/seat-management', () => ({
       getOrganizationSeatAnalytics: vi.fn(),
       getOrganizationSeatInfo: vi.fn(),
@@ -70,6 +75,11 @@ describe('Organization DELETE route', () => {
     vi.doMock('@/lib/workspaces/billing-owner', () => ({
       assertOrganizationCanBeDeleted: mockAssertOrganizationCanBeDeleted,
     }))
+
+    mockGetBillingGateState.mockResolvedValue({
+      billingEnabled: true,
+      stripeConfigured: true,
+    })
   })
 
   afterEach(() => {

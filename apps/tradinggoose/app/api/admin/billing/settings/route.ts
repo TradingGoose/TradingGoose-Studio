@@ -4,7 +4,11 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import { adminBillingSettingsMutationSchema } from '@/lib/admin/billing/settings-mutations'
-import { GLOBAL_BILLING_SETTINGS_ID } from '@/lib/billing/settings'
+import {
+  ADMIN_BILLING_UNAVAILABLE_ERROR,
+  getBillingGateState,
+  GLOBAL_BILLING_SETTINGS_ID,
+} from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingSettingsAPI')
@@ -18,6 +22,13 @@ export const dynamic = 'force-dynamic'
 export async function PATCH(request: Request) {
   try {
     const userId = await requireAdminBillingUserId()
+    const { stripeConfigured } = await getBillingGateState()
+    if (!stripeConfigured) {
+      return NextResponse.json(
+        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
+        { status: 409 }
+      )
+    }
     const body = await request.json()
     const parsed = adminBillingSettingsMutationSchema.safeParse(body)
 

@@ -4,7 +4,10 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -64,19 +67,11 @@ export class SetEnvironmentVariablesClientTool extends BaseClientTool {
         const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'set_environment_variables', payload }),
+      const result = await executeCopilotServerTool({
+        toolName: 'set_environment_variables',
+        payload,
       })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Environment variables updated', parsed.result)
+      await this.markToolComplete(200, 'Environment variables updated', result)
       this.setState(ClientToolCallState.success)
 
       // Refresh the environment store so the UI reflects the new variables
@@ -89,7 +84,10 @@ export class SetEnvironmentVariablesClientTool extends BaseClientTool {
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to set environment variables')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Failed to set environment variables'
+      )
     }
   }
 

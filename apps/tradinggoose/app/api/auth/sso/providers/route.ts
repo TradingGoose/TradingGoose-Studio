@@ -2,11 +2,10 @@ import { db, ssoProvider } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import {
-  getOrganizationBillingData,
-  isOrganizationOwnerOrAdmin,
-} from '@/lib/billing/core/organization'
+import { getOrganizationBillingData, isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 
 const logger = createLogger('SSO-Providers')
 
@@ -59,19 +58,26 @@ export async function GET() {
       return NextResponse.json({ error: 'Active organization is required' }, { status: 400 })
     }
 
-    const [canManageSso, organizationBillingData] = await Promise.all([
+    const [{ billingEnabled }, canManageSso, organizationBillingData] = await Promise.all([
+      getBillingGateState(),
       isOrganizationOwnerOrAdmin(session.user.id, activeOrganizationId),
       getOrganizationBillingData(activeOrganizationId),
     ])
+    const access = getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: true,
+      isOrganizationAdmin: canManageSso,
+      organizationTier: organizationBillingData?.subscriptionTier,
+    })
 
-    if (!canManageSso) {
+    if (!access.canManageOrganization) {
       return NextResponse.json(
         { error: 'Only organization owners and admins can manage SSO' },
         { status: 403 }
       )
     }
 
-    if (!organizationBillingData?.subscriptionTier?.canConfigureSso) {
+    if (!access.canConfigureSso) {
       return NextResponse.json(
         { error: 'Single Sign-On is not enabled for this organization' },
         { status: 403 }

@@ -304,7 +304,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       'review-session-1',
       'collaborator-user'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
       endpoint: '/api/copilot',
       body: expect.objectContaining({
         message: 'Please update the summary',
@@ -324,7 +324,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
           ]),
         }),
       }),
-    })
+      signal: expect.any(AbortSignal),
+    }))
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(txInsertValues).toHaveBeenCalledTimes(2)
     expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
@@ -451,7 +452,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       'Update the current indicator',
       'workspace-1'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
       endpoint: '/api/copilot',
       body: expect.objectContaining({
         message: 'Update the current indicator',
@@ -469,7 +470,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
           },
         ],
       }),
-    })
+      signal: expect.any(AbortSignal),
+    }))
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {
@@ -578,6 +580,47 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     )
   })
 
+  it('treats an already-persisted user message as a no-op append', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      title: 'Shared skill review',
+      conversationId: 'conversation-1',
+    })
+    txSelectOrderBy.mockResolvedValueOnce([
+      {
+        itemId: 'user-message-duplicate',
+        messageRole: 'user',
+        content: 'Please update the summary',
+        timestamp: '2026-01-01T00:00:00.000Z',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      message: 'Please update the summary',
+      userMessageId: 'user-message-duplicate',
+      reviewSessionId: 'review-session-1',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      reviewSessionId: 'review-session-1',
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(txInsertValues).not.toHaveBeenCalled()
+    expect(mockBuildAppendReviewTurn).not.toHaveBeenCalled()
+    expect(txUpdateWhere).toHaveBeenCalledTimes(2)
+  })
+
   it('returns 404 when the supplied reviewSessionId cannot be loaded', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue(null)
 
@@ -647,7 +690,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
       endpoint: '/api/copilot',
       body: expect.objectContaining({
         message: 'Start a fresh generic copilot chat',
@@ -658,7 +701,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
           version: 'v1',
         }),
       }),
-    })
+      signal: expect.any(AbortSignal),
+    }))
   })
 
   it('creates a new generic copilot session even when older chats already exist for the same panel channel', async () => {
@@ -705,13 +749,14 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
       endpoint: '/api/copilot',
       body: expect.objectContaining({
         message: 'Create another chat in the same panel',
         chatId: 'review-session-channel-newer',
       }),
-    })
+      signal: expect.any(AbortSignal),
+    }))
   })
 
   it('keeps a newly created panel-scoped generic copilot chat when a streamed reply ends without assistant content', async () => {

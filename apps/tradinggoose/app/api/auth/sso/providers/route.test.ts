@@ -6,14 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetSession,
-  mockGetOrganizationBillingData,
   mockIsOrganizationOwnerOrAdmin,
+  mockGetOrganizationBillingData,
+  mockGetBillingGateState,
   mockSelect,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
-  mockGetOrganizationBillingData: vi.fn(),
   mockIsOrganizationOwnerOrAdmin: vi.fn(),
+  mockGetOrganizationBillingData: vi.fn(),
+  mockGetBillingGateState: vi.fn(),
   mockSelect: vi.fn(),
   mockLogger: {
     error: vi.fn(),
@@ -47,8 +49,12 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/billing/core/organization', () => ({
-  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
   isOrganizationOwnerOrAdmin: (...args: unknown[]) => mockIsOrganizationOwnerOrAdmin(...args),
+  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
+}))
+
+vi.mock('@/lib/billing/settings', () => ({
+  getBillingGateState: (...args: unknown[]) => mockGetBillingGateState(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -60,14 +66,16 @@ describe('SSO providers route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: true })
     mockGetOrganizationBillingData.mockResolvedValue({
       subscriptionTier: {
+        ownerType: 'organization',
         canConfigureSso: true,
       },
     })
   })
 
-  it('returns active-organization providers for org admins on eligible tiers', async () => {
+  it('returns active-organization providers for org admins', async () => {
     const mockWhere = vi.fn().mockResolvedValue([
       {
         id: 'provider-1',
@@ -116,7 +124,6 @@ describe('SSO providers route', () => {
     expect(payload.providers[0]).not.toHaveProperty('oidcConfig')
     expect(payload.providers[0]).not.toHaveProperty('samlConfig')
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
-    expect(mockGetOrganizationBillingData).toHaveBeenCalledWith('org-1')
     expect(mockWhere).toHaveBeenCalledWith({
       kind: 'eq',
       args: ['sso_provider.organization_id', 'org-1'],
@@ -164,7 +171,7 @@ describe('SSO providers route', () => {
     expect(mockSelect).not.toHaveBeenCalled()
   })
 
-  it('rejects organizations whose tier cannot configure sso', async () => {
+  it('rejects organizations whose tier cannot configure SSO', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -175,6 +182,7 @@ describe('SSO providers route', () => {
     })
     mockGetOrganizationBillingData.mockResolvedValue({
       subscriptionTier: {
+        ownerType: 'organization',
         canConfigureSso: false,
       },
     })
@@ -211,7 +219,6 @@ describe('SSO providers route', () => {
       ],
     })
     expect(mockIsOrganizationOwnerOrAdmin).not.toHaveBeenCalled()
-    expect(mockGetOrganizationBillingData).not.toHaveBeenCalled()
   })
 
   it('classifies saml-only providers correctly for org-owned providers', async () => {

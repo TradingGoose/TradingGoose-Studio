@@ -21,6 +21,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
     return {
       registrationMode: 'open',
       billingEnabled: false,
+      stripeConfigured: false,
       billingReady: false,
       triggerDevEnabled: false,
       triggerReady: false,
@@ -40,6 +41,8 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
         ? data.registrationMode
         : 'open',
     billingEnabled: typeof data.billingEnabled === 'boolean' ? data.billingEnabled : false,
+    stripeConfigured:
+      typeof data.stripeConfigured === 'boolean' ? data.stripeConfigured : false,
     billingReady: typeof data.billingReady === 'boolean' ? data.billingReady : false,
     triggerDevEnabled:
       typeof data.triggerDevEnabled === 'boolean' ? data.triggerDevEnabled : false,

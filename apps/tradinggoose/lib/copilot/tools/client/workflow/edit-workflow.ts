@@ -5,14 +5,17 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { shouldAutoApplyWorkflowEdits } from '@/lib/copilot/access-policy'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getReadableWorkflowSnapshot,
-  requireActiveWorkflowSession,
   resolveWorkflowIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
-import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
+import { setWorkflowState } from '@/lib/yjs/workflow-session'
+import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
 
@@ -27,7 +30,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
   private lastResult: any | undefined
   private hasExecuted = false
   private hasAppliedState = false
-  private hasPersistedAcceptedState = false
   private lastWorkflowId: string | null = null
 
   private resolvePersistedStagedResult(): any | undefined {
@@ -81,18 +83,14 @@ export class EditWorkflowClientTool extends BaseClientTool {
       if (!workflowId) {
         throw new Error('No active workflow found')
       }
-      const session = requireActiveWorkflowSession(
-        executionContext,
-        workflowId
-      )
+      const session = getRegisteredWorkflowSession(workflowId)
 
-      if (!this.hasAppliedState) {
+      if (session && !this.hasAppliedState) {
         setWorkflowState(session.doc, stagedResult.workflowState, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
         this.hasAppliedState = true
       }
-      if (!this.hasPersistedAcceptedState) {
-        await this.persistAcceptedWorkflowState(workflowId, session.doc)
-        this.hasPersistedAcceptedState = true
+      if (!session) {
+        await this.applyAcceptedWorkflowState(workflowId, stagedResult.workflowState)
       }
 
       this.setState(ClientToolCallState.success)
@@ -110,22 +108,20 @@ export class EditWorkflowClientTool extends BaseClientTool {
     }
   }
 
-  private async persistAcceptedWorkflowState(workflowId: string, doc: Parameters<typeof setWorkflowState>[0]) {
-    // Accept applies the reviewed state to the live Yjs doc immediately, but
-    // the canonical workflow save route still owns DB persistence and follow-up
-    // side effects such as custom-tool extraction.
-    const persistedState = extractPersistedStateFromDoc(doc)
-    const response = await fetch(`/api/workflows/${workflowId}/state`, {
-      method: 'PUT',
+  private async applyAcceptedWorkflowState(workflowId: string, workflowState: Record<string, any>) {
+    const response = await fetch(`/api/workflows/${workflowId}/apply-live-state`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(persistedState),
+      body: JSON.stringify({
+        workflowState,
+      }),
     })
 
     if (response.ok) {
       return
     }
 
-    let errorMessage = `Failed to persist accepted workflow edits (${response.status})`
+    let errorMessage = `Failed to apply accepted workflow edits (${response.status})`
 
     try {
       const errorData = await response.json()
@@ -190,39 +186,21 @@ export class EditWorkflowClientTool extends BaseClientTool {
         throw new Error('Failed to read the current workflow')
       }
 
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toolName: 'edit_workflow',
-          payload: {
-            workflowId,
-            workflowDocument,
-            ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
-            ...(currentWorkflowState ? { currentWorkflowState } : {}),
-          },
-        }),
-      })
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '')
-        try {
-          const errorJson = JSON.parse(errorText)
-          throw new Error(errorJson.error || errorText || `Server error (${res.status})`)
-        } catch {
-          throw new Error(errorText || `Server error (${res.status})`)
-        }
-      }
-
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      const result = parsed.result as any
+      const result = (await executeCopilotServerTool({
+        toolName: 'edit_workflow',
+        payload: {
+          workflowId,
+          workflowDocument,
+          ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
+          ...(currentWorkflowState ? { currentWorkflowState } : {}),
+        },
+      })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
       }
 
       this.lastResult = result
       this.hasAppliedState = false
-      this.hasPersistedAcceptedState = false
       logger.info('server result parsed', {
         hasWorkflowState: !!result?.workflowState,
         blocksCount: result?.workflowState
@@ -244,7 +222,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('execute error', { message })
-      await this.markToolComplete(500, message)
+      await this.markToolComplete(getCopilotServerToolErrorStatus(error) ?? 500, message)
       this.setState(ClientToolCallState.error)
     }
   }

@@ -239,7 +239,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(deleteWhere).not.toHaveBeenCalled()
     expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(updateWhere).toHaveBeenCalledTimes(1)
   })
 
   it('preserves newer collaborator turns when the owner saves edits to older shared-session messages', async () => {
@@ -280,7 +280,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
 
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',
@@ -330,7 +330,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
 
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',
@@ -429,7 +429,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).not.toHaveBeenCalled()
     expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(updateWhere).toHaveBeenCalledTimes(1)
   })
 
   it('rejects rewrites that would drop later accepted shared-entity mutations', async () => {
@@ -509,7 +509,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).not.toHaveBeenCalled()
     expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(updateWhere).toHaveBeenCalledTimes(1)
   })
 
   it('persists tool-state-only message updates when ids and text stay the same', async () => {
@@ -589,7 +589,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',

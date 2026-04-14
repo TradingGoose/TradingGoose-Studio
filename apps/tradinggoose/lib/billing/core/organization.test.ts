@@ -196,6 +196,7 @@ describe('getOrganizationBillingData', () => {
     vi.clearAllMocks()
 
     mockGetResolvedBillingSettings.mockResolvedValue({
+      billingEnabled: true,
       usageWarningThresholdPercent: 80,
     })
     mockGetBillingTierPricing.mockReturnValue({
@@ -287,5 +288,89 @@ describe('getOrganizationBillingData', () => {
     expect(percentUsed).toBe(75)
     expect(percentUsed).toBeLessThan(result?.warningThresholdPercent ?? 0)
     expect((result?.totalCurrentUsage ?? 0) >= (result?.totalUsageLimit ?? 0)).toBe(false)
+  })
+
+  it('returns unlimited organization usage data with no subscription tier when billing is disabled', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValueOnce({
+      billingEnabled: false,
+      usageWarningThresholdPercent: 80,
+    })
+    mockGetOrganizationSubscription.mockResolvedValueOnce({
+      id: 'sub_123',
+      status: 'active',
+      seats: 3,
+      periodStart: new Date('2026-04-01T00:00:00.000Z'),
+      periodEnd: new Date('2026-05-01T00:00:00.000Z'),
+      tier: {
+        id: 'tier_org_individual',
+        displayName: 'Team Individual',
+        ownerType: 'organization',
+        usageScope: 'individual',
+        seatMode: 'adjustable',
+        seatCount: null,
+        seatMaximum: null,
+      },
+    })
+
+    mockDb.select
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([
+          {
+            id: 'org_123',
+            name: 'Trading Goose',
+            orgUsageLimit: '80.00',
+          },
+        ])
+      )
+      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([createOrganizationLedgerRow({ currentPeriodCost: 120 })])
+      )
+      .mockImplementationOnce(() =>
+        createSelectQueryMock(
+          [
+            {
+              userId: 'user_1',
+              userName: 'Alpha',
+              userEmail: 'alpha@example.com',
+              role: 'owner',
+              joinedAt: new Date('2026-03-01T00:00:00.000Z'),
+              lastActive: new Date('2026-04-10T00:00:00.000Z'),
+            },
+            {
+              userId: 'user_2',
+              userName: 'Beta',
+              userEmail: 'beta@example.com',
+              role: 'member',
+              joinedAt: new Date('2026-03-02T00:00:00.000Z'),
+              lastActive: new Date('2026-04-09T00:00:00.000Z'),
+            },
+          ],
+          'where'
+        )
+      )
+      .mockImplementationOnce(() =>
+        createSelectQueryMock(
+          [
+            createOrganizationMemberLedgerRow('user_1', 80),
+            createOrganizationMemberLedgerRow('user_2', 40),
+          ],
+          'where'
+        )
+      )
+
+    const { getOrganizationBillingData } = await import('./organization')
+    const result = await getOrganizationBillingData('org_123')
+
+    expect(result).not.toBeNull()
+    expect(result?.subscriptionTier).toBeNull()
+    expect(result?.subscriptionStatus).toBeNull()
+    expect(result?.seatMode).toBeNull()
+    expect(result?.members.map((member) => member.usageLimit)).toEqual([
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    ])
+    expect(result?.totalUsageLimit).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result?.billingBlocked).toBe(false)
   })
 })

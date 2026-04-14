@@ -58,16 +58,11 @@ export const useOrganizationStore = create<OrganizationStore>()(
         set({ isLoading: true, error: null })
 
         try {
-          // Load organizations, active organization, and user subscription info in parallel
-          const [orgsResponse, activeOrgResponse, billingResponse] = await Promise.all([
+          const [billingResponse, orgsResponse, activeOrgResponse] = await Promise.all([
+            fetch('/api/billing?context=user'),
             client.organization.list(),
             client.organization.getFullOrganization().catch(() => ({ data: null })),
-            fetch('/api/billing?context=user'),
           ])
-
-          const organizations = orgsResponse.data || []
-          const activeOrganization = activeOrgResponse.data || null
-
           let billingEnabled = true
 
           if (billingResponse.ok) {
@@ -75,6 +70,9 @@ export const useOrganizationStore = create<OrganizationStore>()(
             const billingData = billingResult.data
             billingEnabled = billingData?.billingEnabled ?? true
           }
+
+          const organizations = orgsResponse.data || []
+          const activeOrganization = activeOrgResponse.data || null
 
           set({
             organizations,
@@ -332,11 +330,6 @@ export const useOrganizationStore = create<OrganizationStore>()(
       },
 
       refreshOrganization: async () => {
-        if (!get().billingEnabled) {
-          logger.debug('Billing disabled, skipping organization refresh')
-          return
-        }
-
         const { activeOrganization } = get()
         if (!activeOrganization?.id) return
 
@@ -373,12 +366,18 @@ export const useOrganizationStore = create<OrganizationStore>()(
         try {
           logger.info('Creating organization', { name, slug })
 
-          const response = await client.organization.create({
-            name,
-            slug,
+          const response = await fetch('/api/organizations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, slug }),
           })
+          const payload = await response.json().catch(() => ({}))
 
-          const orgId = response.data?.id
+          if (!response.ok) {
+            throw new Error(payload.error || payload.message || 'Failed to create organization')
+          }
+
+          const orgId = payload.organizationId
           if (!orgId) {
             throw new Error('Failed to create organization')
           }
