@@ -16,7 +16,10 @@ import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   resetStreamingQueue,
@@ -204,6 +207,74 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
       })
     }
   } catch {}
+}
+
+function autoExecuteEligibleToolsForAccessLevel(
+  accessLevel: CopilotStore['accessLevel'],
+  get: () => CopilotStore
+) {
+  if (accessLevel !== 'full') {
+    return
+  }
+
+  const { toolCallsById } = get()
+  const copilotToolIds: string[] = []
+  const integrationToolIds: string[] = []
+
+  for (const [id, toolCall] of Object.entries(toolCallsById)) {
+    const state = toolCall.state
+    const isAwaitingApproval =
+      state === ClientToolCallState.pending || state === ClientToolCallState.review
+
+    if (!isAwaitingApproval) {
+      continue
+    }
+
+    if (isCopilotTool(toolCall.name)) {
+      const hasInterrupt = copilotToolHasInterrupt(toolCall.name, id)
+      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt)) {
+        copilotToolIds.push(id)
+      }
+      continue
+    }
+
+    if (shouldAutoExecuteIntegrationTool(accessLevel)) {
+      integrationToolIds.push(id)
+    }
+  }
+
+  if (copilotToolIds.length === 0 && integrationToolIds.length === 0) {
+    return
+  }
+
+  logger.info('[copilot access] auto-executing queued tools after access change', {
+    accessLevel,
+    copilotToolIds,
+    integrationToolIds,
+  })
+
+  for (const toolCallId of copilotToolIds) {
+    setTimeout(() => {
+      const latest = get().toolCallsById[toolCallId]
+      if (!latest) return
+      const state = latest.state
+      if (state !== ClientToolCallState.pending && state !== ClientToolCallState.review) {
+        return
+      }
+      void get().executeCopilotToolCall(toolCallId)
+    }, 0)
+  }
+
+  for (const toolCallId of integrationToolIds) {
+    setTimeout(() => {
+      const latest = get().toolCallsById[toolCallId]
+      if (!latest) return
+      if (latest.state !== ClientToolCallState.pending) {
+        return
+      }
+      void get().executeIntegrationTool(toolCallId)
+    }, 0)
+  }
 }
 
 // Normalize loaded messages so assistant messages render correctly from DB
@@ -1170,7 +1241,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       ...initialState,
 
       // Access policy controls
-      setAccessLevel: (accessLevel) => set({ accessLevel }),
+      setAccessLevel: (accessLevel) => {
+        const previousAccessLevel = get().accessLevel
+        set({ accessLevel })
+        if (previousAccessLevel !== accessLevel) {
+          autoExecuteEligibleToolsForAccessLevel(accessLevel, get)
+        }
+      },
 
       // Clear messages
       clearMessages: () => set({ messages: [], contextUsage: null }),
@@ -2178,23 +2255,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         if (isServerManagedCopilotTool(name)) {
           try {
-            const response = await fetch('/api/copilot/execute-copilot-server-tool', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toolName: name,
-                payload: preparedArgs,
-              }),
+            const result = await executeCopilotServerTool({
+              toolName: name,
+              payload: preparedArgs,
             })
-
-            if (!response.ok) {
-              const errorText = await response.text().catch(() => '')
-              throw new Error(errorText || `Server error (${response.status})`)
-            }
-
-            const json = await response.json()
-            const parsed = ExecuteResponseSuccessSchema.parse(json)
-            const result = parsed.result
             const logicalSuccess =
               !result ||
               typeof result !== 'object' ||
@@ -2271,7 +2335,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 body: JSON.stringify({
                   id,
                   name: name || 'unknown_tool',
-                  status: 500,
+                  status: getCopilotServerToolErrorStatus(error) ?? 500,
                   message,
                 }),
               })
