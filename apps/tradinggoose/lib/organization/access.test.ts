@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getOrganizationAccessState } from './access'
 
 describe('getOrganizationAccessState', () => {
-  it('allows organization creation when billing is disabled', () => {
+  it('hides organization creation when billing is disabled', () => {
     expect(
       getOrganizationAccessState({
         billingEnabled: false,
@@ -10,8 +10,8 @@ describe('getOrganizationAccessState', () => {
         isOrganizationAdmin: false,
       })
     ).toMatchObject({
-      canCreateOrganization: true,
-      canOpenTeamSettings: true,
+      canCreateOrganization: false,
+      canOpenTeamSettings: false,
       requiresOrganizationUpgrade: false,
     })
   })
@@ -50,7 +50,7 @@ describe('getOrganizationAccessState', () => {
     })
   })
 
-  it('gates SSO by organization admin role and tier access', () => {
+  it('gates SSO by organization admin role, and only uses tier access when billing is enabled', () => {
     expect(
       getOrganizationAccessState({
         billingEnabled: true,
@@ -72,6 +72,22 @@ describe('getOrganizationAccessState', () => {
           ownerType: 'organization',
           canConfigureSso: false,
         },
+      }).canConfigureSso
+    ).toBe(false)
+
+    expect(
+      getOrganizationAccessState({
+        billingEnabled: false,
+        hasOrganization: true,
+        isOrganizationAdmin: true,
+      }).canConfigureSso
+    ).toBe(true)
+
+    expect(
+      getOrganizationAccessState({
+        billingEnabled: false,
+        hasOrganization: true,
+        isOrganizationAdmin: false,
       }).canConfigureSso
     ).toBe(false)
   })

@@ -212,6 +212,61 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
+  it('keeps org-admin SSO registration available when billing is disabled', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+      session: {
+        activeOrganizationId: 'org-1',
+      },
+    })
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
+    mockGetOrganizationBillingData.mockResolvedValue({
+      subscriptionTier: null,
+    })
+    mockRegisterSSOProvider.mockResolvedValue({
+      providerId: 'okta',
+    })
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          authorization_endpoint: 'https://issuer.example.com/oauth2/v1/authorize',
+          token_endpoint: 'https://issuer.example.com/oauth2/v1/token',
+          userinfo_endpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
+          jwks_uri: 'https://issuer.example.com/oauth2/v1/keys',
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        }
+      )
+    )
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerId: 'okta',
+          issuer: 'https://issuer.example.com',
+          domain: 'example.com',
+          providerType: 'oidc',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+        }),
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockRegisterSSOProvider).toHaveBeenCalled()
+  })
+
   it('rejects legacy manual oidc endpoint override fields', async () => {
     mockGetSession.mockResolvedValue({
       user: {

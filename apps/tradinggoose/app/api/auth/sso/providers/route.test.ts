@@ -130,6 +130,32 @@ describe('SSO providers route', () => {
     })
   })
 
+  it('keeps org-admin provider management available when billing is disabled', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+      session: {
+        activeOrganizationId: 'org-1',
+      },
+    })
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
+    mockGetOrganizationBillingData.mockResolvedValue({
+      subscriptionTier: null,
+    })
+    mockSelect.mockReturnValue({
+      from: vi.fn(() => ({
+        where: vi.fn().mockResolvedValue([]),
+      })),
+    })
+
+    const { GET } = await import('./route')
+    const response = await GET()
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ providers: [] })
+  })
+
   it('requires an active organization for authenticated management requests', async () => {
     mockGetSession.mockResolvedValue({
       user: {

@@ -59,7 +59,7 @@ export function NoOrganizationView({
         <div>
           <h4 className='font-medium text-sm'>Create Your Team Workspace</h4>
           <p className='mt-1 text-muted-foreground text-xs'>
-            Create an organization to collaborate with your team. Billing is optional.
+            Create an organization to collaborate with your team.
           </p>
         </div>
 

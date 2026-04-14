@@ -140,4 +140,44 @@ describe('SSO access guard', () => {
 
     expect(markup).toContain('Single Sign-On is not enabled for this billing tier.')
   })
+
+  it('keeps org-admin SSO settings available when billing is disabled', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          email: 'admin@example.com',
+        },
+      },
+    })
+    mockUseOrganizations.mockReturnValue({
+      data: {
+        activeOrganization: {
+          id: 'org-1',
+          members: [
+            {
+              role: 'admin',
+              user: {
+                email: 'admin@example.com',
+              },
+            },
+          ],
+        },
+      },
+    })
+    mockUseOrganizationBilling.mockReturnValue({
+      data: {
+        billingEnabled: false,
+        subscriptionTier: null,
+      },
+    })
+
+    const { SSO } = await import('./sso')
+    const markup = renderToStaticMarkup(<SSO />)
+
+    expect(markup).not.toContain('Single Sign-On is not enabled for this billing tier.')
+    expect(markup).not.toContain(
+      'Only organization owners and admins can configure Single Sign-On settings.'
+    )
+  })
 })
