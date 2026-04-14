@@ -72,17 +72,22 @@ describe('v1 rate-limit middleware', () => {
     })
   })
 
-  it('fails open for authenticated requests when subscription lookup throws', async () => {
+  it('fails closed with a 503 when subscription lookup throws', async () => {
     mockGetPersonalEffectiveSubscription.mockRejectedValueOnce(new Error('subscription lookup failed'))
 
-    const { checkRateLimit } = await import('@/app/api/v1/middleware')
+    const { checkRateLimit, createRateLimitResponse } = await import('@/app/api/v1/middleware')
     const result = await checkRateLimit(createRequest(), 'logs')
 
-    expect(result.allowed).toBe(true)
-    expect(result.limit).toBe(Number.MAX_SAFE_INTEGER)
-    expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result.allowed).toBe(false)
+    expect(result.failureKind).toBe('dependency')
+    expect(result.limit).toBe(0)
+    expect(result.remaining).toBe(0)
     expect(result.userId).toBe('user-1')
-    expect(result.error).toBeUndefined()
+    expect(result.error).toBe('Rate limit service unavailable')
+
+    const response = createRateLimitResponse(result)
+    expect(response.status).toBe(503)
+    expect(response.headers.get('Retry-After')).toBeTruthy()
   })
 
   it('still rejects unauthenticated requests', async () => {
@@ -91,10 +96,30 @@ describe('v1 rate-limit middleware', () => {
       error: 'Unauthorized',
     })
 
-    const { checkRateLimit } = await import('@/app/api/v1/middleware')
+    const { checkRateLimit, createRateLimitResponse } = await import('@/app/api/v1/middleware')
     const result = await checkRateLimit(createRequest(), 'logs')
 
     expect(result.allowed).toBe(false)
+    expect(result.failureKind).toBe('auth')
     expect(result.error).toBe('Unauthorized')
+
+    const response = createRateLimitResponse(result)
+    expect(response.status).toBe(401)
+  })
+
+  it('returns 429 for exhausted rate limits', async () => {
+    const { createRateLimitResponse } = await import('@/app/api/v1/middleware')
+    const response = createRateLimitResponse({
+      allowed: false,
+      remaining: 0,
+      limit: 10,
+      resetAt: new Date('2026-04-12T00:01:00.000Z'),
+      userId: 'user-1',
+    })
+
+    expect(response.status).toBe(429)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Rate limit exceeded',
+    })
   })
 })
