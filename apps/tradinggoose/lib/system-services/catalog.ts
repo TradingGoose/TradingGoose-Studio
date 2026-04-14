@@ -159,24 +159,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
-    id: 'stripe',
-    displayName: 'Stripe',
-    description: 'Billing provider credentials used for checkout, webhooks, and customer sync.',
-    credentialFields: [
-      {
-        key: 'secretKey',
-        label: 'Secret Key',
-        description: 'Stripe secret key used for server-side Stripe API requests.',
-      },
-      {
-        key: 'webhookSecret',
-        label: 'Webhook Secret',
-        description: 'Stripe webhook signing secret used for inbound webhook verification.',
-      },
-    ],
-    settingFields: [],
-  },
-  {
     id: 'azure_communication_email',
     displayName: 'Azure Communication Email',
     description: 'Fallback email transport for Azure Communication Services email delivery.',

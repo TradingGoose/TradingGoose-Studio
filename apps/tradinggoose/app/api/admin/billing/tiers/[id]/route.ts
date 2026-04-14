@@ -7,7 +7,11 @@ import {
   adminBillingTierMutationSchema,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import {
+  ADMIN_BILLING_UNAVAILABLE_ERROR,
+  getBillingGateState,
+  isBillingEnabledForRuntime,
+} from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingTierMutationAPI')
@@ -21,6 +25,13 @@ export const dynamic = 'force-dynamic'
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = await requireAdminBillingUserId()
+    const { stripeConfigured } = await getBillingGateState()
+    if (!stripeConfigured) {
+      return NextResponse.json(
+        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
+        { status: 409 }
+      )
+    }
     const { id } = await params
     const body = await request.json()
     const parsed = adminBillingTierMutationSchema.safeParse(body)
@@ -199,6 +210,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminBillingUserId()
+    const { stripeConfigured } = await getBillingGateState()
+    if (!stripeConfigured) {
+      return NextResponse.json(
+        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
+        { status: 409 }
+      )
+    }
     const { id } = await params
 
     const [existingTier] = await db

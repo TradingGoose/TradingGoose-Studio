@@ -85,11 +85,6 @@ export const resolveResendServiceConfig = createServiceResolver('resend', (confi
   audienceId: asString(config.audienceId),
 }))
 
-export const resolveStripeServiceConfig = createServiceResolver('stripe', (config) => ({
-  secretKey: asString(config.secretKey),
-  webhookSecret: asString(config.webhookSecret),
-}))
-
 export const resolveAzureCommunicationEmailServiceConfig = createServiceResolver(
   'azure_communication_email',
   (config) => ({

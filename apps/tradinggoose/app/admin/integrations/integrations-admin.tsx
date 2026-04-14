@@ -112,7 +112,7 @@ export function AdminIntegrations() {
     )
   ).length
   const headerStats = [
-    { label: 'Bundles', value: String(bundles.length) },
+    { label: 'Providers', value: String(bundles.length) },
     { label: 'Services', value: String(services.length) },
     { label: 'Configured', value: String(configuredBundleCount) },
   ]
@@ -121,13 +121,13 @@ export function AdminIntegrations() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Admin integrations</span>
+        <span className='font-medium text-sm'>System-managed OAuth</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder='Search integrations and secrets...'
+          placeholder='Search system-managed OAuth integrations...'
           className='w-full'
         />
       </div>
@@ -160,6 +160,14 @@ export function AdminIntegrations() {
           </Alert>
         ) : null}
 
+        <Alert className='border-border/60 bg-muted/20'>
+          <AlertDescription>
+            These rows manage system-managed OAuth integrations for runtime services like Google
+            Drive and GitHub repository access. Better Auth social sign-in for GitHub and Google
+            stays env-only in <code>apps/tradinggoose/.env.example</code> and is not edited here.
+          </AlertDescription>
+        </Alert>
+
         {!draft && integrationsQuery.isPending ? (
           <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
             <p className='text-muted-foreground text-sm'>Loading integration catalog...</p>
@@ -170,7 +178,7 @@ export function AdminIntegrations() {
           <div>
             {filteredBundleViews.length === 0 ? (
               <div className='flex min-h-[240px] items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center text-muted-foreground text-sm'>
-                No integrations match the current search.
+                No system-managed OAuth integrations match the current search.
               </div>
             ) : (
               <div className='overflow-hidden rounded-lg border border-border bg-background'>
@@ -211,6 +219,9 @@ export function AdminIntegrations() {
                               className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
                             >
                               <div className='min-w-0 flex-1 space-y-1'>
+                                <p className='text-[11px] text-muted-foreground uppercase tracking-[0.18em]'>
+                                  System-managed OAuth provider
+                                </p>
                                 <div className='flex flex-wrap items-center gap-2'>
                                   <h3 className='font-medium text-sm'>{bundle.displayName}</h3>
                                   <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
@@ -247,15 +258,15 @@ export function AdminIntegrations() {
                             <div className='space-y-4'>
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>Credentials</p>
+                                  <p className='font-medium text-sm'>Provider credentials</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Set the provider secrets for this bundle.
+                                    Set the secrets for this system-managed OAuth provider.
                                   </p>
                                 </div>
 
                                 {secretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This bundle does not require stored credentials.
+                                    This provider does not require stored credentials.
                                   </p>
                                 ) : visibleSecretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
@@ -306,15 +317,16 @@ export function AdminIntegrations() {
 
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>Services</p>
+                                  <p className='font-medium text-sm'>OAuth services</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Enable or disable services in this bundle.
+                                    Enable or disable the services that inherit this provider's
+                                    credentials.
                                   </p>
                                 </div>
 
                                 {bundleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This bundle does not expose any services.
+                                    This provider does not expose any OAuth services.
                                   </p>
                                 ) : visibleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
@@ -347,7 +359,7 @@ export function AdminIntegrations() {
                                               </div>
                                             ) : null}
                                             <p className='text-muted-foreground text-xs'>
-                                              Uses secrets from{' '}
+                                              Inherits credentials from{' '}
                                               {parent?.displayName ?? bundle.displayName}.
                                             </p>
                                           </div>
@@ -620,7 +632,7 @@ function joinSummaryParts(parts: Array<string | null>) {
 }
 
 function getDefinitionRole(definition: AdminIntegrationDefinition) {
-  return definition.parentId ? 'service' : 'bundle'
+  return definition.parentId ? 'oauth service' : 'system-managed oauth provider'
 }
 
 function matchesDefinitionSearch(

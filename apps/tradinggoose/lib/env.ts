@@ -128,11 +128,15 @@ function safeCreateEnv() {
     // SSO Configuration
     SSO_ENABLED: z.boolean().optional(),                 // Enable SSO functionality
 
-    // Social Login (build-time Better Auth providers)
+    // Social Login (env-only Better Auth providers)
     GOOGLE_CLIENT_ID: z.string().optional(),                  // Google social login OAuth client ID
     GOOGLE_CLIENT_SECRET: z.string().optional(),              // Google social login OAuth client secret
     GITHUB_CLIENT_ID: z.string().optional(),                  // GitHub social login OAuth client ID
     GITHUB_CLIENT_SECRET: z.string().optional(),              // GitHub social login OAuth client secret
+
+    // Deployment-owned billing configuration
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),         // Stripe secret key for server-side API requests
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),     // Stripe webhook signing secret for webhook verification
   },
 
   client: {

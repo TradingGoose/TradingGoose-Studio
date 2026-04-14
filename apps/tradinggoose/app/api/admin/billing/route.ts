@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getSystemAdminAccess } from '@/lib/admin/access'
 import { getAdminBillingSnapshot } from '@/lib/admin/billing/snapshot'
+import {
+  ADMIN_BILLING_UNAVAILABLE_ERROR,
+  getBillingGateState,
+} from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
@@ -36,6 +40,14 @@ export async function GET() {
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
       logger.warn(`[${requestId}] Forbidden admin billing access attempt`, { userId })
       return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+    }
+
+    const { stripeConfigured } = await getBillingGateState()
+    if (!stripeConfigured) {
+      return NextResponse.json(
+        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
     }
 
     return NextResponse.json(await getAdminBillingSnapshot(), {

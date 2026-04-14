@@ -2,11 +2,14 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
 import { AdminPageShell } from './page-shell'
 import { AdminSystemSettingsSection } from './system-settings-section'
 
-export default function AdminHomePage() {
+export default async function AdminHomePage() {
+  const { stripeConfigured } = await getBillingGateState()
+
   return (
     <AdminPageShell
       left={
@@ -30,23 +33,25 @@ export default function AdminHomePage() {
         <AdminSystemSettingsSection />
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing</CardTitle>
-              <CardDescription>
-                Manage plans, pricing, base charges, and customer-facing billing limits.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='flex items-center justify-between gap-4'>
-              <p className='text-muted-foreground text-sm'>
-                Open the billing area to create tiers, update pricing, and manage company-wide
-                billing settings.
-              </p>
-              <Button asChild>
-                <Link href='/admin/billing'>Open</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          {stripeConfigured ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing</CardTitle>
+                <CardDescription>
+                  Manage plans, pricing, base charges, and customer-facing billing limits.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='flex items-center justify-between gap-4'>
+                <p className='text-muted-foreground text-sm'>
+                  Open the billing area to create tiers, update pricing, and manage company-wide
+                  billing settings.
+                </p>
+                <Button asChild>
+                  <Link href='/admin/billing'>Open</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader>

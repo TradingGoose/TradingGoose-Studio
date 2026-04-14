@@ -1,56 +1,31 @@
 import Stripe from 'stripe'
-import { createLogger } from '@/lib/logs/console/logger'
-import { resolveStripeServiceConfig } from './runtime'
+import { env } from '@/lib/env'
 
 const STRIPE_API_VERSION = '2025-08-27.basil'
 const MISSING_STRIPE_CLIENT_ERROR =
-  'Stripe client is not available. Configure Stripe in admin services.'
+  'Stripe client is not available. Configure STRIPE_SECRET_KEY in apps/tradinggoose/.env.'
 
-const logger = createLogger('SystemStripeRuntime')
-
-type CachedStripeServiceConfig = {
+type StripeServiceConfig = {
   secretKey: string | null
   webhookSecret: string | null
 }
 
+// Stripe is deployment-owned; secrets come from env-backed config, not DB-backed services.
 const stripeClientsBySecret = new Map<string, Stripe>()
 
-let cachedStripeServiceConfig: CachedStripeServiceConfig = {
-  secretKey: null,
-  webhookSecret: null,
+export function hasStripeSecretKey() {
+  return Boolean(getStripeServiceConfig().secretKey)
 }
 
-export function getCachedStripeServiceConfig(): CachedStripeServiceConfig {
-  return cachedStripeServiceConfig
-}
-
-export function hasCachedStripeServiceSecretKey() {
-  return Boolean(cachedStripeServiceConfig.secretKey)
-}
-
-function setCachedStripeServiceConfig(settings: CachedStripeServiceConfig) {
-  cachedStripeServiceConfig = {
-    secretKey: normalizeSecret(settings.secretKey),
-    webhookSecret: normalizeSecret(settings.webhookSecret),
+export function getStripeServiceConfig(): StripeServiceConfig {
+  return {
+    secretKey: normalizeSecret(env.STRIPE_SECRET_KEY),
+    webhookSecret: normalizeSecret(env.STRIPE_WEBHOOK_SECRET),
   }
-}
-
-async function refreshCachedStripeServiceConfig() {
-  try {
-    const settings = await resolveStripeServiceConfig()
-    setCachedStripeServiceConfig({
-      secretKey: settings.secretKey,
-      webhookSecret: settings.webhookSecret,
-    })
-  } catch (error) {
-    logger.error('Failed to refresh cached Stripe settings', { error })
-  }
-
-  return getCachedStripeServiceConfig()
 }
 
 export function getCurrentStripeClient(): Stripe | null {
-  const secretKey = cachedStripeServiceConfig.secretKey
+  const secretKey = getStripeServiceConfig().secretKey
   if (!secretKey) {
     return null
   }
@@ -86,9 +61,7 @@ export function createStripeClientProxy(): Stripe {
   }) as Stripe
 }
 
-await refreshCachedStripeServiceConfig()
-
-function normalizeSecret(value: string | null) {
+function normalizeSecret(value: string | null | undefined) {
   const trimmed = value?.trim() ?? ''
   return trimmed.length > 0 ? trimmed : null
 }
