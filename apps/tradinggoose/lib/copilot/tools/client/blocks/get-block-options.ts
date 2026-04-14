@@ -6,7 +6,10 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  ExecuteResponseSuccessSchema,
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
+import {
   GetBlockOptionsInput,
   GetBlockOptionsResult,
 } from '@/lib/copilot/tools/shared/schemas'
@@ -65,25 +68,19 @@ export class GetBlockOptionsClientTool extends BaseClientTool {
 
       const { blockId } = GetBlockOptionsInput.parse(args || {})
 
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'get_block_options', payload: { blockId } }),
-      })
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '')
-        throw new Error(errorText || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      const result = GetBlockOptionsResult.parse(parsed.result)
+      const result = GetBlockOptionsResult.parse(
+        await executeCopilotServerTool({
+          toolName: 'get_block_options',
+          payload: { blockId },
+        })
+      )
 
       await this.markToolComplete(200, { operations: result.operations.length }, result)
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('Execute failed', { message })
-      await this.markToolComplete(500, message)
+      await this.markToolComplete(getCopilotServerToolErrorStatus(error) ?? 500, message)
       this.setState(ClientToolCallState.error)
     }
   }

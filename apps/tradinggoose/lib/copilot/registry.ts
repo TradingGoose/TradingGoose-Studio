@@ -39,9 +39,6 @@ export const ToolIds = z.enum([
   'get_blocks_metadata',
   'get_block_options',
   'get_block_config',
-  'get_trigger_examples',
-  'get_examples_rag',
-  'get_operations_examples',
   'search_documentation',
   'search_online',
   'make_api_request',
@@ -92,14 +89,12 @@ const ToolCallSSEBase = z.object({
     partial: z.boolean().default(false),
   }),
 })
-export type ToolCallSSE = z.infer<typeof ToolCallSSEBase>
 
 // Reusable small schemas
-const StringArray = z.array(z.string())
 const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
 
-// Tool argument schemas (per SSE examples provided)
+// Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
   plan: z.object({
     objective: z.string().optional(),
@@ -178,16 +173,6 @@ export const ToolArgSchemas = {
   get_block_config: GetBlockConfigInput,
 
   get_trigger_blocks: GetTriggerBlocksInput,
-
-  get_trigger_examples: z.object({}),
-
-  get_examples_rag: z.object({
-    query: z.string(),
-  }),
-
-  get_operations_examples: z.object({
-    query: z.string(),
-  }),
 
   search_documentation: z.object({
     query: z.string(),
@@ -300,7 +285,6 @@ export const ToolArgSchemas = {
 
   get_block_upstream_references: GetBlockUpstreamReferencesInput,
 } as const
-export type ToolArgSchemaMap = typeof ToolArgSchemas
 
 // Tool-specific SSE schemas (tool_call with typed arguments)
 function toolCallSSEFor<TName extends ToolId, TArgs extends z.ZodTypeAny>(
@@ -344,12 +328,6 @@ export const ToolSSESchemas = {
   get_block_options: toolCallSSEFor('get_block_options', ToolArgSchemas.get_block_options),
   get_block_config: toolCallSSEFor('get_block_config', ToolArgSchemas.get_block_config),
   get_trigger_blocks: toolCallSSEFor('get_trigger_blocks', ToolArgSchemas.get_trigger_blocks),
-  get_trigger_examples: toolCallSSEFor('get_trigger_examples', ToolArgSchemas.get_trigger_examples),
-  get_examples_rag: toolCallSSEFor('get_examples_rag', ToolArgSchemas.get_examples_rag),
-  get_operations_examples: toolCallSSEFor(
-    'get_operations_examples',
-    ToolArgSchemas.get_operations_examples
-  ),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
@@ -422,26 +400,24 @@ export const ToolSSESchemas = {
     ToolArgSchemas.get_block_upstream_references
   ),
 } as const
-export type ToolSSESchemaMap = typeof ToolSSESchemas
 
 // Known result schemas per tool (what tool_result.result should conform to)
-// Note: Where legacy variability exists, schema captures the common/expected shape for new runtime.
 const WorkflowDocumentEnvelope = z.object({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
   workflowDocument: z.string(),
 })
 
 const GenericEntityListEntry = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  title: z.string().optional(),
-  functionName: z.string().optional(),
-  color: z.string().optional(),
-  transport: z.string().optional(),
-  url: z.string().optional(),
-  enabled: z.boolean().optional(),
-  connectionStatus: z.string().optional(),
+  entityId: z.string(),
+  entityName: z.string(),
+  entityDescription: z.string().optional(),
+  entityTitle: z.string().optional(),
+  entityFunctionName: z.string().optional(),
+  entityColor: z.string().optional(),
+  entityTransport: z.string().optional(),
+  entityUrl: z.string().optional(),
+  entityEnabled: z.boolean().optional(),
+  entityConnectionStatus: z.string().optional(),
   workflowId: z.string().optional(),
   blockId: z.string().optional(),
   providerId: z.string().optional(),
@@ -583,33 +559,6 @@ export const ToolResultSchemas = {
   get_block_options: GetBlockOptionsResult,
   get_block_config: GetBlockConfigResult,
   get_trigger_blocks: GetTriggerBlocksResult,
-  get_trigger_examples: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
-  get_examples_rag: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
-  get_operations_examples: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
   search_documentation: z.object({ results: z.array(z.any()) }),
   search_online: z.object({
     results: z.array(z.any()),
@@ -793,7 +742,6 @@ export const ToolResultSchemas = {
   get_block_outputs: GetBlockOutputsResult,
   get_block_upstream_references: GetBlockUpstreamReferencesResult,
 } as const
-export type ToolResultSchemaMap = typeof ToolResultSchemas
 
 // Consolidated registry entry per tool
 export const ToolRegistry = Object.freeze(
@@ -811,7 +759,6 @@ export const ToolRegistry = Object.freeze(
     >
   )
 )
-export type ToolRegistryMap = typeof ToolRegistry
 
 export function isToolId(toolId: string): toolId is ToolId {
   return Object.hasOwn(ToolRegistry, toolId)
@@ -820,8 +767,3 @@ export function isToolId(toolId: string): toolId is ToolId {
 export function getToolContract(toolId: string) {
   return isToolId(toolId) ? ToolRegistry[toolId] : undefined
 }
-
-// Convenience helper types inferred from schemas
-export type InferArgs<T extends ToolId> = z.infer<(typeof ToolArgSchemas)[T]>
-export type InferResult<T extends ToolId> = z.infer<(typeof ToolResultSchemas)[T]>
-export type InferToolCallSSE<T extends ToolId> = z.infer<(typeof ToolSSESchemas)[T]>

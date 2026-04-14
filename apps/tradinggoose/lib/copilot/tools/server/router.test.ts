@@ -128,7 +128,6 @@ describe('copilot contract registry', () => {
   it('only exposes supported tool ids', () => {
     expect(isToolId('get_blocks_and_tools')).toBe(true)
     expect(isToolId('get_block_best_practices')).toBe(false)
-    expect(isToolId('get_edit_workflow_examples')).toBe(false)
     expect(getToolContract('get_block_best_practices')).toBeUndefined()
   })
 

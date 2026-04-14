@@ -4,7 +4,10 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface SearchDocumentationArgs {
@@ -36,24 +39,19 @@ export class SearchDocumentationClientTool extends BaseClientTool {
     const logger = createLogger('SearchDocumentationClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'search_documentation', payload: args || {} }),
+      const result = await executeCopilotServerTool({
+        toolName: 'search_documentation',
+        payload: args || {},
       })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Documentation search complete', parsed.result)
+      await this.markToolComplete(200, 'Documentation search complete', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Documentation search failed')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Documentation search failed'
+      )
     }
   }
 }

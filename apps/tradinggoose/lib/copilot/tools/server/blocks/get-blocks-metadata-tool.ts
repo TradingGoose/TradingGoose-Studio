@@ -253,8 +253,8 @@ export const getBlocksMetadataServerTool: BaseServerTool<
 function transformBlockMetadata(metadata: CopilotBlockMetadata): any {
   const transformed: any = {
     blockType: metadata.id,
-    name: metadata.name,
-    description: metadata.description,
+    blockName: metadata.name,
+    blockDescription: metadata.description,
   }
 
   // Add best practices if available

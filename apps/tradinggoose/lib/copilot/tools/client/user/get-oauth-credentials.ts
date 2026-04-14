@@ -4,7 +4,10 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -47,24 +50,19 @@ export class GetOAuthCredentialsClientTool extends BaseClientTool {
         const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'get_oauth_credentials', payload }),
+      const result = await executeCopilotServerTool({
+        toolName: 'get_oauth_credentials',
+        payload,
       })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Retrieved login IDs', parsed.result)
+      await this.markToolComplete(200, 'Retrieved login IDs', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to retrieve login IDs')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Failed to retrieve login IDs'
+      )
     }
   }
 }

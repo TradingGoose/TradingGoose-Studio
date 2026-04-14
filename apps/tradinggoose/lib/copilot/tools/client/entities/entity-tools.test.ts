@@ -120,9 +120,9 @@ describe('entity document tools', () => {
     })
     expect(markCompleteBody.data.entities).toEqual([
       {
-        id: 'skill-1',
-        name: 'market-research',
-        description: 'Research a market before trading.',
+        entityId: 'skill-1',
+        entityName: 'market-research',
+        entityDescription: 'Research a market before trading.',
       },
     ])
   })

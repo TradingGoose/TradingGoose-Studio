@@ -7,7 +7,6 @@ interface ListGDriveFilesParams {
   userId?: string
   workflowId?: string
   search_query?: string
-  searchQuery?: string
   num_results?: number
 }
 
@@ -15,7 +14,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
   name: 'list_gdrive_files',
   async execute(params: ListGDriveFilesParams): Promise<any> {
     const logger = createLogger('ListGDriveFilesServerTool')
-    const { search_query, searchQuery, num_results } = params || {}
+    const { search_query, num_results } = params || {}
     let uid = params?.userId
     if (!uid && params?.workflowId) {
       uid = await getUserId('copilot-gdrive-list', params.workflowId)
@@ -24,7 +23,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       throw new Error('userId is required')
     }
 
-    const query = search_query ?? searchQuery
+    const query = search_query
     const pageSize = num_results
 
     const accessToken = await getOAuthToken(uid, 'google-drive')
