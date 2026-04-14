@@ -10,7 +10,7 @@ export const ApifyBlock: BlockConfig<RunActorResult> = {
     'Integrate Apify into your workflow. Run any Apify actor with custom input and retrieve results. Supports both synchronous and asynchronous execution with automatic dataset fetching.',
   docsLink: 'https://docs.tradinggoose.ai/tools/apify',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: ApifyIcon,
 
   subBlocks: [
