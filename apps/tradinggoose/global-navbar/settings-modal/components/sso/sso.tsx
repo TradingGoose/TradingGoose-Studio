@@ -5,8 +5,8 @@ import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
-import { canTierConfigureSso } from '@/lib/billing/tier-summary'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
@@ -72,10 +72,7 @@ export function SSO() {
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
-  const { data: organizationBillingData } = useOrganizationBilling(activeOrganization?.id || '')
-  const billingData = (organizationBillingData as any)?.data ?? organizationBillingData ?? null
-  const isOrganizationPlan = billingData?.subscriptionTier?.ownerType === 'organization'
-  const canUseSso = Boolean(isOrganizationPlan && canTierConfigureSso(billingData.subscriptionTier))
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [providerLoadError, setProviderLoadError] = useState<string | null>(null)
@@ -124,8 +121,16 @@ export function SSO() {
   const userRole = getUserRole(activeOrganization, userEmail)
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
-  const canManageSSO = isOwner || isAdmin
-  const shouldFetchProviders = Boolean(activeOrganizationId && canManageSSO && canUseSso)
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled:
+      organizationBillingData?.billingEnabled ??
+      organizationsData?.billingData?.data?.billingEnabled ??
+      true,
+    hasOrganization: Boolean(activeOrganizationId),
+    isOrganizationAdmin: isOwner || isAdmin,
+    organizationTier: organizationBillingData?.subscriptionTier,
+  })
+  const shouldFetchProviders = Boolean(activeOrganizationId && organizationAccess.canConfigureSso)
 
   useEffect(() => {
     let cancelled = false
@@ -190,23 +195,23 @@ export function SSO() {
     )
   }
 
-  if (!canUseSso) {
-    return (
-      <div className='flex h-full items-center justify-center p-6'>
-        <Alert>
-          <AlertDescription>Single Sign-On is not enabled for this billing tier.</AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
-  if (!canManageSSO) {
+  if (!organizationAccess.canManageOrganization) {
     return (
       <div className='flex h-full items-center justify-center p-6'>
         <Alert>
           <AlertDescription>
             Only organization owners and admins can configure Single Sign-On settings.
           </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  if (!organizationAccess.canConfigureSso) {
+    return (
+      <div className='flex h-full items-center justify-center p-6'>
+        <Alert>
+          <AlertDescription>Single Sign-On is not enabled for this billing tier.</AlertDescription>
         </Alert>
       </div>
     )

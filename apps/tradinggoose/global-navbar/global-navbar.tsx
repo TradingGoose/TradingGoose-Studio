@@ -15,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
+import { getOrganizationAccessState } from '@/lib/organization/access'
+import { getUserRole } from '@/lib/organization/helpers'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -74,8 +76,16 @@ export function GlobalNavbar({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
-  const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
-  const canManageTeam = billingEnabled && hasOrganization
+  const activeOrganization = organizationsData?.activeOrganization
+  const hasOrganization = Boolean(activeOrganization?.id)
+  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled,
+    hasOrganization,
+    isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
+    userTier: organizationsData?.billingData?.data?.tier,
+  })
+  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
@@ -115,12 +125,12 @@ export function GlobalNavbar({
       if (section === 'subscription' && !billingEnabled) {
         return 'account'
       }
-      if (section === 'team' && !canManageTeam) {
+      if (section === 'team' && !canOpenTeamSettings) {
         return 'account'
       }
       return section
     },
-    [billingEnabled, canManageTeam]
+    [billingEnabled, canOpenTeamSettings]
   )
 
   const openSettings = React.useCallback(
@@ -347,7 +357,6 @@ export function GlobalNavbar({
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
-                canManageTeam={canManageTeam}
                 systemNavigation={systemNavigation}
               />
             </SidebarFooter>
