@@ -19,7 +19,7 @@ vi.mock('@/stores/workflows/registry/store', () => ({
   },
 }))
 
-vi.mock('@/stores/copilot/store', () => ({
+vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => mockCopilotState,
   }),

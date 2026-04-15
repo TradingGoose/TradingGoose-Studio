@@ -17,7 +17,7 @@ import {
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
 import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
   workflowDocument: string

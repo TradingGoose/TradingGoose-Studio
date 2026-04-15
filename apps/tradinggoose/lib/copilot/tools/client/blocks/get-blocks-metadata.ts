@@ -27,14 +27,14 @@ export class GetBlocksMetadataClientTool extends BaseClientTool {
 
   static readonly metadata: BaseClientToolMetadata = {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Evaluating block choices', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Evaluating block choices', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Evaluating block choices', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Evaluated block choices', icon: ListFilter },
-      [ClientToolCallState.error]: { text: 'Failed to evaluate block choices', icon: XCircle },
-      [ClientToolCallState.aborted]: { text: 'Aborted evaluating block choices', icon: XCircle },
+      [ClientToolCallState.generating]: { text: 'Inspecting block shapes', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Inspecting block shapes', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Inspecting block shapes', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Inspected block shapes', icon: ListFilter },
+      [ClientToolCallState.error]: { text: 'Failed to inspect block shapes', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted inspecting block shapes', icon: XCircle },
       [ClientToolCallState.rejected]: {
-        text: 'Skipped evaluating block choices',
+        text: 'Skipped inspecting block shapes',
         icon: MinusCircle,
       },
     },

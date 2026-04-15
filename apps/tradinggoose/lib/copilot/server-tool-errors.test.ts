@@ -23,6 +23,25 @@ describe('copilot server tool errors', () => {
     expect(response.body.hint).toContain('Do not embed `TG_BLOCK` JSON inside node labels')
   })
 
+  it('returns container and condition repair guidance for workflow edge mismatches', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error(
+        'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges.'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_document_edge_mismatch',
+        retryable: true,
+      }),
+    })
+    expect(response.body.hint).toContain('container subgraphs')
+    expect(response.body.hint).toContain('condition blocks')
+  })
+
   it('falls back to a generic 500 payload for unknown tool failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',

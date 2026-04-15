@@ -6,7 +6,7 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface DeployWorkflowArgs {

@@ -152,7 +152,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
         code: 'invalid_workflow_document_edge_mismatch',
         error: message,
         hint:
-          'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in exact sync.',
+          'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in logical sync. Loop and parallel child blocks must stay inside their container subgraphs and cross container boundaries through the container handles, while condition blocks keep their diamond-and-branch structure.',
         retryable: true,
       },
     }

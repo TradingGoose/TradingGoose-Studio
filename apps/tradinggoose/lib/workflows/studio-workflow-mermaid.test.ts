@@ -222,7 +222,7 @@ describe('studio workflow Mermaid documents', () => {
     },
   }
 
-  it('round-trips a workflow snapshot losslessly through studio workflow Mermaid', () => {
+  it('round-trips a workflow snapshot through the canonical Studio Mermaid edge form', () => {
     const document = serializeWorkflowToTgMermaid(workflowState)
 
     expect(document).toContain('TG_WORKFLOW {')
@@ -240,7 +240,39 @@ describe('studio workflow Mermaid documents', () => {
 
     expect(parsed.blocks.gate.type).toBe(workflowState.blocks.gate.type)
     expect(parsed.blocks.loop_child.type).toBe(workflowState.blocks.loop_child.type)
-    expect(parsed.edges).toEqual(workflowState.edges)
+    expect(parsed.edges).toEqual([
+      {
+        id: 'trigger-payload-gate-target',
+        source: 'trigger',
+        sourceHandle: 'payload',
+        target: 'gate',
+        targetHandle: 'input',
+      },
+      {
+        id: 'gate-condition-gate-if-loop_parent-target',
+        source: 'gate',
+        sourceHandle: 'condition-gate-if',
+        target: 'loop_parent',
+      },
+      {
+        id: 'gate-condition-gate-else-sink-target',
+        source: 'gate',
+        sourceHandle: 'condition-gate-else',
+        target: 'sink',
+      },
+      {
+        id: 'loop_parent-loop-start-source-loop_child-target',
+        source: 'loop_parent',
+        sourceHandle: 'loop-start-source',
+        target: 'loop_child',
+      },
+      {
+        id: 'loop_parent-loop-end-source-sink-target',
+        source: 'loop_parent',
+        sourceHandle: 'loop-end-source',
+        target: 'sink',
+      },
+    ])
     expect(parsed.loops).toEqual(workflowState.loops)
     expect(parsed.parallels).toEqual(workflowState.parallels)
     expect(parseTgMermaidToWorkflow(canonicalDocument)).toEqual(parsed)
@@ -263,7 +295,7 @@ describe('studio workflow Mermaid documents', () => {
     )
   })
 
-  it('round-trips parallel container edge forms losslessly through studio workflow Mermaid', () => {
+  it('round-trips parallel container edges through the canonical Studio Mermaid edge form', () => {
     const document = serializeWorkflowToTgMermaid(parallelWorkflowState)
 
     expect(document).toContain('Parallel Start')
@@ -273,8 +305,80 @@ describe('studio workflow Mermaid documents', () => {
 
     const parsed = parseTgMermaidToWorkflow(document)
 
-    expect(parsed.edges).toEqual(parallelWorkflowState.edges)
+    expect(parsed.edges).toEqual([
+      {
+        id: 'inputTrigger-source-parallel1-target',
+        source: 'inputTrigger',
+        target: 'parallel1',
+      },
+      {
+        id: 'parallel1-parallel-start-source-xSearch-target',
+        source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
+        target: 'xSearch',
+      },
+      {
+        id: 'parallel1-parallel-start-source-redditPosts-target',
+        source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
+        target: 'redditPosts',
+      },
+    ])
     expect(parsed.parallels).toEqual(parallelWorkflowState.parallels)
+  })
+
+  it('normalizes visible container shorthand into canonical loop parenting and entry/exit edges', () => {
+    const document = `flowchart TD
+%% TG_WORKFLOW {"direction":"TD","version":"tg-mermaid-v1"}
+n1["Trigger<br/>id: trigger<br/>type: input_trigger<br/>enabled: true"]
+subgraph sg_n2["Loop<br/>id: loop1<br/>type: loop<br/>enabled: true"]
+  n2__loop_start["Loop Start"]
+  n3["Agent<br/>id: child1<br/>type: agent<br/>enabled: true"]
+  n2__loop_end["Loop End"]
+end
+n4["Sink<br/>id: sink<br/>type: telegram<br/>enabled: true"]
+n1 --> n3
+n3 --> n4
+%% TG_BLOCK {"id":"trigger","type":"input_trigger","name":"Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}
+%% TG_BLOCK {"id":"loop1","type":"loop","name":"Loop","position":{"x":240,"y":0},"subBlocks":{},"outputs":{},"enabled":true}
+%% TG_BLOCK {"id":"child1","type":"agent","name":"Agent","position":{"x":120,"y":80},"subBlocks":{},"outputs":{},"enabled":true}
+%% TG_BLOCK {"id":"sink","type":"telegram","name":"Sink","position":{"x":520,"y":0},"subBlocks":{},"outputs":{},"enabled":true}
+%% TG_EDGE {"source":"trigger","target":"child1"}
+%% TG_EDGE {"source":"child1","target":"sink"}
+%% TG_LOOP {"id":"loop1","nodes":[],"iterations":0,"loopType":"for"}`.trim()
+
+    const parsed = parseTgMermaidToWorkflow(document)
+
+    expect(parsed.blocks.child1.data).toMatchObject({
+      parentId: 'loop1',
+      extent: 'parent',
+    })
+    expect(parsed.loops.loop1?.nodes).toEqual(['child1'])
+    expect(parsed.edges).toEqual([
+      {
+        id: 'trigger-source-loop1-target',
+        source: 'trigger',
+        target: 'loop1',
+      },
+      {
+        id: 'loop1-loop-start-source-child1-target',
+        source: 'loop1',
+        sourceHandle: 'loop-start-source',
+        target: 'child1',
+      },
+      {
+        id: 'child1-source-loop1-loop-end-target',
+        source: 'child1',
+        target: 'loop1',
+        targetHandle: 'loop-end-target',
+      },
+      {
+        id: 'loop1-loop-end-source-sink-target',
+        source: 'loop1',
+        sourceHandle: 'loop-end-source',
+        target: 'sink',
+      },
+    ])
   })
 
   it('rejects TG_BLOCK payloads that omit the canonical type field', () => {
@@ -316,13 +420,43 @@ n1 --> n2
     )
   })
 
-  it('rejects documents whose visible parallel container connections drift from canonical TG_EDGE payloads', () => {
-    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState)
+  it('accepts documents whose visible parallel connections use explicit start nodes', () => {
+    const document = serializeWorkflowToTgMermaid(parallelWorkflowState)
       .replace('\n  n2 --> n4', '\n  n2__parallel_start --> n4')
       .replace('\n  n2 --> n3', '\n  n2__parallel_start --> n3')
 
+    const parsed = parseTgMermaidToWorkflow(document)
+
+    expect(parsed.edges).toEqual([
+      {
+        id: 'inputTrigger-source-parallel1-target',
+        source: 'inputTrigger',
+        target: 'parallel1',
+      },
+      {
+        id: 'parallel1-parallel-start-source-xSearch-target',
+        source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
+        target: 'xSearch',
+      },
+      {
+        id: 'parallel1-parallel-start-source-redditPosts-target',
+        source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
+        target: 'redditPosts',
+      },
+    ])
+    expect(parsed.parallels.parallel1?.nodes).toEqual(['redditPosts', 'xSearch'])
+  })
+
+  it('rejects documents whose visible logical parallel connections drift from canonical TG_EDGE payloads', () => {
+    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+      '\n  n2 --> n4',
+      ''
+    )
+
     expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
-      'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must match exactly. missing TG_EDGE entries for parallel1:parallel-start-source->xSearch:target, parallel1:parallel-start-source->redditPosts:target; missing visible connection lines for parallel1:source->xSearch:target, parallel1:source->redditPosts:target; expected visible lines like `n2 --> n4`, `n2 --> n3`.'
+      'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges. missing visible connection lines for parallel1:parallel-start-source->xSearch:target; expected visible lines like `n2__parallel_start --> n4`.'
     )
   })
 
@@ -369,7 +503,7 @@ agentBlock(["Agent"])
 `
 
     expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
-      'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must match exactly. missing visible connection lines for inputTrigger:source->agentBlock:target; expected visible lines like `inputTrigger --> agentBlock`.'
+      'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges. missing visible connection lines for inputTrigger:source->agentBlock:target; expected visible lines like `inputTrigger --> agentBlock`.'
     )
   })
 

@@ -34,6 +34,7 @@ type IncomingReviewMessage = z.infer<typeof UpdateMessagesSchema>['messages'][nu
 const UpdateMessagesSchema = z.object({
   reviewSessionId: z.string(),
   preserveConcurrentHistory: z.boolean().optional(),
+  latestTurnStatus: z.enum(['pending', 'in_progress', 'completed', 'error']).optional(),
   messages: z.array(
     z.object({
       id: z.string(),
@@ -129,7 +130,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { reviewSessionId, preserveConcurrentHistory, messages } = UpdateMessagesSchema.parse(body)
+    const { reviewSessionId, preserveConcurrentHistory, latestTurnStatus, messages } =
+      UpdateMessagesSchema.parse(body)
 
     const session = await loadReviewSessionForUser(reviewSessionId, userId, { requireWrite: true })
     if (!session) {
@@ -175,14 +177,18 @@ export async function POST(req: NextRequest) {
       }
 
       // Short-circuit: skip the expensive delete/reinsert if nothing changed.
-      if (arePersistedMessagesEqual(currentMessages, nextMessages)) {
+      if (latestTurnStatus == null && arePersistedMessagesEqual(currentMessages, nextMessages)) {
         return
       }
 
       await tx.delete(copilotReviewItems).where(eq(copilotReviewItems.sessionId, reviewSessionId))
       await tx.delete(copilotReviewTurns).where(eq(copilotReviewTurns.sessionId, reviewSessionId))
 
-      const nextHistory = deriveReviewTurnsAndItems(reviewSessionId, nextMessages)
+      const nextHistory = deriveReviewTurnsAndItems(
+        reviewSessionId,
+        nextMessages,
+        latestTurnStatus ?? 'completed'
+      )
 
       if (nextHistory.turns.length > 0) {
         await tx.insert(copilotReviewTurns).values(nextHistory.turns)

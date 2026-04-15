@@ -18,6 +18,7 @@ describe('Copilot Usage API - Context', () => {
   const mockMarkMessageAsProcessed = vi.fn()
   const mockCalculateCost = vi.fn()
   const mockReserveCopilotUsage = vi.fn()
+  const mockAdjustCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
 
   const createTier = (copilotCostMultiplier: number) => ({
@@ -64,9 +65,8 @@ describe('Copilot Usage API - Context', () => {
     mockHasProcessedMessage.mockReset()
     mockMarkMessageAsProcessed.mockReset()
     mockCalculateCost.mockReset()
-    mockReleaseCopilotUsageReservation.mockReset()
-    mockReleaseCopilotUsageReservation.mockReset()
     mockReserveCopilotUsage.mockReset()
+    mockAdjustCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
 
     mockIsBillingEnabledForRuntime.mockResolvedValue(false)
@@ -85,14 +85,6 @@ describe('Copilot Usage API - Context', () => {
     mockHasProcessedMessage.mockResolvedValue(false)
     mockMarkMessageAsProcessed.mockResolvedValue(undefined)
     mockCalculateCost.mockReturnValue({ total: 1.5 })
-    mockReleaseCopilotUsageReservation.mockResolvedValue({
-      released: true,
-      reservationId: 'reservation-1',
-    })
-    mockReleaseCopilotUsageReservation.mockResolvedValue({
-      released: true,
-      reservationId: 'reservation-1',
-    })
     mockReserveCopilotUsage.mockResolvedValue({
       allowed: true,
       status: 200,
@@ -102,6 +94,18 @@ describe('Copilot Usage API - Context', () => {
       limit: 10,
       remaining: 1,
       activeReservedUsd: 1,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    mockAdjustCopilotUsageReservation.mockResolvedValue({
+      allowed: true,
+      status: 200,
+      reservationId: 'reservation-1',
+      reservedUsd: 3,
+      currentUsage: 8,
+      limit: 10,
+      remaining: 0,
+      activeReservedUsd: 3,
       scopeType: 'user',
       scopeId: 'user-1',
     })
@@ -203,6 +207,8 @@ describe('Copilot Usage API - Context', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: (...args: any[]) => mockReserveCopilotUsage(...args),
+      adjustCopilotUsageReservation: (...args: any[]) =>
+        mockAdjustCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))
@@ -562,6 +568,106 @@ describe('Copilot Usage API - Context', () => {
     })
   })
 
+  it('prices reserve requests from token estimates through the same Studio pricing path', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockGetPersonalEffectiveSubscription.mockResolvedValue({
+      id: 'subscription-personal',
+      tier: createTier(2),
+    })
+    mockReserveCopilotUsage.mockResolvedValueOnce({
+      allowed: true,
+      status: 200,
+      reservationId: 'reservation-1',
+      reservedUsd: 3,
+      currentUsage: 8,
+      limit: 10,
+      remaining: 0,
+      activeReservedUsd: 3,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'reserve',
+        userId: 'user-1',
+        model: 'openai/gpt-5.4',
+        estimatedPromptTokens: 100,
+        reservedCompletionTokens: 25,
+        reason: 'copilot_turn_model_call',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      allowed: true,
+      status: 200,
+      reservationId: 'reservation-1',
+      reservedUsd: 3,
+      currentUsage: 8,
+      limit: 10,
+      remaining: 0,
+      activeReservedUsd: 3,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    expect(mockReserveCopilotUsage).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workflowId: undefined,
+      requestedUsd: 3,
+      reason: 'copilot_turn_model_call',
+    })
+  })
+
+  it('adjusts shared usage budget through the internal adjust action using Studio pricing', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockGetPersonalEffectiveSubscription.mockResolvedValue({
+      id: 'subscription-personal',
+      tier: createTier(2),
+    })
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'adjust',
+        reservationId: 'reservation-1',
+        userId: 'user-1',
+        model: 'openai/gpt-5.4',
+        estimatedPromptTokens: 100,
+        reservedCompletionTokens: 25,
+        reason: 'copilot_turn_model_call',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      allowed: true,
+      status: 200,
+      reservationId: 'reservation-1',
+      reservedUsd: 3,
+      currentUsage: 8,
+      limit: 10,
+      remaining: 0,
+      activeReservedUsd: 3,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    expect(mockAdjustCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+      userId: 'user-1',
+      workflowId: undefined,
+      requestedUsd: 3,
+      reason: 'copilot_turn_model_call',
+    })
+  })
+
   it('releases reservations through the internal release action', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
 
@@ -600,6 +706,7 @@ describe('Copilot Usage API - Completion', () => {
   const mockHasProcessedMessage = vi.fn()
   const mockMarkMessageAsProcessed = vi.fn()
   const mockCalculateCost = vi.fn()
+  const mockAdjustCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
 
   const createTier = (copilotCostMultiplier: number) => ({
@@ -644,6 +751,7 @@ describe('Copilot Usage API - Completion', () => {
     mockHasProcessedMessage.mockReset()
     mockMarkMessageAsProcessed.mockReset()
     mockCalculateCost.mockReset()
+    mockAdjustCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
 
     mockCheckInternalApiKey.mockReturnValue({ success: true })
@@ -708,6 +816,8 @@ describe('Copilot Usage API - Completion', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: vi.fn(),
+      adjustCopilotUsageReservation: (...args: any[]) =>
+        mockAdjustCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))

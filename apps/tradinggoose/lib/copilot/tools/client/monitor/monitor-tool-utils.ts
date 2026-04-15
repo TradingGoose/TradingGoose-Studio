@@ -1,4 +1,4 @@
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 export type ListMonitorArgs = {
   workflowId?: string

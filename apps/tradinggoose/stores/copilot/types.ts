@@ -32,11 +32,12 @@ export interface CopilotMessage {
   citations?: { id: number; title: string; url: string; similarity?: number }[]
   toolCalls?: CopilotToolCall[]
   contentBlocks?: Array<
-    | { type: 'text'; content: string; timestamp: number }
+    | { type: 'text'; content: string; timestamp: number; itemId?: string }
     | {
         type: 'thinking'
         content: string
         timestamp: number
+        itemId?: string
         duration?: number
         startTime?: number
       }
@@ -50,23 +51,56 @@ export interface CopilotMessage {
 // Contexts attached to a user message
 type WorkflowChatContext =
   | { kind: 'workflow'; workflowId: string; label: string }
-  | { kind: 'current_workflow'; workflowId: string; label: string }
+  | {
+      kind: 'current_workflow'
+      workflowId: string
+      label: string
+      reviewSessionId?: string
+    }
 
 type SkillChatContext =
   | { kind: 'skill'; skillId: string; workspaceId?: string; label: string }
-  | { kind: 'current_skill'; skillId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_skill'
+      skillId?: string
+      workspaceId?: string
+      label: string
+      reviewSessionId?: string
+      draftSessionId?: string
+    }
 
 type IndicatorChatContext =
   | { kind: 'indicator'; indicatorId: string; workspaceId?: string; label: string }
-  | { kind: 'current_indicator'; indicatorId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_indicator'
+      indicatorId?: string
+      workspaceId?: string
+      label: string
+      reviewSessionId?: string
+      draftSessionId?: string
+    }
 
 type CustomToolChatContext =
   | { kind: 'custom_tool'; customToolId: string; workspaceId?: string; label: string }
-  | { kind: 'current_custom_tool'; customToolId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_custom_tool'
+      customToolId?: string
+      workspaceId?: string
+      label: string
+      reviewSessionId?: string
+      draftSessionId?: string
+    }
 
 type McpServerChatContext =
   | { kind: 'mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
-  | { kind: 'current_mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_mcp_server'
+      mcpServerId?: string
+      workspaceId?: string
+      label: string
+      reviewSessionId?: string
+      draftSessionId?: string
+    }
 
 export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
@@ -93,6 +127,7 @@ export interface CopilotChat {
   messages: CopilotMessage[]
   messageCount: number
   conversationId?: string | null
+  latestTurnStatus?: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -100,16 +135,24 @@ export interface CopilotChat {
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
+  skillId?: string | null
+  customToolId?: string | null
+  indicatorId?: string | null
+  mcpServerId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
   channelId: string
   workflowId?: string
+  workspaceId?: string
+  currentSkillId?: string
+  currentCustomToolId?: string
+  currentIndicatorId?: string
+  currentMcpServerId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind
   entityId?: string
   draftSessionId?: string
-  workspaceId?: string
 }
 
 export interface CopilotState {
@@ -196,7 +239,10 @@ export interface CopilotActions {
   ) => void
   setToolCallState: (toolCall: any, newState: ClientToolCallState, options?: any) => void
   sendDocsMessage: (query: string, options?: { stream?: boolean; topK?: number }) => Promise<void>
-  saveChatMessages: (chatId: string) => Promise<void>
+  saveChatMessages: (
+    chatId: string,
+    options?: { latestTurnStatus?: string | null }
+  ) => Promise<void>
 
   clearMessages: () => void
   clearError: () => void

@@ -29,7 +29,7 @@ vi.mock('@/stores/workflows/registry/store', () => ({
   },
 }))
 
-vi.mock('@/stores/copilot/store', () => ({
+vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => mockCopilotState,
   }),
@@ -37,6 +37,7 @@ vi.mock('@/stores/copilot/store', () => ({
 
 vi.mock('@/lib/yjs/entity-session-registry', () => ({
   getRegisteredEntitySession: () => mockEntitySessionRegistry.session,
+  getRegisteredEntitySessionByIdentity: () => mockEntitySessionRegistry.session,
 }))
 
 vi.mock('@/lib/yjs/entity-session', () => ({
@@ -196,6 +197,81 @@ describe('entity document tools', () => {
     })
     expect(markCompleteBody.data.entityDocument).toContain('"title": "market-tool"')
     expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 1"')
+  })
+
+  it('get_custom_tool resolves the matching current entity id by kind without a review session id', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      title: 'live-market-tool',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          name: 'liveMarketTool',
+          description: 'Fetch live market data',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+      codeText: 'return 2',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'custom_tool',
+        entityId: 'tool-1',
+        reviewSessionId: 'review-1',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {},
+    }
+
+    const toolCallId = 'get-custom-tool-live-session'
+    const tool = new GetCustomToolClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_custom_tool',
+      channelId: 'pair-orange',
+      workspaceId: 'ws-1',
+      currentSkillId: 'skill-1',
+      currentIndicatorId: 'indicator-1',
+      currentCustomToolId: 'tool-1',
+      currentMcpServerId: 'mcp-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      entityName: 'live-market-tool',
+      documentFormat: 'tg-custom-tool-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"title": "live-market-tool"')
+    expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 2"')
   })
 
   it('edit_skill applies the edited document to the active draft on accept', async () => {

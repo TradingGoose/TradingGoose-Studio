@@ -38,7 +38,9 @@ type SessionRow = Pick<
  */
 export function mapSessionToApiResponse(
   session: SessionRow,
-  opts: { messageCount: number; messages?: unknown[] } = { messageCount: 0 }
+  opts: { messageCount: number; messages?: unknown[]; latestTurnStatus?: string | null } = {
+    messageCount: 0,
+  }
 ) {
   return {
     reviewSessionId: session.id,
@@ -50,6 +52,7 @@ export function mapSessionToApiResponse(
     title: session.title,
     messages: opts.messages ?? [],
     messageCount: opts.messageCount,
+    latestTurnStatus: opts.latestTurnStatus ?? null,
     conversationId: session.conversationId,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,

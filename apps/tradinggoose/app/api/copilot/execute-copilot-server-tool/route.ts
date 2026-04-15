@@ -7,14 +7,12 @@ import {
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
-import { ToolIds } from '@/lib/copilot/registry'
-import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
 const ExecuteSchema = z.object({
-  toolName: ToolIds,
+  toolName: z.string().min(1),
   payload: z.unknown().optional(),
 })
 
@@ -47,6 +45,15 @@ export async function POST(req: NextRequest) {
     }
     toolName = parsedBody.toolName
     const { payload } = parsedBody
+
+    const [{ isToolId }, { routeExecution }] = await Promise.all([
+      import('@/lib/copilot/registry'),
+      import('@/lib/copilot/tools/server/router'),
+    ])
+
+    if (!isToolId(toolName)) {
+      return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
+    }
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
     const result = await routeExecution(toolName, payload, { userId })

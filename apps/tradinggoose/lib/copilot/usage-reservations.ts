@@ -327,6 +327,101 @@ export async function reserveCopilotUsage(params: {
   })
 }
 
+export async function adjustCopilotUsageReservation(params: {
+  reservationId: string
+  userId: string
+  workflowId?: string | null
+  requestedUsd: number
+  reason?: string
+}): Promise<CopilotUsageReservationResult> {
+  const lookup = await readReservationLookup(params.reservationId)
+  if (!lookup) {
+    return {
+      allowed: false,
+      status: 404,
+      currentUsage: 0,
+      limit: 0,
+      remaining: 0,
+      activeReservedUsd: 0,
+      scopeType: 'user',
+      scopeId: params.userId,
+      message: 'Reservation not found',
+    }
+  }
+
+  return withScopeLock(lookup, async () => {
+    const reservations = pruneExpiredReservations(await readScopeReservations(lookup))
+    const reservation = reservations.find((entry) => entry.id === params.reservationId) ?? null
+
+    if (!reservation) {
+      await deleteCachedValue(getReservationLookupKey(params.reservationId))
+      return {
+        allowed: false,
+        status: 404,
+        currentUsage: 0,
+        limit: 0,
+        remaining: 0,
+        activeReservedUsd: 0,
+        scopeType: lookup.scopeType,
+        scopeId: lookup.scopeId,
+        message: 'Reservation not found',
+      }
+    }
+
+    const usage = await checkServerSideUsageLimits({
+      userId: params.userId,
+      workflowId: params.workflowId ?? reservation.workflowId,
+    })
+
+    const otherReservations = reservations.filter((entry) => entry.id !== params.reservationId)
+    const otherReservedUsd = sumReservedUsd(otherReservations)
+    const remainingBeforeAdjust = Math.max(0, usage.limit - usage.currentUsage - otherReservedUsd)
+
+    if (usage.isExceeded || remainingBeforeAdjust < params.requestedUsd) {
+      return {
+        allowed: false,
+        status: 402,
+        reservationId: params.reservationId,
+        reservedUsd: reservation.reservedUsd,
+        currentUsage: usage.currentUsage,
+        limit: usage.limit,
+        remaining: remainingBeforeAdjust,
+        activeReservedUsd: otherReservedUsd + reservation.reservedUsd,
+        scopeType: lookup.scopeType,
+        scopeId: lookup.scopeId,
+        message: usage.message,
+      }
+    }
+
+    const refreshedReservation: CopilotUsageReservation = {
+      ...reservation,
+      userId: params.userId,
+      workflowId: params.workflowId ?? reservation.workflowId,
+      reservedUsd: params.requestedUsd,
+      reason: params.reason ?? reservation.reason,
+      expiresAt: new Date(Date.now() + RESERVATION_TTL_SECONDS * 1000).toISOString(),
+    }
+
+    await writeScopeReservations(lookup, [...otherReservations, refreshedReservation])
+    await writeReservationLookup(params.reservationId, lookup)
+
+    return {
+      allowed: true,
+      status: 200,
+      reservationId: params.reservationId,
+      reservedUsd: refreshedReservation.reservedUsd,
+      currentUsage: usage.currentUsage,
+      limit: usage.limit,
+      remaining: Math.max(0, remainingBeforeAdjust - refreshedReservation.reservedUsd),
+      activeReservedUsd: otherReservedUsd + refreshedReservation.reservedUsd,
+      scopeType: lookup.scopeType,
+      scopeId: lookup.scopeId,
+      expiresAt: refreshedReservation.expiresAt,
+      message: usage.message,
+    }
+  })
+}
+
 export async function releaseCopilotUsageReservation(params: {
   reservationId: string
 }): Promise<CopilotUsageReleaseResult> {

@@ -7,7 +7,7 @@ import {
 import { buildImplicitCopilotContexts } from './live-contexts'
 
 describe('buildImplicitCopilotContexts', () => {
-  it('builds hidden live contexts from pair store ids', () => {
+  it('emits all current entity contexts alongside the workflow', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
@@ -26,12 +26,6 @@ describe('buildImplicitCopilotContexts', () => {
         label: 'Current Workflow',
       },
       {
-        kind: 'current_indicator',
-        indicatorId: 'indicator-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Indicator',
-      },
-      {
         kind: 'current_skill',
         skillId: 'skill-1',
         workspaceId: 'workspace-1',
@@ -42,6 +36,12 @@ describe('buildImplicitCopilotContexts', () => {
         customToolId: 'tool-1',
         workspaceId: 'workspace-1',
         label: 'Current Tool',
+      },
+      {
+        kind: 'current_indicator',
+        indicatorId: 'indicator-1',
+        workspaceId: 'workspace-1',
+        label: 'Current Indicator',
       },
       {
         kind: 'current_mcp_server',
@@ -66,6 +66,50 @@ describe('buildImplicitCopilotContexts', () => {
         skillId: 'skill-1',
         workspaceId: 'workspace-1',
         label: 'Current Skill',
+      },
+    ])
+  })
+
+  it('does not use review target state to infer the current entities', () => {
+    expect(
+      buildImplicitCopilotContexts({
+        workspaceId: 'workspace-1',
+        pairContext: {
+          workflowId: 'workflow-pair',
+          indicatorId: 'indicator-stale',
+          skillId: 'skill-live',
+          customToolId: 'tool-stale',
+          reviewTarget: {
+            reviewEntityKind: 'skill',
+            reviewEntityId: 'skill-live',
+            reviewSessionId: 'review-skill-1',
+            reviewDraftSessionId: 'draft-skill-1',
+          },
+        } as any,
+      })
+    ).toEqual([
+      {
+        kind: 'current_workflow',
+        workflowId: 'workflow-pair',
+        label: 'Current Workflow',
+      },
+      {
+        kind: 'current_skill',
+        skillId: 'skill-live',
+        workspaceId: 'workspace-1',
+        label: 'Current Skill',
+      },
+      {
+        kind: 'current_custom_tool',
+        customToolId: 'tool-stale',
+        workspaceId: 'workspace-1',
+        label: 'Current Tool',
+      },
+      {
+        kind: 'current_indicator',
+        indicatorId: 'indicator-stale',
+        workspaceId: 'workspace-1',
+        label: 'Current Indicator',
       },
     ])
   })

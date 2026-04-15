@@ -30,7 +30,7 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
   setWorkflowState: (...args: any[]) => mockSetWorkflowState(...args),
 }))
 
-vi.mock('@/stores/copilot/store', () => ({
+vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => ({
       accessLevel,

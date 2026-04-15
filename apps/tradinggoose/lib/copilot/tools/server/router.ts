@@ -1,9 +1,5 @@
 import { getToolContract, isToolId, type ToolId } from '@/lib/copilot/registry'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import { getBlockConfigServerTool } from '@/lib/copilot/tools/server/blocks/get-block-config'
-import { getBlockOptionsServerTool } from '@/lib/copilot/tools/server/blocks/get-block-options'
-import { getBlocksAndToolsServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-and-tools'
-import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
 import { getTriggerBlocksServerTool } from '@/lib/copilot/tools/server/blocks/get-trigger-blocks'
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -22,10 +18,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 const logger = createLogger('ServerToolRouter')
 
 const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
-  [getBlocksAndToolsServerTool.name]: getBlocksAndToolsServerTool,
-  [getBlocksMetadataServerTool.name]: getBlocksMetadataServerTool,
-  [getBlockOptionsServerTool.name]: getBlockOptionsServerTool,
-  [getBlockConfigServerTool.name]: getBlockConfigServerTool,
   [getTriggerBlocksServerTool.name]: getTriggerBlocksServerTool,
   [editWorkflowServerTool.name]: editWorkflowServerTool,
   [getWorkflowConsoleServerTool.name]: getWorkflowConsoleServerTool,
@@ -41,6 +33,24 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [knowledgeBaseServerTool.name]: knowledgeBaseServerTool,
 }
 
+async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, any> | null> {
+  if (toolName === 'get_blocks_and_tools') {
+    const { getBlocksAndToolsServerTool } = await import(
+      '@/lib/copilot/tools/server/blocks/get-blocks-and-tools'
+    )
+    return getBlocksAndToolsServerTool
+  }
+
+  if (toolName === 'get_blocks_metadata') {
+    const { getBlocksMetadataServerTool } = await import(
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+    )
+    return getBlocksMetadataServerTool
+  }
+
+  return serverToolRegistry[toolName] ?? null
+}
+
 export async function routeExecution(
   toolName: string,
   payload: unknown,
@@ -50,7 +60,7 @@ export async function routeExecution(
     throw new Error(`Unknown server tool: ${toolName}`)
   }
 
-  const tool = serverToolRegistry[toolName]
+  const tool = await resolveServerTool(toolName)
   const contract = getToolContract(toolName)
   if (!tool || !contract) {
     throw new Error(`Unknown server tool: ${toolName}`)

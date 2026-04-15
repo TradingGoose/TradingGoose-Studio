@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
+import { WORKFLOW_DOCUMENT_CONTRACT } from '@/lib/copilot/runtime-tool-manifest-enrichment'
 
 describe('copilot runtime tool manifest', () => {
-  it('exposes the Studio tool surface and workflow document instructions', () => {
-    const manifest = getCopilotRuntimeToolManifest()
+  it('exposes the Studio tool surface and workflow document instructions', async () => {
+    const manifest = await getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)
     const joinedInstructions = manifest.instructions?.join(' ') ?? ''
 
@@ -13,6 +14,8 @@ describe('copilot runtime tool manifest', () => {
         expect.stringContaining('You are TradingGoose Copilot'),
         expect.stringContaining('Workflows are edited as full document updates'),
         expect.stringContaining('TG_EDGE'),
+        expect.stringContaining('child blocks inside the container subgraph'),
+        expect.stringContaining('Condition blocks are not rendered like normal blocks'),
         expect.stringContaining('Monitors are edited as full document updates'),
         expect.stringContaining('Keep TradingGoose surfaces distinct'),
       ])
@@ -40,7 +43,7 @@ describe('copilot runtime tool manifest', () => {
             }),
             expect.objectContaining({
               path: 'workflowDocument',
-              kind: 'string_mermaid_flowchart_edge_metadata_matches_canonical',
+              kind: 'string_document_contract',
             }),
             expect.objectContaining({
               path: 'workflowDocument',
@@ -113,10 +116,39 @@ describe('copilot runtime tool manifest', () => {
     const edgeValidator = manifest.tools
       .find((tool) => tool.name === 'edit_workflow')
       ?.semanticValidators?.find(
-        (validator) => validator.kind === 'string_mermaid_flowchart_edge_metadata_matches_canonical'
+        (validator) => validator.kind === 'string_document_contract'
       )
     expect(edgeValidator).toBeDefined()
-    expect(edgeValidator).not.toHaveProperty('message')
+    expect(edgeValidator?.description).toBe(
+      'Keep visible edges and canonical `TG_EDGE` state aligned.'
+    )
+    expect(edgeValidator?.args).toEqual(
+      expect.objectContaining({
+        contract: expect.objectContaining(WORKFLOW_DOCUMENT_CONTRACT),
+      })
+    )
+    expect(
+      (
+        edgeValidator?.args as {
+          contract?: { embeddedValidators?: Array<{ whenBlockType: string; path: string }> }
+        } | undefined
+      )?.contract?.embeddedValidators
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          whenBlockType: 'agent',
+          path: 'subBlocks.responseFormat.value',
+        }),
+        expect.objectContaining({
+          whenBlockType: 'function',
+          path: 'subBlocks.code.value',
+        }),
+        expect.objectContaining({
+          whenBlockType: 'condition',
+          path: 'subBlocks.conditions.value',
+        }),
+      ])
+    )
     expect(
       manifest.tools
         .find((tool) => tool.name === 'edit_workflow')

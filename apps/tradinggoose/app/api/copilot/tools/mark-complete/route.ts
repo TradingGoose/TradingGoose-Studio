@@ -72,6 +72,22 @@ export async function POST(req: NextRequest) {
       body: parsed,
     })
 
+    const contentType = agentRes.headers.get('content-type') || ''
+    if (agentRes.ok && contentType.includes('text/event-stream') && agentRes.body) {
+      logger.info(`[${tracker.requestId}] Agent returned continuation stream`, {
+        toolCallId: parsed.id,
+        toolName: parsed.name,
+      })
+      return new NextResponse(agentRes.body, {
+        status: agentRes.status,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
+      })
+    }
+
     // Attempt to parse agent response JSON
     let agentJson: any = null
     let agentText: string | null = null

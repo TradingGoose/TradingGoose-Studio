@@ -4,14 +4,11 @@ export interface StreamingContext {
   messageId: string
   channelId?: string
   workflowId?: string
-  accumulatedContent: any
   contentBlocks: any[]
-  currentTextBlock: any | null
-  isInThinkingBlock: boolean
-  currentThinkingBlock: any | null
-  pendingContent: string
+  textBlocksByItemId: Map<string, any>
+  thinkingBlocksByItemId: Map<string, any>
   newReviewSessionId?: string
-  doneEventCount: number
+  awaitingTools?: boolean
   streamComplete?: boolean
 }
 

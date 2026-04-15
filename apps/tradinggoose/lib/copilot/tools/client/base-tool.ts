@@ -1,5 +1,6 @@
 // Lazy require in setState to avoid circular init issues
 import { createLogger } from '@/lib/logs/console/logger'
+import { maybeHandleCopilotMarkCompleteContinuation } from '@/stores/copilot/mark-complete'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { LucideIcon } from 'lucide-react'
 
@@ -59,11 +60,15 @@ export interface ClientToolExecutionContext {
   toolName: string
   channelId: string
   workflowId?: string
+  workspaceId?: string
+  currentSkillId?: string
+  currentCustomToolId?: string
+  currentIndicatorId?: string
+  currentMcpServerId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind
   entityId?: string
   draftSessionId?: string
-  workspaceId?: string
   log?: (
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,
@@ -235,6 +240,15 @@ export class BaseClientTool {
           if (error) errorText = String(error)
         } catch {}
         throw new Error(errorText)
+      }
+
+      if (
+        await maybeHandleCopilotMarkCompleteContinuation({
+          toolCallId: this.toolCallId,
+          response: res,
+        })
+      ) {
+        return true
       }
 
       const json = (await res.json()) as { success?: boolean }

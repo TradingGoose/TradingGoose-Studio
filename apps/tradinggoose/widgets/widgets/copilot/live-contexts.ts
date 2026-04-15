@@ -1,10 +1,48 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import type { ChatContext } from '@/stores/copilot/types'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 type BuildImplicitCopilotContextsOptions = {
   workspaceId?: string | null
   pairContext?: PairColorContext | null
+}
+
+type ActiveCopilotEntityContext = {
+  entityKind: Exclude<ReviewEntityKind, 'workflow'>
+  entityId: string | null
+}
+
+function resolveActiveCopilotEntityContexts(
+  pairContext?: PairColorContext | null
+): ActiveCopilotEntityContext[] {
+  if (!pairContext) {
+    return []
+  }
+
+  return [
+    {
+      entityKind: 'skill' as const,
+      entityId: normalizeOptionalString(pairContext.skillId) ?? null,
+    },
+    {
+      entityKind: 'custom_tool' as const,
+      entityId: normalizeOptionalString(pairContext.customToolId) ?? null,
+    },
+    {
+      entityKind: 'indicator' as const,
+      entityId: normalizeOptionalString(pairContext.indicatorId) ?? null,
+    },
+    {
+      entityKind: 'mcp_server' as const,
+      entityId: normalizeOptionalString(pairContext.mcpServerId) ?? null,
+    },
+  ].filter(
+    (candidate): candidate is {
+      entityKind: ActiveCopilotEntityContext['entityKind']
+      entityId: string
+    } => !!candidate.entityId
+  )
 }
 
 export const buildImplicitCopilotContexts = ({
@@ -16,6 +54,7 @@ export const buildImplicitCopilotContexts = ({
   const resolvedWorkflowId = normalizeOptionalString(pairContext?.workflowId)
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
   const contexts: ChatContext[] = []
+  const activeEntities = resolveActiveCopilotEntityContexts(pairContext)
 
   if (resolvedWorkflowId) {
     contexts.push({
@@ -25,54 +64,46 @@ export const buildImplicitCopilotContexts = ({
     })
   }
 
-  const pushWorkspaceEntityContext = <
-    TKind extends
-      | 'current_indicator'
-      | 'current_skill'
-      | 'current_custom_tool'
-      | 'current_mcp_server',
-  >(
-    kind: TKind,
-    field:
-      | 'indicatorId'
-      | 'skillId'
-      | 'customToolId'
-      | 'mcpServerId',
-    rawId: string | null | undefined,
-    label: string
-  ) => {
-    const entityId = normalizeOptionalString(rawId)
-    if (!entityId) {
-      return
-    }
-
-    contexts.push({
-      kind,
-      label,
-      ...(resolvedWorkspaceId ? { workspaceId: resolvedWorkspaceId } : {}),
-      [field]: entityId,
-    } as ChatContext)
+  const currentEntityContextBase = {
+    ...(resolvedWorkspaceId ? { workspaceId: resolvedWorkspaceId } : {}),
   }
 
-  pushWorkspaceEntityContext(
-    'current_indicator',
-    'indicatorId',
-    pairContext?.indicatorId,
-    'Current Indicator'
-  )
-  pushWorkspaceEntityContext('current_skill', 'skillId', pairContext?.skillId, 'Current Skill')
-  pushWorkspaceEntityContext(
-    'current_custom_tool',
-    'customToolId',
-    pairContext?.customToolId,
-    'Current Tool'
-  )
-  pushWorkspaceEntityContext(
-    'current_mcp_server',
-    'mcpServerId',
-    pairContext?.mcpServerId,
-    'Current MCP Server'
-  )
+  for (const activeEntity of activeEntities) {
+    switch (activeEntity.entityKind) {
+      case 'indicator':
+        contexts.push({
+          kind: 'current_indicator',
+          label: 'Current Indicator',
+          ...currentEntityContextBase,
+          indicatorId: activeEntity.entityId,
+        })
+        break
+      case 'skill':
+        contexts.push({
+          kind: 'current_skill',
+          label: 'Current Skill',
+          ...currentEntityContextBase,
+          skillId: activeEntity.entityId,
+        })
+        break
+      case 'custom_tool':
+        contexts.push({
+          kind: 'current_custom_tool',
+          label: 'Current Tool',
+          ...currentEntityContextBase,
+          customToolId: activeEntity.entityId,
+        })
+        break
+      case 'mcp_server':
+        contexts.push({
+          kind: 'current_mcp_server',
+          label: 'Current MCP Server',
+          ...currentEntityContextBase,
+          mcpServerId: activeEntity.entityId,
+        })
+        break
+    }
+  }
 
   return contexts
 }

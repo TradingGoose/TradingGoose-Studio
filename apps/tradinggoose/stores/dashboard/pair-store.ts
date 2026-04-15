@@ -22,15 +22,14 @@ export type PairColorContext = {
   skillId?: string | null
 }
 
+const ENTITY_CONTEXT_KEYS = ['indicatorId', 'mcpServerId', 'customToolId', 'skillId'] as const
+
 const PAIR_CONTEXT_KEYS = [
   'workflowId',
   'listing',
   'channelId',
   'reviewTarget',
-  'indicatorId',
-  'mcpServerId',
-  'customToolId',
-  'skillId',
+  ...ENTITY_CONTEXT_KEYS,
 ] as const
 
 interface PairStoreState {

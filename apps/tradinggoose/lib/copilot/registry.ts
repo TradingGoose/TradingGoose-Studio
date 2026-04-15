@@ -1,9 +1,5 @@
 import { z } from 'zod'
 import {
-  GetBlockConfigInput,
-  GetBlockConfigResult,
-  GetBlockOptionsInput,
-  GetBlockOptionsResult,
   GetBlockOutputsInput,
   GetBlockOutputsResult,
   GetBlocksAndToolsInput,
@@ -17,7 +13,7 @@ import {
   KnowledgeBaseArgsSchema,
   KnowledgeBaseResultSchema,
 } from './tools/shared/schemas'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/studio-workflow-mermaid'
+import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   INDICATOR_DOCUMENT_FORMAT,
@@ -37,8 +33,6 @@ export const ToolIds = z.enum([
   'get_workflow_console',
   'get_blocks_and_tools',
   'get_blocks_metadata',
-  'get_block_options',
-  'get_block_config',
   'search_documentation',
   'search_online',
   'make_api_request',
@@ -167,10 +161,6 @@ export const ToolArgSchemas = {
   get_blocks_and_tools: GetBlocksAndToolsInput,
 
   get_blocks_metadata: GetBlocksMetadataInput,
-
-  get_block_options: GetBlockOptionsInput,
-
-  get_block_config: GetBlockConfigInput,
 
   get_trigger_blocks: GetTriggerBlocksInput,
 
@@ -325,8 +315,6 @@ export const ToolSSESchemas = {
   get_workflow_console: toolCallSSEFor('get_workflow_console', ToolArgSchemas.get_workflow_console),
   get_blocks_and_tools: toolCallSSEFor('get_blocks_and_tools', ToolArgSchemas.get_blocks_and_tools),
   get_blocks_metadata: toolCallSSEFor('get_blocks_metadata', ToolArgSchemas.get_blocks_metadata),
-  get_block_options: toolCallSSEFor('get_block_options', ToolArgSchemas.get_block_options),
-  get_block_config: toolCallSSEFor('get_block_config', ToolArgSchemas.get_block_config),
   get_trigger_blocks: toolCallSSEFor('get_trigger_blocks', ToolArgSchemas.get_trigger_blocks),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
@@ -556,8 +544,6 @@ export const ToolResultSchemas = {
   get_workflow_console: z.object({ entries: z.array(ExecutionEntry) }),
   get_blocks_and_tools: GetBlocksAndToolsResult,
   get_blocks_metadata: GetBlocksMetadataResult,
-  get_block_options: GetBlockOptionsResult,
-  get_block_config: GetBlockConfigResult,
   get_trigger_blocks: GetTriggerBlocksResult,
   search_documentation: z.object({ results: z.array(z.any()) }),
   search_online: z.object({

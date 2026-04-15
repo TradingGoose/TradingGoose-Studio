@@ -1,9 +1,10 @@
 import type { Edge } from 'reactflow'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
 import type { BlockState, Loop, Parallel, WorkflowDirection } from '@/stores/workflows/workflow/types'
 
-export const TG_MERMAID_DOCUMENT_FORMAT = 'tg-mermaid-v1' as const
+export { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
 type WorkflowDocumentMetadata = {
   version: typeof TG_MERMAID_DOCUMENT_FORMAT
@@ -50,12 +51,14 @@ type VisibleNodeRef =
 type ParsedVisibleWorkflowEdges = {
   edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
   preferredBlockNodeIds: Map<string, string>
+  visibleBlockIds: Set<string>
+  inferredParentIds: Map<string, string>
 }
 
 const COMMENT_PREFIX = '%% '
-const TG_WORKFLOW_PREFIX = `${COMMENT_PREFIX}TG_WORKFLOW `
-const TG_BLOCK_PREFIX = `${COMMENT_PREFIX}TG_BLOCK `
-const TG_EDGE_PREFIX = `${COMMENT_PREFIX}TG_EDGE `
+export const TG_WORKFLOW_PREFIX = `${COMMENT_PREFIX}TG_WORKFLOW `
+export const TG_BLOCK_PREFIX = `${COMMENT_PREFIX}TG_BLOCK `
+export const TG_EDGE_PREFIX = `${COMMENT_PREFIX}TG_EDGE `
 const TG_LOOP_PREFIX = `${COMMENT_PREFIX}TG_LOOP `
 const TG_PARALLEL_PREFIX = `${COMMENT_PREFIX}TG_PARALLEL `
 const CONDITION_INPUT_KEY = 'conditions'
@@ -880,27 +883,63 @@ function parseVisibleWorkflowEdges(
   const aliasToBlockId = new Map<string, string>()
   const preferredBlockNodeIds = new Map<string, string>()
   const knownBlockIdSet = new Set(knownBlockIds)
+  const visibleBlockIds = new Set<string>()
+  const inferredParentIds = new Map<string, string>()
+  const subgraphStack: Array<{ blockId: string | null; isContainer: boolean }> = []
+
+  const getActiveContainerId = (): string | null => {
+    for (let index = subgraphStack.length - 1; index >= 0; index -= 1) {
+      const entry = subgraphStack[index]
+      if (entry?.isContainer && entry.blockId) {
+        return entry.blockId
+      }
+    }
+
+    return null
+  }
 
   for (const rawLine of document.split(/\r?\n/)) {
     const trimmed = rawLine.trim()
 
+    if (trimmed === 'end') {
+      subgraphStack.pop()
+      continue
+    }
+
     const subgraphMatch = trimmed.match(/^subgraph\s+(sg_[A-Za-z0-9_]+)\["(.*)"\]$/)
     if (subgraphMatch?.[1] && subgraphMatch[2]) {
+      const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(subgraphMatch[2])
       if (overlay) {
         const nodeId = subgraphMatch[1].slice(3)
         aliasToBlockId.set(nodeId, overlay.id)
         nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id })
+        visibleBlockIds.add(overlay.id)
+        if (currentContainerId && currentContainerId !== overlay.id) {
+          inferredParentIds.set(overlay.id, currentContainerId)
+        }
         if (!preferredBlockNodeIds.has(overlay.id)) {
           preferredBlockNodeIds.set(overlay.id, nodeId)
         }
+        subgraphStack.push({
+          blockId: overlay.id,
+          isContainer: overlay.type === 'loop' || overlay.type === 'parallel',
+        })
+      } else {
+        subgraphStack.push({ blockId: null, isContainer: false })
       }
+      continue
+    }
+
+    if (trimmed.startsWith('subgraph ')) {
+      subgraphStack.push({ blockId: null, isContainer: false })
       continue
     }
 
     const rectNode = parseRectNodeLine(trimmed)
     if (rectNode) {
       const nodeId = rectNode.nodeId
+      const currentContainerId = getActiveContainerId()
       const conditionOverlay = parseConditionBranchOverlayFromLabel(rectNode.label, knownBlockIds)
       if (conditionOverlay) {
         nodeRefs.set(nodeId, {
@@ -914,6 +953,10 @@ function parseVisibleWorkflowEdges(
       const directBlockId = resolveBlockIdFromVisibleNodeId(nodeId, knownBlockIdSet, aliasToBlockId)
       if (directBlockId) {
         nodeRefs.set(nodeId, { kind: 'block', blockId: directBlockId })
+        visibleBlockIds.add(directBlockId)
+        if (currentContainerId && currentContainerId !== directBlockId) {
+          inferredParentIds.set(directBlockId, currentContainerId)
+        }
         if (!preferredBlockNodeIds.has(directBlockId)) {
           preferredBlockNodeIds.set(directBlockId, nodeId)
         }
@@ -924,6 +967,10 @@ function parseVisibleWorkflowEdges(
       if (overlay) {
         aliasToBlockId.set(nodeId, overlay.id)
         nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id })
+        visibleBlockIds.add(overlay.id)
+        if (currentContainerId && currentContainerId !== overlay.id) {
+          inferredParentIds.set(overlay.id, currentContainerId)
+        }
         if (!preferredBlockNodeIds.has(overlay.id)) {
           preferredBlockNodeIds.set(overlay.id, nodeId)
         }
@@ -951,10 +998,15 @@ function parseVisibleWorkflowEdges(
 
     const diamondMatch = trimmed.match(/^([A-Za-z0-9_]+)\{"(.*)"\}$/)
     if (diamondMatch?.[1] && diamondMatch[2]) {
+      const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(diamondMatch[2])
       if (overlay) {
         aliasToBlockId.set(diamondMatch[1], overlay.id)
         nodeRefs.set(diamondMatch[1], { kind: 'block', blockId: overlay.id })
+        visibleBlockIds.add(overlay.id)
+        if (currentContainerId && currentContainerId !== overlay.id) {
+          inferredParentIds.set(overlay.id, currentContainerId)
+        }
         if (!preferredBlockNodeIds.has(overlay.id)) {
           preferredBlockNodeIds.set(overlay.id, diamondMatch[1])
         }
@@ -1002,6 +1054,283 @@ function parseVisibleWorkflowEdges(
   return {
     edges: visibleEdges,
     preferredBlockNodeIds,
+    visibleBlockIds,
+    inferredParentIds,
+  }
+}
+
+function isContainerBlockType(blockType: string | undefined): blockType is 'loop' | 'parallel' {
+  return blockType === 'loop' || blockType === 'parallel'
+}
+
+function getContainerAncestorChain(
+  blockId: string,
+  blocks: Record<string, BlockState>
+): string[] {
+  const chain: string[] = []
+  const visited = new Set<string>()
+  let currentParentId = blocks[blockId]?.data?.parentId
+
+  while (currentParentId && !visited.has(currentParentId)) {
+    visited.add(currentParentId)
+
+    if (!isContainerBlockType(blocks[currentParentId]?.type)) {
+      break
+    }
+
+    chain.unshift(currentParentId)
+    currentParentId = blocks[currentParentId]?.data?.parentId
+  }
+
+  return chain
+}
+
+function isContainerStartSourceHandle(handle: string | null | undefined): boolean {
+  return handle === 'loop-start-source' || handle === 'parallel-start-source'
+}
+
+function isContainerEndTargetHandle(handle: string | null | undefined): boolean {
+  return handle === 'loop-end-target' || handle === 'parallel-end-target'
+}
+
+function normalizeContainerBoundaryHandles(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>,
+  blocks: Record<string, BlockState>
+): Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'> {
+  const sourceBlock = blocks[edge.source]
+  const targetBlock = blocks[edge.target]
+  const sourceAncestors = getContainerAncestorChain(edge.source, blocks)
+  const targetAncestors = getContainerAncestorChain(edge.target, blocks)
+
+  let sourceHandle = edge.sourceHandle
+  let targetHandle = edge.targetHandle
+
+  if (
+    isContainerBlockType(sourceBlock?.type) &&
+    !sourceHandle &&
+    targetAncestors.includes(edge.source)
+  ) {
+    sourceHandle = `${sourceBlock.type}-start-source`
+  } else if (
+    isContainerBlockType(sourceBlock?.type) &&
+    !sourceHandle &&
+    !targetAncestors.includes(edge.source)
+  ) {
+    sourceHandle = `${sourceBlock.type}-end-source`
+  }
+
+  if (
+    isContainerBlockType(targetBlock?.type) &&
+    !targetHandle &&
+    sourceAncestors.includes(edge.target)
+  ) {
+    targetHandle = `${targetBlock.type}-end-target`
+  }
+
+  return {
+    source: edge.source,
+    target: edge.target,
+    ...(sourceHandle ? { sourceHandle } : {}),
+    ...(targetHandle ? { targetHandle } : {}),
+  }
+}
+
+function getEdgeSourceContext(
+  edge: Pick<Edge, 'source' | 'sourceHandle'>,
+  blocks: Record<string, BlockState>
+): string[] {
+  const context = getContainerAncestorChain(edge.source, blocks)
+
+  if (isContainerStartSourceHandle(edge.sourceHandle) && isContainerBlockType(blocks[edge.source]?.type)) {
+    context.push(edge.source)
+  }
+
+  return context
+}
+
+function getEdgeTargetContext(
+  edge: Pick<Edge, 'target' | 'targetHandle'>,
+  blocks: Record<string, BlockState>
+): string[] {
+  const context = getContainerAncestorChain(edge.target, blocks)
+
+  if (isContainerEndTargetHandle(edge.targetHandle) && isContainerBlockType(blocks[edge.target]?.type)) {
+    context.push(edge.target)
+  }
+
+  return context
+}
+
+function toNormalizedEdge(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+): Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'> {
+  return {
+    source: edge.source,
+    target: edge.target,
+    ...(edge.sourceHandle && edge.sourceHandle !== 'source' ? { sourceHandle: edge.sourceHandle } : {}),
+    ...(edge.targetHandle && edge.targetHandle !== 'target' ? { targetHandle: edge.targetHandle } : {}),
+  }
+}
+
+function expandEdgeAcrossContainerBoundaries(
+  rawEdge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>,
+  blocks: Record<string, BlockState>
+): Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>> {
+  const edge = normalizeContainerBoundaryHandles(rawEdge, blocks)
+  const sourceContext = getEdgeSourceContext(edge, blocks)
+  const targetContext = getEdgeTargetContext(edge, blocks)
+  let commonDepth = 0
+
+  while (
+    commonDepth < sourceContext.length &&
+    commonDepth < targetContext.length &&
+    sourceContext[commonDepth] === targetContext[commonDepth]
+  ) {
+    commonDepth += 1
+  }
+
+  const expanded: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>> = []
+  let currentSource = edge.source
+  let currentSourceHandle = edge.sourceHandle
+
+  for (let index = sourceContext.length - 1; index >= commonDepth; index -= 1) {
+    const containerId = sourceContext[index]
+    const containerType = blocks[containerId]?.type
+
+    if (!isContainerBlockType(containerType)) {
+      continue
+    }
+
+    expanded.push(
+      toNormalizedEdge({
+        source: currentSource,
+        target: containerId,
+        sourceHandle: currentSourceHandle,
+        targetHandle: `${containerType}-end-target`,
+      })
+    )
+
+    currentSource = containerId
+    currentSourceHandle = `${containerType}-end-source`
+  }
+
+  for (let index = commonDepth; index < targetContext.length; index += 1) {
+    const containerId = targetContext[index]
+    const containerType = blocks[containerId]?.type
+
+    if (!isContainerBlockType(containerType)) {
+      continue
+    }
+
+    expanded.push(
+      toNormalizedEdge({
+        source: currentSource,
+        target: containerId,
+        sourceHandle: currentSourceHandle,
+      })
+    )
+
+    currentSource = containerId
+    currentSourceHandle = `${containerType}-start-source`
+  }
+
+  expanded.push(
+    toNormalizedEdge({
+      source: currentSource,
+      target: edge.target,
+      sourceHandle: currentSourceHandle,
+      targetHandle: edge.targetHandle,
+    })
+  )
+
+  return expanded
+}
+
+function normalizeLogicalWorkflowEdges(
+  edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>,
+  blocks: Record<string, BlockState>
+): Edge[] {
+  const normalizedEdges = new Map<
+    string,
+    Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+  >()
+
+  for (const edge of edges) {
+    for (const expandedEdge of expandEdgeAcrossContainerBoundaries(edge, blocks)) {
+      normalizedEdges.set(toComparableEdgeKey(expandedEdge), expandedEdge)
+    }
+  }
+
+  return [...normalizedEdges.values()].map((edge) => ({
+    ...edge,
+    id: buildStableEdgeId(edge),
+  }))
+}
+
+function applyVisibleParenting(
+  blocks: Record<string, BlockState>,
+  visibleBlockIds: Set<string>,
+  inferredParentIds: Map<string, string>
+): Record<string, BlockState> {
+  const nextBlocks: Record<string, BlockState> = { ...blocks }
+
+  for (const blockId of visibleBlockIds) {
+    const block = nextBlocks[blockId]
+
+    if (!block) {
+      continue
+    }
+
+    const nextParentId = inferredParentIds.get(blockId)
+    const nextData = { ...(block.data ?? {}) }
+
+    if (nextParentId) {
+      nextData.parentId = nextParentId
+      nextData.extent = 'parent'
+    } else {
+      delete nextData.parentId
+      delete nextData.extent
+    }
+
+    nextBlocks[blockId] = {
+      ...block,
+      ...(Object.keys(nextData).length > 0 ? { data: nextData as any } : {}),
+    }
+  }
+
+  return nextBlocks
+}
+
+function syncContainerNodeMembership(
+  blocks: Record<string, BlockState>,
+  loops: Record<string, Loop>,
+  parallels: Record<string, Parallel>
+): { loops: Record<string, Loop>; parallels: Record<string, Parallel> } {
+  const childrenByParent = getChildrenByParent(blocks)
+
+  const nextLoops = Object.fromEntries(
+    Object.entries(loops).map(([loopId, loop]) => [
+      loopId,
+      {
+        ...loop,
+        nodes: [...(childrenByParent.get(loopId) ?? [])],
+      },
+    ])
+  )
+
+  const nextParallels = Object.fromEntries(
+    Object.entries(parallels).map(([parallelId, parallel]) => [
+      parallelId,
+      {
+        ...parallel,
+        nodes: [...(childrenByParent.get(parallelId) ?? [])],
+      },
+    ])
+  )
+
+  return {
+    loops: nextLoops,
+    parallels: nextParallels,
   }
 }
 
@@ -1014,8 +1343,10 @@ function assertVisibleEdgesMatchCanonical(
     document,
     Object.keys(blocks)
   )
-  const visibleEdgeKeys = new Set(visibleEdges.map(toComparableEdgeKey))
-  const canonicalEdgeKeys = new Set(edges.map(toComparableEdgeKey))
+  const normalizedVisibleEdges = normalizeLogicalWorkflowEdges(visibleEdges, blocks)
+  const normalizedCanonicalEdges = normalizeLogicalWorkflowEdges(edges, blocks)
+  const visibleEdgeKeys = new Set(normalizedVisibleEdges.map(toComparableEdgeKey))
+  const canonicalEdgeKeys = new Set(normalizedCanonicalEdges.map(toComparableEdgeKey))
 
   if (visibleEdgeKeys.size === 0 && canonicalEdgeKeys.size === 0) {
     return
@@ -1023,7 +1354,9 @@ function assertVisibleEdgesMatchCanonical(
 
   const missingCanonical = [...visibleEdgeKeys].filter((key) => !canonicalEdgeKeys.has(key))
   const missingVisible = [...canonicalEdgeKeys].filter((key) => !visibleEdgeKeys.has(key))
-  const canonicalEdgeByKey = new Map(edges.map((edge) => [toComparableEdgeKey(edge), edge] as const))
+  const canonicalEdgeByKey = new Map(
+    normalizedCanonicalEdges.map((edge) => [toComparableEdgeKey(edge), edge] as const)
+  )
   const aliases = buildAliasMap(Object.keys(blocks))
 
   if (missingCanonical.length === 0 && missingVisible.length === 0) {
@@ -1059,7 +1392,7 @@ function assertVisibleEdgesMatchCanonical(
   }
 
   throw new Error(
-    `Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must match exactly.${detailParts.length > 0 ? ` ${detailParts.join('; ')}.` : ''}`
+    `Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges.${detailParts.length > 0 ? ` ${detailParts.join('; ')}.` : ''}`
   )
 }
 
@@ -1358,18 +1691,28 @@ export function parseTgMermaidToWorkflow(
     blocks[blockId] = mergeConditionEntriesIntoBlock(blockId, existingBlock, entries)
   }
 
-  if (Object.keys(blocks).length === 0) {
+  const visibleGraph = parseVisibleWorkflowEdges(document, Object.keys(blocks))
+  const blocksWithVisibleParenting = applyVisibleParenting(
+    blocks,
+    visibleGraph.visibleBlockIds,
+    visibleGraph.inferredParentIds
+  )
+  const normalizedVisibleEdges = normalizeLogicalWorkflowEdges(visibleGraph.edges, blocksWithVisibleParenting)
+  const normalizedCanonicalEdges = normalizeLogicalWorkflowEdges(edges, blocksWithVisibleParenting)
+  const syncedContainers = syncContainerNodeMembership(blocksWithVisibleParenting, loops, parallels)
+
+  if (Object.keys(blocksWithVisibleParenting).length === 0) {
     throw new Error('Workflow document did not contain any TG_BLOCK entries')
   }
 
-  assertVisibleEdgesMatchCanonical(document, blocks, edges)
+  assertVisibleEdgesMatchCanonical(document, blocksWithVisibleParenting, edges)
 
   return {
     direction: metadata.direction,
-    blocks,
-    edges,
-    loops,
-    parallels,
+    blocks: blocksWithVisibleParenting,
+    edges: visibleGraph.edges.length > 0 ? normalizedVisibleEdges : normalizedCanonicalEdges,
+    loops: syncedContainers.loops,
+    parallels: syncedContainers.parallels,
     ...(normalizeMetadataValue(metadata.lastSaved) ? { lastSaved: metadata.lastSaved } : {}),
     ...(metadata.isDeployed !== undefined ? { isDeployed: metadata.isDeployed } : {}),
     ...(normalizeMetadataValue(metadata.deployedAt) ? { deployedAt: metadata.deployedAt } : {}),

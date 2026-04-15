@@ -85,4 +85,29 @@ describe('pair-store linked context', () => {
       skillId: 'skill-b',
     })
   })
+
+  it('keeps review state separate while preserving parallel current entities', () => {
+    const { setContext } = usePairColorStore.getState()
+
+    setContext('blue', {
+      reviewTarget: {
+        reviewSessionId: 'chat-a',
+      },
+      skillId: 'skill-a',
+      customToolId: 'tool-a',
+    })
+
+    setContext('blue', {
+      indicatorId: 'indicator-b',
+    })
+
+    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
+      reviewTarget: {
+        reviewSessionId: 'chat-a',
+      },
+      skillId: 'skill-a',
+      customToolId: 'tool-a',
+      indicatorId: 'indicator-b',
+    })
+  })
 })

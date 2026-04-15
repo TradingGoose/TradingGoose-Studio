@@ -6,8 +6,6 @@ import {
   type ClientToolDisplay,
   type ClientToolExecutionContext,
 } from '@/lib/copilot/tools/client/base-tool'
-import { GetBlockConfigClientTool } from '@/lib/copilot/tools/client/blocks/get-block-config'
-import { GetBlockOptionsClientTool } from '@/lib/copilot/tools/client/blocks/get-block-options'
 import { GetBlocksAndToolsClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-and-tools'
 import { GetBlocksMetadataClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-metadata'
 import { GetTriggerBlocksClientTool } from '@/lib/copilot/tools/client/blocks/get-trigger-blocks'
@@ -148,8 +146,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   get_workflow_console: serverTool(GetWorkflowConsoleClientTool, withActiveWorkflowId),
   get_blocks_and_tools: serverTool(GetBlocksAndToolsClientTool),
   get_blocks_metadata: serverTool(GetBlocksMetadataClientTool),
-  get_block_options: serverTool(GetBlockOptionsClientTool),
-  get_block_config: serverTool(GetBlockConfigClientTool),
   get_trigger_blocks: serverTool(GetTriggerBlocksClientTool),
   search_online: serverTool(SearchOnlineClientTool),
   search_documentation: serverTool(SearchDocumentationClientTool),
@@ -212,11 +208,15 @@ export function createExecutionContext(params: {
   const {
     channelId = '',
     workflowId,
+    workspaceId,
+    currentSkillId,
+    currentCustomToolId,
+    currentIndicatorId,
+    currentMcpServerId,
     reviewSessionId,
     entityKind,
     entityId,
     draftSessionId,
-    workspaceId,
   } = provenance
 
   return {
@@ -224,11 +224,15 @@ export function createExecutionContext(params: {
     toolName,
     channelId,
     ...(workflowId ? { workflowId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
+    ...(currentSkillId ? { currentSkillId } : {}),
+    ...(currentCustomToolId ? { currentCustomToolId } : {}),
+    ...(currentIndicatorId ? { currentIndicatorId } : {}),
+    ...(currentMcpServerId ? { currentMcpServerId } : {}),
     ...(reviewSessionId ? { reviewSessionId } : {}),
     ...(entityKind ? { entityKind } : {}),
     ...(entityId ? { entityId } : {}),
     ...(draftSessionId ? { draftSessionId } : {}),
-    ...(workspaceId ? { workspaceId } : {}),
     log: (level, message, extra) => {
       try {
         logger[level](message, {
@@ -236,11 +240,15 @@ export function createExecutionContext(params: {
           toolName,
           channelId,
           workflowId,
+          workspaceId,
+          currentSkillId,
+          currentCustomToolId,
+          currentIndicatorId,
+          currentMcpServerId,
           reviewSessionId,
           entityKind,
           entityId,
           draftSessionId,
-          workspaceId,
           ...(extra || {}),
         })
       } catch {}

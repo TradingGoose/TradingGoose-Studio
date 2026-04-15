@@ -6,6 +6,7 @@ import { getMainCSPPolicy, getWorkflowExecutionCSPPolicy } from './lib/security/
 const nextConfig: NextConfig = {
   devIndicators: false,
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -49,32 +50,32 @@ const nextConfig: NextConfig = {
       // Brand logo domain if configured
       ...(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')
         ? (() => {
-            try {
-              return [
-                {
-                  protocol: 'https' as const,
-                  hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')!).hostname,
-                },
-              ]
-            } catch {
-              return []
-            }
-          })()
+          try {
+            return [
+              {
+                protocol: 'https' as const,
+                hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')!).hostname,
+              },
+            ]
+          } catch {
+            return []
+          }
+        })()
         : []),
       // Brand favicon domain if configured
       ...(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')
         ? (() => {
-            try {
-              return [
-                {
-                  protocol: 'https' as const,
-                  hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')!).hostname,
-                },
-              ]
-            } catch {
-              return []
-            }
-          })()
+          try {
+            return [
+              {
+                protocol: 'https' as const,
+                hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')!).hostname,
+              },
+            ]
+          } catch {
+            return []
+          }
+        })()
         : []),
     ],
     qualities: [75, 100],
@@ -94,20 +95,39 @@ const nextConfig: NextConfig = {
     'postgres',
   ],
   experimental: {
-    optimizeCss: false,
+    optimizeCss: true,
     turbopackSourceMaps: false,
-    preloadEntriesOnStart: false,
+    turbopackFileSystemCacheForDev: true,
+    preloadEntriesOnStart: true,
+    optimizePackageImports: [
+      'lucide-react',
+      'lodash',
+      'framer-motion',
+      'reactflow',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-slider',
+      'react-markdown',
+      'zod',
+      'date-fns',
+    ],
   },
   ...(isDev && {
     allowedDevOrigins: [
       ...(env.NEXT_PUBLIC_APP_URL
         ? (() => {
-            try {
-              return [new URL(env.NEXT_PUBLIC_APP_URL).host]
-            } catch {
-              return []
-            }
-          })()
+          try {
+            return [new URL(env.NEXT_PUBLIC_APP_URL).host]
+          } catch {
+            return []
+          }
+        })()
         : []),
       'localhost:3000',
       'localhost:3001',

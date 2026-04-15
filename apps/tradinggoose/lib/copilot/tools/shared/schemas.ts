@@ -8,23 +8,65 @@ export const ExecuteResponseSuccessSchema = z.object({
 
 // get_blocks_and_tools
 export const GetBlocksAndToolsInput = z.object({})
+export const BlockRequiredCredentialsSchema = z.object({
+  type: z.enum(['oauth', 'api_key', 'bot_token']),
+  service: z.string().optional(),
+  description: z.string(),
+})
+export const BlockMermaidContractSchema = z.object({
+  renderKind: z.enum(['standard', 'condition', 'loop_container', 'parallel_container']),
+  requiresSubgraph: z.boolean(),
+  childrenPlacement: z.enum(['none', 'inside_container', 'outside_container']),
+  incomingEdgeTarget: z.enum(['block', 'container_start']),
+  outgoingEdgeSource: z.enum(['block', 'container_end', 'condition_branch']),
+  conditionBranchNodePattern: z.string().optional(),
+  conditionBranchHandlePattern: z.string().optional(),
+  containerStartNodePattern: z.string().optional(),
+  containerEndNodePattern: z.string().optional(),
+  canonicalCommentPrefixes: z.object({
+    workflow: z.string(),
+    block: z.string(),
+    edge: z.string(),
+  }),
+})
+export const BlockMermaidExamplesSchema = z.object({
+  minimalDocument: z.string(),
+  connectedDocument: z.string(),
+})
+export const BlockMermaidOperationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  mermaidContract: BlockMermaidContractSchema,
+  mermaidExamples: BlockMermaidExamplesSchema,
+})
+export type BlockMermaidOperationType = z.infer<typeof BlockMermaidOperationSchema>
+export const BlockMermaidCatalogItemSchema = z.object({
+  blockType: z.string(),
+  blockName: z.string(),
+  blockDescription: z.string().optional(),
+  triggerAllowed: z.boolean().optional(),
+  mermaidContract: BlockMermaidContractSchema,
+  operationIds: z.array(z.string()).optional(),
+})
+export type BlockMermaidCatalogItemType = z.infer<typeof BlockMermaidCatalogItemSchema>
+export const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
+  bestPractices: z.string().optional(),
+  authType: z.enum(['OAuth', 'API Key', 'Bot Token']).optional(),
+  requiredCredentials: BlockRequiredCredentialsSchema.optional(),
+  yamlDocumentation: z.string().optional(),
+  mermaidExamples: BlockMermaidExamplesSchema,
+  operations: z.array(BlockMermaidOperationSchema).optional(),
+})
+export type BlockMermaidProfileType = z.infer<typeof BlockMermaidProfileSchema>
 export const GetBlocksAndToolsResult = z.object({
-  blocks: z.array(
-    z
-      .object({
-        blockType: z.string(),
-        blockName: z.string(),
-        blockDescription: z.string().optional(),
-        triggerAllowed: z.boolean().optional(),
-      })
-      .passthrough()
-  ),
+  blocks: z.array(BlockMermaidCatalogItemSchema),
 })
 export type GetBlocksAndToolsResultType = z.infer<typeof GetBlocksAndToolsResult>
 
 // get_blocks_metadata
 export const GetBlocksMetadataInput = z.object({ blockIds: z.array(z.string()).min(1) })
-export const GetBlocksMetadataResult = z.object({ metadata: z.record(z.any()) })
+export const GetBlocksMetadataResult = z.object({ metadata: z.record(BlockMermaidProfileSchema) })
 export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult>
 
 // get_trigger_blocks
@@ -33,39 +75,6 @@ export const GetTriggerBlocksResult = z.object({
   triggerBlockIds: z.array(z.string()),
 })
 export type GetTriggerBlocksResultType = z.infer<typeof GetTriggerBlocksResult>
-
-// get_block_options
-export const GetBlockOptionsInput = z.object({
-  blockId: z.string(),
-})
-export const GetBlockOptionsResult = z.object({
-  blockId: z.string(),
-  blockName: z.string(),
-  operations: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      description: z.string().optional(),
-    })
-  ),
-})
-export type GetBlockOptionsInputType = z.infer<typeof GetBlockOptionsInput>
-export type GetBlockOptionsResultType = z.infer<typeof GetBlockOptionsResult>
-
-// get_block_config
-export const GetBlockConfigInput = z.object({
-  blockType: z.string(),
-  operation: z.string().optional(),
-})
-export const GetBlockConfigResult = z.object({
-  blockType: z.string(),
-  blockName: z.string(),
-  operation: z.string().optional(),
-  inputs: z.record(z.any()),
-  outputs: z.record(z.any()),
-})
-export type GetBlockConfigInputType = z.infer<typeof GetBlockConfigInput>
-export type GetBlockConfigResultType = z.infer<typeof GetBlockConfigResult>
 
 // knowledge_base - shared schema used by client tool, server tool, and registry
 export const KnowledgeBaseArgsSchema = z.object({

@@ -3,6 +3,7 @@ import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
   getRegisteredEntitySession,
+  getRegisteredEntitySessionByIdentity,
   type RegisteredEntitySession,
 } from '@/lib/yjs/entity-session-registry'
 import {
@@ -156,7 +157,16 @@ export function resolveEntityIdFromExecutionContext(
     return executionContext.entityId
   }
 
-  return undefined
+  switch (kind) {
+    case 'skill':
+      return executionContext.currentSkillId
+    case 'custom_tool':
+      return executionContext.currentCustomToolId
+    case 'indicator':
+      return executionContext.currentIndicatorId
+    case 'mcp_server':
+      return executionContext.currentMcpServerId
+  }
 }
 
 export function getActiveEntitySession(
@@ -164,20 +174,22 @@ export function getActiveEntitySession(
   kind: EntityDocumentKind,
   entityId?: string
 ): RegisteredEntitySession | null {
-  if (!executionContext.reviewSessionId) {
-    return null
+  if (executionContext.reviewSessionId) {
+    const session = getRegisteredEntitySession(executionContext.reviewSessionId)
+    const matchesReviewSession =
+      !!session &&
+      session.descriptor.entityKind === kind &&
+      (!entityId || !session.descriptor.entityId || session.descriptor.entityId === entityId) &&
+      (!executionContext.workspaceId ||
+        !session.descriptor.workspaceId ||
+        session.descriptor.workspaceId === executionContext.workspaceId)
+
+    if (matchesReviewSession) {
+      return session
+    }
   }
 
-  const session = getRegisteredEntitySession(executionContext.reviewSessionId)
-  if (!session || session.descriptor.entityKind !== kind) {
-    return null
-  }
-
-  if (entityId && session.descriptor.entityId && session.descriptor.entityId !== entityId) {
-    return null
-  }
-
-  return session
+  return getRegisteredEntitySessionByIdentity(kind, entityId, executionContext.workspaceId ?? null)
 }
 
 async function fetchEntityList(kind: EntityDocumentKind, workspaceId: string): Promise<any[]> {

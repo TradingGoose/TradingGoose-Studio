@@ -10,6 +10,7 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getReadableWorkflowSnapshot } from './workflow-review-tool-utils'
 
 const logger = createLogger('GetWorkflowFromNameClientTool')
 
@@ -62,32 +63,14 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
         return
       }
 
-      // Fetch full workflow from API route (normalized tables)
-      const res = await fetch(`/api/workflows/${encodeURIComponent(match.id)}`, { method: 'GET' })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        await this.markToolComplete(res.status, text || 'Failed to fetch workflow by name')
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      const json = await res.json()
-      const wf = json?.data
-      if (!wf?.state?.blocks) {
+      const executionContext = this.requireExecutionContext()
+      const { workflowState } = await getReadableWorkflowSnapshot(executionContext, match.id)
+      if (!workflowState?.blocks) {
         await this.markToolComplete(422, 'Workflow state is empty or invalid')
         this.setState(ClientToolCallState.error)
         return
       }
 
-      const workflowState = {
-        blocks: wf.state.blocks || {},
-        edges: wf.state.edges || [],
-        loops: wf.state.loops || {},
-        parallels: wf.state.parallels || {},
-        lastSaved: wf.state.lastSaved,
-        isDeployed: wf.state.isDeployed,
-        deployedAt: wf.state.deployedAt,
-      }
       const workflowDocument = serializeWorkflowToTgMermaid(workflowState)
 
       await this.markToolComplete(200, `Retrieved workflow ${workflowName}`, {

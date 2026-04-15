@@ -8,6 +8,7 @@ import { getTierCopilotCostMultiplier } from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import {
+  adjustCopilotUsageReservation,
   releaseCopilotUsageReservation,
   reserveCopilotUsage,
 } from '@/lib/copilot/usage-reservations'
@@ -29,6 +30,7 @@ const MODEL_SYNONYMS: Record<string, string> = {
 }
 
 const BILLING_EVENT_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 days
+const DEFAULT_ESTIMATED_RESERVATION_USD = 1
 const logger = createLogger('CopilotUsageAPI')
 
 const ContextUsageRequestSchema = z.object({
@@ -43,13 +45,39 @@ const ContextUsageRequestSchema = z.object({
   userId: z.string().optional(),
 })
 
-const ReserveUsageRequestSchema = z.object({
+const UsageEstimateSchema = z.object({
+  model: z.string().min(1, 'model is required'),
+  estimatedPromptTokens: z.number().int().nonnegative(),
+  reservedCompletionTokens: z.number().int().nonnegative(),
+})
+
+const ReserveUsageUsdRequestSchema = z.object({
   action: z.literal('reserve'),
   userId: z.string().min(1, 'userId is required'),
   workflowId: z.string().min(1).optional(),
   requestedUsd: z.number().positive('requestedUsd must be positive'),
   reason: z.string().min(1).optional(),
 })
+
+const ReserveUsageEstimatedRequestSchema = z.object({
+  action: z.literal('reserve'),
+  userId: z.string().min(1, 'userId is required'),
+  workflowId: z.string().min(1).optional(),
+  reason: z.string().min(1).optional(),
+}).merge(UsageEstimateSchema)
+
+const ReserveUsageRequestSchema = z.union([
+  ReserveUsageUsdRequestSchema,
+  ReserveUsageEstimatedRequestSchema,
+])
+
+const AdjustUsageRequestSchema = z.object({
+  action: z.literal('adjust'),
+  reservationId: z.string().min(1, 'reservationId is required'),
+  userId: z.string().min(1, 'userId is required'),
+  workflowId: z.string().min(1).optional(),
+  reason: z.string().min(1).optional(),
+}).merge(UsageEstimateSchema)
 
 const ContextCommitRequestSchema = z.object({
   action: z.literal('commit'),
@@ -236,30 +264,14 @@ async function recordBilledUsage(params: {
     return { billed: false, duplicate: true }
   }
 
-  const modelToUse =
-    typeof remoteModel === 'string' && remoteModel.length > 0 ? remoteModel : billingModel
-  const normalizedModel = normalizeModelForBilling(modelToUse)
-  const costResult = calculateCost(normalizedModel, metrics.promptTokens, metrics.completionTokens, false)
-
-  const billingContext = workflowId
-    ? await resolveWorkflowBillingContext({
-        workflowId,
-        actorUserId: userId,
-      })
-    : null
-  const effectiveTier = workflowId
-    ? billingContext?.subscription?.tier ?? null
-    : (await getPersonalEffectiveSubscription(userId))?.tier ?? null
-
-  if (!effectiveTier) {
-    throw new Error(
-      workflowId
-        ? `No active workflow subscription tier found for billed copilot usage on workflow ${workflowId}`
-        : `No active personal subscription tier found for billed copilot usage for user ${userId}`
-    )
-  }
-
-  const costToAdd = Number(costResult.total || 0) * getTierCopilotCostMultiplier(effectiveTier)
+  const { costUsd: costToAdd, normalizedModel, billingContext } = await calculateCopilotCostUsd({
+    userId,
+    workflowId,
+    billingModel,
+    remoteModel,
+    promptTokens: metrics.promptTokens,
+    completionTokens: metrics.completionTokens,
+  })
   if (costToAdd <= 0) {
     logger.info('Skipping copilot billing - calculated cost is zero', {
       userId,
@@ -321,6 +333,93 @@ async function recordBilledUsage(params: {
     tokens: metrics.totalTokens,
     model: normalizedModel,
   }
+}
+
+async function resolveEffectiveCopilotTier(params: {
+  userId: string
+  workflowId?: string
+}): Promise<{
+  effectiveTier: any
+  billingContext: Awaited<ReturnType<typeof resolveWorkflowBillingContext>> | null
+}> {
+  const billingContext = params.workflowId
+    ? await resolveWorkflowBillingContext({
+        workflowId: params.workflowId,
+        actorUserId: params.userId,
+      })
+    : null
+  const effectiveTier = params.workflowId
+    ? billingContext?.subscription?.tier ?? null
+    : (await getPersonalEffectiveSubscription(params.userId))?.tier ?? null
+
+  if (!effectiveTier) {
+    throw new Error(
+      params.workflowId
+        ? `No active workflow subscription tier found for billed copilot usage on workflow ${params.workflowId}`
+        : `No active personal subscription tier found for billed copilot usage for user ${params.userId}`
+    )
+  }
+
+  return {
+    effectiveTier,
+    billingContext,
+  }
+}
+
+async function calculateCopilotCostUsd(params: {
+  userId: string
+  workflowId?: string
+  billingModel: string
+  remoteModel?: string | null
+  promptTokens: number
+  completionTokens: number
+  fallbackUsd?: number
+}): Promise<{
+  costUsd: number
+  normalizedModel: string
+  billingContext: Awaited<ReturnType<typeof resolveWorkflowBillingContext>> | null
+}> {
+  const modelToUse =
+    typeof params.remoteModel === 'string' && params.remoteModel.length > 0
+      ? params.remoteModel
+      : params.billingModel
+  const normalizedModel = normalizeModelForBilling(modelToUse)
+  const costResult = calculateCost(
+    normalizedModel,
+    params.promptTokens,
+    params.completionTokens,
+    false
+  )
+  const { effectiveTier, billingContext } = await resolveEffectiveCopilotTier({
+    userId: params.userId,
+    workflowId: params.workflowId,
+  })
+  const rawCostUsd = Number(costResult.total || 0) * getTierCopilotCostMultiplier(effectiveTier)
+
+  return {
+    costUsd: rawCostUsd > 0 ? rawCostUsd : params.fallbackUsd ?? 0,
+    normalizedModel,
+    billingContext,
+  }
+}
+
+async function calculateReservationUsdFromEstimate(params: {
+  userId: string
+  workflowId?: string
+  model: string
+  estimatedPromptTokens: number
+  reservedCompletionTokens: number
+}): Promise<number> {
+  const { costUsd } = await calculateCopilotCostUsd({
+    userId: params.userId,
+    workflowId: params.workflowId,
+    billingModel: params.model,
+    promptTokens: params.estimatedPromptTokens,
+    completionTokens: params.reservedCompletionTokens,
+    fallbackUsd: DEFAULT_ESTIMATED_RESERVATION_USD,
+  })
+
+  return costUsd
 }
 
 async function fetchContextUsageFromCopilot(params: {
@@ -452,10 +551,49 @@ async function handleReserveUsage(
     return new NextResponse(null, { status: 401 })
   }
 
+  const requestedUsd =
+    'requestedUsd' in payload
+      ? payload.requestedUsd
+      : await calculateReservationUsdFromEstimate({
+          userId: payload.userId,
+          workflowId: payload.workflowId,
+          model: payload.model,
+          estimatedPromptTokens: payload.estimatedPromptTokens,
+          reservedCompletionTokens: payload.reservedCompletionTokens,
+        })
+
   const result = await reserveCopilotUsage({
     userId: payload.userId,
     workflowId: payload.workflowId,
-    requestedUsd: payload.requestedUsd,
+    requestedUsd,
+    reason: payload.reason,
+  })
+
+  return NextResponse.json(result, { status: result.status })
+}
+
+async function handleAdjustUsage(
+  req: NextRequest,
+  payload: z.infer<typeof AdjustUsageRequestSchema>
+): Promise<NextResponse> {
+  const auth = checkInternalApiKey(req)
+  if (!auth.success) {
+    return new NextResponse(null, { status: 401 })
+  }
+
+  const requestedUsd = await calculateReservationUsdFromEstimate({
+    userId: payload.userId,
+    workflowId: payload.workflowId,
+    model: payload.model,
+    estimatedPromptTokens: payload.estimatedPromptTokens,
+    reservedCompletionTokens: payload.reservedCompletionTokens,
+  })
+
+  const result = await adjustCopilotUsageReservation({
+    reservationId: payload.reservationId,
+    userId: payload.userId,
+    workflowId: payload.workflowId,
+    requestedUsd,
     reason: payload.reason,
   })
 
@@ -605,6 +743,21 @@ export async function POST(req: NextRequest) {
         )
       }
       return await handleReserveUsage(req, parsed.data)
+    }
+
+    if (action === 'adjust') {
+      const parsed = AdjustUsageRequestSchema.safeParse(body)
+      if (!parsed.success) {
+        logger.warn('Invalid copilot usage adjust request', { errors: parsed.error.errors })
+        return NextResponse.json(
+          {
+            error: 'Invalid request body',
+            details: parsed.error.errors,
+          },
+          { status: 400 }
+        )
+      }
+      return await handleAdjustUsage(req, parsed.data)
     }
 
     if (action === 'commit') {

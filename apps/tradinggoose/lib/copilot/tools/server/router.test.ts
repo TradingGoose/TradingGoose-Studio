@@ -34,12 +34,6 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyWorkflowAccess: vi.fn(),
 }))
 
-vi.mock('@/lib/copilot/tools/server/blocks/get-block-config', () => ({
-  getBlockConfigServerTool: { name: 'get_block_config', execute: vi.fn(async () => ({})) },
-}))
-vi.mock('@/lib/copilot/tools/server/blocks/get-block-options', () => ({
-  getBlockOptionsServerTool: { name: 'get_block_options', execute: vi.fn(async () => ({})) },
-}))
 vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-and-tools', () => ({
   getBlocksAndToolsServerTool: {
     name: 'get_blocks_and_tools',
@@ -49,7 +43,7 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-and-tools', () => ({
 vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool', () => ({
   getBlocksMetadataServerTool: {
     name: 'get_blocks_metadata',
-    execute: vi.fn(async () => ({ blocks: [] })),
+    execute: vi.fn(async () => ({ metadata: {} })),
   },
 }))
 vi.mock('@/lib/copilot/tools/server/blocks/get-trigger-blocks', () => ({
@@ -127,6 +121,9 @@ beforeEach(() => {
 describe('copilot contract registry', () => {
   it('only exposes supported tool ids', () => {
     expect(isToolId('get_blocks_and_tools')).toBe(true)
+    expect(isToolId('get_blocks_metadata')).toBe(true)
+    expect(isToolId('get_block_options')).toBe(false)
+    expect(isToolId('get_block_config')).toBe(false)
     expect(isToolId('get_block_best_practices')).toBe(false)
     expect(getToolContract('get_block_best_practices')).toBeUndefined()
   })

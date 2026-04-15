@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { encodeSSE } from '@/lib/utils'
-import { getCopilotStore, getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStore } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
 
 function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
@@ -32,6 +33,7 @@ function ensureRequestAnimationFrame() {
 describe('copilot tool execution provenance', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    ensureRequestAnimationFrame()
   })
 
   it('createExecutionContext uses explicit pinned provenance', () => {
@@ -142,6 +144,121 @@ describe('copilot tool execution provenance', () => {
 
     expect(getCopilotStoreForToolCall(toolCallId)).toBe(storeB)
   })
+
+  it('pins all current live entity ids without a review session id', async () => {
+    const channelId = 'copilot-live-entity-provenance'
+    const toolCallId = 'copilot-live-entity-tool'
+    const store = getCopilotStore(channelId)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-live-entity',
+        workspaceId: 'workspace-1',
+        skillId: 'skill-1',
+        customToolId: 'tool-1',
+        indicatorId: 'indicator-1',
+        mcpServerId: 'mcp-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [
+        {
+          id: 'assistant-message-live-entity',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: toolCallId,
+            name: 'get_skill',
+            arguments: {},
+          },
+        },
+        {
+          type: 'response.completed',
+          response: { id: 'response-live-entity' },
+        },
+      ]),
+      'assistant-message-live-entity'
+    )
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        channelId,
+        workflowId: 'wf-live-entity',
+        workspaceId: 'workspace-1',
+        currentSkillId: 'skill-1',
+        currentCustomToolId: 'tool-1',
+        currentIndicatorId: 'indicator-1',
+        currentMcpServerId: 'mcp-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty(
+      'reviewSessionId'
+    )
+  })
+
+  it('parses JSON-string function call arguments before storing tool params', async () => {
+    const channelId = 'copilot-stringified-tool-args'
+    const toolCallId = 'copilot-stringified-tool-call'
+    const store = getCopilotStore(channelId)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-stringified',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [
+        {
+          id: 'assistant-message-stringified',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: toolCallId,
+            name: 'get_user_workflow',
+            arguments: JSON.stringify({ workflowId: 'wf-stringified' }),
+          },
+        },
+        {
+          type: 'response.completed',
+          response: { id: 'response-stringified-args' },
+        },
+      ]),
+      'assistant-message-stringified'
+    )
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      params: {
+        workflowId: 'wf-stringified',
+      },
+    })
+  })
 })
 
 describe('copilot streaming regressions', () => {
@@ -176,18 +293,67 @@ describe('copilot streaming regressions', () => {
 
     await store.getState().handleStreamingResponse(
       createSseStream([
-        { type: 'reasoning', phase: 'start', data: '' },
-        { type: 'reasoning', data: 'Inspecting the current workflow and tool options.' },
-        { type: 'reasoning', phase: 'end', data: '' },
-        { type: 'content', data: "I'm checking the current workflow before I edit it." },
-        { type: 'tool_generating', toolCallId: 'tool-1', toolName: 'get_user_workflow' },
         {
-          type: 'tool_call',
-          data: {
-            id: 'tool-1',
+          type: 'response.output_item.added',
+          item: {
+            id: 'reasoning-1',
+            type: 'reasoning',
+            content: [{ type: 'reasoning_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.reasoning_text.delta',
+          item_id: 'reasoning-1',
+          delta: 'Inspecting the current workflow and tool options.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'reasoning-1',
+            type: 'reasoning',
+            content: [
+              {
+                type: 'reasoning_text',
+                text: 'Inspecting the current workflow and tool options.',
+              },
+            ],
+          },
+        },
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-1',
+          delta: "I'm checking the current workflow before I edit it.",
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-1',
+            type: 'message',
+            role: 'assistant',
+            content: [
+              {
+                type: 'output_text',
+                text: "I'm checking the current workflow before I edit it.",
+              },
+            ],
+          },
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'tool-1',
             name: 'get_user_workflow',
             arguments: { workflowId: 'wf-stream-order' },
-            partial: false,
           },
         },
         {
@@ -197,8 +363,35 @@ describe('copilot streaming regressions', () => {
           failedDependency: false,
           result: { workflowDocument: 'flowchart TD' },
         },
-        { type: 'content', data: "I found the current workflow and I'm preparing the edit now." },
-        { type: 'done' },
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-2',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-2',
+          delta: "I found the current workflow and I'm preparing the edit now.",
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-2',
+            type: 'message',
+            role: 'assistant',
+            content: [
+              {
+                type: 'output_text',
+                text: "I found the current workflow and I'm preparing the edit now.",
+              },
+            ],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-ordering' } },
       ]),
       'assistant-message'
     )
@@ -216,6 +409,155 @@ describe('copilot streaming regressions', () => {
     expect(blocks[2]?.toolCall?.id).toBe('tool-1')
     expect(blocks[2]?.toolCall?.state).toBe(ClientToolCallState.success)
     expect(blocks[3]?.content).toContain('preparing the edit now')
+  })
+
+  it('uses the final output item text when it differs from streamed deltas', async () => {
+    const channelId = 'copilot-streaming-final-item-authority'
+    const store = getCopilotStore(channelId)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-final-authority',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [
+        {
+          id: 'assistant-message-final',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-final',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-final',
+          delta: 'Draft reply that should be replaced.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-final',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Final corrected reply.' }],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-final-authority' } },
+      ]),
+      'assistant-message-final'
+    )
+
+    const message = store.getState().messages[0]
+    expect(message?.content).toBe('Final corrected reply.')
+    expect((message?.contentBlocks as any[])?.[0]?.content).toBe('Final corrected reply.')
+  })
+
+  it('treats awaiting_tools as a pause and skips terminal billing fetch', async () => {
+    const channelId = 'copilot-awaiting-tools-pause'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/copilot/usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ tokensUsed: 10, percentage: 1 }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-awaiting-tools',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: {
+        reviewSessionId: 'review-awaiting-tools',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Awaiting tools',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-awaiting-tools',
+        createdAt: new Date('2026-04-14T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-14T00:00:00.000Z'),
+      },
+      chats: [],
+      messages: [
+        {
+          id: 'assistant-message-awaiting-tools',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-14T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-awaiting-tools',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-awaiting-tools',
+          delta: 'Checking the workflow before continuing.',
+        },
+        { type: 'awaiting_tools', data: { pendingToolCallIds: ['tool-await-1'] } },
+      ]),
+      'assistant-message-awaiting-tools'
+    )
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        return url === '/api/copilot/usage'
+      })
+    ).toBe(false)
+    expect(store.getState().isSendingMessage).toBe(true)
+    expect(store.getState().messages[0]?.contentBlocks?.[0]?.type).toBe('text')
   })
 
   it('starts a new generic copilot chat without deleting prior panel history', async () => {
@@ -289,6 +631,7 @@ describe('copilot streaming regressions', () => {
               timestamp: '2026-03-30T00:00:00.000Z',
             },
           ],
+          latestTurnStatus: 'completed',
         }),
       })
     )
@@ -307,7 +650,7 @@ describe('copilot streaming regressions', () => {
         return {
           ok: true,
           status: 200,
-          body: createSseStream([{ type: 'done' }]),
+          body: createSseStream([{ type: 'response.completed', response: { id: 'response-1' } }]),
         }
       }
 
@@ -382,7 +725,7 @@ describe('copilot streaming regressions', () => {
         return {
           ok: true,
           status: 200,
-          body: createSseStream([{ type: 'done' }]),
+          body: createSseStream([{ type: 'response.completed', response: { id: 'response-2' } }]),
         }
       }
 
@@ -454,7 +797,7 @@ describe('copilot streaming regressions', () => {
         return {
           ok: true,
           status: 200,
-          body: createSseStream([{ type: 'done' }]),
+          body: createSseStream([{ type: 'response.completed', response: { id: 'response-3' } }]),
         }
       }
 
@@ -555,9 +898,31 @@ describe('copilot streaming regressions', () => {
     await store.getState().handleStreamingResponse(
       createSseStream([
         { type: 'review_session_id', reviewSessionId: 'review-stream-title' },
-        { type: 'content', data: 'Done.' },
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-title-item',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-title-item',
+          delta: 'Done.',
+        },
         { type: 'title_updated', title: 'Momentum Screener' },
-        { type: 'done' },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-title-item',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Done.' }],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-title' } },
       ]),
       'assistant-message'
     )
@@ -566,7 +931,7 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().chats[0]?.title).toBe('Momentum Screener')
   })
 
-  it('preserves pending and executing tool states when reloading chats', async () => {
+  it('preserves pending tool states but aborts stale in-flight tool states when reloading chats', async () => {
     const channelId = 'copilot-tool-state-reload'
     const store = getCopilotStore(channelId)
 
@@ -594,6 +959,7 @@ describe('copilot streaming regressions', () => {
                 entityKind: 'workflow',
                 entityId: 'wf-reload',
                 draftSessionId: null,
+                latestTurnStatus: 'completed',
                 title: 'Reloaded chat',
                 conversationId: null,
                 messages: [
@@ -659,13 +1025,103 @@ describe('copilot streaming regressions', () => {
     const executingBlock = store.getState().messages[0]?.contentBlocks?.[1] as any
 
     expect(pendingBlock?.toolCall?.state).toBe(ClientToolCallState.pending)
-    expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.executing)
+    expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.aborted)
     expect(store.getState().toolCallsById['pending-tool']?.state).toBe(
       ClientToolCallState.pending
     )
     expect(store.getState().toolCallsById['executing-tool']?.state).toBe(
+      ClientToolCallState.aborted
+    )
+  })
+
+  it('preserves running tool state and rehydrates the chat as active when the latest turn is still in progress', async () => {
+    const channelId = 'copilot-tool-state-reload-active-turn'
+    const store = getCopilotStore(channelId)
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (!url.includes(`/api/copilot/chat?channelId=${channelId}`)) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true }),
+          }
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            chats: [
+              {
+                reviewSessionId: 'review-reload-active',
+                workspaceId: 'workspace-1',
+                channelId,
+                entityKind: 'copilot',
+                entityId: null,
+                draftSessionId: null,
+                latestTurnStatus: 'in_progress',
+                title: 'Reloaded active chat',
+                conversationId: null,
+                messages: [
+                  {
+                    id: 'assistant-message',
+                    role: 'assistant',
+                    content: '',
+                    timestamp: '2026-03-30T00:00:00.000Z',
+                    contentBlocks: [
+                      {
+                        type: 'tool_call',
+                        timestamp: 1,
+                        toolCall: {
+                          id: 'executing-tool',
+                          name: 'edit_indicator',
+                          state: ClientToolCallState.executing,
+                          params: { entityDocument: '{}' },
+                        },
+                      },
+                    ],
+                  },
+                ],
+                messageCount: 1,
+                createdAt: '2026-03-30T00:00:00.000Z',
+                updatedAt: '2026-03-30T00:00:00.000Z',
+              },
+            ],
+          }),
+        }
+      })
+    )
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-reload',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [],
+      toolCallsById: {},
+      isLoadingChats: false,
+      isSendingMessage: false,
+      abortController: null,
+      chatsLoadedForScope: null,
+      chatsLastLoadedAt: null,
+      suppressAutoSelect: false,
+    })
+
+    await store.getState().loadChats(true, { workspaceId: 'workspace-1' })
+
+    const executingBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
+
+    expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.executing)
+    expect(store.getState().toolCallsById['executing-tool']?.state).toBe(
       ClientToolCallState.executing
     )
+    expect(store.getState().isSendingMessage).toBe(true)
   })
 
   it('loads generic chats with an explicit workspace scope even before live context is hydrated', async () => {

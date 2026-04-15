@@ -27,7 +27,7 @@ import {
   resolveWorkspaceIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import { getEntityFields } from '@/lib/yjs/entity-session'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 type EntityToolConfig = {
   kind: EntityDocumentKind

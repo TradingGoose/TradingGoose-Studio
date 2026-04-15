@@ -72,8 +72,19 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       () => ({
         workflowId: normalizeOptionalString(pairContext?.workflowId) ?? null,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
+        skillId: normalizeOptionalString(pairContext?.skillId) ?? null,
+        customToolId: normalizeOptionalString(pairContext?.customToolId) ?? null,
+        indicatorId: normalizeOptionalString(pairContext?.indicatorId) ?? null,
+        mcpServerId: normalizeOptionalString(pairContext?.mcpServerId) ?? null,
       }),
-      [pairContext?.workflowId, workspaceId]
+      [
+        pairContext?.workflowId,
+        pairContext?.skillId,
+        pairContext?.customToolId,
+        pairContext?.indicatorId,
+        pairContext?.mcpServerId,
+        workspaceId,
+      ]
     )
 
     // Use the new copilot store
@@ -82,6 +93,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       chats,
       isLoadingChats,
       isSendingMessage,
+      abortController,
       isAborting,
       accessLevel,
       inputValue,
@@ -111,7 +123,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       const currentLiveContext = storeState.liveContext
       if (
         currentLiveContext.workflowId !== liveContext.workflowId ||
-        currentLiveContext.workspaceId !== liveContext.workspaceId
+        currentLiveContext.workspaceId !== liveContext.workspaceId ||
+        currentLiveContext.skillId !== liveContext.skillId ||
+        currentLiveContext.customToolId !== liveContext.customToolId ||
+        currentLiveContext.indicatorId !== liveContext.indicatorId ||
+        currentLiveContext.mcpServerId !== liveContext.mcpServerId
       ) {
         nextState.liveContext = liveContext
       }
@@ -333,16 +349,17 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }
     }, [showPlanTodos, planTodos.length, isSendingMessage])
 
-    // Cleanup on component unmount (page refresh, navigation, etc.)
+    // Only abort during unmount when there is a live request to cancel.
+    // Reloaded/resumable turns intentionally restore isSendingMessage without
+    // an abortController, and those should remain resumable across unloads.
     useEffect(() => {
       return () => {
-        // Abort any active message streaming and terminate active tools
-        if (isSendingMessage) {
+        if (isSendingMessage && abortController) {
           abortMessage()
           logger.info('Aborted active message streaming due to component unmount')
         }
       }
-    }, [isSendingMessage, abortMessage])
+    }, [isSendingMessage, abortController, abortMessage])
 
     // Handle new chat creation
     const handleStartNewChat = useCallback(() => {

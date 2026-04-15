@@ -41,6 +41,7 @@ export interface CopilotChat {
   entityId: string | null
   draftSessionId: string | null
   conversationId?: string | null
+  latestTurnStatus?: string | null
   title: string | null
   messages: CopilotMessage[]
   messageCount: number

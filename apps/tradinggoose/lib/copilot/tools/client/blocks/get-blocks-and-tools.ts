@@ -8,9 +8,7 @@ import {
   executeCopilotServerTool,
   getCopilotServerToolErrorStatus,
 } from '@/lib/copilot/tools/client/server-tool-response'
-import {
-  GetBlocksAndToolsResult,
-} from '@/lib/copilot/tools/shared/schemas'
+import { GetBlocksAndToolsResult } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 
 export class GetBlocksAndToolsClientTool extends BaseClientTool {
@@ -22,13 +20,13 @@ export class GetBlocksAndToolsClientTool extends BaseClientTool {
 
   static readonly metadata: BaseClientToolMetadata = {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Explored available options', icon: Blocks },
-      [ClientToolCallState.error]: { text: 'Failed to explore options', icon: XCircle },
-      [ClientToolCallState.aborted]: { text: 'Aborted exploring options', icon: MinusCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped exploring options', icon: MinusCircle },
+      [ClientToolCallState.generating]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Explored workflow blocks', icon: Blocks },
+      [ClientToolCallState.error]: { text: 'Failed to explore workflow blocks', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted exploring workflow blocks', icon: MinusCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped exploring workflow blocks', icon: MinusCircle },
     },
     interrupt: undefined,
   }

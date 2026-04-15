@@ -64,8 +64,40 @@ vi.mock('@/blocks/registry', () => {
   }
 
   const registry = {
-    agent: { ...fallbackBlock, name: 'Mock Agent' },
-    condition: { ...fallbackBlock, name: 'Mock Condition' },
+    agent: {
+      ...fallbackBlock,
+      name: 'Mock Agent',
+      subBlocks: [
+        {
+          id: 'responseFormat',
+          type: 'code',
+          language: 'json',
+          generationType: 'json-schema',
+        },
+      ],
+    },
+    condition: {
+      ...fallbackBlock,
+      name: 'Mock Condition',
+      subBlocks: [
+        {
+          id: 'conditions',
+          type: 'condition-input',
+        },
+      ],
+    },
+    function: {
+      ...fallbackBlock,
+      name: 'Mock Function',
+      subBlocks: [
+        {
+          id: 'code',
+          type: 'code',
+          language: 'typescript',
+          generationType: 'typescript-function-body',
+        },
+      ],
+    },
     generic_webhook: { ...fallbackBlock, name: 'Mock Webhook', category: 'triggers' },
   }
 

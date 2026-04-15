@@ -12,7 +12,7 @@ import {
   executeCopilotServerTool,
   getCopilotServerToolErrorStatus,
 } from '@/lib/copilot/tools/client/server-tool-response'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 /**
  * Client tool for knowledge base operations

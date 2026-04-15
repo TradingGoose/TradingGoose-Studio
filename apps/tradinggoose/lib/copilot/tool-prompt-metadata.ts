@@ -20,13 +20,16 @@ const WORKFLOW_DOCUMENT_RULES = [
 	"`edit_workflow` must receive the full edited `workflowDocument` and `documentFormat: tg-mermaid-v1`.",
 	"Call `get_user_workflow` before `edit_workflow` so your edit starts from the current workflow document.",
 	"If you add new blocks or reconnect handles, call `get_blocks_metadata` for the block types you need before editing the workflow document.",
+	"When you need exact Mermaid structure for blocks, call `get_blocks_metadata` for the relevant block types and follow its returned `mermaidContract`, `mermaidExamples`, and per-operation variants instead of guessing the shape.",
 	"`TG_BLOCK` payloads must keep the canonical workflow state shape from `get_user_workflow`; workflow documents use `type` and `name`.",
 	"`TG_EDGE` payloads are the canonical workflow edge state. When you add, remove, or reconnect blocks, keep the visible Mermaid connection lines and matching `TG_EDGE` comments in sync.",
 	"Preserve the current `flowchart TD` or `flowchart LR` direction unless the user explicitly asks to change layout orientation. Prefer `flowchart LR` for new workflows because the Studio canvas defaults to left-to-right flow.",
 	"Preserve the exact visible container-edge forms returned by `get_user_workflow`. Loop and parallel edges may connect through block aliases or explicit container start/end nodes depending on the canonical handle stored in `TG_EDGE`.",
+	"For loop and parallel blocks, keep child blocks inside the container subgraph. External incoming edges enter through the container boundary, and child outputs inside the container reconnect to the container end before leaving the container.",
 	"Do not rewrite bare loop or parallel block edges into explicit `__loop_start`, `__loop_end`, `__parallel_start`, or `__parallel_end` node connections unless the canonical `TG_EDGE` handle requires that exact visible form.",
+	"Condition blocks are not rendered like normal blocks. Keep the condition block as a subgraph with its decision diamond plus explicit branch nodes and `condition-*` handles returned by `get_user_workflow`.",
 	"Workflow inspection tools may return `blockType` and `blockName` metadata. Do not paste those metadata objects into `TG_BLOCK` payloads.",
-	"Do not rewrite workflow blocks into simplified metadata objects from `get_block_config` or `get_blocks_metadata`; edit the exact document structure returned by `get_user_workflow`.",
+	"Do not rewrite workflow blocks into simplified metadata objects from `get_blocks_metadata`; edit the exact document structure returned by `get_user_workflow`.",
 ].join(" ");
 
 const SKILL_DOCUMENT_RULES = [
@@ -139,26 +142,15 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		injectWorkflowId: true,
 	},
 	get_blocks_and_tools: {
-		description: "List available workflow blocks and related tools.",
+		description: "List available workflow blocks with compact Mermaid structure metadata.",
 		kind: "inspect",
 		entityKind: "workflow",
 	},
 	get_blocks_metadata: {
-		description: "Fetch metadata for workflow blocks.",
-		rules: "This returns block catalog metadata with `blockType` and `blockName`, not `TG_BLOCK` document payloads.",
-		kind: "inspect",
-		entityKind: "workflow",
-	},
-	get_block_options: {
-		description: "List available operations or options for a workflow block.",
-		kind: "inspect",
-		entityKind: "workflow",
-	},
-	get_block_config: {
 		description:
-			"Get block input and output config for a block type and optional operation.",
+			"Fetch detailed Mermaid structure profiles and examples for workflow blocks.",
 		rules:
-			"This returns block config metadata with `blockType` and `blockName`, not workflow-document `TG_BLOCK` JSON.",
+			"Use the returned `mermaidContract`, `mermaidExamples`, and per-operation Mermaid variants as shape guidance. Do not paste these helper objects into editable workflow documents.",
 		kind: "inspect",
 		entityKind: "workflow",
 	},
