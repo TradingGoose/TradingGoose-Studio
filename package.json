@@ -36,8 +36,8 @@
     "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers"
   },
   "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "drizzle-orm": "^0.44.5",
     "postgres": "^3.4.5"
   },
@@ -63,8 +63,7 @@
     "drizzle-kit": "^0.31.4",
     "glob": "13.0.6",
     "husky": "9.1.7",
-    "lint-staged": "16.0.0",
-    "turbo": "2.5.8"
+    "lint-staged": "16.0.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css,scss}": [
