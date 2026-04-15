@@ -122,13 +122,6 @@ function isChatTurnInProgress(chat: Pick<CopilotChat, 'latestTurnStatus'> | null
   return chat?.latestTurnStatus === ACTIVE_TURN_STATUS
 }
 
-function resolveLatestTurnStatus(
-  chat: Pick<CopilotChat, 'latestTurnStatus'> | null | undefined,
-  fallbackStatus: string
-): string {
-  return chat?.latestTurnStatus ?? fallbackStatus
-}
-
 function buildChatTurnStatusState(
   state: Pick<CopilotStore, 'currentChat' | 'chats'>,
   latestTurnStatus: string
@@ -311,12 +304,12 @@ async function postCopilotMarkComplete(params: {
   return response
 }
 
-// Helper: abort all in-progress client tools and update inline blocks
+// Helper: abort all in-progress client tools and keep message-level tool state aligned.
 function abortAllInProgressTools(set: any, get: () => CopilotStore) {
   try {
-    const { toolCallsById, messages } = get()
+    const { toolCallsById } = get()
     const updatedMap = { ...toolCallsById }
-    const abortedIds = new Set<string>()
+    const abortedIds: string[] = []
     for (const [id, tc] of Object.entries(toolCallsById)) {
       const st = tc.state as any
       // Abort anything not already terminal success/error/rejected/aborted
@@ -326,7 +319,7 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
         st === ClientToolCallState.rejected ||
         st === ClientToolCallState.aborted
       if (!isTerminal || isReviewState(st)) {
-        abortedIds.add(id)
+        abortedIds.push(id)
         updatedMap[id] = {
           ...tc,
           state: ClientToolCallState.aborted,
@@ -334,41 +327,32 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
         }
       }
     }
-    if (abortedIds.size > 0) {
-      set({ toolCallsById: updatedMap })
-      // Update inline blocks in-place for the latest assistant message only (most relevant)
+    if (abortedIds.length > 0) {
       set((s: CopilotStore) => {
-        const msgs = [...s.messages]
-        for (let mi = msgs.length - 1; mi >= 0; mi--) {
-          const m = msgs[mi] as any
-          if (m.role !== 'assistant' || !Array.isArray(m.contentBlocks)) continue
-          let changed = false
-          const blocks = m.contentBlocks.map((b: any) => {
-            if (b?.type === 'tool_call' && b.toolCall?.id && abortedIds.has(b.toolCall.id)) {
-              changed = true
-              const prev = b.toolCall
-              return {
-                ...b,
-                toolCall: {
-                  ...prev,
-                  state: ClientToolCallState.aborted,
-                  display: resolveToolDisplay(
-                    prev?.name,
-                    ClientToolCallState.aborted,
-                    prev?.id,
-                    prev?.params
-                  ),
-                },
-              }
-            }
-            return b
-          })
-          if (changed) {
-            msgs[mi] = { ...m, contentBlocks: blocks }
-            break
-          }
+        const latestTurnStatus = resolveTurnStatusFromToolCalls(updatedMap)
+        const nextChatState = buildChatTurnStatusState(s, latestTurnStatus)
+        let nextMessages = s.messages
+        for (const toolCallId of abortedIds) {
+          nextMessages = updateMessagesForToolCallState(
+            nextMessages,
+            toolCallId,
+            ClientToolCallState.aborted
+          )
         }
-        return { messages: msgs }
+
+        const nextCurrentChat = nextChatState.currentChat
+          ? {
+              ...nextChatState.currentChat,
+              messages: nextMessages,
+            }
+          : null
+
+        return {
+          toolCallsById: updatedMap,
+          messages: nextMessages,
+          chats: nextChatState.chats,
+          currentChat: nextCurrentChat,
+        }
       })
     }
   } catch {}
@@ -1317,8 +1301,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Abort in-progress tools and clear diff when changing chats
         abortAllInProgressTools(set, get)
 
-        // Capture previous chat/messages for optimistic background save
-        const previousChat = currentChat
+        // Capture previous chat/messages for optimistic background save after local aborts have settled.
+        const previousChat = get().currentChat
         const previousMessages = get().messages
 
         // Optimistically set selected chat and normalize messages for UI
@@ -1343,7 +1327,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               body: JSON.stringify({
                 reviewSessionId: previousChat.reviewSessionId,
                 messages: dbMessages,
-                latestTurnStatus: resolveLatestTurnStatus(previousChat, COMPLETED_TURN_STATUS),
+                latestTurnStatus: previousChat.latestTurnStatus ?? COMPLETED_TURN_STATUS,
               }),
             }).catch(() => {})
           }
@@ -1404,12 +1388,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       createNewChat: async () => {
-        const { isSendingMessage, currentChat } = get()
+        const { isSendingMessage } = get()
         if (isSendingMessage) get().abortMessage()
 
         // Abort in-progress tools and clear diff on new chat
         abortAllInProgressTools(set, get)
 
+        const currentChat = get().currentChat
         if (currentChat) {
           try {
             const currentMessages = get().messages
@@ -1420,7 +1405,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               body: JSON.stringify({
                 reviewSessionId: currentChat.reviewSessionId,
                 messages: dbMessages,
-                latestTurnStatus: resolveLatestTurnStatus(currentChat, COMPLETED_TURN_STATUS),
+                latestTurnStatus: currentChat.latestTurnStatus ?? COMPLETED_TURN_STATUS,
               }),
             }).catch(() => {})
           } catch {}

@@ -6,6 +6,8 @@ import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
 
+type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
+
 function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -28,6 +30,21 @@ function ensureRequestAnimationFrame() {
   if (typeof globalThis.cancelAnimationFrame !== 'function') {
     ;(globalThis as any).cancelAnimationFrame = () => {}
   }
+}
+
+function parseJsonRequestBody(request: FetchCall | undefined): Record<string, unknown> {
+  expect(request).toBeDefined()
+  if (!request) {
+    throw new Error('Expected fetch request')
+  }
+
+  const [, init] = request
+  expect(init).toBeDefined()
+  if (!init || typeof init.body !== 'string') {
+    throw new Error('Expected JSON request body')
+  }
+
+  return JSON.parse(init.body) as Record<string, unknown>
 }
 
 describe('copilot tool execution provenance', () => {
@@ -104,9 +121,7 @@ describe('copilot tool execution provenance', () => {
       const url = typeof input === 'string' ? input : input.toString()
       return url.includes('/api/copilot/execute-tool')
     })
-    expect(executeRequest).toBeDefined()
-
-    const body = JSON.parse((executeRequest?.[1] as RequestInit).body as string)
+    const body = parseJsonRequestBody(executeRequest)
     expect(body.workflowId).toBe('wf-origin-b')
   })
 
@@ -641,6 +656,245 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().suppressAutoSelect).toBe(true)
   })
 
+  it('persists a completed turn when selecting another chat after locally aborting active tools', async () => {
+    const channelId = 'copilot-select-chat-aborted-tools'
+    const store = getCopilotStore(channelId)
+    const nextChat = {
+      reviewSessionId: 'review-next-chat',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      latestTurnStatus: 'completed' as const,
+      title: 'Next chat',
+      messages: [],
+      messageCount: 0,
+      conversationId: 'conversation-next-chat',
+      createdAt: new Date('2026-03-30T00:05:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:05:00.000Z'),
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, chats: [nextChat] }),
+        }
+      }
+
+      if (url === '/api/copilot/usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ tokensUsed: 10, percentage: 1 }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const currentChat = {
+      reviewSessionId: 'review-active-chat',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      latestTurnStatus: 'in_progress' as const,
+      title: 'Active chat',
+      messages: [],
+      messageCount: 1,
+      conversationId: 'conversation-active-chat',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+    }
+
+    store.setState({
+      liveContext: {
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      },
+      currentChat,
+      chats: [currentChat, nextChat],
+      messages: [
+        {
+          id: 'assistant-message-active-chat',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-03-30T00:00:00.000Z',
+          toolCalls: [
+            {
+              id: 'tool-active-chat',
+              name: 'edit_indicator',
+              state: ClientToolCallState.executing,
+              params: { entityDocument: '{}' },
+            },
+          ],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'tool-active-chat',
+                name: 'edit_indicator',
+                state: ClientToolCallState.executing,
+                params: { entityDocument: '{}' },
+              },
+            },
+          ],
+        },
+      ],
+      toolCallsById: {
+        'tool-active-chat': {
+          id: 'tool-active-chat',
+          name: 'edit_indicator',
+          state: ClientToolCallState.executing,
+          params: { entityDocument: '{}' },
+        },
+      },
+    })
+
+    await store.getState().selectChat(nextChat)
+
+    const updateRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+
+    const requestBody = parseJsonRequestBody(updateRequest)
+    expect(requestBody).toMatchObject({
+      reviewSessionId: 'review-active-chat',
+      latestTurnStatus: 'completed',
+    })
+    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
+      ClientToolCallState.aborted
+    )
+    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.aborted
+    )
+    expect(
+      store.getState().chats.find((chat) => chat.reviewSessionId === 'review-active-chat')
+        ?.latestTurnStatus
+    ).toBe('completed')
+  })
+
+  it('persists a completed turn when creating a new chat after locally aborting active tools', async () => {
+    const channelId = 'copilot-new-chat-aborted-tools'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const currentChat = {
+      reviewSessionId: 'review-new-chat-abort',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      latestTurnStatus: 'in_progress' as const,
+      title: 'Abort before new chat',
+      messages: [],
+      messageCount: 1,
+      conversationId: 'conversation-new-chat-abort',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+    }
+
+    store.setState({
+      liveContext: {
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      },
+      currentChat,
+      chats: [currentChat],
+      messages: [
+        {
+          id: 'assistant-message-new-chat-abort',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-03-30T00:00:00.000Z',
+          toolCalls: [
+            {
+              id: 'tool-new-chat-abort',
+              name: 'edit_indicator',
+              state: ClientToolCallState.pending,
+              params: { entityDocument: '{}' },
+            },
+          ],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'tool-new-chat-abort',
+                name: 'edit_indicator',
+                state: ClientToolCallState.pending,
+                params: { entityDocument: '{}' },
+              },
+            },
+          ],
+        },
+      ],
+      toolCallsById: {
+        'tool-new-chat-abort': {
+          id: 'tool-new-chat-abort',
+          name: 'edit_indicator',
+          state: ClientToolCallState.pending,
+          params: { entityDocument: '{}' },
+        },
+      },
+    })
+
+    await store.getState().createNewChat()
+
+    const updateRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+
+    const requestBody = parseJsonRequestBody(updateRequest)
+    expect(requestBody).toMatchObject({
+      reviewSessionId: 'review-new-chat-abort',
+      latestTurnStatus: 'completed',
+    })
+    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
+      ClientToolCallState.aborted
+    )
+    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.aborted
+    )
+    expect(store.getState().currentChat).toBeNull()
+    expect(store.getState().messages).toEqual([])
+    expect(store.getState().toolCallsById['tool-new-chat-abort']?.state).toBe(
+      ClientToolCallState.aborted
+    )
+    expect(store.getState().chats[0]?.latestTurnStatus).toBe('completed')
+  })
+
   it('merges explicit and live implicit contexts before sending a message', async () => {
     const channelId = 'copilot-implicit-contexts'
     const store = getCopilotStore(channelId)
@@ -698,8 +952,7 @@ describe('copilot streaming regressions', () => {
       return url === '/api/copilot/chat'
     })
 
-    expect(sendRequest).toBeDefined()
-    const requestBody = JSON.parse((sendRequest?.[1] as RequestInit).body as string)
+    const requestBody = parseJsonRequestBody(sendRequest)
     expect(requestBody.provider).toBe('anthropic')
     expect(requestBody.contexts).toEqual([
       {
@@ -773,8 +1026,7 @@ describe('copilot streaming regressions', () => {
       return url === '/api/copilot/chat'
     })
 
-    expect(sendRequest).toBeDefined()
-    const requestBody = JSON.parse((sendRequest![1] as RequestInit).body as string)
+    const requestBody = parseJsonRequestBody(sendRequest)
     expect(requestBody.reviewSessionId).toBe('review-panel-chat-1')
     expect(requestBody.channelId).toBe(channelId)
     expect(requestBody.workflowId).toBe('workflow-b')
@@ -846,8 +1098,7 @@ describe('copilot streaming regressions', () => {
       return url === '/api/copilot/chat'
     })
 
-    expect(sendRequest).toBeDefined()
-    const requestBody = JSON.parse((sendRequest![1] as RequestInit).body as string)
+    const requestBody = parseJsonRequestBody(sendRequest)
     expect(requestBody.workflowId).toBeUndefined()
     expect(requestBody.contexts).toEqual([
       {
@@ -1244,8 +1495,7 @@ describe('copilot context usage', () => {
       })
     )
 
-    const [, requestInit] = fetchMock.mock.calls[0]
-    const requestBody = JSON.parse((requestInit as RequestInit).body as string)
+    const requestBody = parseJsonRequestBody(fetchMock.mock.calls[0])
     expect(requestBody).toEqual({
       kind: 'context',
       conversationId: 'conversation-context-usage-generic',

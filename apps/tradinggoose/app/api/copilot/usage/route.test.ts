@@ -527,7 +527,37 @@ describe('Copilot Usage API - Context', () => {
     expect(response.status).toBe(500)
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
-    expect(mockReleaseCopilotUsageReservation).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
+  })
+
+  it('releases the reservation when committed context usage throws before billing completes', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockProxyCopilotRequest.mockRejectedValue(new Error('copilot unavailable'))
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'context',
+        conversationId: 'conversation-5',
+        model: 'gpt-5.4',
+        userId: 'user-1',
+        assistantMessageId: 'assistant-message-4',
+        reservationId: 'reservation-1',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
   })
 
   it('reserves shared usage budget through the internal reserve action', async () => {
@@ -958,6 +988,38 @@ describe('Copilot Usage API - Completion', () => {
       },
     })
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
+  })
+
+  it('releases the reservation when completion billing throws', async () => {
+    mockGetPersonalEffectiveSubscription.mockResolvedValue(null)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'completion',
+        userId: 'user-1',
+        model: 'gpt-5.4',
+        completionId: 'completion-2',
+        reservationId: 'reservation-1',
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 25,
+          total_tokens: 125,
+        },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })

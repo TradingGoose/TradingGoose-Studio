@@ -542,6 +542,17 @@ async function releaseCommittedReservation(reservationId?: string): Promise<void
   })
 }
 
+async function withCommittedReservationRelease<T>(
+  reservationId: string | undefined,
+  operation: () => Promise<T>
+): Promise<T> {
+  try {
+    return await operation()
+  } finally {
+    await releaseCommittedReservation(reservationId)
+  }
+}
+
 async function handleReserveUsage(
   req: NextRequest,
   payload: z.infer<typeof ReserveUsageRequestSchema>
@@ -609,53 +620,52 @@ async function handleContextCommit(
     return new NextResponse(null, { status: 401 })
   }
 
-  const simAgentResponse = await fetchContextUsageFromCopilot({
-    conversationId: payload.conversationId,
-    model: payload.model,
-    workflowId: payload.workflowId,
-    provider: payload.provider,
-    userId: payload.userId,
-  })
-
-  if (!simAgentResponse.ok) {
-    const errorText = await simAgentResponse.text().catch(() => '')
-    logger.warn('[Usage API] TradingGoose agent request failed during commit', {
-      status: simAgentResponse.status,
-      error: errorText,
-      reservationId: payload.reservationId,
+  return withCommittedReservationRelease(payload.reservationId, async () => {
+    const simAgentResponse = await fetchContextUsageFromCopilot({
+      conversationId: payload.conversationId,
+      model: payload.model,
+      workflowId: payload.workflowId,
+      provider: payload.provider,
+      userId: payload.userId,
     })
-    return NextResponse.json(
-      { error: 'Failed to fetch context usage from copilot' },
-      { status: simAgentResponse.status }
-    )
-  }
 
-  const data = await simAgentResponse.json()
+    if (!simAgentResponse.ok) {
+      const errorText = await simAgentResponse.text().catch(() => '')
+      logger.warn('[Usage API] TradingGoose agent request failed during commit', {
+        status: simAgentResponse.status,
+        error: errorText,
+        reservationId: payload.reservationId,
+      })
+      return NextResponse.json(
+        { error: 'Failed to fetch context usage from copilot' },
+        { status: simAgentResponse.status }
+      )
+    }
 
-  if (!(await isBillingEnabledForRuntime())) {
-    await releaseCommittedReservation(payload.reservationId)
+    const data = await simAgentResponse.json()
+
+    if (!(await isBillingEnabledForRuntime())) {
+      return NextResponse.json({
+        ...data,
+        billing: { billed: false, reason: 'billing_disabled' },
+      })
+    }
+
+    const billing = await recordBilledUsage({
+      userId: payload.userId,
+      workflowId: payload.workflowId,
+      usage: data,
+      billingModel: payload.billingModel || payload.model,
+      remoteModel: data?.model,
+      billingKeyPrefix: 'copilot-billing',
+      billingKeyId: payload.assistantMessageId,
+      reason: 'copilot_context_usage',
+    })
+
     return NextResponse.json({
       ...data,
-      billing: { billed: false, reason: 'billing_disabled' },
+      billing,
     })
-  }
-
-  const billing = await recordBilledUsage({
-    userId: payload.userId,
-    workflowId: payload.workflowId,
-    usage: data,
-    billingModel: payload.billingModel || payload.model,
-    remoteModel: data?.model,
-    billingKeyPrefix: 'copilot-billing',
-    billingKeyId: payload.assistantMessageId,
-    reason: 'copilot_context_usage',
-  })
-
-  await releaseCommittedReservation(payload.reservationId)
-
-  return NextResponse.json({
-    ...data,
-    billing,
   })
 }
 
@@ -668,30 +678,29 @@ async function handleCompletionCommit(
     return new NextResponse(null, { status: 401 })
   }
 
-  if (!(await isBillingEnabledForRuntime())) {
-    await releaseCommittedReservation(payload.reservationId)
+  return withCommittedReservationRelease(payload.reservationId, async () => {
+    if (!(await isBillingEnabledForRuntime())) {
+      return NextResponse.json({
+        success: true,
+        billing: { billed: false, reason: 'billing_disabled' },
+      })
+    }
+
+    const billing = await recordBilledUsage({
+      userId: payload.userId,
+      workflowId: payload.workflowId,
+      usage: payload.usage,
+      billingModel: payload.model,
+      remoteModel: payload.remoteModel,
+      billingKeyPrefix: 'copilot-completion-billing',
+      billingKeyId: payload.completionId,
+      reason: 'copilot_completion_usage',
+    })
+
     return NextResponse.json({
       success: true,
-      billing: { billed: false, reason: 'billing_disabled' },
+      billing,
     })
-  }
-
-  const billing = await recordBilledUsage({
-    userId: payload.userId,
-    workflowId: payload.workflowId,
-    usage: payload.usage,
-    billingModel: payload.model,
-    remoteModel: payload.remoteModel,
-    billingKeyPrefix: 'copilot-completion-billing',
-    billingKeyId: payload.completionId,
-    reason: 'copilot_completion_usage',
-  })
-
-  await releaseCommittedReservation(payload.reservationId)
-
-  return NextResponse.json({
-    success: true,
-    billing,
   })
 }
 
