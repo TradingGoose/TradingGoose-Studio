@@ -105,7 +105,8 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
-  widgetHeaderButtonGroupClassName: () => 'controls',
+  widgetHeaderButtonGroupClassName: (className?: string) =>
+    ['controls', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',
 }))
 
@@ -182,6 +183,8 @@ describe('watchlist header controls', () => {
       )
     })
 
+    expect(container.firstElementChild?.className).toContain('shrink-0')
+
     const buttons = Array.from(container.querySelectorAll('button'))
     const listingButton = buttons.find((button) => button.textContent?.includes('Select Listing'))
     const addButton = buttons.find((button) =>
@@ -244,6 +247,8 @@ describe('watchlist header controls', () => {
         />
       )
     })
+
+    expect(container.firstElementChild?.className).toContain('shrink-0')
 
     const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
       candidate.textContent?.includes('Create Section')

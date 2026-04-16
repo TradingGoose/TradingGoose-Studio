@@ -28,6 +28,7 @@ import {
 } from '@/hooks/queries/watchlists'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
+import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
 import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
@@ -193,7 +194,7 @@ export const WatchlistHeaderLeftControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
+    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
       <WatchlistProviderSettingsButton
         providerId={providerId}
         providerParams={params?.providerParams}
@@ -306,7 +307,7 @@ export const WatchlistHeaderCenterControls = ({
     addListingMutation.isPending
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
+    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
       <div className='min-w-[240px]'>
         <ListingSelector
           instanceId={selectorInstanceId}
@@ -518,7 +519,7 @@ export const WatchlistHeaderRightControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
+    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
       <WatchlistListSelector
         watchlists={orderedWatchlists}
         selectedWatchlist={selectedWatchlist}
@@ -589,3 +590,31 @@ export const WatchlistHeaderRightControls = ({
     </div>
   )
 }
+
+export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = ({
+  context,
+  panelId,
+  widget,
+}) => ({
+  left: (
+    <WatchlistHeaderLeftControls
+      workspaceId={context?.workspaceId}
+      panelId={panelId}
+      widget={widget}
+    />
+  ),
+  center: (
+    <WatchlistHeaderCenterControls
+      workspaceId={context?.workspaceId}
+      panelId={panelId}
+      widget={widget}
+    />
+  ),
+  right: (
+    <WatchlistHeaderRightControls
+      workspaceId={context?.workspaceId}
+      panelId={panelId}
+      widget={widget}
+    />
+  ),
+})

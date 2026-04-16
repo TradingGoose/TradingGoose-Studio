@@ -26,14 +26,19 @@ vi.mock('@/widgets/widgets/watchlist/components/provider-controls', () => ({
     providerId === 'alpaca' ? [{ id: 'apiKey' }, { id: 'apiSecret' }] : [],
   WatchlistProviderSettingsButton: (props: {
     definitions: Array<{ id: string }>
-    onSave: (next: { auth?: Record<string, unknown>; providerParams?: Record<string, unknown> }) => void
+    onSave: (next: {
+      auth?: Record<string, unknown>
+      providerParams?: Record<string, unknown>
+    }) => void
   }) => {
     if (props.definitions.length === 0) return null
 
     return (
       <button
         type='button'
-        onClick={() => props.onSave({ auth: { apiKey: 'secret' }, providerParams: { feed: 'iex' } })}
+        onClick={() =>
+          props.onSave({ auth: { apiKey: 'secret' }, providerParams: { feed: 'iex' } })
+        }
       >
         provider-settings
       </button>
@@ -42,7 +47,8 @@ vi.mock('@/widgets/widgets/watchlist/components/provider-controls', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
-  widgetHeaderButtonGroupClassName: () => 'controls',
+  widgetHeaderButtonGroupClassName: (className?: string) =>
+    ['controls', className].filter(Boolean).join(' '),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -74,25 +80,30 @@ describe('WatchlistHeaderLeftControls', () => {
         <WatchlistHeaderLeftControls
           workspaceId='workspace-1'
           panelId='panel-1'
-          widget={{
-            key: 'watchlist',
-            params: { provider: 'yahoo-finance' },
-          } as any}
+          widget={
+            {
+              key: 'watchlist',
+              params: { provider: 'yahoo-finance' },
+            } as any
+          }
         />
       )
     })
 
     expect(container.textContent).not.toContain('provider-settings')
+    expect(container.firstElementChild?.className).toContain('shrink-0')
 
     await act(async () => {
       root.render(
         <WatchlistHeaderLeftControls
           workspaceId='workspace-1'
           panelId='panel-1'
-          widget={{
-            key: 'watchlist',
-            params: { provider: 'alpaca' },
-          } as any}
+          widget={
+            {
+              key: 'watchlist',
+              params: { provider: 'alpaca' },
+            } as any
+          }
         />
       )
     })
@@ -106,10 +117,12 @@ describe('WatchlistHeaderLeftControls', () => {
         <WatchlistHeaderLeftControls
           workspaceId='workspace-1'
           panelId='panel-7'
-          widget={{
-            key: 'watchlist-widget',
-            params: { provider: 'alpaca', providerParams: { feed: 'sip' } },
-          } as any}
+          widget={
+            {
+              key: 'watchlist-widget',
+              params: { provider: 'alpaca', providerParams: { feed: 'sip' } },
+            } as any
+          }
         />
       )
     })
