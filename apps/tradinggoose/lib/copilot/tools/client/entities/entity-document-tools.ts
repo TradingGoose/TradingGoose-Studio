@@ -23,7 +23,6 @@ import {
   getActiveEntitySession,
   listCanonicalEntityEntries,
   readEntityFieldsFromContext,
-  resolveEntityIdFromExecutionContext,
   resolveWorkspaceIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import { getEntityFields } from '@/lib/yjs/entity-session'
@@ -37,7 +36,7 @@ type EntityToolConfig = {
 }
 
 type ReadEntityDocumentArgs = {
-  entityId?: string
+  entityId: string
 }
 
 type EditEntityDocumentArgs = ReadEntityDocumentArgs & {
@@ -207,10 +206,15 @@ function createGetEntityDocumentTool(toolId: string, config: EntityToolConfig) {
       try {
         this.setState(ClientToolCallState.executing)
         const executionContext = this.requireExecutionContext()
+        const targetEntityId = args?.entityId?.trim()
+        if (!targetEntityId) {
+          throw new Error(`entityId is required to read a ${config.singularLabel}`)
+        }
+
         const { entityId, entityName, fields } = await readEntityFieldsFromContext(
           executionContext,
           config.kind,
-          args?.entityId
+          targetEntityId
         )
 
         await this.markToolComplete(200, `${config.singularLabel} document ready`, {
@@ -270,16 +274,16 @@ function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) 
         }
 
         const executionContext = this.requireExecutionContext()
-        const entityId = resolveEntityIdFromExecutionContext(
-          executionContext,
-          config.kind,
-          resolvedArgs.entityId
-        )
+        const entityId = resolvedArgs.entityId?.trim()
+        if (!entityId) {
+          throw new Error(`entityId is required to edit a ${config.singularLabel}`)
+        }
+
         const session = getActiveEntitySession(executionContext, config.kind, entityId)
 
         if (!session) {
           throw new Error(
-            `No active ${config.singularLabel} review session found. Open the ${config.singularLabel} review before editing.`
+            `No active ${config.singularLabel} review session found for ${entityId}. Open the ${config.singularLabel} review before editing.`
           )
         }
 

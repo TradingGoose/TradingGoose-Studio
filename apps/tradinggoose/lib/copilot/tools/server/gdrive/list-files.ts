@@ -1,10 +1,9 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken, getUserId } from '@/app/api/auth/oauth/utils'
+import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { executeTool } from '@/tools'
 
 interface ListGDriveFilesParams {
-  userId?: string
   workflowId?: string
   search_query?: string
   num_results?: number
@@ -12,15 +11,12 @@ interface ListGDriveFilesParams {
 
 export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, any> = {
   name: 'list_gdrive_files',
-  async execute(params: ListGDriveFilesParams): Promise<any> {
+  async execute(params: ListGDriveFilesParams, context?: { userId: string }): Promise<any> {
     const logger = createLogger('ListGDriveFilesServerTool')
     const { search_query, num_results } = params || {}
-    let uid = params?.userId
-    if (!uid && params?.workflowId) {
-      uid = await getUserId('copilot-gdrive-list', params.workflowId)
-    }
+    const uid = context?.userId
     if (!uid || typeof uid !== 'string' || uid.trim().length === 0) {
-      throw new Error('userId is required')
+      throw new Error('Authentication required')
     }
 
     const query = search_query

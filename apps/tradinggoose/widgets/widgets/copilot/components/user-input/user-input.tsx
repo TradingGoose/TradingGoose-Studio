@@ -61,7 +61,6 @@ import { cn } from '@/lib/utils'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
 const logger = createLogger('CopilotUserInput')
@@ -91,6 +90,7 @@ interface AttachedFile {
 }
 
 interface UserInputProps {
+  workspaceId: string
   channelId?: string
   onSubmit: (
     message: string,
@@ -119,6 +119,7 @@ interface UserInputRef {
 const UserInput = forwardRef<UserInputRef, UserInputProps>(
   (
     {
+      workspaceId,
       channelId,
       onSubmit,
       onAbort,
@@ -218,7 +219,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const { data: session } = useSession()
     const { liveContext, contextUsage, createNewChat } = useCopilotStore()
-    const workspaceId = useWorkspaceId()
     const workflowId = liveContext.workflowId
 
     // Determine placeholder based on access level
@@ -376,7 +376,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         }
 
         const query = params.toString()
-        const resp = await fetch(query ? `/api/copilot/chats?${query}` : '/api/copilot/chats')
+        const resp = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
         if (!resp.ok) throw new Error(`Failed to load chats: ${resp.status}`)
         const data = await resp.json()
         const items = Array.isArray(data?.chats) ? data.chats : []

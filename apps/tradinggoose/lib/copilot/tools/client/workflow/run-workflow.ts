@@ -10,7 +10,7 @@ import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workf
 import { useExecutionStore } from '@/stores/execution/store'
 
 interface RunWorkflowArgs {
-  workflowId?: string
+  workflowId: string
   description?: string
   workflow_input?: Record<string, any> | string
 }
@@ -47,7 +47,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
   async handleAccept(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
-      const params = args || {}
+      const params = (args ?? {}) as Partial<RunWorkflowArgs>
       const executionContext = this.requireExecutionContext()
       logger.debug('handleAccept() called', {
         toolCallId: this.toolCallId,
@@ -68,14 +68,14 @@ export class RunWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      const activeWorkflowId = params.workflowId ?? executionContext.workflowId
+      const activeWorkflowId = params.workflowId?.trim()
       if (!activeWorkflowId) {
-        logger.debug('Execution prevented: no active workflow')
+        logger.debug('Execution prevented: no target workflow')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No active workflow found')
+        await this.markToolComplete(400, 'workflowId is required')
         return
       }
-      logger.debug('Using active workflow', { activeWorkflowId })
+      logger.debug('Using target workflow', { workflowId: activeWorkflowId })
 
       let workflowInput: Record<string, any> | undefined
       if (params.workflow_input !== undefined) {
@@ -114,6 +114,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
           workflowInput,
           executionId: this.toolCallId,
           channelId: executionContext.channelId,
+          workflowId: activeWorkflowId,
         })
 
         // Determine success for both non-streaming and streaming executions

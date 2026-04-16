@@ -1,9 +1,11 @@
-import type { CopilotStore } from '@/stores/copilot/types'
+import type {
+  CopilotStore,
+  CopilotToolExecutionProvenance,
+} from '@/stores/copilot/types'
 
 export interface StreamingContext {
   messageId: string
-  channelId?: string
-  workflowId?: string
+  provenance?: CopilotToolExecutionProvenance
   contentBlocks: any[]
   textBlocksByItemId: Map<string, any>
   thinkingBlocksByItemId: Map<string, any>

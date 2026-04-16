@@ -24,7 +24,7 @@ import {
   mapReviewItemToApi,
   REVIEW_ITEM_KINDS,
 } from '@/lib/copilot/review-sessions/thread-history'
-import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
+import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CopilotChatUpdateAPI')
@@ -33,7 +33,6 @@ type IncomingReviewMessage = z.infer<typeof UpdateMessagesSchema>['messages'][nu
 
 const UpdateMessagesSchema = z.object({
   reviewSessionId: z.string(),
-  preserveConcurrentHistory: z.boolean().optional(),
   latestTurnStatus: z.enum(['pending', 'in_progress', 'completed', 'error']).optional(),
   messages: z.array(
     z.object({
@@ -59,27 +58,6 @@ const UpdateMessagesSchema = z.object({
     })
   ),
 })
-
-function mergeSharedSessionMessages(
-  currentMessages: ReviewMessageApi[],
-  incomingMessages: z.infer<typeof UpdateMessagesSchema>['messages']
-): z.infer<typeof UpdateMessagesSchema>['messages'] {
-  const incomingIds = new Set(incomingMessages.map((message) => message.id))
-  const preservedMessages = currentMessages.filter((message) => !incomingIds.has(message.id))
-
-  return [...incomingMessages, ...preservedMessages] as z.infer<
-    typeof UpdateMessagesSchema
-  >['messages']
-}
-
-function isSharedSavedEntitySession(session: Awaited<ReturnType<typeof loadReviewSessionForUser>>) {
-  return (
-    !!session &&
-    session.entityKind !== ENTITY_KIND_WORKFLOW &&
-    !!session.entityId &&
-    !!session.workspaceId
-  )
-}
 
 function normalizeReviewMessageForPersistence(message: ReviewMessageApi | IncomingReviewMessage) {
   return {
@@ -130,11 +108,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { reviewSessionId, preserveConcurrentHistory, latestTurnStatus, messages } =
-      UpdateMessagesSchema.parse(body)
+    const { reviewSessionId, latestTurnStatus, messages } = UpdateMessagesSchema.parse(body)
 
     const session = await loadReviewSessionForUser(reviewSessionId, userId, { requireWrite: true })
-    if (!session) {
+    if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
       return createNotFoundResponse('Review session not found or unauthorized')
     }
 
@@ -164,11 +141,7 @@ export async function POST(req: NextRequest) {
         .orderBy(asc(copilotReviewItems.sequence))
 
       const currentMessages = currentItems.map(mapReviewItemToApi)
-      const shouldPreserveConcurrentHistory =
-        preserveConcurrentHistory ?? isSharedSavedEntitySession(session)
-      const nextMessages = shouldPreserveConcurrentHistory
-        ? mergeSharedSessionMessages(currentMessages, messages)
-        : messages
+      const nextMessages = messages
       persistedMessageCount = nextMessages.length
 
       if (dropsAcceptedLiveMutation(currentMessages, nextMessages)) {

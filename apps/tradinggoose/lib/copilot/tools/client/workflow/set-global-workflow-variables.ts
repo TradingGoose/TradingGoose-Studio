@@ -21,7 +21,7 @@ interface OperationItem {
 
 interface SetGlobalVarsArgs {
   operations: OperationItem[]
-  workflowId?: string
+  workflowId: string
 }
 
 export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
@@ -58,18 +58,15 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     const logger = createLogger('SetGlobalWorkflowVariablesClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const executionContext = this.requireExecutionContext()
-      const payload: SetGlobalVarsArgs = { ...(args || { operations: [] }) }
+      const payload = { ...(args || { operations: [] }) } as Partial<SetGlobalVarsArgs>
+      payload.workflowId = payload.workflowId?.trim()
       if (!payload.workflowId) {
-        payload.workflowId = executionContext.workflowId
-      }
-      if (!payload.workflowId) {
-        throw new Error('No active workflow found')
+        throw new Error('workflowId is required')
       }
 
       const currentVarsRecord = getVariablesForWorkflow(payload.workflowId)
       if (!currentVarsRecord) {
-        throw new Error('No active Yjs session for this workflow')
+        throw new Error('No live Yjs session for this workflow')
       }
 
       // Helper to convert string -> typed value
@@ -146,14 +143,15 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
         }
       }
 
-      // Apply the updated variables directly to the Yjs doc as a transaction.
-      // This is the sole write path - no API call. The canonical save route
-      // persists Yjs state to the database when the user saves.
       const updatedRecord: Record<string, any> = {}
       for (const variable of Object.values(byName)) {
         updatedRecord[variable.id] = variable
       }
-      const session = getRegisteredWorkflowSession(payload.workflowId)!
+
+      const session = getRegisteredWorkflowSession(payload.workflowId)
+      if (!session) {
+        throw new Error('No live Yjs session for this workflow')
+      }
       setVariables(session.doc, updatedRecord, YJS_ORIGINS.COPILOT_TOOL)
 
       logger.info('Applied variable operations to Yjs doc', {

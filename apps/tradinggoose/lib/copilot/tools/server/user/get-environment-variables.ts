@@ -4,7 +4,6 @@ import { getEnvironmentVariableKeys } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface GetEnvironmentVariablesParams {
-  userId?: string
   workflowId?: string
 }
 

@@ -61,10 +61,6 @@ export interface ClientToolExecutionContext {
   channelId: string
   workflowId?: string
   workspaceId?: string
-  currentSkillId?: string
-  currentCustomToolId?: string
-  currentIndicatorId?: string
-  currentMcpServerId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind
   entityId?: string

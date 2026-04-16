@@ -57,7 +57,6 @@ import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-w
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
 
@@ -72,10 +71,6 @@ interface CopilotToolDefinition {
   execution: ToolExecutionKind
   metadata: BaseClientToolMetadata
   createInstance?: (toolCallId: string) => BaseClientTool
-  prepareArgs?: (
-    args: Record<string, any> | undefined,
-    context: ClientToolExecutionContext
-  ) => Record<string, any>
 }
 
 function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
@@ -86,14 +81,10 @@ function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
   }
 }
 
-function serverTool(
-  Ctor: Pick<ClientToolCtor, 'metadata'>,
-  prepareArgs?: CopilotToolDefinition['prepareArgs']
-): CopilotToolDefinition {
+function serverTool(Ctor: Pick<ClientToolCtor, 'metadata'>): CopilotToolDefinition {
   return {
     execution: 'server',
     metadata: Ctor.metadata,
-    ...(prepareArgs ? { prepareArgs } : {}),
   }
 }
 
@@ -105,56 +96,17 @@ function cloneArgs(args: Record<string, any> | undefined): Record<string, any> {
   return { ...args }
 }
 
-function resolveActiveWorkflowId(context: ClientToolExecutionContext): string | undefined {
-  return (
-    context.workflowId ||
-    useWorkflowRegistry.getState().getActiveWorkflowId(context.channelId) ||
-    undefined
-  )
-}
-
-function withActiveWorkflowId(
-  args: Record<string, any> | undefined,
-  context: ClientToolExecutionContext
-): Record<string, any> {
-  const payload = cloneArgs(args)
-  if (!payload.workflowId) {
-    const workflowId = resolveActiveWorkflowId(context)
-    if (workflowId) {
-      payload.workflowId = workflowId
-    }
-  }
-  return payload
-}
-
-function withActiveWorkflowIdUnlessIdentityProvided(
-  args: Record<string, any> | undefined,
-  context: ClientToolExecutionContext
-): Record<string, any> {
-  const payload = cloneArgs(args)
-  if (!payload.userId && !payload.workflowId) {
-    const workflowId = resolveActiveWorkflowId(context)
-    if (workflowId) {
-      payload.workflowId = workflowId
-    }
-  }
-  return payload
-}
-
 const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   run_workflow: clientTool(RunWorkflowClientTool),
-  get_workflow_console: serverTool(GetWorkflowConsoleClientTool, withActiveWorkflowId),
+  get_workflow_console: serverTool(GetWorkflowConsoleClientTool),
   get_blocks_and_tools: serverTool(GetBlocksAndToolsClientTool),
   get_blocks_metadata: serverTool(GetBlocksMetadataClientTool),
   get_trigger_blocks: serverTool(GetTriggerBlocksClientTool),
   search_online: serverTool(SearchOnlineClientTool),
   search_documentation: serverTool(SearchDocumentationClientTool),
-  get_environment_variables: serverTool(
-    GetEnvironmentVariablesClientTool,
-    withActiveWorkflowIdUnlessIdentityProvided
-  ),
-  set_environment_variables: serverTool(SetEnvironmentVariablesClientTool, withActiveWorkflowId),
-  get_credentials: serverTool(GetCredentialsClientTool, withActiveWorkflowIdUnlessIdentityProvided),
+  get_environment_variables: serverTool(GetEnvironmentVariablesClientTool),
+  set_environment_variables: serverTool(SetEnvironmentVariablesClientTool),
+  get_credentials: serverTool(GetCredentialsClientTool),
   knowledge_base: clientTool(KnowledgeBaseClientTool),
   list_custom_tools: clientTool(ListCustomToolsClientTool),
   get_custom_tool: clientTool(GetCustomToolClientTool),
@@ -171,15 +123,9 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   list_mcp_servers: clientTool(ListMcpServersClientTool),
   get_mcp_server: clientTool(GetMcpServerClientTool),
   edit_mcp_server: clientTool(EditMcpServerClientTool),
-  list_gdrive_files: serverTool(
-    ListGDriveFilesClientTool,
-    withActiveWorkflowIdUnlessIdentityProvided
-  ),
+  list_gdrive_files: serverTool(ListGDriveFilesClientTool),
   read_gdrive_file: serverTool(ReadGDriveFileClientTool),
-  get_oauth_credentials: serverTool(
-    GetOAuthCredentialsClientTool,
-    withActiveWorkflowIdUnlessIdentityProvided
-  ),
+  get_oauth_credentials: serverTool(GetOAuthCredentialsClientTool),
   make_api_request: serverTool(MakeApiRequestClientTool),
   plan: clientTool(PlanClientTool),
   checkoff_todo: clientTool(CheckoffTodoClientTool),
@@ -209,10 +155,6 @@ export function createExecutionContext(params: {
     channelId = '',
     workflowId,
     workspaceId,
-    currentSkillId,
-    currentCustomToolId,
-    currentIndicatorId,
-    currentMcpServerId,
     reviewSessionId,
     entityKind,
     entityId,
@@ -225,10 +167,6 @@ export function createExecutionContext(params: {
     channelId,
     ...(workflowId ? { workflowId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    ...(currentSkillId ? { currentSkillId } : {}),
-    ...(currentCustomToolId ? { currentCustomToolId } : {}),
-    ...(currentIndicatorId ? { currentIndicatorId } : {}),
-    ...(currentMcpServerId ? { currentMcpServerId } : {}),
     ...(reviewSessionId ? { reviewSessionId } : {}),
     ...(entityKind ? { entityKind } : {}),
     ...(entityId ? { entityId } : {}),
@@ -241,10 +179,6 @@ export function createExecutionContext(params: {
           channelId,
           workflowId,
           workspaceId,
-          currentSkillId,
-          currentCustomToolId,
-          currentIndicatorId,
-          currentMcpServerId,
           reviewSessionId,
           entityKind,
           entityId,
@@ -322,20 +256,11 @@ export function bindClientToolExecutionContext(
 }
 
 export function prepareCopilotToolArgs(
-  toolName: string | undefined,
+  _toolName: string | undefined,
   args: Record<string, any> | undefined,
-  context: ClientToolExecutionContext
+  _context: ClientToolExecutionContext
 ): Record<string, any> {
-  const definition = getCopilotToolDefinition(toolName)
-  if (!definition) {
-    return cloneArgs(args)
-  }
-
-  if (!definition.prepareArgs) {
-    return cloneArgs(args)
-  }
-
-  return definition.prepareArgs(args, context)
+  return cloneArgs(args)
 }
 
 export function getToolInterruptDisplays(

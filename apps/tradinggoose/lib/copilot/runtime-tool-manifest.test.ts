@@ -18,6 +18,7 @@ describe('copilot runtime tool manifest', () => {
         expect.stringContaining('Condition blocks are not rendered like normal blocks'),
         expect.stringContaining('Monitors are edited as full document updates'),
         expect.stringContaining('Keep TradingGoose surfaces distinct'),
+        expect.stringContaining('Do not use `current_*` context as a tool target'),
       ])
     )
     expect(joinedInstructions).not.toContain('user accepts')
@@ -26,7 +27,10 @@ describe('copilot runtime tool manifest', () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: 'get_user_workflow',
-          injectWorkflowId: true,
+          description: expect.stringContaining('entityDocument'),
+          parameters: expect.objectContaining({
+            required: expect.arrayContaining(['workflowId']),
+          }),
         }),
         expect.objectContaining({
           name: 'edit_workflow',
@@ -35,7 +39,10 @@ describe('copilot runtime tool manifest', () => {
           mutatesState: true,
           requiresCurrentState: true,
           verificationToolNames: ['get_user_workflow'],
-          requiredToolResults: ['get_user_workflow'],
+          requiredToolResults: expect.arrayContaining([
+            'get_user_workflow',
+            'get_workflow_from_name',
+          ]),
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
               path: 'workflowDocument',
@@ -64,6 +71,9 @@ describe('copilot runtime tool manifest', () => {
           kind: 'read',
           entityKind: 'skill',
           discoveryToolNames: ['list_skills'],
+          parameters: expect.objectContaining({
+            required: expect.arrayContaining(['entityId']),
+          }),
         }),
         expect.objectContaining({
           name: 'edit_skill',
@@ -94,14 +104,14 @@ describe('copilot runtime tool manifest', () => {
         expect.objectContaining({
           name: 'edit_monitor',
           kind: 'edit',
-          entityKind: 'monitor',
+          surfaceKind: 'monitor',
           mutatesState: true,
           requiresCurrentState: true,
           verificationToolNames: ['get_monitor'],
           requiredToolResults: ['get_monitor'],
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
-              path: 'entityDocument',
+              path: 'monitorDocument',
               kind: 'string_json_schema',
               args: expect.any(Object),
             }),

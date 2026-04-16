@@ -11,7 +11,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface GetWorkflowConsoleArgs {
-  workflowId?: string
+  workflowId: string
   limit?: number
   includeDetails?: boolean
 }
@@ -45,14 +45,13 @@ export class GetWorkflowConsoleClientTool extends BaseClientTool {
     const logger = createLogger('GetWorkflowConsoleClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const executionContext = this.requireExecutionContext()
 
-      const params = args || {}
-      const workflowId = params.workflowId || executionContext.workflowId
+      const params = (args ?? {}) as Partial<GetWorkflowConsoleArgs>
+      const workflowId = params.workflowId?.trim()
       if (!workflowId) {
-        logger.error('No active workflow found for console fetch')
+        logger.error('No target workflow found for console fetch')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No active workflow found')
+        await this.markToolComplete(400, 'workflowId is required')
         return
       }
 

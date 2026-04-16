@@ -223,6 +223,45 @@ describe('DashboardClient', () => {
 
     consoleError.mockRestore()
   })
+
+  it('preserves persisted review targets independently from ambient current ids during hydration', async () => {
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialState={createPanelLayout('panel-a', 'wf-current', 'red')}
+          workspaceId='ws-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          initialColorPairs={{
+            pairs: [
+              {
+                color: 'red',
+                workflowId: 'wf-current',
+                skillId: 'skill-saved',
+                reviewTarget: {
+                  reviewSessionId: 'review-draft-skill',
+                  reviewEntityKind: 'skill',
+                  reviewEntityId: null,
+                  reviewDraftSessionId: 'draft-skill',
+                },
+              },
+            ],
+          }}
+        />
+      )
+    })
+
+    expect(usePairColorStore.getState().contexts.red).toMatchObject({
+      workflowId: 'wf-current',
+      skillId: 'skill-saved',
+      reviewTarget: {
+        reviewSessionId: 'review-draft-skill',
+        reviewEntityKind: 'skill',
+        reviewEntityId: null,
+        reviewDraftSessionId: 'draft-skill',
+      },
+    })
+  })
 })
 
 function createPanelLayout(

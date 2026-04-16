@@ -52,10 +52,10 @@ export class ListMonitorsClientTool extends BaseClientTool {
       }
 
       const monitors = Array.isArray(payload?.data) ? (payload.data as IndicatorMonitorRecord[]) : []
-      const entities = monitors.map((monitor) => ({
-        entityId: monitor.monitorId,
-        entityName: buildMonitorName(monitor),
-        entityDescription: `Workflow ${monitor.workflowId}, block ${monitor.blockId}`,
+      const monitorsList = monitors.map((monitor) => ({
+        monitorId: monitor.monitorId,
+        monitorName: buildMonitorName(monitor),
+        monitorDescription: `Workflow ${monitor.workflowId}, block ${monitor.blockId}`,
         workflowId: monitor.workflowId,
         blockId: monitor.blockId,
         providerId: monitor.providerConfig.monitor.providerId,
@@ -67,9 +67,9 @@ export class ListMonitorsClientTool extends BaseClientTool {
       }))
 
       await this.markToolComplete(200, 'Listed monitors', {
-        entityKind: 'monitor',
-        entities,
-        count: entities.length,
+        surfaceKind: 'monitor',
+        monitors: monitorsList,
+        count: monitorsList.length,
       })
       this.setState(ClientToolCallState.success)
     } catch (error) {

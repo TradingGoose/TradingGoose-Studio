@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UpdateChatTitleAPI')
@@ -34,7 +35,8 @@ export async function POST(request: NextRequest) {
       .where(
         and(
           eq(copilotReviewSessions.id, parsed.reviewSessionId),
-          eq(copilotReviewSessions.userId, session.user.id)
+          eq(copilotReviewSessions.userId, session.user.id),
+          eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND)
         )
       )
       .returning({ id: copilotReviewSessions.id })

@@ -38,19 +38,19 @@ export class GetMonitorClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      if (!args?.entityId?.trim()) {
-        throw new Error('entityId is required')
+      if (!args?.monitorId?.trim()) {
+        throw new Error('monitorId is required')
       }
 
-      const monitor = await fetchMonitorById(args.entityId)
+      const monitor = await fetchMonitorById(args.monitorId)
       const fields = toMonitorDocumentFields(monitor)
 
       await this.markToolComplete(200, 'Monitor document ready', {
-        entityKind: 'monitor',
-        entityId: monitor.monitorId,
-        entityName: getMonitorDocumentName(fields),
+        surfaceKind: 'monitor',
+        monitorId: monitor.monitorId,
+        monitorName: getMonitorDocumentName(fields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
-        entityDocument: serializeMonitorDocument(fields),
+        monitorDocument: serializeMonitorDocument(fields),
       })
       this.setState(ClientToolCallState.success)
     } catch (error) {

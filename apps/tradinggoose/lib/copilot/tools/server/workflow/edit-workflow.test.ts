@@ -50,6 +50,9 @@ describe('editWorkflowServerTool', () => {
         { userId: 'user-1' }
       )
 
+      expect(result.entityKind).toBe('workflow')
+      expect(result.entityId).toBe('wf-1')
+      expect(result.entityDocument).toBe(result.workflowDocument)
       expect(result.workflowState.blocks['block-1'].name).toBe('Edited Trigger')
       expect(result.documentFormat).toBe('tg-mermaid-v1')
       expect(result.workflowDocument).toContain('TG_BLOCK')
@@ -149,6 +152,7 @@ describe('editWorkflowServerTool', () => {
     )
 
     expect(result.workflowState.direction).toBe('LR')
+    expect(result.entityDocument).toBe(result.workflowDocument)
     expect(result.workflowState.blocks.agentBlock.position.x).toBeGreaterThan(
       result.workflowState.blocks.inputTrigger.position.x
     )

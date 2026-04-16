@@ -55,7 +55,6 @@ type WorkflowChatContext =
       kind: 'current_workflow'
       workflowId: string
       label: string
-      reviewSessionId?: string
     }
 
 type SkillChatContext =
@@ -65,8 +64,6 @@ type SkillChatContext =
       skillId?: string
       workspaceId?: string
       label: string
-      reviewSessionId?: string
-      draftSessionId?: string
     }
 
 type IndicatorChatContext =
@@ -76,8 +73,6 @@ type IndicatorChatContext =
       indicatorId?: string
       workspaceId?: string
       label: string
-      reviewSessionId?: string
-      draftSessionId?: string
     }
 
 type CustomToolChatContext =
@@ -87,8 +82,6 @@ type CustomToolChatContext =
       customToolId?: string
       workspaceId?: string
       label: string
-      reviewSessionId?: string
-      draftSessionId?: string
     }
 
 type McpServerChatContext =
@@ -98,8 +91,6 @@ type McpServerChatContext =
       mcpServerId?: string
       workspaceId?: string
       label: string
-      reviewSessionId?: string
-      draftSessionId?: string
     }
 
 export type ChatContext =
@@ -135,20 +126,12 @@ export interface CopilotChat {
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
-  skillId?: string | null
-  customToolId?: string | null
-  indicatorId?: string | null
-  mcpServerId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
   channelId: string
   workflowId?: string
   workspaceId?: string
-  currentSkillId?: string
-  currentCustomToolId?: string
-  currentIndicatorId?: string
-  currentMcpServerId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind
   entityId?: string
@@ -196,8 +179,6 @@ export interface CopilotState {
   // Explicitly track the current user message id for this in-flight query (for stats/diff correlation)
   currentUserMessageId?: string | null
 
-  // Per-message metadata captured at send-time for reliable stats
-
   // Context usage tracking for percentage pill
   contextUsage: {
     usage: number
@@ -213,7 +194,9 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
+  fetchContextUsage: (
+    options?: { bill?: boolean; assistantMessageId?: string; workflowId?: string }
+  ) => Promise<void>
 
   setLiveContext: (context: Partial<CopilotLiveContext>) => void
   validateCurrentChat: () => boolean
@@ -264,7 +247,8 @@ export interface CopilotActions {
     stream: ReadableStream,
     messageId: string,
     isContinuation?: boolean,
-    triggerUserMessageId?: string
+    triggerUserMessageId?: string,
+    turnProvenance?: CopilotToolExecutionProvenance
   ) => Promise<void>
   handleNewReviewSessionCreation: (newReviewSessionId: string) => Promise<void>
   updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>

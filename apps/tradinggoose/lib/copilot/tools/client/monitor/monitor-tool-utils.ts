@@ -6,11 +6,11 @@ export type ListMonitorArgs = {
 }
 
 export type ReadMonitorArgs = {
-  entityId: string
+  monitorId: string
 }
 
 export type EditMonitorArgs = ReadMonitorArgs & {
-  entityDocument: string
+  monitorDocument: string
   documentFormat?: string
 }
 
@@ -87,8 +87,8 @@ export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
   }
 }
 
-export async function fetchMonitorById(entityId: string): Promise<IndicatorMonitorRecord> {
-  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(entityId)}`)
+export async function fetchMonitorById(monitorId: string): Promise<IndicatorMonitorRecord> {
+  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`)
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {

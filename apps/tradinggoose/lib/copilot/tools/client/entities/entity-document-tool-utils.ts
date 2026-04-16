@@ -144,31 +144,6 @@ export function resolveWorkspaceIdFromExecutionContext(
   throw new Error('No active workspace found')
 }
 
-export function resolveEntityIdFromExecutionContext(
-  executionContext: ClientToolExecutionContext,
-  kind: EntityDocumentKind,
-  requestedEntityId?: string
-): string | undefined {
-  if (requestedEntityId) {
-    return requestedEntityId
-  }
-
-  if (executionContext.entityKind === kind && executionContext.entityId) {
-    return executionContext.entityId
-  }
-
-  switch (kind) {
-    case 'skill':
-      return executionContext.currentSkillId
-    case 'custom_tool':
-      return executionContext.currentCustomToolId
-    case 'indicator':
-      return executionContext.currentIndicatorId
-    case 'mcp_server':
-      return executionContext.currentMcpServerId
-  }
-}
-
 export function getActiveEntitySession(
   executionContext: ClientToolExecutionContext,
   kind: EntityDocumentKind,
@@ -179,7 +154,8 @@ export function getActiveEntitySession(
     const matchesReviewSession =
       !!session &&
       session.descriptor.entityKind === kind &&
-      (!entityId || !session.descriptor.entityId || session.descriptor.entityId === entityId) &&
+      !!entityId &&
+      session.descriptor.entityId === entityId &&
       (!executionContext.workspaceId ||
         !session.descriptor.workspaceId ||
         session.descriptor.workspaceId === executionContext.workspaceId)
@@ -224,7 +200,11 @@ export async function readEntityFieldsFromContext(
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = resolveEntityIdFromExecutionContext(executionContext, kind, entityId)
+  const resolvedEntityId = entityId?.trim()
+  if (!resolvedEntityId) {
+    throw new Error('entityId is required')
+  }
+
   const activeSession = getActiveEntitySession(executionContext, kind, resolvedEntityId)
 
   if (activeSession) {
@@ -234,10 +214,6 @@ export async function readEntityFieldsFromContext(
       entityName: getEntityDocumentName(kind, fields),
       fields,
     }
-  }
-
-  if (!resolvedEntityId) {
-    throw new Error('No active entity found. Provide entityId or open the matching entity review.')
   }
 
   const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)

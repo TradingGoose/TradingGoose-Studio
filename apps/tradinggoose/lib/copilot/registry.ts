@@ -87,6 +87,10 @@ const ToolCallSSEBase = z.object({
 // Reusable small schemas
 const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
+const RequiredId = z.string().trim().min(1)
+const WorkflowContextArgs = z.object({
+  workflowId: z.string().optional(),
+})
 
 // Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
@@ -114,13 +118,16 @@ export const ToolArgSchemas = {
     todoId: z.string().optional(),
   }),
   get_user_workflow: z.object({
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
     includeMetadata: z.boolean().optional(),
   }),
   list_user_workflows: z.object({}),
   get_workflow_from_name: z.object({ workflow_name: z.string() }),
-  get_global_workflow_variables: z.object({}),
+  get_global_workflow_variables: z.object({
+    workflowId: RequiredId,
+  }),
   set_global_workflow_variables: z.object({
+    workflowId: RequiredId,
     operations: z.array(
       z.object({
         operation: z.enum(['add', 'delete', 'edit']),
@@ -136,24 +143,26 @@ export const ToolArgSchemas = {
   deploy_workflow: z.object({
     action: z.enum(['deploy', 'undeploy']).optional().default('deploy'),
     deployType: z.enum(['api', 'chat']).optional().default('api'),
+    workflowId: RequiredId,
   }),
   check_deployment_status: z.object({
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
   }),
 
   edit_workflow: z.object({
     workflowDocument: z.string().min(1),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
     currentWorkflowState: z.string().optional(),
   }),
 
   run_workflow: z.object({
+    workflowId: RequiredId,
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 
   get_workflow_console: z.object({
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
@@ -185,19 +194,19 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  get_environment_variables: z.object({}),
+  get_environment_variables: WorkflowContextArgs,
 
-  set_environment_variables: z.object({
+  set_environment_variables: WorkflowContextArgs.extend({
     variables: z.record(z.string()),
   }),
 
-  get_oauth_credentials: z.object({}),
+  get_oauth_credentials: WorkflowContextArgs,
 
-  get_credentials: z.object({}),
+  get_credentials: WorkflowContextArgs,
 
   gdrive_request_access: z.object({}),
 
-  list_gdrive_files: z.object({
+  list_gdrive_files: WorkflowContextArgs.extend({
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
   }),
@@ -206,18 +215,19 @@ export const ToolArgSchemas = {
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
+    workflowId: z.string().optional(),
   }),
 
   knowledge_base: KnowledgeBaseArgsSchema,
 
   list_custom_tools: z.object({}),
   get_custom_tool: z.object({
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
   edit_custom_tool: z.object({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(CUSTOM_TOOL_DOCUMENT_FORMAT).optional(),
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
 
   list_monitors: z.object({
@@ -225,42 +235,42 @@ export const ToolArgSchemas = {
     blockId: z.string().optional(),
   }),
   get_monitor: z.object({
-    entityId: z.string(),
+    monitorId: RequiredId,
   }),
   edit_monitor: z.object({
-    entityId: z.string(),
-    entityDocument: z.string().min(1),
+    monitorId: RequiredId,
+    monitorDocument: z.string().min(1),
     documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT).optional(),
   }),
 
   list_indicators: z.object({}),
   get_indicator: z.object({
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
   edit_indicator: z.object({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(INDICATOR_DOCUMENT_FORMAT).optional(),
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
 
   list_skills: z.object({}),
   get_skill: z.object({
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
   edit_skill: z.object({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(SKILL_DOCUMENT_FORMAT).optional(),
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
 
   list_mcp_servers: z.object({}),
   get_mcp_server: z.object({
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
   edit_mcp_server: z.object({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT).optional(),
-    entityId: z.string().optional(),
+    entityId: RequiredId,
   }),
 
   sleep: z.object({
@@ -271,9 +281,13 @@ export const ToolArgSchemas = {
       .describe('The number of seconds to sleep (0-180, max 3 minutes)'),
   }),
 
-  get_block_outputs: GetBlockOutputsInput,
+  get_block_outputs: GetBlockOutputsInput.extend({
+    workflowId: RequiredId,
+  }),
 
-  get_block_upstream_references: GetBlockUpstreamReferencesInput,
+  get_block_upstream_references: GetBlockUpstreamReferencesInput.extend({
+    workflowId: RequiredId,
+  }),
 } as const
 
 // Tool-specific SSE schemas (tool_call with typed arguments)
@@ -390,14 +404,25 @@ export const ToolSSESchemas = {
 } as const
 
 // Known result schemas per tool (what tool_result.result should conform to)
-const WorkflowDocumentEnvelope = z.object({
+const WorkflowTargetEnvelope = z.object({
+  entityKind: z.literal('workflow'),
+  entityId: z.string(),
+  entityName: z.string().optional(),
+  workspaceId: z.string().optional(),
+  workflowId: z.string(),
+  workflowName: z.string().optional(),
+})
+
+const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
   workflowDocument: z.string(),
 })
 
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
   entityName: z.string(),
+  workspaceId: z.string().optional(),
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),
   entityFunctionName: z.string().optional(),
@@ -406,24 +431,16 @@ const GenericEntityListEntry = z.object({
   entityUrl: z.string().optional(),
   entityEnabled: z.boolean().optional(),
   entityConnectionStatus: z.string().optional(),
-  workflowId: z.string().optional(),
-  blockId: z.string().optional(),
-  providerId: z.string().optional(),
-  indicatorId: z.string().optional(),
-  interval: z.string().optional(),
-  isActive: z.boolean().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
 })
 
 const GenericEntityListResult = z.object({
-  entityKind: z.enum(['skill', 'custom_tool', 'monitor', 'indicator', 'mcp_server']),
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
   entities: z.array(GenericEntityListEntry),
   count: z.number(),
 })
 
 const EntityDocumentEnvelopeBase = z.object({
-  entityKind: z.enum(['skill', 'custom_tool', 'monitor', 'indicator', 'mcp_server']),
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
   entityId: z.string().optional(),
   entityName: z.string().optional(),
   entityDocument: z.string(),
@@ -437,8 +454,32 @@ const CustomToolDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
   documentFormat: z.literal(CUSTOM_TOOL_DOCUMENT_FORMAT),
 })
 
-const MonitorDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+const MonitorListEntry = z.object({
+  monitorId: z.string(),
+  monitorName: z.string(),
+  monitorDescription: z.string().optional(),
+  workflowId: z.string(),
+  blockId: z.string(),
+  providerId: z.string(),
+  indicatorId: z.string(),
+  interval: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+})
+
+const MonitorListResult = z.object({
+  surfaceKind: z.literal('monitor'),
+  monitors: z.array(MonitorListEntry),
+  count: z.number(),
+})
+
+const MonitorDocumentEnvelope = z.object({
+  surfaceKind: z.literal('monitor'),
+  monitorId: z.string(),
+  monitorName: z.string().optional(),
   documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT),
+  monitorDocument: z.string(),
 })
 
 const IndicatorDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
@@ -522,7 +563,9 @@ export const ToolResultSchemas = {
     id: z.string().optional(),
   }),
   get_user_workflow: WorkflowDocumentEnvelope,
-  list_user_workflows: z.object({ workflow_names: z.array(z.string()) }),
+  list_user_workflows: GenericEntityListResult.extend({
+    entityKind: z.literal('workflow'),
+  }),
   get_workflow_from_name: WorkflowDocumentEnvelope,
   get_global_workflow_variables: z
     .object({ variables: z.record(z.any()) })
@@ -672,21 +715,13 @@ export const ToolResultSchemas = {
       entityKind: z.literal('custom_tool'),
     })
   ),
-  list_monitors: GenericEntityListResult.extend({
-    entityKind: z.literal('monitor'),
-  }),
-  get_monitor: MonitorDocumentEnvelope.extend({
-    entityKind: z.literal('monitor'),
-  }),
+  list_monitors: MonitorListResult,
+  get_monitor: MonitorDocumentEnvelope,
   edit_monitor: z
     .object({
       success: z.boolean(),
     })
-    .merge(
-      MonitorDocumentEnvelope.extend({
-        entityKind: z.literal('monitor'),
-      })
-    ),
+    .merge(MonitorDocumentEnvelope),
   list_indicators: GenericEntityListResult.extend({
     entityKind: z.literal('indicator'),
   }),

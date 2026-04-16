@@ -44,7 +44,7 @@ export class EditMonitorClientTool extends BaseClientTool {
 
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
     const args = this.currentArgs || readStoredToolArgs<EditMonitorArgs>(this.toolCallId)
-    return args?.entityDocument ? this.metadata.interrupt : undefined
+    return args?.monitorDocument ? this.metadata.interrupt : undefined
   }
 
   async execute(args?: EditMonitorArgs): Promise<void> {
@@ -58,11 +58,11 @@ export class EditMonitorClientTool extends BaseClientTool {
       const resolvedArgs =
         args || this.currentArgs || readStoredToolArgs<EditMonitorArgs>(this.toolCallId)
 
-      if (!resolvedArgs?.entityId?.trim()) {
-        throw new Error('entityId is required')
+      if (!resolvedArgs?.monitorId?.trim()) {
+        throw new Error('monitorId is required')
       }
-      if (!resolvedArgs.entityDocument?.trim()) {
-        throw new Error('entityDocument is required')
+      if (!resolvedArgs.monitorDocument?.trim()) {
+        throw new Error('monitorDocument is required')
       }
       if (
         resolvedArgs.documentFormat &&
@@ -75,10 +75,10 @@ export class EditMonitorClientTool extends BaseClientTool {
 
       const executionContext = this.requireExecutionContext()
       const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
-      const nextFields = parseMonitorDocument(resolvedArgs.entityDocument)
+      const nextFields = parseMonitorDocument(resolvedArgs.monitorDocument)
 
       const response = await fetch(
-        `/api/indicator-monitors/${encodeURIComponent(resolvedArgs.entityId)}`,
+        `/api/indicator-monitors/${encodeURIComponent(resolvedArgs.monitorId)}`,
         {
           method: 'PATCH',
           headers: {
@@ -116,11 +116,11 @@ export class EditMonitorClientTool extends BaseClientTool {
       const persistedFields = toMonitorDocumentFields(updatedMonitor)
       await this.markToolComplete(200, 'Monitor updated', {
         success: true,
-        entityKind: 'monitor',
-        entityId: updatedMonitor.monitorId,
-        entityName: getMonitorDocumentName(persistedFields),
+        surfaceKind: 'monitor',
+        monitorId: updatedMonitor.monitorId,
+        monitorName: getMonitorDocumentName(persistedFields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
-        entityDocument: serializeMonitorDocument(persistedFields),
+        monitorDocument: serializeMonitorDocument(persistedFields),
       })
       this.setState(ClientToolCallState.success)
     } catch (error) {

@@ -324,7 +324,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 reviewSessionId: currentChat.reviewSessionId,
-                preserveConcurrentHistory: false,
                 messages: truncatedMessages.map((m) => ({
                   id: m.id,
                   role: m.role,
@@ -610,6 +609,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             <div ref={editContainerRef} className='relative w-full'>
               <UserInput
                 ref={userInputRef}
+                workspaceId={currentChat?.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
                 onAbort={handleCancelEdit}
                 isLoading={isSendingMessage && isLastUserMessage}

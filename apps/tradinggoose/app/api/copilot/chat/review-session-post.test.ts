@@ -9,7 +9,7 @@ import {
   setupCommonApiMocks,
 } from '@/app/api/__test-utils__/utils'
 
-describe('Copilot Chat POST Shared Review Sessions', () => {
+describe('Copilot Chat POST Generic Sessions', () => {
   const mockSelect = vi.fn()
   const mockDelete = vi.fn()
   const mockDeleteWhere = vi.fn().mockResolvedValue(undefined)
@@ -309,13 +309,13 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     vi.restoreAllMocks()
   })
 
-  it('persists a collaborator reply on an existing shared saved-entity session', async () => {
+  it('persists a collaborator reply on an existing generic copilot session', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -378,8 +378,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -437,8 +437,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -516,8 +516,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -576,8 +576,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -622,8 +622,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: 'conversation-1',
@@ -698,6 +698,39 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     })
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       'review-session-missing',
+      'collaborator-user'
+    )
+    expect(mockSelect).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the supplied reviewSessionId is entity-bound', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'entity-review-session-1',
+      userId: 'creator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      title: 'Skill review',
+      conversationId: null,
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Please update the summary',
+      reviewSessionId: 'entity-review-session-1',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Review session not found or unauthorized',
+    })
+    expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
+      'entity-review-session-1',
       'collaborator-user'
     )
     expect(mockSelect).not.toHaveBeenCalled()

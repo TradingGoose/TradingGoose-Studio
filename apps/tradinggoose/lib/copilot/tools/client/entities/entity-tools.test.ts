@@ -128,7 +128,7 @@ describe('entity document tools', () => {
     ])
   })
 
-  it('get_custom_tool reads the current entity and returns an entity document', async () => {
+  it('get_custom_tool reads the explicit target entity and returns an entity document', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -199,7 +199,7 @@ describe('entity document tools', () => {
     expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 1"')
   })
 
-  it('get_custom_tool resolves the matching current entity id by kind without a review session id', async () => {
+  it('get_custom_tool reads a matching live entity session by explicit entityId', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -247,14 +247,10 @@ describe('entity document tools', () => {
       toolName: 'get_custom_tool',
       channelId: 'pair-orange',
       workspaceId: 'ws-1',
-      currentSkillId: 'skill-1',
-      currentIndicatorId: 'indicator-1',
-      currentCustomToolId: 'tool-1',
-      currentMcpServerId: 'mcp-1',
       log: vi.fn(),
     })
 
-    await tool.execute()
+    await tool.execute({ entityId: 'tool-1' })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
 
@@ -324,6 +320,7 @@ describe('entity document tools', () => {
     })
 
     await tool.execute({
+      entityId: 'skill-1',
       entityDocument: JSON.stringify(
         {
           name: 'new-skill',
@@ -361,13 +358,80 @@ describe('entity document tools', () => {
     })
   })
 
+  it('edit_skill rejects edits without an explicit entityId even when current skill context exists', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: 'skill-current',
+        reviewSessionId: 'review-current',
+        draftSessionId: null,
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'edit-skill-without-entity-id'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      channelId: 'pair-purple',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'new-skill',
+        description: '',
+        content: '',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.error)
+    expect(mockEntityFieldState.values).toEqual({})
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.status).toBe(500)
+    expect(markCompleteBody.message).toContain('entityId is required')
+  })
+
   it('registry schemas accept entity read and full-entity edit contracts', () => {
     expect(ToolArgSchemas.list_skills.parse({})).toMatchObject({})
+    expect(ToolArgSchemas.get_skill.parse({ entityId: 'skill-1' })).toMatchObject({
+      entityId: 'skill-1',
+    })
+    expect(() => ToolArgSchemas.get_skill.parse({})).toThrow()
     expect(
       ToolArgSchemas.edit_skill.parse({
+        entityId: 'skill-1',
         entityDocument: '{"name":"skill","description":"","content":""}',
       })
     ).toMatchObject({
+      entityId: 'skill-1',
       entityDocument: '{"name":"skill","description":"","content":""}',
     })
 

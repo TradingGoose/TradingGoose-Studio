@@ -68,7 +68,6 @@ export interface SendMessageRequest {
   userMessageId?: string // ID from frontend for the user message
   reviewSessionId?: string
   channelId?: string
-  workflowId?: string
   workspaceId?: string
   model?: CopilotRuntimeModel
   provider?: ProviderId

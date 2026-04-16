@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  areCopilotContextsEqual,
-  extractExplicitCopilotContexts,
-  mergeCopilotContexts,
-} from '@/lib/copilot/chat-contexts'
-import { buildImplicitCopilotContexts } from './live-contexts'
+  buildCopilotEditableReviewTargets,
+  buildImplicitCopilotContexts,
+  resolveCopilotWorkflowId,
+} from './live-contexts'
 
 describe('buildImplicitCopilotContexts', () => {
-  it('emits all current entity contexts alongside the workflow', () => {
+  it('emits current workflow and entity contexts from pair state', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
@@ -20,11 +19,7 @@ describe('buildImplicitCopilotContexts', () => {
         },
       })
     ).toEqual([
-      {
-        kind: 'current_workflow',
-        workflowId: 'workflow-pair',
-        label: 'Current Workflow',
-      },
+      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
       {
         kind: 'current_skill',
         skillId: 'skill-1',
@@ -52,25 +47,7 @@ describe('buildImplicitCopilotContexts', () => {
     ])
   })
 
-  it('keeps non-workflow entity contexts even when the pair store has no workflow id', () => {
-    expect(
-      buildImplicitCopilotContexts({
-        workspaceId: 'workspace-1',
-        pairContext: {
-          skillId: 'skill-1',
-        },
-      })
-    ).toEqual([
-      {
-        kind: 'current_skill',
-        skillId: 'skill-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Skill',
-      },
-    ])
-  })
-
-  it('does not use review target state to infer the current entities', () => {
+  it('does not attach review metadata to current entity context', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
@@ -78,7 +55,6 @@ describe('buildImplicitCopilotContexts', () => {
           workflowId: 'workflow-pair',
           indicatorId: 'indicator-stale',
           skillId: 'skill-live',
-          customToolId: 'tool-stale',
           reviewTarget: {
             reviewEntityKind: 'skill',
             reviewEntityId: 'skill-live',
@@ -88,22 +64,12 @@ describe('buildImplicitCopilotContexts', () => {
         } as any,
       })
     ).toEqual([
-      {
-        kind: 'current_workflow',
-        workflowId: 'workflow-pair',
-        label: 'Current Workflow',
-      },
+      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
       {
         kind: 'current_skill',
         skillId: 'skill-live',
         workspaceId: 'workspace-1',
         label: 'Current Skill',
-      },
-      {
-        kind: 'current_custom_tool',
-        customToolId: 'tool-stale',
-        workspaceId: 'workspace-1',
-        label: 'Current Tool',
       },
       {
         kind: 'current_indicator',
@@ -113,110 +79,101 @@ describe('buildImplicitCopilotContexts', () => {
       },
     ])
   })
+
+  it('uses only pair workflow id for current workflow context', () => {
+    const pairContext = {
+      workflowId: 'workflow-pair',
+      reviewTarget: {
+        reviewEntityKind: 'workflow',
+        reviewEntityId: 'workflow-review',
+        reviewSessionId: 'review-workflow-1',
+        reviewDraftSessionId: null,
+      },
+    } as any
+
+    expect(resolveCopilotWorkflowId(pairContext)).toBe('workflow-pair')
+    expect(
+      buildImplicitCopilotContexts({
+        workspaceId: 'workspace-1',
+        pairContext,
+      })
+    ).toEqual([
+      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
+    ])
+  })
+
+  it('does not emit current context for draft-only review targets', () => {
+    expect(
+      buildImplicitCopilotContexts({
+        workspaceId: 'workspace-1',
+        pairContext: {
+          reviewTarget: {
+            reviewEntityKind: 'skill',
+            reviewEntityId: null,
+            reviewSessionId: null,
+            reviewDraftSessionId: 'draft-skill',
+          },
+        } as any,
+      })
+    ).toEqual([])
+  })
 })
 
-describe('copilot context helpers', () => {
-  it('keeps explicit mentions and appends only non-duplicated hidden live contexts', () => {
+describe('buildCopilotEditableReviewTargets', () => {
+  it('does not emit plain non-workflow entity selections as editable targets', () => {
     expect(
-      mergeCopilotContexts({
-        explicitContexts: [
-          {
-            kind: 'workflow',
-            workflowId: 'workflow-1',
-            label: 'Quarterly Review',
-          },
-          {
-            kind: 'workflow',
-            workflowId: 'workflow-2',
-            label: 'Momentum Screener',
-          },
-        ],
-        implicitContexts: [
-          {
-            kind: 'current_workflow',
-            workflowId: 'workflow-1',
-            label: 'Current Workflow',
-          },
-          {
-            kind: 'current_skill',
-            skillId: 'skill-1',
-            workspaceId: 'workspace-1',
-            label: 'Current Skill',
-          },
-        ],
-      })
-    ).toEqual([
-      {
-        kind: 'workflow',
-        workflowId: 'workflow-1',
-        label: 'Quarterly Review',
-      },
-      {
-        kind: 'workflow',
-        workflowId: 'workflow-2',
-        label: 'Momentum Screener',
-      },
-      {
-        kind: 'current_skill',
-        skillId: 'skill-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Skill',
-      },
-    ])
-  })
-
-  it('strips hidden current contexts back out when deriving explicit message contexts', () => {
-    expect(
-      extractExplicitCopilotContexts([
-        {
-          kind: 'workflow',
-          workflowId: 'workflow-1',
-          label: 'Quarterly Review',
-        },
-        {
-          kind: 'current_workflow',
-          workflowId: 'workflow-1',
-          label: 'Current Workflow',
-        },
-        {
-          kind: 'current_indicator',
+      buildCopilotEditableReviewTargets({
+        pairContext: {
+          workflowId: 'workflow-pair',
+          skillId: 'skill-1',
           indicatorId: 'indicator-1',
-          workspaceId: 'workspace-1',
-          label: 'Current Indicator',
         },
-      ])
-    ).toEqual([
-      {
-        kind: 'workflow',
-        workflowId: 'workflow-1',
-        label: 'Quarterly Review',
-      },
-    ])
+      })
+    ).toEqual([])
   })
 
-  it('deduplicates canonical block contexts by sorted blockIds', () => {
+  it('preserves saved and draft entity review targets', () => {
     expect(
-      mergeCopilotContexts({
-        explicitContexts: [
-          { kind: 'blocks', blockIds: ['block-2', 'block-1'], label: 'RSI + MACD' },
-          { kind: 'blocks', blockIds: ['block-1', 'block-2'], label: 'Duplicate Ordering' },
-        ],
+      buildCopilotEditableReviewTargets({
+        pairContext: {
+          reviewTarget: {
+            reviewEntityKind: 'indicator',
+            reviewEntityId: null,
+            reviewSessionId: 'review-indicator-1',
+            reviewDraftSessionId: 'draft-indicator-1',
+          },
+        } as any,
       })
     ).toEqual([
       {
-        kind: 'blocks',
-        blockIds: ['block-2', 'block-1'],
-        label: 'RSI + MACD',
+        entityKind: 'indicator',
+        entityId: null,
+        reviewSessionId: 'review-indicator-1',
+        draftSessionId: 'draft-indicator-1',
       },
     ])
   })
 
-  it('compares canonical block contexts directly by content and order', () => {
+  it('keeps editable review targets separate from current entity ids', () => {
     expect(
-      areCopilotContextsEqual(
-        [{ kind: 'blocks', blockIds: ['block-1'], label: 'RSI' }],
-        [{ kind: 'blocks', blockIds: ['block-1'], label: 'RSI' }]
-      )
-    ).toBe(true)
+      buildCopilotEditableReviewTargets({
+        pairContext: {
+          skillId: 'skill-saved',
+          reviewTarget: {
+            reviewEntityKind: 'skill',
+            reviewEntityId: null,
+            reviewSessionId: 'review-draft-skill',
+            reviewDraftSessionId: 'draft-skill',
+          },
+        } as any,
+      })
+    ).toEqual([
+      {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft-skill',
+        draftSessionId: 'draft-skill',
+      },
+    ])
   })
 })

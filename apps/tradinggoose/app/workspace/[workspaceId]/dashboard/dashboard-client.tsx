@@ -33,7 +33,11 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
-import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
+import {
+  normalizePairColorContext,
+  type PairColorContext,
+  usePairColorStore,
+} from '@/stores/dashboard/pair-store'
 import {
   createLayoutNodeId,
   type LayoutNode,
@@ -1168,13 +1172,15 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
   for (const pair of colorPairs.pairs ?? []) {
     if (!pair || !pair.color) continue
     nextContexts[pair.color] = {
-      workflowId: pair.workflowId ?? undefined,
-      listing: pair.listing ?? null,
-      reviewTarget: pair.reviewTarget,
-      indicatorId: pair.indicatorId ?? null,
-      mcpServerId: pair.mcpServerId ?? null,
-      customToolId: pair.customToolId ?? null,
-      skillId: pair.skillId ?? null,
+      ...normalizePairColorContext({
+        workflowId: pair.workflowId ?? undefined,
+        listing: pair.listing ?? null,
+        reviewTarget: pair.reviewTarget,
+        indicatorId: pair.indicatorId ?? null,
+        mcpServerId: pair.mcpServerId ?? null,
+        customToolId: pair.customToolId ?? null,
+        skillId: pair.skillId ?? null,
+      }),
       updatedAt: now,
     }
   }

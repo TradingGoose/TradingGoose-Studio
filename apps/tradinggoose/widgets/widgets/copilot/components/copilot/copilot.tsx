@@ -22,8 +22,10 @@ import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
-import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import {
+  buildImplicitCopilotContexts,
+  resolveCopilotWorkflowId,
+} from '@/widgets/widgets/copilot/live-contexts'
 import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
@@ -31,9 +33,11 @@ const logger = createLogger('Copilot')
 const COPILOT_MESSAGE_VIEWPORT_CLASSNAME = '[&>div]:!block [&>div]:!min-w-0 [&>div]:!w-full'
 
 interface CopilotProps {
+  workspaceId: string
   panelWidth: number
   channelId: string
   pairColor?: PairColor
+  inputDisabled?: boolean
 }
 
 interface CopilotRef {
@@ -42,7 +46,16 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ panelWidth, channelId, pairColor = 'gray' }, ref) => {
+  (
+    {
+      workspaceId,
+      panelWidth,
+      channelId,
+      pairColor = 'gray',
+      inputDisabled = false,
+    },
+    ref
+  ) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [isInitialized, setIsInitialized] = useState(false)
@@ -58,7 +71,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
     const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
 
-    const workspaceId = useWorkspaceId()
     const pairContext = usePairColorContext(pairColor)
     const implicitContexts = useMemo(
       () =>
@@ -68,25 +80,14 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         }),
       [pairContext, workspaceId]
     )
+    const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
     const liveContext = useMemo(
       () => ({
-        workflowId: normalizeOptionalString(pairContext?.workflowId) ?? null,
+        workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
-        skillId: normalizeOptionalString(pairContext?.skillId) ?? null,
-        customToolId: normalizeOptionalString(pairContext?.customToolId) ?? null,
-        indicatorId: normalizeOptionalString(pairContext?.indicatorId) ?? null,
-        mcpServerId: normalizeOptionalString(pairContext?.mcpServerId) ?? null,
       }),
-      [
-        pairContext?.workflowId,
-        pairContext?.skillId,
-        pairContext?.customToolId,
-        pairContext?.indicatorId,
-        pairContext?.mcpServerId,
-        workspaceId,
-      ]
+      [workflowId, workspaceId]
     )
-
     // Use the new copilot store
     const {
       messages,
@@ -123,11 +124,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       const currentLiveContext = storeState.liveContext
       if (
         currentLiveContext.workflowId !== liveContext.workflowId ||
-        currentLiveContext.workspaceId !== liveContext.workspaceId ||
-        currentLiveContext.skillId !== liveContext.skillId ||
-        currentLiveContext.customToolId !== liveContext.customToolId ||
-        currentLiveContext.indicatorId !== liveContext.indicatorId ||
-        currentLiveContext.mcpServerId !== liveContext.mcpServerId
+        currentLiveContext.workspaceId !== liveContext.workspaceId
       ) {
         nextState.liveContext = liveContext
       }
@@ -528,10 +525,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
               <div className='pt-2'>
                 <UserInput
                   ref={userInputRef}
+                  workspaceId={workspaceId}
                   channelId={channelId}
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
-                  disabled={false}
+                  disabled={inputDisabled}
                   isLoading={isSendingMessage}
                   isAborting={isAborting}
                   accessLevel={accessLevel}

@@ -23,6 +23,7 @@ export type PairColorContext = {
 }
 
 const ENTITY_CONTEXT_KEYS = ['indicatorId', 'mcpServerId', 'customToolId', 'skillId'] as const
+const REVIEW_ENTITY_KINDS = ['workflow', 'indicator', 'mcp_server', 'custom_tool', 'skill']
 
 const PAIR_CONTEXT_KEYS = [
   'workflowId',
@@ -54,12 +55,57 @@ function sanitizePairColorContext(ctx: PairColorContext): PairColorContext {
   ) as PairColorContext
 }
 
+function normalizeContextId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function omitReviewTarget(context: PairColorContext): PairColorContext {
+  const { reviewTarget: _removed, ...rest } = context
+  return rest
+}
+
+function sanitizeReviewTarget(context: PairColorContext): PairColorContext {
+  const reviewTargetKind = normalizeContextId(context.reviewTarget?.reviewEntityKind)
+  const reviewEntityId = normalizeContextId(context.reviewTarget?.reviewEntityId)
+  const reviewDraftSessionId = normalizeContextId(context.reviewTarget?.reviewDraftSessionId)
+  const reviewSessionId = normalizeContextId(context.reviewTarget?.reviewSessionId)
+
+  if (!context.reviewTarget) {
+    return context
+  }
+
+  if (
+    !reviewTargetKind ||
+    !REVIEW_ENTITY_KINDS.includes(reviewTargetKind) ||
+    (!reviewEntityId && !reviewDraftSessionId && !reviewSessionId)
+  ) {
+    return omitReviewTarget(context)
+  }
+
+  return {
+    ...context,
+    reviewTarget: {
+      reviewEntityKind: reviewTargetKind,
+      reviewEntityId,
+      reviewDraftSessionId,
+      reviewSessionId,
+    },
+  }
+}
+
+export function normalizePairColorContext(ctx: PairColorContext): PairColorContext {
+  return sanitizeReviewTarget(sanitizePairColorContext(ctx))
+}
+
 export const usePairColorStore = create<PairStoreState>((set) => ({
   contexts: emptyContexts,
   setContext: (color, ctx) =>
     set((state) => {
       const nextContext = sanitizePairColorContext(ctx)
       const previous = state.contexts[color]
+      const reviewTargetChanged =
+        Object.hasOwn(nextContext, 'reviewTarget') &&
+        nextContext.reviewTarget !== previous.reviewTarget
 
       let next: PairColorContext = {
         ...previous,
@@ -67,15 +113,13 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
         updatedAt: Date.now(),
       }
 
-      // Deep-merge reviewTarget so callers can update individual fields
-      if ('reviewTarget' in nextContext && nextContext.reviewTarget != null) {
-        next.reviewTarget = { ...previous.reviewTarget, ...nextContext.reviewTarget }
+      if (reviewTargetChanged && nextContext.reviewTarget == null) {
+        next = omitReviewTarget(next)
+      } else if (reviewTargetChanged) {
+        next.reviewTarget = nextContext.reviewTarget
       }
 
-      if (nextContext.reviewTarget === null) {
-        const { reviewTarget: _removed, ...rest } = next
-        next = rest
-      }
+      next = sanitizeReviewTarget(next)
 
       return {
         contexts: {

@@ -9,7 +9,6 @@ import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 interface GetOAuthCredentialsParams {
-  userId?: string
   workflowId?: string
 }
 

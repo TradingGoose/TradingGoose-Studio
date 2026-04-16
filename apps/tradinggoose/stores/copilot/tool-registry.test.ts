@@ -3,8 +3,10 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import {
   copilotToolHasInterrupt,
+  createExecutionContext,
   ensureClientToolInstance,
   getToolInterruptDisplays,
+  prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
 
 describe('copilotToolHasInterrupt', () => {
@@ -53,5 +55,42 @@ describe('copilotToolHasInterrupt', () => {
 
     expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeDefined()
     expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
+  })
+
+  it('does not inject workflow ids into server tool args from execution provenance', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'get_workflow_console',
+      provenance: { channelId: 'pair-red' },
+    })
+
+    expect(prepareCopilotToolArgs('get_workflow_console', {}, context)).toEqual({})
+    expect(
+      prepareCopilotToolArgs(
+        'get_workflow_console',
+        {},
+        createExecutionContext({
+          toolCallId,
+          toolName: 'get_workflow_console',
+          provenance: { channelId: 'pair-red', workflowId: 'wf-1' },
+        })
+      )
+    ).toEqual({})
+  })
+
+  it('preserves only explicit server-routed GDrive args', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'read_gdrive_file',
+      provenance: { channelId: 'pair-red', workflowId: 'wf-1' },
+    })
+
+    expect(
+      prepareCopilotToolArgs(
+        'read_gdrive_file',
+        { fileId: 'file-1', type: 'doc' },
+        context
+      )
+    ).toEqual({ fileId: 'file-1', type: 'doc' })
   })
 })

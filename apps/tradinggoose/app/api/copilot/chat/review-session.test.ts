@@ -13,6 +13,9 @@ describe('Copilot Chat Review Session GET', () => {
   const mockFromItems = vi.fn()
   const mockWhereItems = vi.fn()
   const mockOrderByItems = vi.fn()
+  const mockFromTurns = vi.fn()
+  const mockWhereTurns = vi.fn()
+  const mockOrderByTurns = vi.fn()
   const mockLoadReviewSessionForUser = vi.fn()
 
   const mockMapReviewItemToApi = vi.fn()
@@ -21,20 +24,23 @@ describe('Copilot Chat Review Session GET', () => {
     vi.resetModules()
     setupCommonApiMocks()
 
-    mockSelect.mockImplementation((selection?: unknown) =>
-      selection ? { from: mockFromSessions } : { from: mockFromItems }
-    )
+    mockSelect.mockImplementation((selection?: Record<string, unknown>) => {
+      if (selection && 'status' in selection) return { from: mockFromTurns }
+      return selection ? { from: mockFromSessions } : { from: mockFromItems }
+    })
     mockFromSessions.mockReturnValue({ where: mockWhereSessions })
     mockWhereSessions.mockReturnValue({ orderBy: mockOrderBySessions })
     mockFromItems.mockReturnValue({ where: mockWhereItems })
     mockWhereItems.mockReturnValue({ orderBy: mockOrderByItems })
+    mockFromTurns.mockReturnValue({ where: mockWhereTurns })
+    mockWhereTurns.mockReturnValue({ orderBy: mockOrderByTurns })
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
       workspaceId: 'workspace-1',
       channelId: null,
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       draftSessionId: null,
       title: 'Shared skill review',
       model: 'claude-4.5-sonnet',
@@ -72,6 +78,7 @@ describe('Copilot Chat Review Session GET', () => {
         timestamp: '2026-01-03T00:01:00.000Z',
       },
     ])
+    mockOrderByTurns.mockResolvedValue([])
 
     mockOrderBySessions.mockResolvedValue([
       {
@@ -122,6 +129,11 @@ describe('Copilot Chat Review Session GET', () => {
         conversationId: 'conversationId',
         createdAt: 'createdAt',
         updatedAt: 'updatedAt',
+      },
+      copilotReviewTurns: {
+        sessionId: 'turnSessionId',
+        sequence: 'turnSequence',
+        status: 'status',
       },
     }))
 
@@ -250,7 +262,7 @@ describe('Copilot Chat Review Session GET', () => {
     vi.restoreAllMocks()
   })
 
-  it('loads a shared saved-entity review session for a collaborator', async () => {
+  it('loads a generic copilot chat session for a collaborator', async () => {
     const request = new NextRequest(
       'http://localhost:3000/api/copilot/chat?reviewSessionId=review-session-1'
     )
@@ -267,8 +279,8 @@ describe('Copilot Chat Review Session GET', () => {
           reviewSessionId: 'review-session-1',
           workspaceId: 'workspace-1',
           channelId: null,
-          entityKind: 'skill',
-          entityId: 'skill-1',
+          entityKind: 'copilot',
+          entityId: null,
           draftSessionId: null,
           title: 'Shared skill review',
           messages: [
@@ -299,11 +311,42 @@ describe('Copilot Chat Review Session GET', () => {
     )
   })
 
+  it('rejects entity-bound sessions for generic copilot chat hydration', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'entity-review-session-1',
+      userId: 'creator-user',
+      workspaceId: 'workspace-1',
+      channelId: null,
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: null,
+      title: 'Skill review',
+      model: 'claude-4.5-sonnet',
+      conversationId: 'conversation-entity',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    })
+
+    const request = new NextRequest(
+      'http://localhost:3000/api/copilot/chat?reviewSessionId=entity-review-session-1'
+    )
+
+    const { GET } = await import('@/app/api/copilot/chat/route')
+    const response = await GET(request)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Review session not found or unauthorized',
+    })
+    expect(mockSelect).not.toHaveBeenCalled()
+  })
+
   it('hydrates messages for panel-scoped generic copilot chat lists', async () => {
     mockSelect.mockReset()
     mockSelect
       .mockReturnValueOnce({ from: mockFromSessions })
       .mockReturnValueOnce({ from: mockFromItems })
+      .mockReturnValueOnce({ from: mockFromTurns })
 
     const request = new NextRequest(
       'http://localhost:3000/api/copilot/chat?channelId=workflow-review&workspaceId=workspace-1'
@@ -347,7 +390,7 @@ describe('Copilot Chat Review Session GET', () => {
       ],
     })
 
-    expect(mockSelect).toHaveBeenCalledTimes(2)
+    expect(mockSelect).toHaveBeenCalledTimes(3)
   })
 
 })

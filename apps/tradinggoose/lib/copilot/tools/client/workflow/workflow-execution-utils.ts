@@ -11,14 +11,12 @@ import { Executor } from '@/executor'
 import type { ExecutionResult, StreamingExecution } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
+import {
+  getReadableWorkflowState,
+} from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import {
-  getSnapshotForWorkflow,
-  getVariablesForWorkflow,
-} from '@/lib/yjs/workflow-session-registry'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowExecutionUtils')
@@ -44,46 +42,54 @@ export interface WorkflowExecutionOptions {
   executionId?: string
   onStream?: (se: StreamingExecution) => Promise<void>
   channelId?: string
+  workflowId?: string
 }
 
 export interface WorkflowExecutionContext {
   activeWorkflowId: string
   currentWorkflow: WorkflowSnapshot
+  workspaceId: string | null
+  workflowVariables: Record<string, any>
   getAllVariables: () => any
-  getVariablesByWorkflowId: (workflowId: string) => any[]
   setExecutor: (executor: Executor) => void
 }
 
 /**
  * Get the current workflow execution context from stores
  */
-export function getWorkflowExecutionContext(
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID
-): WorkflowExecutionContext {
-  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
+export async function getWorkflowExecutionContext(
+  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  workflowId?: string
+): Promise<WorkflowExecutionContext> {
+  const activeWorkflowId = workflowId
   if (!activeWorkflowId) {
-    throw new Error('No active workflow found')
+    throw new Error('Workflow target is required')
   }
 
-  const currentWorkflow = getSnapshotForWorkflow(activeWorkflowId)
-  if (!currentWorkflow) {
-    throw new Error('No active Yjs session found for workflow')
-  }
+  const {
+    workflowState: currentWorkflow,
+    variables: workflowVariables,
+    workspaceId,
+  } =
+    await getReadableWorkflowState(
+      {
+        toolCallId: 'workflow-execution-context',
+        toolName: 'run_workflow',
+        channelId,
+        workflowId: activeWorkflowId,
+      },
+      activeWorkflowId
+    )
 
   const { getAllVariables } = useEnvironmentStore.getState()
   const { setExecutor } = useExecutionStore.getState()
 
-  const getVariablesByWorkflowId = (workflowId: string): any[] => {
-    const varsSnapshot = getVariablesForWorkflow(workflowId)
-    if (!varsSnapshot) return []
-    return Object.values(varsSnapshot)
-  }
-
   return {
     activeWorkflowId,
     currentWorkflow,
+    workspaceId,
+    workflowVariables,
     getAllVariables,
-    getVariablesByWorkflowId,
     setExecutor,
   }
 }
@@ -99,8 +105,9 @@ export async function executeWorkflowWithLogging(
   const {
     activeWorkflowId,
     currentWorkflow,
+    workspaceId,
+    workflowVariables,
     getAllVariables,
-    getVariablesByWorkflowId,
     setExecutor,
   } = context
   const { workflowInput, onStream, executionId } = options
@@ -150,7 +157,6 @@ export async function executeWorkflowWithLogging(
   )
 
   // Get environment variables with workspace precedence
-  const workspaceId = useWorkflowRegistry.getState().workflows[activeWorkflowId]?.workspaceId
   const workspaceEnv = workspaceId
     ? (await useEnvironmentStore.getState().loadWorkspaceEnvironment(workspaceId)).workspace
     : {}
@@ -164,15 +170,6 @@ export async function executeWorkflowWithLogging(
   Object.assign(envVarValues, workspaceEnv)
 
   // Get workflow variables
-  const workflowVars = getVariablesByWorkflowId(activeWorkflowId)
-  const workflowVariables = workflowVars.reduce(
-    (acc, variable: any) => {
-      acc[variable.id] = variable
-      return acc
-    },
-    {} as Record<string, any>
-  )
-
   // Create serialized workflow with filtered blocks and edges
   const workflow = new Serializer().serializeWorkflow(
     mergedStates,
@@ -289,7 +286,7 @@ export async function persistExecutionLogs(
 export async function executeWorkflowWithFullLogging(
   options: WorkflowExecutionOptions = {}
 ): Promise<ExecutionResult | StreamingExecution> {
-  const context = getWorkflowExecutionContext(options.channelId)
+  const context = await getWorkflowExecutionContext(options.channelId, options.workflowId)
   const executionId = options.executionId || uuidv4()
 
   try {

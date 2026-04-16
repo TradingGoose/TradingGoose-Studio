@@ -107,12 +107,18 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       warningCount: combinedWarnings.length,
     })
 
+    const nextWorkflowDocument = serializeWorkflowToTgMermaid(finalWorkflowState, {
+      direction: requestedDirection,
+    })
+
     return {
       success: true,
+      entityKind: 'workflow',
+      entityId: workflowId,
+      entityDocument: nextWorkflowDocument,
+      workflowId,
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-      workflowDocument: serializeWorkflowToTgMermaid(finalWorkflowState, {
-        direction: requestedDirection,
-      }),
+      workflowDocument: nextWorkflowDocument,
       workflowState: finalWorkflowState,
       preview: {
         ...preview,

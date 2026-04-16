@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveWorkflowTarget } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -12,7 +13,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 interface DeployWorkflowArgs {
   action: 'deploy' | 'undeploy'
   deployType?: 'api' | 'chat'
-  workflowId?: string
+  workflowId: string
 }
 
 export class DeployWorkflowClientTool extends BaseClientTool {
@@ -33,10 +34,8 @@ export class DeployWorkflowClientTool extends BaseClientTool {
 
     const action = params?.action || 'deploy'
     const deployType = params?.deployType || 'api'
-    const executionContext = this.getExecutionContext()
-
     // Check if workflow is already deployed
-    const workflowId = params?.workflowId || executionContext?.workflowId
+    const workflowId = params?.workflowId?.trim()
     const isAlreadyDeployed = workflowId
       ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
       : false
@@ -189,16 +188,9 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const executionContext = this.requireExecutionContext()
       const action = args?.action || 'deploy'
       const deployType = args?.deployType || 'api'
-      const registryState = useWorkflowRegistry.getState()
-      const workflowId = args?.workflowId || executionContext.workflowId
-      const { workflows } = registryState
-
-      if (!workflowId) {
-        throw new Error('No workflow ID provided')
-      }
-
-      const workflow = workflows[workflowId]
-      const workspaceId = workflow?.workspaceId
+      const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
+        workflowId: args?.workflowId,
+      })
 
       // For chat deployment, just open the deploy modal
       if (action === 'deploy' && deployType === 'chat') {

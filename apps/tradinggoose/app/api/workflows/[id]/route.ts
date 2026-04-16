@@ -168,6 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
+        variables: workflowState?.variables ?? {},
       },
     }
 

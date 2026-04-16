@@ -39,7 +39,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockCopilotState.toolCallsById = {}
   })
 
-  it('getInterruptDisplays resolves workflow from params/context without default-channel active fallback', () => {
+  it('getInterruptDisplays resolves deployment state only from explicit params', () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default-channel fallback must not be used')
     })
@@ -49,6 +49,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockCopilotState.toolCallsById[toolCallId] = {
       params: {
         action: 'deploy',
+        workflowId: 'wf-explicit',
       },
     }
 
@@ -65,10 +66,10 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
 
     expect(displays?.accept.text).toBe('Redeploy')
     expect(mockRegistryState.getActiveWorkflowId).not.toHaveBeenCalled()
-    expect(mockRegistryState.getWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-context')
+    expect(mockRegistryState.getWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-explicit')
   })
 
-  it('dynamic text does not consult default active workflow when workflowId param is absent', () => {
+  it('dynamic text does not consult the default registry fallback when workflowId param is absent', () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default-channel fallback must not be used')
     })
@@ -89,17 +90,25 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockRegistryState.getWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-explicit')
   })
 
-  it('handleAccept deploys using execution-context workflow without default active fallback', async () => {
+  it('handleAccept deploys using explicit workflowId without default active fallback', async () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default-channel fallback must not be used')
     })
     mockRegistryState.getWorkflowDeploymentStatus.mockReturnValue(null)
-    mockRegistryState.workflows = {
-      'wf-context': { workspaceId: 'ws-1' },
-    }
+    mockRegistryState.workflows = {}
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/workflows/wf-target') && (init?.method || 'GET') === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: 'wf-target', name: 'Target Workflow', workspaceId: 'ws-1' },
+          }),
+        }
+      }
+
       if (url.includes('/api/workspaces/ws-1/api-keys')) {
         return {
           ok: true,
@@ -116,7 +125,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
         }
       }
 
-      if (url.includes('/api/workflows/wf-context/deploy')) {
+      if (url.includes('/api/workflows/wf-target/deploy')) {
         return {
           ok: true,
           status: 200,
@@ -146,17 +155,17 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       log: vi.fn(),
     })
 
-    await tool.handleAccept({ action: 'deploy', deployType: 'api' })
+    await tool.handleAccept({ action: 'deploy', deployType: 'api', workflowId: 'wf-target' })
 
     const deployRequest = fetchMock.mock.calls.find(([input]) => {
       const url = typeof input === 'string' ? input : input.toString()
-      return url.includes('/api/workflows/wf-context/deploy')
+      return url.includes('/api/workflows/wf-target/deploy')
     })
 
     expect(deployRequest).toBeDefined()
     expect(mockRegistryState.getActiveWorkflowId).not.toHaveBeenCalled()
     expect(mockRegistryState.setDeploymentStatus).toHaveBeenCalledWith(
-      'wf-context',
+      'wf-target',
       true,
       expect.any(Date),
       'server-key'

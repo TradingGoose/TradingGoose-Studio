@@ -438,7 +438,6 @@ const ChatMessageSchema = z.object({
   userMessageId: z.string().optional(), // ID from frontend for the user message
   reviewSessionId: z.string().optional(),
   channelId: z.string().min(1).optional(),
-  workflowId: z.string().min(1).optional(),
   model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   prefetch: z.boolean().optional(),
   stream: z.boolean().optional().default(true),
@@ -519,7 +518,6 @@ export async function POST(req: NextRequest) {
       userMessageId,
       reviewSessionId: incomingReviewSessionId,
       channelId,
-      workflowId,
       model,
       prefetch,
       stream,
@@ -587,7 +585,7 @@ export async function POST(req: NextRequest) {
 
     if (incomingReviewSessionId) {
       const session = await loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId)
-      if (!session) {
+      if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
         return createNotFoundResponse('Review session not found or unauthorized')
       }
 
@@ -657,7 +655,6 @@ export async function POST(req: NextRequest) {
 
     const requestPayload = {
       message: message, // Just send the current user message text
-      workflowId,
       userId: authenticatedUserId,
       stream: stream,
       streamToolCalls: true,
@@ -1155,7 +1152,7 @@ export async function GET(req: NextRequest) {
     if (reviewSessionId) {
       const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId)
 
-      if (!session) {
+      if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
         return NextResponse.json({ error: 'Review session not found or unauthorized' }, { status: 404 })
       }
 

@@ -18,7 +18,7 @@ const ExecuteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
-  let toolName: z.infer<typeof ToolIds> | undefined
+  let toolName: string | undefined
   try {
     const { userId, isAuthenticated } = await authenticateCopilotRequestSessionOnly()
     if (!isAuthenticated || !userId) {

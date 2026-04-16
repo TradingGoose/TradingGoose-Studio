@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { listWorkflowsForExecutionContext } from './workflow-review-tool-utils'
 
 const logger = createLogger('ListUserWorkflowsClientTool')
 
@@ -30,25 +31,20 @@ export class ListUserWorkflowsClientTool extends BaseClientTool {
   async execute(): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
+      const workflows = await listWorkflowsForExecutionContext(executionContext)
+      const entities = workflows.map((workflow) => ({
+        entityId: workflow.workflowId,
+        entityName: workflow.workflowName || 'Untitled Workflow',
+        ...(workflow.workspaceId ? { workspaceId: workflow.workspaceId } : {}),
+      }))
 
-      const res = await fetch('/api/workflows', { method: 'GET' })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        await this.markToolComplete(res.status, text || 'Failed to fetch workflows')
-        this.setState(ClientToolCallState.error)
-        return
-      }
+      logger.info('Found workflows', { count: workflows.length })
 
-      const json = await res.json()
-      const workflows = Array.isArray(json?.data) ? json.data : []
-      const names = workflows
-        .map((w: any) => (typeof w?.name === 'string' ? w.name : null))
-        .filter((n: string | null) => !!n)
-
-      logger.info('Found workflows', { count: names.length })
-
-      await this.markToolComplete(200, `Found ${names.length} workflow(s)`, {
-        workflow_names: names,
+      await this.markToolComplete(200, `Found ${workflows.length} workflow(s)`, {
+        entityKind: 'workflow',
+        entities,
+        count: workflows.length,
       })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {

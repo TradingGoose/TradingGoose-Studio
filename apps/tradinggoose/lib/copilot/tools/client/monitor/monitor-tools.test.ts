@@ -103,12 +103,12 @@ describe('monitor tools', () => {
     })
     const body = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(body.data).toMatchObject({
-      entityKind: 'monitor',
+      surfaceKind: 'monitor',
       count: 1,
     })
-    expect(body.data.entities[0]).toMatchObject({
-      entityId: 'monitor-1',
-      entityName: 'rsi on Apple Inc. (1m)',
+    expect(body.data.monitors[0]).toMatchObject({
+      monitorId: 'monitor-1',
+      monitorName: 'rsi on Apple Inc. (1m)',
       workflowId: 'wf-1',
       blockId: 'trigger-1',
       providerId: 'alpaca',
@@ -182,7 +182,7 @@ describe('monitor tools', () => {
       log: vi.fn(),
     })
 
-    await tool.execute({ entityId: 'monitor-1' })
+    await tool.execute({ monitorId: 'monitor-1' })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
 
@@ -192,13 +192,13 @@ describe('monitor tools', () => {
     })
     const body = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(body.data).toMatchObject({
-      entityKind: 'monitor',
-      entityId: 'monitor-1',
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
       documentFormat: 'tg-monitor-document-v1',
     })
-    expect(body.data.entityDocument).toContain('"providerId": "alpaca"')
-    expect(body.data.entityDocument).toContain('"interval": "5m"')
-    expect(body.data.entityDocument).toContain('"secrets"')
+    expect(body.data.monitorDocument).toContain('"providerId": "alpaca"')
+    expect(body.data.monitorDocument).toContain('"interval": "5m"')
+    expect(body.data.monitorDocument).toContain('"secrets"')
   })
 
   it('edit_monitor patches the monitor after accept', async () => {
@@ -271,7 +271,7 @@ describe('monitor tools', () => {
       log: vi.fn(),
     })
 
-    const entityDocument = JSON.stringify(
+    const monitorDocument = JSON.stringify(
       {
         workflowId: 'wf-1',
         blockId: 'trigger-1',
@@ -294,8 +294,8 @@ describe('monitor tools', () => {
     )
 
     await tool.execute({
-      entityId: 'monitor-1',
-      entityDocument,
+      monitorId: 'monitor-1',
+      monitorDocument,
       documentFormat: 'tg-monitor-document-v1',
     })
     await tool.handleAccept()
@@ -309,12 +309,12 @@ describe('monitor tools', () => {
     const body = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(body.data).toMatchObject({
       success: true,
-      entityKind: 'monitor',
-      entityId: 'monitor-1',
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
       documentFormat: 'tg-monitor-document-v1',
     })
-    expect(body.data.entityDocument).toContain('"interval": "15m"')
-    expect(body.data.entityDocument).toContain('"isActive": false')
+    expect(body.data.monitorDocument).toContain('"interval": "15m"')
+    expect(body.data.monitorDocument).toContain('"isActive": false')
   })
 
   it('exposes monitor tool schemas', () => {
@@ -326,26 +326,26 @@ describe('monitor tools', () => {
 
     expect(
       ToolArgSchemas.edit_monitor.parse({
-        entityId: 'monitor-1',
-        entityDocument:
+        monitorId: 'monitor-1',
+        monitorDocument:
           '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
-      entityId: 'monitor-1',
+      monitorId: 'monitor-1',
     })
 
     expect(
       ToolResultSchemas.get_monitor.parse({
-        entityKind: 'monitor',
-        entityId: 'monitor-1',
-        entityName: 'rsi on AAPL (1m)',
+        surfaceKind: 'monitor',
+        monitorId: 'monitor-1',
+        monitorName: 'rsi on AAPL (1m)',
         documentFormat: 'tg-monitor-document-v1',
-        entityDocument:
+        monitorDocument:
           '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
-      entityKind: 'monitor',
-      entityId: 'monitor-1',
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
     })
   })
 })

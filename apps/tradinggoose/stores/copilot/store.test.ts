@@ -5,6 +5,7 @@ import { encodeSSE } from '@/lib/utils'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
+import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 
@@ -17,6 +18,32 @@ function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
       controller.close()
     },
   })
+}
+
+function createDeferredSseStream() {
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null
+  let resolveReady: (() => void) | null = null
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve
+  })
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controllerRef = controller
+      resolveReady?.()
+    },
+  })
+
+  return {
+    stream,
+    ready,
+    push(event: unknown) {
+      controllerRef?.enqueue(encodeSSE(event))
+    },
+    close() {
+      controllerRef?.close()
+    },
+  }
 }
 
 // TODO: move to shared vitest setup (e.g. vitest.setup.ts) if other test files need this
@@ -160,70 +187,6 @@ describe('copilot tool execution provenance', () => {
     expect(getCopilotStoreForToolCall(toolCallId)).toBe(storeB)
   })
 
-  it('pins all current live entity ids without a review session id', async () => {
-    const channelId = 'copilot-live-entity-provenance'
-    const toolCallId = 'copilot-live-entity-tool'
-    const store = getCopilotStore(channelId)
-
-    store.setState({
-      liveContext: {
-        workflowId: 'wf-live-entity',
-        workspaceId: 'workspace-1',
-        skillId: 'skill-1',
-        customToolId: 'tool-1',
-        indicatorId: 'indicator-1',
-        mcpServerId: 'mcp-1',
-      },
-      currentChat: null,
-      chats: [],
-      messages: [
-        {
-          id: 'assistant-message-live-entity',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-13T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: toolCallId,
-            name: 'get_skill',
-            arguments: {},
-          },
-        },
-        {
-          type: 'response.completed',
-          response: { id: 'response-live-entity' },
-        },
-      ]),
-      'assistant-message-live-entity'
-    )
-
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      provenance: {
-        channelId,
-        workflowId: 'wf-live-entity',
-        workspaceId: 'workspace-1',
-        currentSkillId: 'skill-1',
-        currentCustomToolId: 'tool-1',
-        currentIndicatorId: 'indicator-1',
-        currentMcpServerId: 'mcp-1',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty(
-      'reviewSessionId'
-    )
-  })
-
   it('parses JSON-string function call arguments before storing tool params', async () => {
     const channelId = 'copilot-stringified-tool-args'
     const toolCallId = 'copilot-stringified-tool-call'
@@ -231,7 +194,7 @@ describe('copilot tool execution provenance', () => {
 
     store.setState({
       liveContext: {
-        workflowId: 'wf-stringified',
+        workflowId: 'wf-stringified-live',
         workspaceId: 'workspace-1',
       },
       currentChat: null,
@@ -257,7 +220,10 @@ describe('copilot tool execution provenance', () => {
             type: 'function_call',
             call_id: toolCallId,
             name: 'get_user_workflow',
-            arguments: JSON.stringify({ workflowId: 'wf-stringified' }),
+            arguments: JSON.stringify({
+              workflowId: 'wf-stringified-explicit',
+              entityId: 'entity-stringified-explicit',
+            }),
           },
         },
         {
@@ -270,9 +236,211 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       params: {
-        workflowId: 'wf-stringified',
+        workflowId: 'wf-stringified-explicit',
+        entityId: 'entity-stringified-explicit',
+      },
+      provenance: {
+        channelId,
+        workflowId: 'wf-stringified-explicit',
+        entityId: 'entity-stringified-explicit',
       },
     })
+  })
+
+  it('does not pin ambient message contexts as tool targets when the tool omits a target id', async () => {
+    const channelId = 'copilot-mid-stream-target-switch'
+    const toolCallId = 'copilot-mid-stream-target-tool'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-live-at-send',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-mid-stream',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Generic panel chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-mid-stream',
+        createdAt: new Date('2026-04-13T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
+      },
+      chats: [],
+      implicitContexts: [
+        {
+          kind: 'current_workflow',
+          workflowId: 'wf-live-at-send',
+          label: 'Current Workflow',
+        },
+      ],
+    })
+
+    const sendPromise = store.getState().sendMessage('Inspect the attached workflow', {
+      contexts: [{ kind: 'workflow', workflowId: 'wf-message-context', label: 'Attached Workflow' }],
+    })
+    await deferredStream.ready
+
+    const sendRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat'
+    })
+    const requestBody = parseJsonRequestBody(sendRequest)
+    expect(requestBody.workflowId).toBeUndefined()
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-message-b',
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'get_user_workflow',
+        arguments: {},
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-mid-stream-target' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        channelId,
+        workspaceId: 'workspace-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
+
+    const usageRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/usage'
+    })
+    expect(parseJsonRequestBody(usageRequest)).not.toHaveProperty('workflowId')
+  })
+
+  it('does not pin current or attached entity contexts as edit targets', async () => {
+    const channelId = 'copilot-workflow-plus-draft-entity'
+    const toolCallId = 'copilot-draft-entity-tool'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-current',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-draft-entity',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Generic panel chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-draft-entity',
+        createdAt: new Date('2026-04-13T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
+      },
+      chats: [],
+      implicitContexts: [
+        {
+          kind: 'current_workflow',
+          workflowId: 'wf-current',
+          label: 'Current Workflow',
+        },
+        {
+          kind: 'current_skill',
+          skillId: 'skill-draft',
+          workspaceId: 'workspace-1',
+          label: 'Current Skill',
+        },
+      ],
+    })
+
+    const sendPromise = store.getState().sendMessage('Edit the draft skill using this workflow', {
+      contexts: [{ kind: 'workflow', workflowId: 'wf-explicit', label: 'Attached Workflow' }],
+    })
+    await deferredStream.ready
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'edit_skill',
+        arguments: {},
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-draft-entity' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        channelId,
+        workspaceId: 'workspace-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
   })
 })
 
@@ -889,9 +1057,7 @@ describe('copilot streaming regressions', () => {
     )
     expect(store.getState().currentChat).toBeNull()
     expect(store.getState().messages).toEqual([])
-    expect(store.getState().toolCallsById['tool-new-chat-abort']?.state).toBe(
-      ClientToolCallState.aborted
-    )
+    expect(store.getState().toolCallsById).toEqual({})
     expect(store.getState().chats[0]?.latestTurnStatus).toBe('completed')
   })
 
@@ -1029,7 +1195,7 @@ describe('copilot streaming regressions', () => {
     const requestBody = parseJsonRequestBody(sendRequest)
     expect(requestBody.reviewSessionId).toBe('review-panel-chat-1')
     expect(requestBody.channelId).toBe(channelId)
-    expect(requestBody.workflowId).toBe('workflow-b')
+    expect(requestBody.workflowId).toBeUndefined()
     expect(requestBody.provider).toBe('anthropic')
     expect(requestBody.contexts).toEqual([
       {
@@ -1108,6 +1274,97 @@ describe('copilot streaming regressions', () => {
         label: 'Current Indicator',
       },
     ])
+  })
+
+  it('pins workspace provenance for workspace-only turns', async () => {
+    const channelId = 'copilot-workspace-only-provenance'
+    const toolCallId = 'copilot-workspace-only-tool'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      if (url === '/api/workflows?workspaceId=workspace-1') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: null,
+        workspaceId: 'workspace-1',
+      },
+      implicitContexts: [],
+      currentChat: {
+        reviewSessionId: 'review-workspace-only-chat',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Workspace-only chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-workspace-only',
+        createdAt: new Date('2026-03-30T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+      },
+    })
+
+    const sendPromise = store.getState().sendMessage('List workflows in this workspace')
+    await deferredStream.ready
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'list_user_workflows',
+        arguments: {},
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-workspace-only' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        channelId,
+        workspaceId: 'workspace-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty(
+      'workflowId'
+    )
+
+    await store.getState().executeCopilotToolCall(toolCallId)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/workflows?workspaceId=workspace-1', {
+      method: 'GET',
+    })
   })
 
   it('updates the active chat title when a title_updated SSE event arrives', async () => {
@@ -1749,6 +2006,69 @@ describe('copilot tool user action delegation', () => {
       )
     } finally {
       vi.useRealTimers()
+    }
+  })
+
+  it('refreshes environment variables after server-managed environment updates', async () => {
+    const channelId = 'copilot-env-refresh'
+    const toolCallId = 'set-env-tool'
+    const store = getCopilotStore(channelId)
+    const originalLoadEnvironmentVariables =
+      useEnvironmentStore.getState().loadEnvironmentVariables
+    const loadEnvironmentVariables = vi.fn(async () => {})
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            result: { message: 'ok' },
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    useEnvironmentStore.setState({ loadEnvironmentVariables } as any)
+
+    try {
+      store.setState({
+        accessLevel: 'full',
+        toolCallsById: {
+          [toolCallId]: {
+            id: toolCallId,
+            name: 'set_environment_variables',
+            state: ClientToolCallState.pending,
+            params: { variables: { API_KEY: 'secret' } },
+            provenance: {
+              channelId,
+              workflowId: 'workflow-1',
+              workspaceId: 'workspace-1',
+            },
+          } as any,
+        },
+      })
+
+      await store.getState().executeCopilotToolCall(toolCallId)
+
+      expect(loadEnvironmentVariables).toHaveBeenCalledTimes(1)
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
+    } finally {
+      useEnvironmentStore.setState({
+        loadEnvironmentVariables: originalLoadEnvironmentVariables,
+      } as any)
     }
   })
 

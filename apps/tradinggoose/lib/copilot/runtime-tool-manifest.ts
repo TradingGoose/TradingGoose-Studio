@@ -25,11 +25,11 @@ export interface CopilotRuntimeToolManifestTool {
 	semanticValidators?: RuntimeToolManifestSemanticValidator[];
 	kind?: string;
 	entityKind?: string;
+	surfaceKind?: string;
 	mutatesState?: boolean;
 	requiresCurrentState?: boolean;
 	discoveryToolNames?: string[];
 	verificationToolNames?: string[];
-	injectWorkflowId?: boolean;
 	requiredToolResults?: string[];
 }
 

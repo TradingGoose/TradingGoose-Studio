@@ -96,6 +96,36 @@ export function readReviewTargetDescriptor(options: {
   }
 }
 
+export function buildReviewTargetDescriptorFromState(options: {
+  workspaceId?: string | null
+  entityKind?: ReviewEntityKind | string | null
+  entityId?: string | null
+  draftSessionId?: string | null
+  reviewSessionId?: string | null
+}): ReviewTargetDescriptor | null {
+  const workspaceId = normalizeOptionalString(options.workspaceId) ?? null
+  const entityKind = normalizeOptionalString(options.entityKind) ?? undefined
+  const entityId = normalizeOptionalString(options.entityId) ?? undefined
+  const draftSessionId = normalizeOptionalString(options.draftSessionId) ?? undefined
+  const reviewSessionId = normalizeOptionalString(options.reviewSessionId) ?? undefined
+
+  if (!entityKind || (!entityId && !draftSessionId && !reviewSessionId)) {
+    return null
+  }
+
+  try {
+    return parseReviewTargetDescriptor({
+      ...(workspaceId ? { workspaceId } : {}),
+      reviewEntityKind: entityKind,
+      ...(entityId ? { reviewEntityId: entityId } : {}),
+      ...(draftSessionId ? { reviewDraftSessionId: draftSessionId } : {}),
+      ...(reviewSessionId ? { reviewSessionId } : {}),
+    })
+  } catch {
+    return null
+  }
+}
+
 export function readEntitySelectionState(options: {
   params?: Record<string, unknown> | null
   pairContext?: PairColorContext | null

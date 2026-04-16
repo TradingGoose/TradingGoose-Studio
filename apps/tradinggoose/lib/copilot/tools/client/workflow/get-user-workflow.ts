@@ -5,17 +5,15 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  getReadableWorkflowSnapshot,
-  resolveWorkflowIdFromExecutionContext,
+  buildWorkflowDocumentToolResult,
+  getReadableWorkflowState,
+  resolveWorkflowTarget,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  serializeWorkflowToTgMermaid,
-  TG_MERMAID_DOCUMENT_FORMAT,
-} from '@/lib/workflows/studio-workflow-mermaid'
+import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 
 interface GetUserWorkflowArgs {
-  workflowId?: string
+  workflowId: string
   includeMetadata?: boolean
 }
 
@@ -45,14 +43,20 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
 
-      const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
+      const { workflowId, workflowName, workspaceId } = await resolveWorkflowTarget(
+        executionContext,
+        {
+          workflowId: args?.workflowId,
+        }
+      )
 
       logger.info('Fetching user workflow from readable workflow snapshot', {
         workflowId,
+        workflowName,
         includeMetadata: args?.includeMetadata,
       })
 
-      const { workflowState, source } = await getReadableWorkflowSnapshot(
+      const { workflowState, source } = await getReadableWorkflowState(
         executionContext,
         workflowId
       )
@@ -90,10 +94,16 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       }
 
       // Mark complete with data; keep state success for store render
-      await this.markToolComplete(200, 'Workflow analyzed', {
-        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-        workflowDocument,
-      })
+      await this.markToolComplete(
+        200,
+        'Workflow analyzed',
+        buildWorkflowDocumentToolResult({
+          workflowId,
+          workflowName,
+          workspaceId,
+          workflowDocument,
+        })
+      )
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

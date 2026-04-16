@@ -12,19 +12,6 @@ import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import type { ReviewTargetEventFields } from '@/widgets/events'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-
-/**
- * Review-target fields that can be supplied via widget params to
- * put the copilot into entity-review mode instead of workflow mode.
- *
- * Re-exported from {@link ReviewTargetEventFields} with added `| null`
- * to accommodate normalised values.
- */
-export type ReviewTargetParams = {
-  [K in keyof ReviewTargetEventFields]?: ReviewTargetEventFields[K] | null
-}
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
@@ -35,17 +22,7 @@ type UseWorkflowWidgetStateOptions = Pick<
   loggerScope?: string
   activateWorkflow?: boolean
   usePairWorkflowContext?: boolean
-} & ReviewTargetParams
-
-export type ReviewTargetMode =
-  | { kind: 'workflow' }
-  | {
-      kind: 'entity'
-      entityKind: ReviewEntityKind
-      entityId: string | null
-      reviewSessionId: string | null
-      reviewDraftSessionId: string | null
-    }
+}
 
 type UseWorkflowWidgetStateResult = {
   resolvedPairColor: PairColor
@@ -57,8 +34,6 @@ type UseWorkflowWidgetStateResult = {
   isLoading: boolean
   workflowIds: string[]
   activeWorkflowIdForChannel: string | null
-  /** Indicates whether the widget is in workflow mode or entity-review mode. */
-  reviewTargetMode: ReviewTargetMode
 }
 
 const DEFAULT_LOAD_ERROR_MESSAGE = 'Unable to load workflows'
@@ -76,10 +51,6 @@ export const useWorkflowWidgetState = ({
   loggerScope = 'workflow widget',
   activateWorkflow = true,
   usePairWorkflowContext = true,
-  reviewSessionId: reviewSessionIdOpt,
-  reviewEntityKind: reviewEntityKindOpt,
-  reviewEntityId: reviewEntityIdOpt,
-  reviewDraftSessionId: reviewDraftSessionIdOpt,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
   const { resolvedPairColor, channelId } = resolveWidgetChannel({
     pairColor,
@@ -292,6 +263,7 @@ export const useWorkflowWidgetState = ({
     }
 
     setPairContext(resolvedPairColor, {
+      ...pairContext,
       workflowId: resolvedWorkflowId,
       listing: pairContext.listing,
       channelId,
@@ -318,32 +290,6 @@ export const useWorkflowWidgetState = ({
     onWidgetParamsChange(nextParams)
   }, [resolvedPairColor, resolvedWorkflowId, requestedWorkflowId, onWidgetParamsChange, params])
 
-  // Build the review-target mode descriptor.
-  // Entity mode activates when a non-workflow entityKind is present AND either
-  // an entityId (saved entity) or a draftSessionId (unsaved draft) exists.
-  const reviewTargetMode: ReviewTargetMode = useMemo(() => {
-    if (
-      reviewEntityKindOpt &&
-      reviewEntityKindOpt !== 'workflow' &&
-      (reviewEntityIdOpt || reviewDraftSessionIdOpt)
-    ) {
-      return {
-        kind: 'entity',
-        entityKind: reviewEntityKindOpt,
-        entityId: reviewEntityIdOpt ?? null,
-        reviewSessionId: reviewSessionIdOpt ?? null,
-        reviewDraftSessionId: reviewDraftSessionIdOpt ?? null,
-      }
-    }
-
-    return { kind: 'workflow' }
-  }, [
-    reviewEntityKindOpt,
-    reviewEntityIdOpt,
-    reviewSessionIdOpt,
-    reviewDraftSessionIdOpt,
-  ])
-
   return {
     resolvedPairColor,
     channelId,
@@ -354,6 +300,5 @@ export const useWorkflowWidgetState = ({
     isLoading: isMetadataChannelHydrating || isChannelHydrating,
     workflowIds,
     activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
-    reviewTargetMode,
   }
 }

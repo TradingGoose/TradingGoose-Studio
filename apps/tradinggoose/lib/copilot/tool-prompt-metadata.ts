@@ -6,19 +6,20 @@ export interface ToolPromptMetadata {
 	instructions?: string[];
 	kind?: string;
 	entityKind?: string;
+	surfaceKind?: string;
 	mutatesState?: boolean;
 	requiresCurrentState?: boolean;
 	discoveryToolNames?: string[];
 	verificationToolNames?: string[];
-	injectWorkflowId?: boolean;
 	requiredToolResults?: string[];
 }
 
 const WORKFLOW_DOCUMENT_RULES = [
 	"Workflows are edited as full document updates, not operation arrays.",
-	"`get_user_workflow` returns `workflowDocument` in `documentFormat: tg-mermaid-v1`.",
-	"`edit_workflow` must receive the full edited `workflowDocument` and `documentFormat: tg-mermaid-v1`.",
-	"Call `get_user_workflow` before `edit_workflow` so your edit starts from the current workflow document.",
+	"`get_user_workflow` and `get_workflow_from_name` return `workflowId`, `entityId`, `workflowDocument`, `entityDocument`, and `documentFormat: tg-mermaid-v1`.",
+	"`get_user_workflow` must receive the target `workflowId`; do not rely on the current workflow context as the target.",
+	"`edit_workflow` must receive the target `workflowId`, full edited `workflowDocument`, and `documentFormat: tg-mermaid-v1`.",
+	"Call `get_user_workflow` or `get_workflow_from_name` before `edit_workflow` so your edit starts from the target workflow document.",
 	"If you add new blocks or reconnect handles, call `get_blocks_metadata` for the block types you need before editing the workflow document.",
 	"When you need exact Mermaid structure for blocks, call `get_blocks_metadata` for the relevant block types and follow its returned `mermaidContract`, `mermaidExamples`, and per-operation variants instead of guessing the shape.",
 	"`TG_BLOCK` payloads must keep the canonical workflow state shape from `get_user_workflow`; workflow documents use `type` and `name`.",
@@ -34,37 +35,37 @@ const WORKFLOW_DOCUMENT_RULES = [
 
 const SKILL_DOCUMENT_RULES = [
 	"Skills are edited as full document updates.",
-	"`get_skill` returns `entityDocument` in `documentFormat: tg-skill-document-v1`.",
-	"`edit_skill` must receive the full edited `entityDocument` and `documentFormat: tg-skill-document-v1`.",
-	"Call `get_skill` before `edit_skill` so your edit starts from the current skill document.",
+	"`get_skill` must receive the target `entityId` and returns `entityDocument` in `documentFormat: tg-skill-document-v1`.",
+	"`edit_skill` must receive the target `entityId`, full edited `entityDocument`, and `documentFormat: tg-skill-document-v1`.",
+	"Call `get_skill` before `edit_skill` so your edit starts from the target skill document.",
 ].join(" ");
 
 const CUSTOM_TOOL_DOCUMENT_RULES = [
 	"Custom tools are edited as full document updates.",
-	"`get_custom_tool` returns `entityDocument` in `documentFormat: tg-custom-tool-document-v1`.",
-	"`edit_custom_tool` must receive the full edited `entityDocument` and `documentFormat: tg-custom-tool-document-v1`.",
-	"Call `get_custom_tool` before `edit_custom_tool` so your edit starts from the current custom tool document.",
+	"`get_custom_tool` must receive the target `entityId` and returns `entityDocument` in `documentFormat: tg-custom-tool-document-v1`.",
+	"`edit_custom_tool` must receive the target `entityId`, full edited `entityDocument`, and `documentFormat: tg-custom-tool-document-v1`.",
+	"Call `get_custom_tool` before `edit_custom_tool` so your edit starts from the target custom tool document.",
 ].join(" ");
 
 const INDICATOR_DOCUMENT_RULES = [
 	"Indicators are edited as full document updates.",
-	"`get_indicator` returns `entityDocument` in `documentFormat: tg-indicator-document-v1`.",
-	"`edit_indicator` must receive the full edited `entityDocument` and `documentFormat: tg-indicator-document-v1`.",
-	"Call `get_indicator` before `edit_indicator` so your edit starts from the current indicator document.",
+	"`get_indicator` must receive the target `entityId` and returns `entityDocument` in `documentFormat: tg-indicator-document-v1`.",
+	"`edit_indicator` must receive the target `entityId`, full edited `entityDocument`, and `documentFormat: tg-indicator-document-v1`.",
+	"Call `get_indicator` before `edit_indicator` so your edit starts from the target indicator document.",
 ].join(" ");
 
 const MCP_SERVER_DOCUMENT_RULES = [
 	"MCP servers are edited as full document updates.",
-	"`get_mcp_server` returns `entityDocument` in `documentFormat: tg-mcp-server-document-v1`.",
-	"`edit_mcp_server` must receive the full edited `entityDocument` and `documentFormat: tg-mcp-server-document-v1`.",
-	"Call `get_mcp_server` before `edit_mcp_server` so your edit starts from the current MCP server document.",
+	"`get_mcp_server` must receive the target `entityId` and returns `entityDocument` in `documentFormat: tg-mcp-server-document-v1`.",
+	"`edit_mcp_server` must receive the target `entityId`, full edited `entityDocument`, and `documentFormat: tg-mcp-server-document-v1`.",
+	"Call `get_mcp_server` before `edit_mcp_server` so your edit starts from the target MCP server document.",
 ].join(" ");
 
 const MONITOR_DOCUMENT_RULES = [
 	"Monitors are edited as full document updates.",
-	"`get_monitor` returns `entityDocument` in `documentFormat: tg-monitor-document-v1`.",
-	"`edit_monitor` must receive the full edited `entityDocument`, the target `entityId`, and `documentFormat: tg-monitor-document-v1`.",
-	"Call `get_monitor` before `edit_monitor` so your edit starts from the current monitor document.",
+	"`get_monitor` returns `monitorDocument` in `documentFormat: tg-monitor-document-v1`.",
+	"`edit_monitor` must receive the full edited `monitorDocument`, the target `monitorId`, and `documentFormat: tg-monitor-document-v1`.",
+	"Call `get_monitor` before `edit_monitor` so your edit starts from the target monitor document.",
 	"Monitors must reference a deployed workflow indicator trigger block, a trigger-capable indicator, a supported live provider interval, and a valid listing.",
 ].join(" ");
 
@@ -73,6 +74,8 @@ export const GLOBAL_TOOL_MANIFEST_INSTRUCTIONS: string[] = [
 	"Keep TradingGoose surfaces distinct. Workflows, monitors, skills, custom tools, indicators, and MCP servers are separate assets and should not be conflated.",
 	"Use enough tools to remove material uncertainty before acting, but avoid redundant or repetitive calls.",
 	"When discovery, read, edit, or verification tools exist for the same surface, use that lifecycle instead of guessing hidden state.",
+	"Targeted read, view, edit, run, deploy, and inspect tools must receive the explicit target `entityId` or `workflowId` in tool arguments. Do not use `current_*` context as a tool target.",
+	"When a discovery or read tool returns `entityId` or `workflowId`, carry that explicit id into follow-up tool calls for that target.",
 	"Workflow edits should preserve existing behavior unless the user explicitly asks for a behavior change.",
 	WORKFLOW_DOCUMENT_RULES,
 	"Treat workflow graphs, block metadata, upstream references, deployments, and variables as separate facts that may each need explicit inspection.",
@@ -108,15 +111,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_user_workflow: {
 		description:
-			"Return the current workflow as a document payload with `workflowDocument` and `documentFormat`.",
+			"Return the target workflow as a document payload with `workflowId`, `entityId`, `workflowDocument`, `entityDocument`, and `documentFormat`.",
 		kind: "read",
 		entityKind: "workflow",
 		discoveryToolNames: ["list_user_workflows"],
-		injectWorkflowId: true,
 	},
 	edit_workflow: {
 		description:
-			"Update the current workflow from a full workflow document and return the resulting workflow state.",
+			"Update the target workflow from a full workflow document and return the resulting workflow state.",
 		rules: "Do not send operation arrays. Send the full edited workflow document.",
 		instructions: [WORKFLOW_DOCUMENT_RULES],
 		kind: "edit",
@@ -125,21 +127,18 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		requiresCurrentState: true,
 		discoveryToolNames: ["list_user_workflows"],
 		verificationToolNames: ["get_user_workflow"],
-		injectWorkflowId: true,
-		requiredToolResults: ["get_user_workflow"],
+		requiredToolResults: ["get_user_workflow", "get_workflow_from_name"],
 	},
 	run_workflow: {
-		description: "Run the active workflow with optional input.",
+		description: "Run the target workflow with optional input.",
 		kind: "run",
 		entityKind: "workflow",
 		verificationToolNames: ["get_workflow_console"],
-		injectWorkflowId: true,
 	},
 	get_workflow_console: {
 		description: "Retrieve workflow console or log output.",
 		kind: "read",
 		entityKind: "workflow",
-		injectWorkflowId: true,
 	},
 	get_blocks_and_tools: {
 		description: "List available workflow blocks with compact Mermaid structure metadata.",
@@ -199,7 +198,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		entityKind: "credential",
 	},
 	list_user_workflows: {
-		description: "List workflow names for the current user.",
+		description: "List workflows in the current workspace.",
 		kind: "list",
 		entityKind: "workflow",
 	},
@@ -214,7 +213,6 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		description: "Get global workflow variables.",
 		kind: "read",
 		entityKind: "workflow",
-		injectWorkflowId: true,
 	},
 	set_global_workflow_variables: {
 		description: "Add, edit, or delete global workflow variables.",
@@ -224,7 +222,6 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		entityKind: "workflow",
 		mutatesState: true,
 		verificationToolNames: ["get_global_workflow_variables"],
-		injectWorkflowId: true,
 	},
 	oauth_request_access: {
 		description: "Request OAuth access.",
@@ -237,19 +234,17 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 		entityKind: "workflow",
 	},
 	deploy_workflow: {
-		description: "Deploy or undeploy the active workflow.",
+		description: "Deploy or undeploy the target workflow.",
 		rules: "Deploy or undeploy only when the user explicitly asks for it.",
 		kind: "deploy",
 		entityKind: "workflow",
 		mutatesState: true,
 		verificationToolNames: ["check_deployment_status"],
-		injectWorkflowId: true,
 	},
 	check_deployment_status: {
 		description: "Check workflow deployment status.",
 		kind: "read",
 		entityKind: "workflow",
-		injectWorkflowId: true,
 	},
 	knowledge_base: {
 		description: "Create, list, get, or query knowledge bases.",
@@ -264,14 +259,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_custom_tool: {
 		description:
-			"Return the current custom tool as an editable document payload with `entityDocument` and `documentFormat`.",
+			"Return the target custom tool as an editable document payload with `entityDocument` and `documentFormat`.",
 		kind: "read",
 		entityKind: "custom_tool",
 		discoveryToolNames: ["list_custom_tools"],
 	},
 	edit_custom_tool: {
 		description:
-			"Update the current custom tool from a full custom tool document and return the resulting document.",
+			"Update the target custom tool from a full custom tool document and return the resulting document.",
 		rules: "Do not send partial patches. Send the full edited custom tool document.",
 		instructions: [CUSTOM_TOOL_DOCUMENT_RULES],
 		kind: "edit",
@@ -285,23 +280,23 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	list_monitors: {
 		description: "List indicator monitors in the current workspace, optionally filtered by workflow or block.",
 		kind: "list",
-		entityKind: "monitor",
+		surfaceKind: "monitor",
 	},
 	get_monitor: {
 		description:
-			"Return the current monitor as an editable document payload with `entityDocument` and `documentFormat`.",
+			"Return the target monitor as an editable document payload with `monitorDocument` and `documentFormat`.",
 		kind: "read",
-		entityKind: "monitor",
+		surfaceKind: "monitor",
 		discoveryToolNames: ["list_monitors"],
 	},
 	edit_monitor: {
 		description:
 			"Update the target monitor from a full monitor document and return the resulting monitor document.",
 		rules:
-			"Do not send partial patches. Send the full edited monitor document with the target entityId.",
+			"Do not send partial patches. Send the full edited monitor document with the target monitorId.",
 		instructions: [MONITOR_DOCUMENT_RULES],
 		kind: "edit",
-		entityKind: "monitor",
+		surfaceKind: "monitor",
 		mutatesState: true,
 		requiresCurrentState: true,
 		discoveryToolNames: ["list_monitors"],
@@ -315,14 +310,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_indicator: {
 		description:
-			"Return the current indicator as an editable document payload with `entityDocument` and `documentFormat`.",
+			"Return the target indicator as an editable document payload with `entityDocument` and `documentFormat`.",
 		kind: "read",
 		entityKind: "indicator",
 		discoveryToolNames: ["list_indicators"],
 	},
 	edit_indicator: {
 		description:
-			"Update the current indicator from a full indicator document and return the resulting document.",
+			"Update the target indicator from a full indicator document and return the resulting document.",
 		rules: "Do not send partial patches. Send the full edited indicator document.",
 		instructions: [INDICATOR_DOCUMENT_RULES],
 		kind: "edit",
@@ -340,14 +335,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_skill: {
 		description:
-			"Return the current skill as an editable document payload with `entityDocument` and `documentFormat`.",
+			"Return the target skill as an editable document payload with `entityDocument` and `documentFormat`.",
 		kind: "read",
 		entityKind: "skill",
 		discoveryToolNames: ["list_skills"],
 	},
 	edit_skill: {
 		description:
-			"Update the current skill from a full skill document and return the resulting document.",
+			"Update the target skill from a full skill document and return the resulting document.",
 		rules: "Do not send partial patches. Send the full edited skill document.",
 		instructions: [SKILL_DOCUMENT_RULES],
 		kind: "edit",
@@ -365,14 +360,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
 	},
 	get_mcp_server: {
 		description:
-			"Return the current MCP server as an editable document payload with `entityDocument` and `documentFormat`.",
+			"Return the target MCP server as an editable document payload with `entityDocument` and `documentFormat`.",
 		kind: "read",
 		entityKind: "mcp_server",
 		discoveryToolNames: ["list_mcp_servers"],
 	},
 	edit_mcp_server: {
 		description:
-			"Update the current MCP server from a full server document and return the resulting document.",
+			"Update the target MCP server from a full server document and return the resulting document.",
 		rules: "Do not send partial patches. Send the full edited MCP server document.",
 		instructions: [MCP_SERVER_DOCUMENT_RULES],
 		kind: "edit",

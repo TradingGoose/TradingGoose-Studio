@@ -5,12 +5,12 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import {
-  serializeWorkflowToTgMermaid,
-  TG_MERMAID_DOCUMENT_FORMAT,
-} from '@/lib/workflows/studio-workflow-mermaid'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { getReadableWorkflowSnapshot } from './workflow-review-tool-utils'
+  buildWorkflowDocumentToolResult,
+  getReadableWorkflowState,
+  resolveWorkflowTarget,
+} from './workflow-review-tool-utils'
 
 const logger = createLogger('GetWorkflowFromNameClientTool')
 
@@ -48,23 +48,16 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
         return
       }
 
-      // Try to find by name from registry first to get ID
-      const registry = useWorkflowRegistry.getState()
-      const match = Object.values((registry as any).workflows || {}).find(
-        (w: any) =>
-          String(w?.name || '')
-            .trim()
-            .toLowerCase() === workflowName.toLowerCase()
-      ) as any
-
-      if (!match?.id) {
-        await this.markToolComplete(404, `Workflow not found: ${workflowName}`)
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
       const executionContext = this.requireExecutionContext()
-      const { workflowState } = await getReadableWorkflowSnapshot(executionContext, match.id)
+      const {
+        workflowId,
+        workflowName: resolvedWorkflowName,
+        workspaceId,
+      } = await resolveWorkflowTarget(
+        executionContext,
+        { workflow_name: workflowName }
+      )
+      const { workflowState } = await getReadableWorkflowState(executionContext, workflowId)
       if (!workflowState?.blocks) {
         await this.markToolComplete(422, 'Workflow state is empty or invalid')
         this.setState(ClientToolCallState.error)
@@ -73,10 +66,16 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
 
       const workflowDocument = serializeWorkflowToTgMermaid(workflowState)
 
-      await this.markToolComplete(200, `Retrieved workflow ${workflowName}`, {
-        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-        workflowDocument,
-      })
+      await this.markToolComplete(
+        200,
+        `Retrieved workflow ${resolvedWorkflowName || workflowName}`,
+        buildWorkflowDocumentToolResult({
+          workflowId,
+          workflowName: resolvedWorkflowName || workflowName,
+          workspaceId,
+          workflowDocument,
+        })
+      )
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
