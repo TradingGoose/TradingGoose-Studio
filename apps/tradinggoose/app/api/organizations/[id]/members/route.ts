@@ -208,18 +208,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Check seat availability
-    const seatValidation = await validateSeatAvailability(organizationId, 1)
-    if (!seatValidation.canInvite) {
-      return NextResponse.json(
-        {
-          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
-          details: seatValidation,
-        },
-        { status: 400 }
-      )
-    }
-
     // Check if user is already a member
     const existingUser = await db
       .select({ id: user.id })
@@ -260,6 +248,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (existingInvitation.length > 0) {
       return NextResponse.json(
         { error: 'Pending invitation already exists for this email' },
+        { status: 400 }
+      )
+    }
+
+    // Check seat availability after filtering existing members and pending invitations.
+    const seatValidation = await validateSeatAvailability(organizationId, 1)
+    if (!seatValidation.canInvite) {
+      return NextResponse.json(
+        {
+          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
+          details: seatValidation,
+        },
         { status: 400 }
       )
     }

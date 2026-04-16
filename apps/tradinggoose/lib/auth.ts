@@ -40,10 +40,9 @@ import {
 } from '@/lib/billing/organization'
 import { getPlans } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import {
   hydrateSubscriptionsWithTiers,
-  isOrganizationSubscription,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
@@ -1660,53 +1659,10 @@ export const auth = betterAuth({
       membershipLimit: 50,
       // Validate seat limits before sending invitations
       beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-        const subscriptions = await db
-          .select()
-          .from(schema.subscription)
-          .where(
-            and(
-              eq(schema.subscription.referenceType, 'organization'),
-              eq(schema.subscription.referenceId, organization.id),
-              eq(schema.subscription.status, 'active')
-            )
-          )
+        const seatValidation = await validateSeatAvailability(organization.id)
 
-        const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(subscriptions)
-        const organizationSubscription = hydratedSubscriptions.find((sub) =>
-          isOrganizationSubscription(sub)
-        )
-
-        if (!organizationSubscription) {
-          return
-        }
-
-        if (organizationSubscription.tier.ownerType !== 'organization') {
-          return
-        }
-
-        const members = await db
-          .select()
-          .from(schema.member)
-          .where(eq(schema.member.organizationId, organization.id))
-
-        const pendingInvites = await db
-          .select()
-          .from(schema.invitation)
-          .where(
-            and(
-              eq(schema.invitation.organizationId, organization.id),
-              eq(schema.invitation.status, 'pending')
-            )
-          )
-
-        const totalCount = members.length + pendingInvites.length
-        const seatLimit = Math.max(
-          organizationSubscription.seats || organizationSubscription.tier.seatCount || 1,
-          1
-        )
-
-        if (totalCount >= seatLimit) {
-          throw new Error(`Organization has reached its seat limit of ${seatLimit}`)
+        if (!seatValidation.canInvite) {
+          throw new Error(seatValidation.reason ?? 'Unable to invite member')
         }
       },
       sendInvitationEmail: async (data: any) => {

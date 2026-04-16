@@ -169,23 +169,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
     }
 
-    const seatValidation = await validateSeatAvailability(organizationId, invitationEmails.length)
-
-    if (!seatValidation.canInvite) {
-      return NextResponse.json(
-        {
-          error: seatValidation.reason,
-          seatInfo: {
-            currentSeats: seatValidation.currentSeats,
-            maxSeats: seatValidation.maxSeats,
-            availableSeats: seatValidation.availableSeats,
-            seatsRequested: invitationEmails.length,
-          },
-        },
-        { status: 400 }
-      )
-    }
-
     const organizationEntry = await db
       .select({ name: organization.name })
       .from(organization)
@@ -254,6 +237,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             pendingInvitations: processedEmails.filter((email: string) =>
               pendingEmails.includes(email)
             ),
+          },
+        },
+        { status: 400 }
+      )
+    }
+
+    const seatValidation = await validateSeatAvailability(organizationId, emailsToInvite.length)
+
+    if (!seatValidation.canInvite) {
+      return NextResponse.json(
+        {
+          error: seatValidation.reason,
+          seatInfo: {
+            currentSeats: seatValidation.currentSeats,
+            maxSeats: seatValidation.maxSeats,
+            availableSeats: seatValidation.availableSeats,
+            seatsRequested: emailsToInvite.length,
           },
         },
         { status: 400 }

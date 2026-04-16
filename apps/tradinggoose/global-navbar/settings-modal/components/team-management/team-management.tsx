@@ -236,6 +236,12 @@ export function TeamManagement() {
   const seatMaximum = currentTier?.seatMaximum ?? adjustableSeatTier?.seatMaximum ?? null
 
   const usedSeats = getUsedSeats(displayOrganization)
+  const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
+  const seatLimited = canInviteMembers
+  const inviteUnavailableMessage =
+    displayOrganization && !canInviteMembers
+      ? 'An active organization subscription is required before you can invite team members.'
+      : null
 
   useEffect(() => {
     if (session?.user?.name && !orgName) {
@@ -648,9 +654,10 @@ export function TeamManagement() {
             }}
             onWorkspaceToggle={handleWorkspaceToggle}
             inviteSuccess={inviteSuccess}
-            seatLimited={Boolean(currentTier?.ownerType === 'organization')}
+            canInviteMembers={canInviteMembers}
+            inviteUnavailableMessage={inviteUnavailableMessage}
+            seatLimited={seatLimited}
             availableSeats={Math.max(0, (subscriptionData?.seats || 0) - usedSeats.used)}
-            maxSeats={subscriptionData?.seats || 0}
           />
         )}
       </div>
