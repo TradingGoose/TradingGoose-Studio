@@ -304,7 +304,7 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'github',
     displayName: 'GitHub',
-    description: 'GitHub token used for server-side GitHub API requests.',
+    description: 'GitHub token and landing blog source settings for server-side GitHub requests.',
     credentialFields: [
       {
         key: 'token',
@@ -312,7 +312,25 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         description: 'Used for GitHub API requests when rate limits matter.',
       },
     ],
-    settingFields: [],
+    settingFields: [
+      {
+        key: 'blogRepository',
+        label: 'Blog Repository',
+        description:
+          'Public owner/repo used for landing blog content. Defaults to TradingGoose/TradingGoose-Blog.',
+        type: 'text',
+        defaultValue: 'TradingGoose/TradingGoose-Blog',
+        required: false,
+      },
+      {
+        key: 'blogBranch',
+        label: 'Blog Branch',
+        description: 'Branch used when loading landing blog content from the GitHub repository.',
+        type: 'text',
+        defaultValue: 'main',
+        required: false,
+      },
+    ],
   },
   {
     id: 'e2b',

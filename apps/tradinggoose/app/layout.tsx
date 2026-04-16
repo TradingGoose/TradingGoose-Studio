@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { PublicEnvScript } from 'next-runtime-env'
-import { BrandedLayout } from '@/components/branded-layout'
-import { generateThemeCSS } from '@/lib/branding/inject-theme'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
@@ -59,21 +57,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = generateBrandedMetadata()
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const themeCSS = generateThemeCSS()
-
   return (
     <html lang='en' suppressHydrationWarning>
       <head>
-        {/* Theme CSS Override */}
-        {themeCSS && (
-          <style
-            id='theme-override'
-            dangerouslySetInnerHTML={{
-              __html: themeCSS,
-            }}
-          />
-        )}
-
         {/* Basic head hints that are not covered by the Metadata API */}
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
@@ -88,10 +74,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SessionProvider>
                 <ProviderModelsBootstrap />
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                  <BrandedLayout>
-                    <ZoomPrevention />
-                    {children}
-                  </BrandedLayout>
+                  <ZoomPrevention />
+                  {children}
                 </TooltipProvider>
               </SessionProvider>
             </QueryProvider>

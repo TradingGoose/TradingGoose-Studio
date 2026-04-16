@@ -61,10 +61,6 @@ describe('CSP helpers', () => {
   it('keeps the runtime policy on explicit origins without broad scheme relaxations', async () => {
     mockRuntimeEnv.NEXT_PUBLIC_APP_URL = 'https://app.example.com/dashboard'
     mockRuntimeEnv.NEXT_PUBLIC_SOCKET_URL = 'https://socket.example.com/realtime'
-    mockRuntimeEnv.NEXT_PUBLIC_BRAND_LOGO_URL = 'https://assets.example.com/logo.png'
-    mockRuntimeEnv.NEXT_PUBLIC_BRAND_FAVICON_URL = 'https://assets.example.com/favicon.ico'
-    mockRuntimeEnv.NEXT_PUBLIC_PRIVACY_URL = 'https://legal.example.com/privacy'
-    mockRuntimeEnv.NEXT_PUBLIC_TERMS_URL = 'https://legal.example.com/terms'
 
     const policy = await generateRuntimeCSP()
     const tokens = tokenizeCsp(policy)
@@ -76,8 +72,6 @@ describe('CSP helpers', () => {
     expect(tokens).toContain('https://app.example.com')
     expect(tokens).toContain('https://socket.example.com')
     expect(tokens).toContain('wss://socket.example.com')
-    expect(tokens).toContain('https://assets.example.com')
-    expect(tokens).toContain('https://legal.example.com')
     expect(policy).not.toContain('undefined')
   })
 

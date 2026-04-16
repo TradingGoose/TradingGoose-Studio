@@ -30,7 +30,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/branding/branding', () => ({
   useBrandConfig: () => ({
-    documentationUrl: null,
+    documentationUrl: 'https://docs.tradinggoose.ai/',
   }),
 }))
 

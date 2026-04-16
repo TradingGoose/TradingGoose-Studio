@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
 import { isDev, isHosted } from '@/lib/environment'
-import { env, getEnv, isTruthy } from './lib/env'
+import { env, isTruthy } from './lib/env'
 import { getMainCSPPolicy, getWorkflowExecutionCSPPolicy } from './lib/security/csp'
 
 const nextConfig: NextConfig = {
@@ -47,36 +47,6 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
       },
-      // Brand logo domain if configured
-      ...(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')
-        ? (() => {
-          try {
-            return [
-              {
-                protocol: 'https' as const,
-                hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')!).hostname,
-              },
-            ]
-          } catch {
-            return []
-          }
-        })()
-        : []),
-      // Brand favicon domain if configured
-      ...(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')
-        ? (() => {
-          try {
-            return [
-              {
-                protocol: 'https' as const,
-                hostname: new URL(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')!).hostname,
-              },
-            ]
-          } catch {
-            return []
-          }
-        })()
-        : []),
     ],
     qualities: [75, 100],
   },

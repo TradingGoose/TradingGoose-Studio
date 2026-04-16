@@ -11,13 +11,12 @@ import {
 } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  MANUAL_EXECUTION_LIMIT,
-  RATE_LIMIT_WINDOW_MS,
   type RateLimitCounterType,
   type TriggerType,
 } from '@/services/queue/types'
 
 const logger = createLogger('RateLimiter')
+const RATE_LIMIT_WINDOW_MS = 60_000
 const UNLIMITED_RATE_LIMIT = Number.MAX_SAFE_INTEGER
 interface SubscriptionInfo {
   referenceType: 'user' | 'organization'
@@ -143,11 +142,7 @@ export class RateLimiter {
       }
 
       if (triggerType === 'manual') {
-        return {
-          allowed: true,
-          remaining: MANUAL_EXECUTION_LIMIT,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitResult()
       }
 
       if (!subscription?.tier) {
@@ -368,12 +363,7 @@ export class RateLimiter {
       }
 
       if (triggerType === 'manual') {
-        return {
-          used: 0,
-          limit: MANUAL_EXECUTION_LIMIT,
-          remaining: MANUAL_EXECUTION_LIMIT,
-          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
-        }
+        return createPermissiveRateLimitStatus()
       }
 
       if (!subscription?.tier) {

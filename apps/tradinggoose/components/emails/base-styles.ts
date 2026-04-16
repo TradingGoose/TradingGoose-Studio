@@ -2,8 +2,8 @@ import { getBrandConfig } from '@/lib/branding/branding'
 
 // Base styles for all email templates
 const brand = getBrandConfig()
-const primaryColor = brand.theme?.primaryColor || '#ffcc00'
-const backgroundColor = brand.theme?.backgroundColor || '#0b0b0b00'
+const primaryColor = brand.theme.primaryColor
+const backgroundColor = brand.theme.backgroundColor
 const fontFamily =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 

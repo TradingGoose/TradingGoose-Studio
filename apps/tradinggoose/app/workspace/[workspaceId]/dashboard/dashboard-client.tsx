@@ -472,7 +472,7 @@ export function DashboardClient({
         id: 'docs',
         name: 'Docs',
         icon: BookOpen,
-        href: brand.documentationUrl || 'https://docs.tradinggoose.ai/',
+        href: brand.documentationUrl,
       },
     ],
     [brand.documentationUrl, workspaceId]

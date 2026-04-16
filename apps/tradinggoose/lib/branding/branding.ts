@@ -1,37 +1,24 @@
-import { getEnv } from '@/lib/env'
-
 export interface ThemeColors {
-  primaryColor?: string
-  primaryHoverColor?: string
-  accentColor?: string
-  accentHoverColor?: string
-  backgroundColor?: string
+  primaryColor: string
+  primaryHoverColor: string
+  accentColor: string
+  accentHoverColor: string
+  backgroundColor: string
 }
 
 export interface BrandConfig {
   name: string
-  logoUrl?: string
-  faviconUrl?: string
-  customCssUrl?: string
-  supportEmail?: string
-  documentationUrl?: string
-  termsUrl?: string
-  privacyUrl?: string
-  theme?: ThemeColors
+  supportEmail: string
+  documentationUrl: string
+  faviconUrl: string
+  theme: ThemeColors
 }
 
-/**
- * Default brand configuration values
- */
-const defaultConfig: BrandConfig = {
+const brandConfig = Object.freeze<BrandConfig>({
   name: 'TradingGoose Studio',
-  logoUrl: undefined,
-  faviconUrl: '/favicon/favicon.ico',
-  customCssUrl: undefined,
   supportEmail: 'support@tradinggoose.ai',
-  documentationUrl: undefined,
-  termsUrl: undefined,
-  privacyUrl: undefined,
+  documentationUrl: 'https://docs.tradinggoose.ai/',
+  faviconUrl: '/favicon/favicon.ico',
   theme: {
     primaryColor: '#ffcc00',
     primaryHoverColor: '#ffcc0075',
@@ -39,42 +26,8 @@ const defaultConfig: BrandConfig = {
     accentHoverColor: '#ffd600cc',
     backgroundColor: '#0c0c0c00',
   },
-}
+})
 
-const getThemeColors = (): ThemeColors => {
-  return {
-    primaryColor: getEnv('NEXT_PUBLIC_BRAND_PRIMARY_COLOR') || defaultConfig.theme?.primaryColor,
-    primaryHoverColor:
-      getEnv('NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR') || defaultConfig.theme?.primaryHoverColor,
-    accentColor: getEnv('NEXT_PUBLIC_BRAND_ACCENT_COLOR') || defaultConfig.theme?.accentColor,
-    accentHoverColor:
-      getEnv('NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR') || defaultConfig.theme?.accentHoverColor,
-    backgroundColor:
-      getEnv('NEXT_PUBLIC_BRAND_BACKGROUND_COLOR') || defaultConfig.theme?.backgroundColor,
-  }
-}
+export const getBrandConfig = (): BrandConfig => brandConfig
 
-/**
- * Get branding configuration from environment variables
- * Supports runtime configuration via Docker/Kubernetes
- */
-export const getBrandConfig = (): BrandConfig => {
-  return {
-    name: getEnv('NEXT_PUBLIC_BRAND_NAME') || defaultConfig.name,
-    logoUrl: getEnv('NEXT_PUBLIC_BRAND_LOGO_URL') || defaultConfig.logoUrl,
-    faviconUrl: getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL') || defaultConfig.faviconUrl,
-    customCssUrl: getEnv('NEXT_PUBLIC_CUSTOM_CSS_URL') || defaultConfig.customCssUrl,
-    supportEmail: getEnv('NEXT_PUBLIC_SUPPORT_EMAIL') || defaultConfig.supportEmail,
-    documentationUrl: getEnv('NEXT_PUBLIC_DOCUMENTATION_URL') || defaultConfig.documentationUrl,
-    termsUrl: getEnv('NEXT_PUBLIC_TERMS_URL') || defaultConfig.termsUrl,
-    privacyUrl: getEnv('NEXT_PUBLIC_PRIVACY_URL') || defaultConfig.privacyUrl,
-    theme: getThemeColors(),
-  }
-}
-
-/**
- * Hook to use brand configuration in React components
- */
-export const useBrandConfig = () => {
-  return getBrandConfig()
-}
+export const useBrandConfig = (): BrandConfig => brandConfig

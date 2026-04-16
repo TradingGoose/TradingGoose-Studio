@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { RateLimiter } from '@/services/queue/RateLimiter'
-import { MANUAL_EXECUTION_LIMIT } from '@/services/queue/types'
 
 const TEST_RATE_LIMITS = {
   syncPerMinute: 10,
@@ -114,7 +113,7 @@ describe('RateLimiter', () => {
       const result = await rateLimiter.checkRateLimit(testUserId, 'manual', false)
 
       expect(result.allowed).toBe(true)
-      expect(result.remaining).toBe(MANUAL_EXECUTION_LIMIT)
+      expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
       expect(result.resetAt).toBeInstanceOf(Date)
       expect(db.select).not.toHaveBeenCalled()
     })
@@ -255,8 +254,8 @@ describe('RateLimiter', () => {
       const status = await rateLimiter.getRateLimitStatus(testUserId, 'manual', false)
 
       expect(status.used).toBe(0)
-      expect(status.limit).toBe(MANUAL_EXECUTION_LIMIT)
-      expect(status.remaining).toBe(MANUAL_EXECUTION_LIMIT)
+      expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
+      expect(status.remaining).toBe(Number.MAX_SAFE_INTEGER)
       expect(status.resetAt).toBeInstanceOf(Date)
     })
 

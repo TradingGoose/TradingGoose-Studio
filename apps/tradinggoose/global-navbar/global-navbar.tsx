@@ -98,7 +98,7 @@ export function GlobalNavbar({
   const userId = sessionData?.user?.id ?? null
   const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
-  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
+  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image
   const userAvatarVersion =
     userAvatarOverride.version ??
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
@@ -340,7 +340,7 @@ export function GlobalNavbar({
                   workspaceSwitcher.handleDeleteDialogChange(true)
                 }}
                 brandName={brand.name}
-                fallbackImageUrl={brand.logoUrl ?? brand.faviconUrl ?? '/favicon/favicon.ico'}
+                fallbackImageUrl={brand.faviconUrl}
               />
             </SidebarHeader>
             <SidebarContent>

@@ -5,17 +5,14 @@ export default function manifest(): MetadataRoute.Manifest {
   const brand = getBrandConfig()
 
   return {
-    name:
-      brand.name === 'TradingGoose'
-        ? 'TradingGoose - Visual Workflow Platform for LLM Trading'
-        : brand.name,
+    name: brand.name,
     short_name: brand.name,
     description:
       'Open-source visual workflow platform for technical LLM-driven trading. Build custom indicators, monitor live markets, and trigger AI agent workflows on signals.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: brand.theme?.primaryColor || '#6F3DFA',
+    theme_color: brand.theme.primaryColor,
     orientation: 'portrait-primary',
     icons: [
       {

@@ -24,7 +24,7 @@ export default async function AuthErrorPage({
   const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
   const { code, content } = getAuthErrorContent(error, errorDescription)
   const brand = getBrandConfig()
-  const supportEmail = brand.supportEmail || 'support@tradinggoose.ai'
+  const supportEmail = brand.supportEmail
 
   return (
     <div className='space-y-8 text-center'>

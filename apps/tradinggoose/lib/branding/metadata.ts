@@ -97,10 +97,10 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
           sizes: '512x512',
           type: 'image/png',
         },
-        { url: brand.faviconUrl || '/favicon/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+        { url: brand.faviconUrl, sizes: 'any', type: 'image/svg+xml' },
       ],
       apple: '/favicon/apple-touch-icon.png',
-      shortcut: brand.faviconUrl || '/favicon/favicon.ico',
+      shortcut: brand.faviconUrl,
     },
     appleWebApp: {
       capable: true,

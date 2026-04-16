@@ -106,8 +106,6 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
     ...(env.NODE_ENV === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
-    ...getOriginFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
-    ...getOriginFromUrl(env.NEXT_PUBLIC_BRAND_FAVICON_URL),
   ],
 
   'media-src': ["'self'", 'blob:'],
@@ -132,9 +130,6 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
     ...(env.NODE_ENV === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
-    ...getOriginFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
-    ...getOriginFromUrl(env.NEXT_PUBLIC_PRIVACY_URL),
-    ...getOriginFromUrl(env.NEXT_PUBLIC_TERMS_URL),
   ],
 
   'worker-src': ["'self'", 'blob:'],
@@ -199,8 +194,6 @@ export async function generateRuntimeCSP(): Promise<string> {
       'https://github.com/*',
       ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
       ...(getEnv('NODE_ENV') === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
-      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')),
-      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL')),
     ],
     'media-src': ["'self'", 'blob:'],
     'font-src': ["'self'", 'https://fonts.gstatic.com'],
@@ -222,9 +215,6 @@ export async function generateRuntimeCSP(): Promise<string> {
       'https://github.com/*',
       'https://*.atlassian.com',
       'https://*.supabase.co',
-      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL')),
-      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_PRIVACY_URL')),
-      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_TERMS_URL')),
     ],
     'worker-src': ["'self'", 'blob:'],
     'frame-src': [

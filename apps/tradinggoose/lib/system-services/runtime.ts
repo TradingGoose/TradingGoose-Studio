@@ -113,6 +113,8 @@ export const resolveElevenLabsServiceConfig = createServiceResolver(
 
 export const resolveGitHubServiceConfig = createServiceResolver('github', (config) => ({
   token: asString(config.token),
+  blogRepository: asString(config.blogRepository),
+  blogBranch: asString(config.blogBranch) ?? 'main',
 }))
 
 export const resolveE2BServiceConfig = createServiceResolver('e2b', (config) => ({

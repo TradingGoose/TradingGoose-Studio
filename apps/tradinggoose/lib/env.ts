@@ -79,14 +79,12 @@ function safeCreateEnv() {
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
-    JOB_RETENTION_DAYS: z.string().optional().default('1'),     // Days to retain job logs/data
 
     // Cloud Storage - AWS S3
     AWS_REGION: z.string().optional(),                  // AWS region for S3 buckets
     AWS_ACCESS_KEY_ID: z.string().optional(),                  // AWS access key ID
     AWS_SECRET_ACCESS_KEY: z.string().optional(),                  // AWS secret access key
     S3_BUCKET_NAME: z.string().optional(),                  // S3 bucket for general file storage
-    S3_LOGS_BUCKET_NAME: z.string().optional(),                  // S3 bucket for storing logs
     S3_KB_BUCKET_NAME: z.string().optional(),                  // S3 bucket for knowledge base files
     S3_EXECUTION_FILES_BUCKET_NAME: z.string().optional(),                  // S3 bucket for workflow execution files
     S3_CHAT_BUCKET_NAME: z.string().optional(),                  // S3 bucket for chat logos
@@ -103,10 +101,6 @@ function safeCreateEnv() {
     AZURE_STORAGE_CHAT_CONTAINER_NAME: z.string().optional(),                  // Azure container for chat logos
     AZURE_STORAGE_COPILOT_CONTAINER_NAME: z.string().optional(),                  // Azure container for copilot files
     AZURE_STORAGE_PROFILE_PICTURES_CONTAINER_NAME: z.string().optional(),          // Azure container for profile pictures
-
-    // Rate Limiting Configuration
-    RATE_LIMIT_WINDOW_MS: z.string().optional().default('60000'), // Rate limit window duration in milliseconds (default: 1 minute)
-    MANUAL_EXECUTION_LIMIT: z.string().optional().default('999999'),// Manual execution bypass value (effectively unlimited)
 
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
@@ -155,24 +149,6 @@ function safeCreateEnv() {
     NEXT_PUBLIC_POSTHOG_DISABLED: z.string().optional(),                 // Set to "1" to disable PostHog analytics
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),                  // PostHog project API key
 
-    // UI Branding & Whitelabeling
-    NEXT_PUBLIC_BRAND_NAME: z.string().optional(),                  // Custom brand name (defaults to "TradingGoose")
-    NEXT_PUBLIC_BRAND_LOGO_URL: z.string().url().optional(),            // Custom logo URL
-    NEXT_PUBLIC_BRAND_FAVICON_URL: z.string().url().optional(),            // Custom favicon URL
-    NEXT_PUBLIC_CUSTOM_CSS_URL: z.string().url().optional(),            // Custom CSS stylesheet URL
-    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),          // Custom support email
-
-    NEXT_PUBLIC_DOCUMENTATION_URL: z.string().url().optional(),            // Custom documentation URL
-    NEXT_PUBLIC_TERMS_URL: z.string().url().optional(),            // Custom terms of service URL
-    NEXT_PUBLIC_PRIVACY_URL: z.string().url().optional(),            // Custom privacy policy URL
-
-    // Theme Customization
-    NEXT_PUBLIC_BRAND_PRIMARY_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Primary brand color (hex format, e.g., "#ffcc00")
-    NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),    // Primary brand hover state (hex or hex+alpha)
-    NEXT_PUBLIC_BRAND_ACCENT_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Accent brand color (hex format)
-    NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Accent brand hover state (hex or hex+alpha)
-    NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Brand background color (hex format)
-
     // Feature Flags
     NEXT_PUBLIC_SSO_ENABLED: z.boolean().optional(),                 // Enable SSO login UI components
   },
@@ -189,19 +165,6 @@ function safeCreateEnv() {
     NEXT_PUBLIC_GOOGLE_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
     NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER,
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
-    NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
-    NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
-    NEXT_PUBLIC_BRAND_FAVICON_URL: process.env.NEXT_PUBLIC_BRAND_FAVICON_URL,
-    NEXT_PUBLIC_CUSTOM_CSS_URL: process.env.NEXT_PUBLIC_CUSTOM_CSS_URL,
-    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    NEXT_PUBLIC_DOCUMENTATION_URL: process.env.NEXT_PUBLIC_DOCUMENTATION_URL,
-    NEXT_PUBLIC_TERMS_URL: process.env.NEXT_PUBLIC_TERMS_URL,
-    NEXT_PUBLIC_PRIVACY_URL: process.env.NEXT_PUBLIC_PRIVACY_URL,
-    NEXT_PUBLIC_BRAND_PRIMARY_COLOR: process.env.NEXT_PUBLIC_BRAND_PRIMARY_COLOR,
-    NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR: process.env.NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR,
-    NEXT_PUBLIC_BRAND_ACCENT_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_COLOR,
-    NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR,
-    NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: process.env.NEXT_PUBLIC_BRAND_BACKGROUND_COLOR,
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
     NEXT_PUBLIC_POSTHOG_DISABLED: process.env.NEXT_PUBLIC_POSTHOG_DISABLED,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,

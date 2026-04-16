@@ -27,10 +27,21 @@ describe('admin system services', () => {
 
     const snapshot = await listAdminSystemServices()
 
+    const github = snapshot.services.find((service) => service.id === 'github')
     const marketApi = snapshot.services.find((service) => service.id === 'market_api')
     const localExecution = snapshot.services.find((service) => service.id === 'local_execution')
     const ollama = snapshot.services.find((service) => service.id === 'ollama')
 
+    expect(github?.settings.find((setting) => setting.key === 'blogRepository')).toMatchObject({
+      required: false,
+      hasValue: false,
+      defaultValue: 'TradingGoose/TradingGoose-Blog',
+    })
+    expect(github?.settings.find((setting) => setting.key === 'blogBranch')).toMatchObject({
+      required: false,
+      hasValue: false,
+      defaultValue: 'main',
+    })
     expect(marketApi?.credentials.find((credential) => credential.key === 'apiKey')).toMatchObject({
       required: false,
       hasValue: false,
