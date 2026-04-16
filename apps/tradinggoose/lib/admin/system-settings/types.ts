@@ -11,3 +11,22 @@ export interface AdminSystemSettingsSnapshot {
   emailDomain: string
   fromEmailAddress: string
 }
+
+export type AdminSystemSettingsEditableFields = Pick<
+  AdminSystemSettingsSnapshot,
+  | 'registrationMode'
+  | 'billingEnabled'
+  | 'triggerDevEnabled'
+  | 'allowPromotionCodes'
+  | 'emailDomain'
+  | 'fromEmailAddress'
+>
+
+export const ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS = [
+  'registrationMode',
+  'billingEnabled',
+  'triggerDevEnabled',
+  'allowPromotionCodes',
+  'emailDomain',
+  'fromEmailAddress',
+] as const satisfies readonly (keyof AdminSystemSettingsEditableFields)[]

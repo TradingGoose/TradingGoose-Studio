@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Settings2 } from 'lucide-react'
 import {
   Alert,
@@ -17,7 +17,11 @@ import {
   Notice,
   Switch,
 } from '@/components/ui'
-import type { AdminSystemSettingsSnapshot } from '@/lib/admin/system-settings/types'
+import {
+  ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS,
+  type AdminSystemSettingsEditableFields,
+  type AdminSystemSettingsSnapshot,
+} from '@/lib/admin/system-settings/types'
 import { REGISTRATION_MODE_VALUES } from '@/lib/registration/shared'
 import {
   useAdminSystemSettingsSnapshot,
@@ -41,16 +45,18 @@ export function AdminSystemSettingsSection() {
   const snapshotQuery = useAdminSystemSettingsSnapshot()
   const updateMutation = useUpdateAdminSystemSettings()
   const [draft, setDraft] = useState<AdminSystemSettingsSnapshot | null>(null)
+  const [savedSnapshot, setSavedSnapshot] = useState<AdminSystemSettingsSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!snapshotQuery.data || draft !== null) {
+    if (!snapshotQuery.data || draft !== null || savedSnapshot !== null) {
       return
     }
 
     setDraft(snapshotQuery.data)
-  }, [draft, snapshotQuery.data])
+    setSavedSnapshot(snapshotQuery.data)
+  }, [draft, savedSnapshot, snapshotQuery.data])
 
   useEffect(() => {
     if (!message) {
@@ -67,22 +73,24 @@ export function AdminSystemSettingsSection() {
   }, [message])
 
   const settings = draft ?? EMPTY_SNAPSHOT
+  const dirtyInput = useMemo(
+    () => (draft && savedSnapshot ? buildDirtyInput(savedSnapshot, draft) : {}),
+    [draft, savedSnapshot]
+  )
+  const hasDirtyChanges = Object.keys(dirtyInput).length > 0
 
   async function handleSave() {
     setError(null)
     setMessage(null)
 
+    if (!hasDirtyChanges) {
+      return
+    }
+
     try {
-      const input = {
-        registrationMode: settings.registrationMode,
-        billingEnabled: settings.billingEnabled,
-        triggerDevEnabled: settings.triggerDevEnabled,
-        allowPromotionCodes: settings.allowPromotionCodes,
-        emailDomain: settings.emailDomain,
-        fromEmailAddress: settings.fromEmailAddress,
-      }
-      const nextSnapshot = await updateMutation.mutateAsync(input)
+      const nextSnapshot = await updateMutation.mutateAsync(dirtyInput)
       setDraft(nextSnapshot)
+      setSavedSnapshot(nextSnapshot)
       setMessage('System settings updated')
     } catch (submitError) {
       setError(getErrorMessage(submitError))
@@ -287,7 +295,11 @@ export function AdminSystemSettingsSection() {
           </div>
 
           <div className='flex items-center justify-end'>
-            <Button type='button' onClick={handleSave} disabled={updateMutation.isPending}>
+            <Button
+              type='button'
+              onClick={handleSave}
+              disabled={updateMutation.isPending || !hasDirtyChanges}
+            >
               {updateMutation.isPending ? 'Saving…' : 'Save system settings'}
             </Button>
           </div>
@@ -337,4 +349,29 @@ function SettingSwitch({
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong'
+}
+
+function buildDirtyInput(
+  currentSnapshot: AdminSystemSettingsSnapshot,
+  nextSnapshot: AdminSystemSettingsSnapshot
+) {
+  const dirtyInput: Partial<AdminSystemSettingsEditableFields> = {}
+
+  for (const field of ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS) {
+    const nextValue = nextSnapshot[field]
+
+    if (currentSnapshot[field] !== nextValue) {
+      assignDirtyField(dirtyInput, field, nextValue)
+    }
+  }
+
+  return dirtyInput
+}
+
+function assignDirtyField<Key extends keyof AdminSystemSettingsEditableFields>(
+  dirtyInput: Partial<AdminSystemSettingsEditableFields>,
+  field: Key,
+  value: AdminSystemSettingsEditableFields[Key]
+) {
+  dirtyInput[field] = value
 }

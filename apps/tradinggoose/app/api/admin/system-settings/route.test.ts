@@ -345,6 +345,53 @@ describe('/api/admin/system-settings route', () => {
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
+  it('updates only targeted fields when Stripe is not configured', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: true,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+    })
+    mockGetBillingGateState.mockResolvedValueOnce({
+      billingEnabled: false,
+      stripeConfigured: false,
+    })
+    mockUpsertSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: true,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'support.tradinggoose.ai',
+      fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+    })
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          emailDomain: 'support.tradinggoose.ai',
+        }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toMatchObject({
+      billingEnabled: false,
+      stripeConfigured: false,
+      emailDomain: 'support.tradinggoose.ai',
+    })
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
+      emailDomain: 'support.tradinggoose.ai',
+    })
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+  })
+
   it('rejects invalid request data', async () => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
@@ -357,6 +404,21 @@ describe('/api/admin/system-settings route', () => {
           allowPromotionCodes: false,
           emailDomain: '   ',
         }),
+      }) as any
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(payload).toMatchObject({ error: 'Invalid request data' })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it('rejects an empty partial update payload', async () => {
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({}),
       }) as any
     )
     const payload = await response.json()

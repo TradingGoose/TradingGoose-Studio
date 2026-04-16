@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
-import { adminSystemSettingsMutationSchema } from '@/lib/admin/system-settings/mutations'
+import {
+  adminSystemSettingsMutationSchema,
+  type AdminSystemSettingsMutationInput,
+} from '@/lib/admin/system-settings/mutations'
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import {
   getBillingGateState,
@@ -122,8 +125,12 @@ export async function PATCH(request: NextRequest) {
       isBillingConfigurationReady(),
       isTriggerConfigurationReady(),
     ])
-    const isEnablingBilling = payload.billingEnabled === true && !currentSettings.billingEnabled
-    if (payload.billingEnabled && !billingGate.stripeConfigured) {
+    const isEnablingBilling =
+      hasPayloadField(payload, 'billingEnabled') &&
+      payload.billingEnabled &&
+      !currentSettings.billingEnabled
+
+    if (isEnablingBilling && !billingGate.stripeConfigured) {
       return NextResponse.json(
         {
           error: 'Billing cannot be enabled until STRIPE_SECRET_KEY is configured.',
@@ -131,7 +138,7 @@ export async function PATCH(request: NextRequest) {
         { status: 409, headers: NO_STORE_HEADERS }
       )
     }
-    if (payload.billingEnabled && !billingReady) {
+    if (isEnablingBilling && !billingReady) {
       return NextResponse.json(
         {
           error:
@@ -140,7 +147,13 @@ export async function PATCH(request: NextRequest) {
         { status: 409, headers: NO_STORE_HEADERS }
       )
     }
-    if (payload.triggerDevEnabled && !triggerReady) {
+
+    const isEnablingTriggerDev =
+      hasPayloadField(payload, 'triggerDevEnabled') &&
+      payload.triggerDevEnabled &&
+      !currentSettings.triggerDevEnabled
+
+    if (isEnablingTriggerDev && !triggerReady) {
       return NextResponse.json(
         {
           error:
@@ -180,6 +193,13 @@ export async function PATCH(request: NextRequest) {
       { status: 500, headers: NO_STORE_HEADERS }
     )
   }
+}
+
+function hasPayloadField<Key extends keyof AdminSystemSettingsMutationInput>(
+  payload: AdminSystemSettingsMutationInput,
+  key: Key
+): payload is AdminSystemSettingsMutationInput & Required<Pick<AdminSystemSettingsMutationInput, Key>> {
+  return Object.hasOwn(payload, key)
 }
 
 function serializeSnapshot(
