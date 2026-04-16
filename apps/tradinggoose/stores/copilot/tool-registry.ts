@@ -154,6 +154,7 @@ export function createExecutionContext(params: {
   const {
     channelId = '',
     workflowId,
+    contextWorkflowId,
     workspaceId,
     reviewSessionId,
     entityKind,
@@ -166,6 +167,7 @@ export function createExecutionContext(params: {
     toolName,
     channelId,
     ...(workflowId ? { workflowId } : {}),
+    ...(contextWorkflowId ? { contextWorkflowId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
     ...(reviewSessionId ? { reviewSessionId } : {}),
     ...(entityKind ? { entityKind } : {}),
@@ -178,6 +180,7 @@ export function createExecutionContext(params: {
           toolName,
           channelId,
           workflowId,
+          contextWorkflowId,
           workspaceId,
           reviewSessionId,
           entityKind,

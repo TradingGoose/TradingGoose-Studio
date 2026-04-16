@@ -2,8 +2,12 @@ import { db } from '@tradinggoose/db'
 import { account, user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
@@ -14,7 +18,10 @@ interface GetOAuthCredentialsParams {
 
 export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsParams, any> = {
   name: 'get_oauth_credentials',
-  async execute(params: GetOAuthCredentialsParams, context?: { userId: string }): Promise<any> {
+  async execute(
+    params: GetOAuthCredentialsParams,
+    context?: ServerToolExecutionContext
+  ): Promise<any> {
     const logger = createLogger('GetOAuthCredentialsServerTool')
 
     if (!context?.userId) {
@@ -26,24 +33,21 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
 
     const authenticatedUserId = context.userId
 
-    if (params?.workflowId) {
-      const { hasAccess } = await verifyWorkflowAccess(authenticatedUserId, params.workflowId)
-
-      if (!hasAccess) {
-        const errorMessage = createPermissionError('access credentials in')
-        logger.error('Unauthorized attempt to access OAuth credentials', {
-          workflowId: params.workflowId,
-          authenticatedUserId,
-        })
-        throw new Error(errorMessage)
-      }
+    const workflowScope = await resolveServerWorkflowScope(params, context)
+    if (workflowScope && !workflowScope.hasAccess) {
+      const errorMessage = createPermissionError('access credentials in')
+      logger.error('Unauthorized attempt to access OAuth credentials', {
+        workflowId: workflowScope.workflowId,
+        authenticatedUserId,
+      })
+      throw new Error(errorMessage)
     }
 
     const userId = authenticatedUserId
 
     logger.info('Fetching OAuth credentials for authenticated user', {
       userId,
-      hasWorkflowId: !!params?.workflowId,
+      workflowId: workflowScope?.workflowId,
     })
     const accounts = await db.select().from(account).where(eq(account.userId, userId))
     const userRecord = await db
@@ -70,7 +74,7 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
         try {
           const decoded = jwtDecode<{ email?: string; name?: string }>(acc.idToken)
           displayName = decoded.email || decoded.name || ''
-        } catch { }
+        } catch {}
       }
       if (!displayName && baseProvider === 'github') displayName = `${acc.accountId} (GitHub)`
       if (!displayName && userEmail) displayName = userEmail
@@ -83,7 +87,7 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
           acc.id
         )
         accessToken = refreshedToken || accessToken
-      } catch { }
+      } catch {}
       credentials.push({
         id: acc.id,
         name: displayName,

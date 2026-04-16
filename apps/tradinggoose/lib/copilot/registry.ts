@@ -91,6 +91,9 @@ const RequiredId = z.string().trim().min(1)
 const WorkflowContextArgs = z.object({
   workflowId: z.string().optional(),
 })
+const EntityReviewTargetArgs = z.object({
+  entityId: RequiredId.optional(),
+})
 
 // Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
@@ -221,13 +224,10 @@ export const ToolArgSchemas = {
   knowledge_base: KnowledgeBaseArgsSchema,
 
   list_custom_tools: z.object({}),
-  get_custom_tool: z.object({
-    entityId: RequiredId,
-  }),
-  edit_custom_tool: z.object({
+  get_custom_tool: EntityReviewTargetArgs,
+  edit_custom_tool: EntityReviewTargetArgs.extend({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(CUSTOM_TOOL_DOCUMENT_FORMAT).optional(),
-    entityId: RequiredId,
   }),
 
   list_monitors: z.object({
@@ -244,33 +244,24 @@ export const ToolArgSchemas = {
   }),
 
   list_indicators: z.object({}),
-  get_indicator: z.object({
-    entityId: RequiredId,
-  }),
-  edit_indicator: z.object({
+  get_indicator: EntityReviewTargetArgs,
+  edit_indicator: EntityReviewTargetArgs.extend({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(INDICATOR_DOCUMENT_FORMAT).optional(),
-    entityId: RequiredId,
   }),
 
   list_skills: z.object({}),
-  get_skill: z.object({
-    entityId: RequiredId,
-  }),
-  edit_skill: z.object({
+  get_skill: EntityReviewTargetArgs,
+  edit_skill: EntityReviewTargetArgs.extend({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(SKILL_DOCUMENT_FORMAT).optional(),
-    entityId: RequiredId,
   }),
 
   list_mcp_servers: z.object({}),
-  get_mcp_server: z.object({
-    entityId: RequiredId,
-  }),
-  edit_mcp_server: z.object({
+  get_mcp_server: EntityReviewTargetArgs,
+  edit_mcp_server: EntityReviewTargetArgs.extend({
     entityDocument: z.string().min(1),
     documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT).optional(),
-    entityId: RequiredId,
   }),
 
   sleep: z.object({

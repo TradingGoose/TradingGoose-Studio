@@ -149,23 +149,35 @@ export function getActiveEntitySession(
   kind: EntityDocumentKind,
   entityId?: string
 ): RegisteredEntitySession | null {
-  if (executionContext.reviewSessionId) {
-    const session = getRegisteredEntitySession(executionContext.reviewSessionId)
+  const requestedEntityId = entityId?.trim() || undefined
+  const requestedReviewSessionId = executionContext.reviewSessionId
+  const requestedDraftSessionId = executionContext.draftSessionId
+
+  if (requestedReviewSessionId) {
+    const session = getRegisteredEntitySession(requestedReviewSessionId)
+    const matchesWorkspace =
+      !executionContext.workspaceId ||
+      !session?.descriptor.workspaceId ||
+      session.descriptor.workspaceId === executionContext.workspaceId
     const matchesReviewSession =
       !!session &&
       session.descriptor.entityKind === kind &&
-      !!entityId &&
-      session.descriptor.entityId === entityId &&
-      (!executionContext.workspaceId ||
-        !session.descriptor.workspaceId ||
-        session.descriptor.workspaceId === executionContext.workspaceId)
+      matchesWorkspace &&
+      (!requestedEntityId
+        ? !session.descriptor.entityId
+        : session.descriptor.entityId === requestedEntityId) &&
+      (!requestedDraftSessionId || session.descriptor.draftSessionId === requestedDraftSessionId)
 
     if (matchesReviewSession) {
       return session
     }
   }
 
-  return getRegisteredEntitySessionByIdentity(kind, entityId, executionContext.workspaceId ?? null)
+  return getRegisteredEntitySessionByIdentity(
+    kind,
+    requestedEntityId,
+    executionContext.workspaceId ?? null
+  )
 }
 
 async function fetchEntityList(kind: EntityDocumentKind, workspaceId: string): Promise<any[]> {
@@ -200,11 +212,7 @@ export async function readEntityFieldsFromContext(
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = entityId?.trim()
-  if (!resolvedEntityId) {
-    throw new Error('entityId is required')
-  }
-
+  const resolvedEntityId = entityId?.trim() || undefined
   const activeSession = getActiveEntitySession(executionContext, kind, resolvedEntityId)
 
   if (activeSession) {
@@ -214,6 +222,10 @@ export async function readEntityFieldsFromContext(
       entityName: getEntityDocumentName(kind, fields),
       fields,
     }
+  }
+
+  if (!resolvedEntityId) {
+    throw new Error('entityId is required unless an unsaved draft review session is active')
   }
 
   const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)

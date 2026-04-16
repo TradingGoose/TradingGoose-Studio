@@ -1,6 +1,10 @@
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import { getEnvironmentVariableKeys } from '@/lib/environment/utils'
+import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/base-tool'
+import { getEnvironmentVariableKeys, getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface GetEnvironmentVariablesParams {
@@ -12,7 +16,7 @@ export const getEnvironmentVariablesServerTool: BaseServerTool<GetEnvironmentVar
     name: 'get_environment_variables',
     async execute(
       params: GetEnvironmentVariablesParams,
-      context?: { userId: string }
+      context?: ServerToolExecutionContext
     ): Promise<any> {
       const logger = createLogger('GetEnvironmentVariablesServerTool')
 
@@ -25,25 +29,42 @@ export const getEnvironmentVariablesServerTool: BaseServerTool<GetEnvironmentVar
 
       const authenticatedUserId = context.userId
 
-      if (params?.workflowId) {
-        const { hasAccess } = await verifyWorkflowAccess(authenticatedUserId, params.workflowId)
-
-        if (!hasAccess) {
-          const errorMessage = createPermissionError('access environment variables in')
-          logger.error('Unauthorized attempt to access environment variables', {
-            workflowId: params.workflowId,
-            authenticatedUserId,
-          })
-          throw new Error(errorMessage)
-        }
+      const workflowScope = await resolveServerWorkflowScope(params, context)
+      if (workflowScope && !workflowScope.hasAccess) {
+        const errorMessage = createPermissionError('access environment variables in')
+        logger.error('Unauthorized attempt to access environment variables', {
+          workflowId: workflowScope.workflowId,
+          authenticatedUserId,
+        })
+        throw new Error(errorMessage)
       }
 
       const userId = authenticatedUserId
 
       logger.info('Getting environment variables for authenticated user', {
         userId,
-        hasWorkflowId: !!params?.workflowId,
+        workflowId: workflowScope?.workflowId,
+        workspaceId: workflowScope?.workspaceId,
       })
+
+      if (workflowScope?.workspaceId) {
+        const envResult = await getPersonalAndWorkspaceEnv(userId, workflowScope.workspaceId)
+        const variableNames = [
+          ...new Set([
+            ...Object.keys(envResult.personalEncrypted),
+            ...Object.keys(envResult.workspaceEncrypted),
+          ]),
+        ]
+        logger.info('Environment variable keys retrieved', {
+          userId,
+          workflowId: workflowScope.workflowId,
+          variableCount: variableNames.length,
+        })
+        return {
+          variableNames,
+          count: variableNames.length,
+        }
+      }
 
       const result = await getEnvironmentVariableKeys(userId)
       logger.info('Environment variable keys retrieved', { userId, variableCount: result.count })

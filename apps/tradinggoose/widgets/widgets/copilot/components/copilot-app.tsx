@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useSession } from '@/lib/auth-client'
 import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
-import { CopilotStoreProvider } from '@/stores/copilot/store'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
+import { CopilotStoreProvider, useCopilotStoreApi } from '@/stores/copilot/store'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useRegisteredEntitySession } from '@/lib/yjs/entity-session-registry'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -25,6 +25,42 @@ interface CopilotAppProps {
   panelWidth: number
   channelId?: string
   pairColor: PairColor
+}
+
+function getEditableTargetLabel(target?: CopilotEditableReviewTarget): string {
+  switch (target?.entityKind) {
+    case 'skill':
+      return 'skill'
+    case 'custom_tool':
+      return 'custom tool'
+    case 'indicator':
+      return 'indicator'
+    case 'mcp_server':
+      return 'MCP server'
+    default:
+      return 'entity'
+  }
+}
+
+function buildRejectedReviewTargetMessage(targets: CopilotEditableReviewTarget[]): string {
+  const label = getEditableTargetLabel(targets[0])
+  return `The request to open the editable ${label} target was rejected, so it is not open for editing. Do not try to edit that target. Ask the user for another target or continue without editing it.`
+}
+
+function createCopilotNoticeMessage(content: string) {
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant' as const,
+    content,
+    timestamp: new Date().toISOString(),
+    contentBlocks: [
+      {
+        type: 'text' as const,
+        content,
+        timestamp: Date.now(),
+      },
+    ],
+  }
 }
 
 const CopilotAppContent = ({
@@ -47,6 +83,8 @@ const CopilotAppContent = ({
     | undefined
 }) => {
   const pairContext = usePairColorContext(pairColor)
+  const setPairColorContext = useSetPairColorContext()
+  const copilotStoreApi = useCopilotStoreApi()
   const editableReviewTargets = useMemo(
     () => buildCopilotEditableReviewTargets({ pairContext }),
     [
@@ -60,6 +98,8 @@ const CopilotAppContent = ({
     key: string
     descriptors: ReviewTargetDescriptor[]
   } | null>(null)
+  const lastRejectedResolutionKeyRef = useRef<string | null>(null)
+  const pairContextRef = useRef(pairContext)
   // Copilot threads stay channel-scoped. Editable entity sessions are mounted
   // only from explicit review targets; ambient current_* context is read-only.
   const entityTargetResolution = useMemo(() => {
@@ -101,8 +141,13 @@ const CopilotAppContent = ({
   }, [editableReviewTargets, workspaceId])
 
   useEffect(() => {
+    pairContextRef.current = pairContext
+  }, [pairContext])
+
+  useEffect(() => {
     if (!entityTargetResolution.unresolvedKey) {
       setResolvedEntityTargets(null)
+      lastRejectedResolutionKeyRef.current = null
       return
     }
 
@@ -121,6 +166,7 @@ const CopilotAppContent = ({
     )
       .then((resolvedTargets) => {
         if (!cancelled) {
+          lastRejectedResolutionKeyRef.current = null
           setResolvedEntityTargets({
             key: entityTargetResolution.unresolvedKey!,
             descriptors: resolvedTargets.map((resolved) => resolved.descriptor),
@@ -129,14 +175,74 @@ const CopilotAppContent = ({
       })
       .catch(() => {
         if (!cancelled) {
-          setResolvedEntityTargets(null)
+          const rejectedKey = entityTargetResolution.unresolvedKey!
+          setResolvedEntityTargets({
+            key: rejectedKey,
+            descriptors: [],
+          })
+
+          if (lastRejectedResolutionKeyRef.current !== rejectedKey) {
+            lastRejectedResolutionKeyRef.current = rejectedKey
+            setPairColorContext(pairColor, {
+              ...(pairContextRef.current ?? {}),
+              reviewTarget: null,
+            })
+
+            const noticeContent = buildRejectedReviewTargetMessage(
+              entityTargetResolution.unresolved
+            )
+            const store = copilotStoreApi.getState()
+            const lastMessage = store.messages[store.messages.length - 1]
+
+            if (
+              lastMessage?.role !== 'assistant' ||
+              lastMessage.content !== noticeContent
+            ) {
+              const noticeMessage = createCopilotNoticeMessage(noticeContent)
+              const nextMessages = [...store.messages, noticeMessage]
+              const currentChat = store.currentChat
+                ? {
+                    ...store.currentChat,
+                    messages: nextMessages,
+                    messageCount: nextMessages.length,
+                  }
+                : store.currentChat
+
+              copilotStoreApi.setState({
+                messages: nextMessages,
+                ...(currentChat ? { currentChat } : {}),
+                ...(currentChat
+                  ? {
+                      chats: store.chats.map((chat) =>
+                        chat.reviewSessionId === currentChat.reviewSessionId
+                          ? {
+                              ...chat,
+                              messages: nextMessages,
+                              messageCount: nextMessages.length,
+                            }
+                          : chat
+                      ),
+                    }
+                  : {}),
+              })
+
+              if (currentChat?.reviewSessionId) {
+                void store.saveChatMessages(currentChat.reviewSessionId)
+              }
+            }
+          }
         }
       })
 
     return () => {
       cancelled = true
     }
-  }, [entityTargetResolution, workspaceId])
+  }, [
+    copilotStoreApi,
+    entityTargetResolution,
+    pairColor,
+    setPairColorContext,
+  ])
 
   const entityDescriptors = useMemo(
     () => [

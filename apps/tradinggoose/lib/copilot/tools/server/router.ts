@@ -1,5 +1,8 @@
 import { getToolContract, isToolId, type ToolId } from '@/lib/copilot/registry'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { getTriggerBlocksServerTool } from '@/lib/copilot/tools/server/blocks/get-trigger-blocks'
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -54,7 +57,7 @@ async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, 
 export async function routeExecution(
   toolName: string,
   payload: unknown,
-  context?: { userId: string }
+  context?: ServerToolExecutionContext
 ): Promise<any> {
   if (!isToolId(toolName)) {
     throw new Error(`Unknown server tool: ${toolName}`)

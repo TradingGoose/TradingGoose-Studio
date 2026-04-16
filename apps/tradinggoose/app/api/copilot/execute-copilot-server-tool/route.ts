@@ -14,6 +14,11 @@ const logger = createLogger('ExecuteCopilotServerToolAPI')
 const ExecuteSchema = z.object({
   toolName: z.string().min(1),
   payload: z.unknown().optional(),
+  context: z
+    .object({
+      contextWorkflowId: z.string().optional(),
+    })
+    .optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload } = parsedBody
+    const { payload, context } = parsedBody
 
     const [{ isToolId }, { routeExecution }] = await Promise.all([
       import('@/lib/copilot/registry'),
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    const result = await routeExecution(toolName, payload, { userId })
+    const result = await routeExecution(toolName, payload, { userId, ...context })
 
     try {
       const resultPreview = JSON.stringify(result).slice(0, 300)

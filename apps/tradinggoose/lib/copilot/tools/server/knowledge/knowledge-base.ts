@@ -1,5 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import {
   type KnowledgeBaseArgs,
   type KnowledgeBaseResult,
@@ -21,7 +24,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
   name: 'knowledge_base',
   async execute(
     params: KnowledgeBaseArgs,
-    context?: { userId: string }
+    context?: ServerToolExecutionContext
   ): Promise<KnowledgeBaseResult> {
     if (!context?.userId) {
       logger.error('Unauthorized attempt to access knowledge base - no authenticated user context')

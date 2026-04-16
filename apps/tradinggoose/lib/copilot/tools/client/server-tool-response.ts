@@ -54,6 +54,9 @@ export function getCopilotServerToolErrorStatus(error: unknown): number | undefi
 export async function executeCopilotServerTool<TResult = unknown>(input: {
   toolName: string
   payload?: unknown
+  context?: {
+    contextWorkflowId?: string
+  }
 }): Promise<TResult> {
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
@@ -61,6 +64,7 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
     body: JSON.stringify({
       toolName: input.toolName,
       payload: input.payload ?? {},
+      ...(input.context ? { context: input.context } : {}),
     }),
   })
 

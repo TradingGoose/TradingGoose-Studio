@@ -2,8 +2,12 @@ import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
+import { resolveServerWorkflowScope } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
 
@@ -38,7 +42,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
     name: 'set_environment_variables',
     async execute(
       params: SetEnvironmentVariablesParams,
-      context?: { userId: string }
+      context?: ServerToolExecutionContext
     ): Promise<any> {
       const logger = createLogger('SetEnvironmentVariablesServerTool')
 
@@ -50,19 +54,16 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       }
 
       const authenticatedUserId = context.userId
-      const { variables, workflowId } = params || ({} as SetEnvironmentVariablesParams)
+      const { variables } = params || ({} as SetEnvironmentVariablesParams)
 
-      if (workflowId) {
-        const { hasAccess } = await verifyWorkflowAccess(authenticatedUserId, workflowId)
-
-        if (!hasAccess) {
-          const errorMessage = createPermissionError('modify environment variables in')
-          logger.error('Unauthorized attempt to set environment variables', {
-            workflowId,
-            authenticatedUserId,
-          })
-          throw new Error(errorMessage)
-        }
+      const workflowScope = await resolveServerWorkflowScope(params, context)
+      if (workflowScope && !workflowScope.hasAccess) {
+        const errorMessage = createPermissionError('modify environment variables in')
+        logger.error('Unauthorized attempt to set environment variables', {
+          workflowId: workflowScope.workflowId,
+          authenticatedUserId,
+        })
+        throw new Error(errorMessage)
       }
 
       const userId = authenticatedUserId

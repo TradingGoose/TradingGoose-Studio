@@ -22,6 +22,7 @@ import {
   getCopilotServerToolErrorStatus,
 } from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
+import { normalizeOptionalString } from '@/lib/utils'
 import {
   resetStreamingQueue,
   type SSEHandler,
@@ -54,6 +55,7 @@ import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import type {
   ChatContext,
   CopilotMessage,
+  CopilotLiveReviewTarget,
   CopilotStore,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
@@ -184,8 +186,9 @@ function schedulePersistCurrentChatState(
   )
 }
 
-type ContextEntityProvenance = {
+type ContextTurnProvenance = {
   workspaceId?: string
+  contextWorkflowId?: string
   explicit: boolean
 }
 
@@ -193,19 +196,29 @@ function isReviewEntityKind(entityKind: string | null | undefined): entityKind i
   return REVIEW_ENTITY_KINDS.includes(entityKind as ReviewEntityKind)
 }
 
-function applyContextEntityProvenance(
+function applyContextTurnProvenance(
   provenance: CopilotToolExecutionProvenance,
-  context: ContextEntityProvenance
+  context: ContextTurnProvenance
 ): boolean {
   const { explicit } = context
   if (context.workspaceId && (explicit || !provenance.workspaceId)) {
     provenance.workspaceId = context.workspaceId
   }
+  if (context.contextWorkflowId && !provenance.contextWorkflowId) {
+    provenance.contextWorkflowId = context.contextWorkflowId
+  }
 
-  return Boolean(context.workspaceId)
+  return Boolean(context.workspaceId || context.contextWorkflowId)
 }
 
-function getContextEntityProvenance(context: ChatContext): ContextEntityProvenance | null {
+function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance | null {
+  if (context.kind === 'current_workflow') {
+    return {
+      contextWorkflowId: normalizeOptionalString(context.workflowId),
+      explicit: false,
+    }
+  }
+
   const rawKind = context.kind.startsWith('current_')
     ? context.kind.slice('current_'.length)
     : context.kind
@@ -214,30 +227,57 @@ function getContextEntityProvenance(context: ChatContext): ContextEntityProvenan
   const current = context.kind.startsWith('current_')
   const typedContext = context as any
   return {
-    workspaceId: typedContext.workspaceId,
+    workspaceId: normalizeOptionalString(typedContext.workspaceId),
     explicit: !current,
   }
+}
+
+function applyLiveReviewTargetProvenance(
+  provenance: CopilotToolExecutionProvenance,
+  reviewTarget: CopilotLiveReviewTarget | null | undefined
+): boolean {
+  const entityKind = reviewTarget?.entityKind
+  const reviewSessionId = normalizeOptionalString(reviewTarget?.reviewSessionId)
+  const draftSessionId = normalizeOptionalString(reviewTarget?.draftSessionId)
+
+  if (!entityKind || !reviewSessionId) {
+    return false
+  }
+
+  provenance.entityKind = entityKind
+  provenance.reviewSessionId = reviewSessionId
+
+  if (draftSessionId) {
+    provenance.draftSessionId = draftSessionId
+  }
+
+  return true
 }
 
 function buildTurnProvenanceFromContexts(
   channelId: string,
   contexts: ChatContext[] | undefined,
-  workspaceId?: string | null
+  workspaceId?: string | null,
+  reviewTarget?: CopilotLiveReviewTarget | null,
+  contextWorkflowId?: string | null
 ): CopilotToolExecutionProvenance | undefined {
-  const normalizedWorkspaceId =
-    typeof workspaceId === 'string' && workspaceId.trim() ? workspaceId.trim() : undefined
+  const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
+  const normalizedContextWorkflowId = normalizeOptionalString(contextWorkflowId)
   const provenance: CopilotToolExecutionProvenance = {
     channelId,
+    ...(normalizedContextWorkflowId ? { contextWorkflowId: normalizedContextWorkflowId } : {}),
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
   }
-  let hasContext = !!normalizedWorkspaceId
+  let hasContext = !!normalizedWorkspaceId || !!normalizedContextWorkflowId
 
   for (const context of contexts ?? []) {
-    const entityContext = getContextEntityProvenance(context)
+    const entityContext = getContextTurnProvenance(context)
     if (entityContext) {
-      hasContext = applyContextEntityProvenance(provenance, entityContext) || hasContext
+      hasContext = applyContextTurnProvenance(provenance, entityContext) || hasContext
     }
   }
+
+  hasContext = applyLiveReviewTargetProvenance(provenance, reviewTarget) || hasContext
 
   return hasContext ? provenance : undefined
 }
@@ -250,27 +290,25 @@ function withPinnedToolExecutionProvenance(
     typeof toolCall.params?.workflowId === 'string' && toolCall.params.workflowId.trim()
       ? toolCall.params.workflowId.trim()
       : undefined
-  const explicitEntityId =
-    typeof toolCall.params?.entityId === 'string' && toolCall.params.entityId.trim()
-      ? toolCall.params.entityId.trim()
-      : undefined
-
-  if (toolCall.provenance) {
-    return toolCall
+  const explicitEntityId = normalizeOptionalString(toolCall.params?.entityId)
+  const mergedProvenance = {
+    channelId:
+      toolCall.provenance?.channelId ??
+      baseProvenance?.channelId ??
+      DEFAULT_COPILOT_CHANNEL_ID,
+    ...(baseProvenance ?? {}),
+    ...(toolCall.provenance ?? {}),
+    ...(explicitWorkflowId ? { workflowId: explicitWorkflowId } : {}),
+    ...(explicitEntityId ? { entityId: explicitEntityId } : {}),
   }
 
-  if (!baseProvenance && !explicitWorkflowId && !explicitEntityId) {
+  if (!toolCall.provenance && !baseProvenance && !explicitWorkflowId && !explicitEntityId) {
     return toolCall
   }
 
   return {
     ...toolCall,
-    provenance: {
-      channelId: baseProvenance?.channelId ?? DEFAULT_COPILOT_CHANNEL_ID,
-      ...(baseProvenance ?? {}),
-      ...(explicitWorkflowId ? { workflowId: explicitWorkflowId } : {}),
-      ...(explicitEntityId ? { entityId: explicitEntityId } : {}),
-    },
+    provenance: mergedProvenance,
   }
 }
 
@@ -1295,6 +1333,7 @@ const initialState = {
   liveContext: {
     workflowId: null,
     workspaceId: null,
+    reviewTarget: null,
   },
   isLoading: false,
   isLoadingChats: false,
@@ -1638,7 +1677,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const turnProvenance = buildTurnProvenanceFromContexts(
           storeChannelId,
           resolvedContexts,
-          liveContext.workspaceId
+          liveContext.workspaceId,
+          liveContext.reviewTarget,
+          liveContext.workflowId
         )
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
@@ -2348,9 +2389,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         if (isServerManagedCopilotTool(name)) {
           try {
+            const serverContext = {
+              ...(provenance.contextWorkflowId
+                ? { contextWorkflowId: provenance.contextWorkflowId }
+                : {}),
+            }
             const result = await executeCopilotServerTool({
               toolName: name,
               payload: preparedArgs,
+              context: serverContext,
             })
             const logicalSuccess =
               !result ||

@@ -36,7 +36,7 @@ type EntityToolConfig = {
 }
 
 type ReadEntityDocumentArgs = {
-  entityId: string
+  entityId?: string
 }
 
 type EditEntityDocumentArgs = ReadEntityDocumentArgs & {
@@ -206,15 +206,11 @@ function createGetEntityDocumentTool(toolId: string, config: EntityToolConfig) {
       try {
         this.setState(ClientToolCallState.executing)
         const executionContext = this.requireExecutionContext()
-        const targetEntityId = args?.entityId?.trim()
-        if (!targetEntityId) {
-          throw new Error(`entityId is required to read a ${config.singularLabel}`)
-        }
 
         const { entityId, entityName, fields } = await readEntityFieldsFromContext(
           executionContext,
           config.kind,
-          targetEntityId
+          args?.entityId
         )
 
         await this.markToolComplete(200, `${config.singularLabel} document ready`, {
@@ -275,13 +271,15 @@ function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) 
 
         const executionContext = this.requireExecutionContext()
         const entityId = resolvedArgs.entityId?.trim()
-        if (!entityId) {
-          throw new Error(`entityId is required to edit a ${config.singularLabel}`)
-        }
-
         const session = getActiveEntitySession(executionContext, config.kind, entityId)
 
         if (!session) {
+          if (!entityId) {
+            throw new Error(
+              `entityId is required to edit a saved ${config.singularLabel}; unsaved drafts require an active review session`
+            )
+          }
+
           throw new Error(
             `No active ${config.singularLabel} review session found for ${entityId}. Open the ${config.singularLabel} review before editing.`
           )
@@ -295,7 +293,9 @@ function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) 
         await this.markToolComplete(200, `${config.singularLabel} document updated`, {
           success: true,
           entityKind: config.kind,
-          entityId: session.descriptor.entityId ?? entityId,
+          ...(session.descriptor.entityId ?? entityId
+            ? { entityId: session.descriptor.entityId ?? entityId }
+            : {}),
           entityName,
           documentFormat: getEntityDocumentFormat(config.kind),
           entityDocument: serializeEntityDocument(config.kind, persistedFields),

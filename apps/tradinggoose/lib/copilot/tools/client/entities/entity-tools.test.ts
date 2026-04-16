@@ -4,6 +4,7 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   EditSkillClientTool,
   GetCustomToolClientTool,
+  GetSkillClientTool,
   ListSkillsClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
 
@@ -36,8 +37,38 @@ vi.mock('@/stores/copilot/store-access', () => ({
 }))
 
 vi.mock('@/lib/yjs/entity-session-registry', () => ({
-  getRegisteredEntitySession: () => mockEntitySessionRegistry.session,
-  getRegisteredEntitySessionByIdentity: () => mockEntitySessionRegistry.session,
+  getRegisteredEntitySession: vi.fn((reviewSessionId?: string | null) => {
+    if (
+      !reviewSessionId ||
+      mockEntitySessionRegistry.session?.descriptor?.reviewSessionId !== reviewSessionId
+    ) {
+      return null
+    }
+
+    return mockEntitySessionRegistry.session
+  }),
+  getRegisteredEntitySessionByIdentity: vi.fn(
+    (
+      entityKind: string,
+      entityId?: string | null,
+      workspaceId?: string | null
+    ) => {
+      const session = mockEntitySessionRegistry.session
+      if (!entityId || !session) {
+        return null
+      }
+
+      if (session.descriptor.entityKind !== entityKind || session.descriptor.entityId !== entityId) {
+        return null
+      }
+
+      if (workspaceId != null && session.descriptor.workspaceId !== workspaceId) {
+        return null
+      }
+
+      return session
+    }
+  ),
 }))
 
 vi.mock('@/lib/yjs/entity-session', () => ({
@@ -358,7 +389,156 @@ describe('entity document tools', () => {
     })
   })
 
-  it('edit_skill rejects edits without an explicit entityId even when current skill context exists', async () => {
+  it('get_skill reads an unsaved draft from the active review session without a DB entityId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'draft-skill',
+      description: 'Draft description',
+      content: 'Draft content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'get-skill-unsaved-draft'
+    const tool = new GetSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'skill',
+      entityName: 'draft-skill',
+      documentFormat: 'tg-skill-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"name": "draft-skill"')
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('edit_skill applies edits to an unsaved draft via the active review session without a DB entityId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'draft-skill',
+      description: 'Draft description',
+      content: 'Draft content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'get-skill-unsaved-draft'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'draft-skill-updated',
+        description: 'Updated draft description',
+        content: 'Updated draft content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'draft-skill-updated',
+      description: 'Updated draft description',
+      content: 'Updated draft content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityName: 'draft-skill-updated',
+      documentFormat: 'tg-skill-document-v1',
+      reviewSessionId: 'review-draft',
+      draftSessionId: 'draft-1',
+    })
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('edit_skill rejects edits without an explicit entityId when no unsaved draft review session is active', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -416,15 +596,15 @@ describe('entity document tools', () => {
     })
     const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(markCompleteBody.status).toBe(500)
-    expect(markCompleteBody.message).toContain('entityId is required')
+    expect(markCompleteBody.message).toContain('entityId is required to edit a saved skill')
   })
 
-  it('registry schemas accept entity read and full-entity edit contracts', () => {
+  it('registry schemas accept optional explicit entity ids for entity document tools', () => {
     expect(ToolArgSchemas.list_skills.parse({})).toMatchObject({})
     expect(ToolArgSchemas.get_skill.parse({ entityId: 'skill-1' })).toMatchObject({
       entityId: 'skill-1',
     })
-    expect(() => ToolArgSchemas.get_skill.parse({})).toThrow()
+    expect(ToolArgSchemas.get_skill.parse({})).toMatchObject({})
     expect(
       ToolArgSchemas.edit_skill.parse({
         entityId: 'skill-1',
@@ -432,6 +612,13 @@ describe('entity document tools', () => {
       })
     ).toMatchObject({
       entityId: 'skill-1',
+      entityDocument: '{"name":"skill","description":"","content":""}',
+    })
+    expect(
+      ToolArgSchemas.edit_skill.parse({
+        entityDocument: '{"name":"skill","description":"","content":""}',
+      })
+    ).toMatchObject({
       entityDocument: '{"name":"skill","description":"","content":""}',
     })
 

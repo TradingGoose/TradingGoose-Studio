@@ -23,6 +23,7 @@ import type { ChatContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
+  buildCopilotEditableReviewTargets,
   buildImplicitCopilotContexts,
   resolveCopilotWorkflowId,
 } from '@/widgets/widgets/copilot/live-contexts'
@@ -81,12 +82,24 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       [pairContext, workspaceId]
     )
     const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+    const reviewTarget = useMemo(
+      () => buildCopilotEditableReviewTargets({ pairContext })[0] ?? null,
+      [pairContext]
+    )
     const liveContext = useMemo(
       () => ({
         workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
+        reviewTarget: reviewTarget
+          ? {
+              entityKind: reviewTarget.entityKind,
+              entityId: reviewTarget.entityId,
+              reviewSessionId: reviewTarget.reviewSessionId ?? null,
+              draftSessionId: reviewTarget.draftSessionId,
+            }
+          : null,
       }),
-      [workflowId, workspaceId]
+      [reviewTarget, workflowId, workspaceId]
     )
     // Use the new copilot store
     const {
@@ -124,7 +137,13 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       const currentLiveContext = storeState.liveContext
       if (
         currentLiveContext.workflowId !== liveContext.workflowId ||
-        currentLiveContext.workspaceId !== liveContext.workspaceId
+        currentLiveContext.workspaceId !== liveContext.workspaceId ||
+        currentLiveContext.reviewTarget?.entityKind !== liveContext.reviewTarget?.entityKind ||
+        currentLiveContext.reviewTarget?.entityId !== liveContext.reviewTarget?.entityId ||
+        currentLiveContext.reviewTarget?.reviewSessionId !==
+          liveContext.reviewTarget?.reviewSessionId ||
+        currentLiveContext.reviewTarget?.draftSessionId !==
+          liveContext.reviewTarget?.draftSessionId
       ) {
         nextState.liveContext = liveContext
       }

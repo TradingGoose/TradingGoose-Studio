@@ -12,6 +12,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 const mockResolveEntityReviewTarget = vi.fn()
 const mockUnregisteredReviewSessionIds = new Set<string>()
+const mockSetPairColorContext = vi.fn()
+const mockSaveChatMessages = vi.fn(async () => {})
 const mockCopilot = vi.fn((props: any) => (
   <div
     data-testid='copilot'
@@ -27,6 +29,30 @@ let mockLiveTarget: any = {
   entityId: null,
   draftSessionId: null,
   skillId: null,
+}
+let mockCopilotStoreState: any = null
+const mockCopilotStoreApi = {
+  getState: () => mockCopilotStoreState,
+  setState: (partial: any) => {
+    const nextState =
+      typeof partial === 'function' ? partial(mockCopilotStoreState) : partial
+    mockCopilotStoreState = {
+      ...mockCopilotStoreState,
+      ...nextState,
+    }
+  },
+}
+const applyMockPairColorContext = (color: string, context: any) => {
+  mockSetPairColorContext(color, context)
+  mockLiveWorkflowId = context?.workflowId ?? mockLiveWorkflowId
+  mockLiveTarget = {
+    ...mockLiveTarget,
+    skillId: context?.skillId ?? mockLiveTarget.skillId ?? null,
+    reviewSessionId: context?.reviewTarget?.reviewSessionId ?? null,
+    entityKind: context?.reviewTarget?.reviewEntityKind ?? null,
+    entityId: context?.reviewTarget?.reviewEntityId ?? null,
+    draftSessionId: context?.reviewTarget?.reviewDraftSessionId ?? null,
+  }
 }
 
 vi.mock('@/lib/auth-client', () => ({
@@ -61,6 +87,7 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
 
 vi.mock('@/stores/copilot/store', () => ({
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useCopilotStoreApi: () => mockCopilotStoreApi,
 }))
 
 vi.mock('@/stores/dashboard/pair-store', () => ({
@@ -76,6 +103,7 @@ vi.mock('@/stores/dashboard/pair-store', () => ({
         }
       : undefined,
   }),
+  useSetPairColorContext: () => applyMockPairColorContext,
 }))
 
 vi.mock('@/widgets/widgets/entity_review/review-target-utils', async (importOriginal) => {
@@ -114,8 +142,43 @@ describe('CopilotApp', () => {
     }
     mockLiveWorkflowId = null
     mockResolveEntityReviewTarget.mockReset()
+    mockSetPairColorContext.mockReset()
     mockCopilot.mockClear()
     mockUnregisteredReviewSessionIds.clear()
+    mockSaveChatMessages.mockReset()
+    mockSaveChatMessages.mockResolvedValue(undefined)
+    mockCopilotStoreState = {
+      currentChat: {
+        reviewSessionId: 'chat-1',
+        workspaceId: 'ws-1',
+        channelId: 'workflow',
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Copilot chat',
+        messages: [],
+        messageCount: 0,
+        createdAt: new Date('2026-04-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-16T00:00:00.000Z'),
+      },
+      chats: [
+        {
+          reviewSessionId: 'chat-1',
+          workspaceId: 'ws-1',
+          channelId: 'workflow',
+          entityKind: 'copilot',
+          entityId: null,
+          draftSessionId: null,
+          title: 'Copilot chat',
+          messages: [],
+          messageCount: 0,
+          createdAt: new Date('2026-04-16T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-16T00:00:00.000Z'),
+        },
+      ],
+      messages: [],
+      saveChatMessages: mockSaveChatMessages,
+    }
     mockResolveEntityReviewTarget.mockResolvedValue({
       descriptor: {
         workspaceId: 'ws-1',
@@ -224,6 +287,42 @@ describe('CopilotApp', () => {
       'data-input-disabled',
       'true'
     )
+  })
+
+  it('rejects failed review target resolution, clears the stale pair target, and unlocks input', async () => {
+    mockResolveEntityReviewTarget.mockRejectedValueOnce(new Error('Forbidden'))
+    mockLiveTarget = {
+      reviewSessionId: null,
+      entityKind: 'skill',
+      entityId: null,
+      draftSessionId: 'draft-stale',
+      skillId: 'skill-current-context',
+    }
+
+    await renderApp()
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'false'
+    )
+    expect(mockSetPairColorContext).toHaveBeenCalledWith(
+      'gray',
+      expect.objectContaining({
+        skillId: 'skill-current-context',
+        reviewTarget: null,
+      })
+    )
+    expect(mockLiveTarget.entityKind).toBeNull()
+    expect(mockCopilotStoreState.messages).toHaveLength(1)
+    expect(mockCopilotStoreState.messages[0]).toMatchObject({
+      role: 'assistant',
+    })
+    expect(mockCopilotStoreState.messages[0].content).toContain('was rejected')
+    expect(mockSaveChatMessages).toHaveBeenCalledWith('chat-1')
   })
 
   it('does not mount workflow sessions for current or workflow review targets', async () => {

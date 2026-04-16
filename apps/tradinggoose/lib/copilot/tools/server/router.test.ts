@@ -242,6 +242,20 @@ describe('routeExecution', () => {
     expect(getWorkflowConsoleExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
+  it('forwards ambient workflow context separately from raw tool args', async () => {
+    const context = {
+      userId: 'user-1',
+      contextWorkflowId: 'workflow-current',
+    }
+
+    await expect(routeExecution('get_environment_variables', {}, context)).resolves.toMatchObject({
+      variableNames: expect.any(Array),
+      count: expect.any(Number),
+    })
+
+    expect(getEnvironmentVariablesExecute).toHaveBeenCalledWith({}, context)
+  })
+
   it.each([
     {
       toolName: 'get_environment_variables',

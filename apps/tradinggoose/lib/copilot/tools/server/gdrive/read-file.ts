@@ -1,4 +1,9 @@
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { executeTool } from '@/tools'
@@ -12,16 +17,17 @@ interface ReadGDriveFileParams {
 
 export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any> = {
   name: 'read_gdrive_file',
-  async execute(params: ReadGDriveFileParams, context?: { userId: string }): Promise<any> {
+  async execute(params: ReadGDriveFileParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ReadGDriveFileServerTool')
 
     const userId = context?.userId
     const fileId = params?.fileId
     const type = params?.type
+    const workflowScope = await resolveServerWorkflowScope(params, context)
 
     logger.info('read_gdrive_file input', {
       hasUserId: !!userId,
-      hasWorkflowId: !!params?.workflowId,
+      workflowId: workflowScope?.workflowId,
       hasFileId: !!fileId,
       type,
       hasRange: !!params?.range,
@@ -29,6 +35,9 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
 
     if (!userId || !fileId || !type) {
       throw new Error('Authentication, fileId and type are required')
+    }
+    if (workflowScope && !workflowScope.hasAccess) {
+      throw new Error(createPermissionError('access Google Drive files in'))
     }
 
     if (type === 'doc') {

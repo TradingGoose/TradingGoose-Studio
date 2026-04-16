@@ -60,6 +60,7 @@ export interface ClientToolExecutionContext {
   toolName: string
   channelId: string
   workflowId?: string
+  contextWorkflowId?: string
   workspaceId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind

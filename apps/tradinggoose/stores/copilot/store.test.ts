@@ -87,11 +87,16 @@ describe('copilot tool execution provenance', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'edit_workflow',
-      provenance: { channelId, workflowId: 'wf-origin-a' },
+      provenance: {
+        channelId,
+        workflowId: 'wf-origin-a',
+        contextWorkflowId: 'wf-current-a',
+      },
     })
 
     expect(context.channelId).toBe(channelId)
     expect(context.workflowId).toBe('wf-origin-a')
+    expect(context.contextWorkflowId).toBe('wf-current-a')
   })
 
   it('executeIntegrationTool sends pinned workflow id', async () => {
@@ -339,6 +344,7 @@ describe('copilot tool execution provenance', () => {
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
         channelId,
+        contextWorkflowId: 'wf-live-at-send',
         workspaceId: 'workspace-1',
       },
     })
@@ -436,11 +442,106 @@ describe('copilot tool execution provenance', () => {
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
         channelId,
+        contextWorkflowId: 'wf-current',
         workspaceId: 'workspace-1',
       },
     })
     expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
     expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
+  })
+
+  it('pins the explicit unsaved review target session for draft entity tools', async () => {
+    const channelId = 'copilot-unsaved-review-target'
+    const toolCallId = 'copilot-unsaved-review-target-tool'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      liveContext: {
+        workflowId: 'wf-current',
+        workspaceId: 'workspace-1',
+        reviewTarget: {
+          entityKind: 'skill',
+          entityId: null,
+          reviewSessionId: 'review-draft',
+          draftSessionId: 'draft-1',
+        },
+      },
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-draft-entity',
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Generic panel chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-draft-entity',
+        createdAt: new Date('2026-04-13T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
+      },
+      chats: [],
+      implicitContexts: [
+        {
+          kind: 'current_skill',
+          skillId: 'skill-viewing',
+          workspaceId: 'workspace-1',
+          label: 'Current Skill',
+        },
+      ],
+    })
+
+    const sendPromise = store.getState().sendMessage('Fix this draft skill')
+    await deferredStream.ready
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'edit_skill',
+        arguments: { entityDocument: '{}' },
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-draft-review-target' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        channelId,
+        contextWorkflowId: 'wf-current',
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
   })
 })
 
@@ -1978,7 +2079,7 @@ describe('copilot tool user action delegation', () => {
             },
             provenance: {
               channelId,
-              workflowId: 'wf-api-request-access-switch',
+              contextWorkflowId: 'wf-api-request-access-switch',
               workspaceId: 'workspace-1',
             },
           } as any,
@@ -1988,19 +2089,20 @@ describe('copilot tool user action delegation', () => {
       store.getState().setAccessLevel('full')
       await vi.runAllTimersAsync()
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/copilot/execute-copilot-server-tool',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            toolName: 'make_api_request',
-            payload: {
-              url: 'https://example.com/data',
-              method: 'GET',
-            },
-          }),
-        })
-      )
+      const executeRequest = fetchMock.mock.calls.find(([input]) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        return url === '/api/copilot/execute-copilot-server-tool'
+      })
+      expect(parseJsonRequestBody(executeRequest)).toEqual({
+        toolName: 'make_api_request',
+        payload: {
+          url: 'https://example.com/data',
+          method: 'GET',
+        },
+        context: {
+          contextWorkflowId: 'wf-api-request-access-switch',
+        },
+      })
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(
         ClientToolCallState.success
       )

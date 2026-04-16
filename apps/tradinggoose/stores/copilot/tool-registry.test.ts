@@ -61,9 +61,10 @@ describe('copilotToolHasInterrupt', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'get_workflow_console',
-      provenance: { channelId: 'pair-red' },
+      provenance: { channelId: 'pair-red', contextWorkflowId: 'wf-current' },
     })
 
+    expect(context.contextWorkflowId).toBe('wf-current')
     expect(prepareCopilotToolArgs('get_workflow_console', {}, context)).toEqual({})
     expect(
       prepareCopilotToolArgs(
@@ -72,7 +73,11 @@ describe('copilotToolHasInterrupt', () => {
         createExecutionContext({
           toolCallId,
           toolName: 'get_workflow_console',
-          provenance: { channelId: 'pair-red', workflowId: 'wf-1' },
+          provenance: {
+            channelId: 'pair-red',
+            workflowId: 'wf-1',
+            contextWorkflowId: 'wf-current',
+          },
         })
       )
     ).toEqual({})
