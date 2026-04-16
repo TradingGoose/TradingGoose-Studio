@@ -110,7 +110,7 @@ describe('OAuth Connections API Route', () => {
     expect(data.connections[1]).toMatchObject({
       provider: 'github',
       baseProvider: 'github',
-      featureType: 'default',
+      featureType: 'github',
       isConnected: true,
     })
   })

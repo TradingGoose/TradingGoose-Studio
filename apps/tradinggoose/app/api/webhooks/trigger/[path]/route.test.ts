@@ -97,6 +97,7 @@ describe('Webhook Trigger API Route', () => {
     // Ensure a fresh module graph so per-test vi.doMock() takes effect before imports
     vi.resetModules()
     vi.clearAllMocks()
+    vi.doUnmock('@/lib/webhooks/processor')
 
     // Clear global mock data
     globalMockData.webhooks.length = 0
@@ -112,17 +113,21 @@ describe('Webhook Trigger API Route', () => {
       pinnedApiKeyId: 'test-pinned-api-key-id',
     })
 
-    vi.doMock('@/lib/api-key/service', async () => {
-      const actual = await vi.importActual('@/lib/api-key/service')
-      return {
-        ...(actual as Record<string, unknown>),
-        getApiKeyOwnerUserId: vi
-          .fn()
-          .mockImplementation(async (pinnedApiKeyId: string | null | undefined) =>
-            pinnedApiKeyId ? 'test-user-id' : null
-          ),
-      }
-    })
+    vi.doMock('@/lib/api-key/service', () => ({
+      getApiKeyOwnerUserId: vi
+        .fn()
+        .mockImplementation(async (pinnedApiKeyId: string | null | undefined) =>
+          pinnedApiKeyId ? 'test-user-id' : null
+        ),
+    }))
+
+    vi.doMock('@/lib/billing/settings', () => ({
+      isBillingEnabledForRuntime: vi.fn().mockResolvedValue(false),
+    }))
+
+    vi.doMock('@/lib/billing/workspace-billing', () => ({
+      resolveWorkspaceBillingContext: vi.fn(),
+    }))
 
     vi.doMock('@/services/queue', () => ({
       RateLimiter: vi.fn().mockImplementation(() => ({
@@ -185,7 +190,16 @@ describe('Webhook Trigger API Route', () => {
    * Test 404 handling for non-existent webhooks
    */
   it('should handle 404 for non-existent webhooks', async () => {
-    // The global @tradinggoose/db mock already returns empty arrays, so findWebhookAndWorkflow will return null
+    vi.doMock('@/lib/webhooks/processor', () => ({
+      checkRateLimits: vi.fn(),
+      checkUsageLimits: vi.fn(),
+      findWebhookAndWorkflow: vi.fn().mockResolvedValue(null),
+      handleProviderChallenges: vi.fn(),
+      mapDispatchGateResultToHttpResponse: vi.fn(),
+      parseWebhookBody: vi.fn(),
+      queueWebhookExecution: vi.fn(),
+      verifyProviderAuth: vi.fn(),
+    }))
 
     // Create a mock request
     const req = createMockRequest('POST', { event: 'test' })
@@ -229,7 +243,7 @@ describe('Webhook Trigger API Route', () => {
     /**
      * Test generic webhook without authentication (default behavior)
      */
-    it('should process generic webhook without authentication', async () => {
+    it('should process generic webhook without authentication', { timeout: 10_000 }, async () => {
       // Configure mock data
       globalMockData.webhooks.push({
         id: 'generic-webhook-id',

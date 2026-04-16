@@ -100,6 +100,12 @@ describe('Chat Identifier API Route', () => {
       getApiKeyOwnerUserId: mockGetApiKeyOwnerUserId,
     }))
 
+    vi.doMock('@/lib/uploads', () => ({
+      ChatFiles: {
+        processChatFiles: vi.fn().mockResolvedValue([]),
+      },
+    }))
+
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn().mockReturnValue({
         debug: vi.fn(),
@@ -137,6 +143,30 @@ describe('Chat Identifier API Route', () => {
         workflow: {},
       }
     })
+
+    vi.doMock('@tradinggoose/db/schema', () => ({
+      chat: {
+        id: 'chat.id',
+        title: 'chat.title',
+        description: 'chat.description',
+        customizations: 'chat.customizations',
+        identifier: 'chat.identifier',
+        workflowId: 'chat.workflowId',
+        userId: 'chat.userId',
+        isActive: 'chat.isActive',
+        authType: 'chat.authType',
+        password: 'chat.password',
+        allowedEmails: 'chat.allowedEmails',
+        outputConfigs: 'chat.outputConfigs',
+      },
+      workflow: {
+        id: 'workflow.id',
+        isDeployed: 'workflow.isDeployed',
+        workspaceId: 'workflow.workspaceId',
+        variables: 'workflow.variables',
+        pinnedApiKeyId: 'workflow.pinnedApiKeyId',
+      },
+    }))
 
     vi.doMock('@/app/api/workflows/utils', () => ({
       createErrorResponse: vi.fn().mockImplementation((message, status, code) => {

@@ -1,5 +1,5 @@
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
-import { buildSubBlockRows } from './sub-block-layout'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 
 function readStateValue(stateEntry: any) {
   if (stateEntry && typeof stateEntry === 'object' && 'value' in stateEntry) {

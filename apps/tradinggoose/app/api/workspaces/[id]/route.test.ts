@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 const {
   mockGetSession,
@@ -70,13 +71,26 @@ vi.mock('@/lib/permissions/utils', () => ({
   getWorkspaceById: (...args: unknown[]) => mockGetWorkspaceById(...args),
 }))
 
-vi.mock('@/lib/workspaces/billing-owner', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/workspaces/billing-owner')>(
-    '@/lib/workspaces/billing-owner'
-  )
+vi.mock('@/lib/workspaces/billing-owner', () => {
+  class WorkspaceBillingOwnerUpdateError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'WorkspaceBillingOwnerUpdateError'
+    }
+  }
 
   return {
-    ...actual,
+    WorkspaceBillingOwnerUpdateError,
+    workspaceBillingOwnerSchema: z.discriminatedUnion('type', [
+      z.object({
+        type: z.literal('user'),
+        userId: z.string().trim().min(1),
+      }),
+      z.object({
+        type: z.literal('organization'),
+        organizationId: z.string().trim().min(1),
+      }),
+    ]),
     resolveWorkspaceBillingOwnerUpdate: (...args: unknown[]) =>
       mockResolveWorkspaceBillingOwnerUpdate(...args),
     toWorkspaceApiRecord: (workspace: unknown) => mockToWorkspaceApiRecord(workspace),
@@ -99,6 +113,7 @@ describe('Workspace by id PATCH route', () => {
     mockGetWorkspaceById.mockReset()
     mockResolveWorkspaceBillingOwnerUpdate.mockReset()
     mockUpdateWhere.mockReset()
+    mockUpdateSet.mockClear()
   })
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {

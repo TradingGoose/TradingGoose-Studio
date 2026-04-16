@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSubBlockRows } from './sub-block-layout'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 
 describe('buildSubBlockRows', () => {
   const triggerSubBlocks = [

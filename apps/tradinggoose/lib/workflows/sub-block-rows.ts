@@ -1,5 +1,5 @@
+import type { SubBlockConfig, SubBlockCondition } from '@/blocks/types'
 import { getEnv, isTruthy } from '@/lib/env'
-import type { SubBlockConfig } from '@/blocks/types'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
 import { getTrigger } from '@/triggers'
 import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
@@ -15,23 +15,7 @@ interface BuildSubBlockRowsParams {
   triggerSubBlockOwner?: 'editor' | 'deploy' | 'all'
 }
 
-type ConditionValue = string | number | boolean | Array<string | number | boolean>
-type SubBlockCondition = {
-  field: string
-  value: ConditionValue
-  not?: boolean
-  and?:
-    | {
-        field: string
-        value: ConditionValue
-        not?: boolean
-      }
-    | Array<{
-        field: string
-        value: ConditionValue
-        not?: boolean
-      }>
-}
+type ConditionValue = SubBlockCondition['value']
 
 const normalizeValue = (value: any) =>
   value && typeof value === 'object' && 'id' in value ? value.id : value
@@ -122,9 +106,8 @@ export function buildSubBlockRows({
 
     if (!subBlock.condition) return true
 
-    const actualCondition = (
+    const actualCondition =
       typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
-    ) as SubBlockCondition
 
     const normalizedFieldValue = getConditionFieldValue(actualCondition.field)
     const andConditions = Array.isArray(actualCondition.and)

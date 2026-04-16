@@ -79,6 +79,12 @@ export async function POST(req: NextRequest) {
     )
 
   try {
+    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
+      return respondFailure('Unauthorized', Date.now() - startTime, 401)
+    }
+    const e2bUserScope = auth.userId
+
     const body = await req.json()
     const { DEFAULT_EXECUTION_TIMEOUT_MS } = await import('@/lib/execution/constants')
 
@@ -94,11 +100,6 @@ export async function POST(req: NextRequest) {
       workspaceId,
       isCustomTool = false,
     } = body
-    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
-    if (!auth.success || !auth.userId) {
-      return respondFailure('Unauthorized', Date.now() - startTime, 401)
-    }
-    const e2bUserScope = auth.userId
 
     if (workflowId) {
       const [workflowData] = await db

@@ -27,7 +27,7 @@ import {
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
-import { buildSubBlockRows } from './components/sub-block/sub-block-layout'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 
 const WORKFLOW_POPOVER_PORTAL_KEY = '__workflowPopoverPortal'
 

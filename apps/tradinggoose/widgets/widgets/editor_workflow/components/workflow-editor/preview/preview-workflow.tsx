@@ -60,7 +60,9 @@ export function PreviewWorkflow({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const { nodes, edges } = useMemo(() => {
-    return adaptPreviewPayloadToCanvas(workflowState, { operations: diffOperations })
+    return diffOperations === undefined
+      ? adaptPreviewPayloadToCanvas(workflowState)
+      : adaptPreviewPayloadToCanvas(workflowState, { operations: diffOperations })
   }, [diffOperations, workflowState])
 
   return (

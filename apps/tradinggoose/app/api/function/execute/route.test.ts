@@ -54,6 +54,7 @@ describe('Function Execute API Route', () => {
         workflowExecutionChargeUsd: 0,
         functionExecutionChargeUsd: 0.25,
       }),
+      isBillingEnabledForRuntime: vi.fn().mockResolvedValue(false),
     }))
     vi.doMock('@/lib/billing/tiers', () => ({
       getTierFunctionExecutionDurationMultiplier: vi.fn(() => 0.5),

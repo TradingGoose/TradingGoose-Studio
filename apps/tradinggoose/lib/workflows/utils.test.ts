@@ -1,4 +1,33 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@tradinggoose/db', () => ({
+  db: {},
+}))
+
+vi.mock('@tradinggoose/db/schema', () => ({
+  apiKey: {},
+  permissions: {},
+  workflow: {},
+  workspace: {},
+}))
+
+vi.mock('@/lib/auth', () => ({
+  getSession: vi.fn(),
+}))
+
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: vi.fn(() => ({
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  })),
+}))
+
+vi.mock('@/lib/urls/utils', () => ({
+  getBaseUrl: vi.fn(() => 'http://localhost'),
+}))
+
 import { hasWorkflowChanged } from '@/lib/workflows/utils'
 
 const baseState = {
