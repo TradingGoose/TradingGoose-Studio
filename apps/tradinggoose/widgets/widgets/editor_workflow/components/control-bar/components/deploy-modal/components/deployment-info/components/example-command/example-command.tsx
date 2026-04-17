@@ -1,15 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { OutputSelect } from '@/widgets/widgets/workflow_chat/components/output-select/output-select'
 
@@ -20,13 +13,11 @@ interface ExampleCommandProps {
   showLabel?: boolean
   getInputFormatExample?: (includeStreaming?: boolean) => string
   workflowId: string | null
-  asyncExecutionEnabled: boolean
   selectedStreamingOutputs: string[]
   onSelectedStreamingOutputsChange: (outputs: string[]) => void
 }
 
-type ExampleMode = 'sync' | 'async' | 'stream'
-type ExampleType = 'execute' | 'status' | 'rate-limits'
+type ExampleMode = 'sync' | 'stream'
 
 export function ExampleCommand({
   command,
@@ -35,19 +26,10 @@ export function ExampleCommand({
   showLabel = true,
   getInputFormatExample,
   workflowId,
-  asyncExecutionEnabled,
   selectedStreamingOutputs,
   onSelectedStreamingOutputsChange,
 }: ExampleCommandProps) {
   const [mode, setMode] = useState<ExampleMode>('sync')
-  const [exampleType, setExampleType] = useState<ExampleType>('execute')
-
-  useEffect(() => {
-    if (!asyncExecutionEnabled && mode === 'async') {
-      setMode('sync')
-      setExampleType('execute')
-    }
-  }, [asyncExecutionEnabled, mode])
 
   const formatCurlCommand = (command: string, apiKey: string) => {
     if (!command.includes('curl')) return command
@@ -109,40 +91,8 @@ export function ExampleCommand({
         return `curl -X POST \\\n  -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  -H "Content-Type: application/json"${streamDashD} \\\n  ${baseEndpoint}`
       }
 
-      case 'async':
-        switch (exampleType) {
-          case 'execute':
-            return `curl -X POST \\\n  -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Execution-Mode: async"${inputExample} \\\n  ${baseEndpoint}`
-
-          case 'status': {
-            const baseUrl = baseEndpoint.split('/api/workflows/')[0]
-            return `curl -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  ${baseUrl}/api/jobs/JOB_ID_FROM_EXECUTION`
-          }
-
-          case 'rate-limits': {
-            const baseUrlForRateLimit = baseEndpoint.split('/api/workflows/')[0]
-            return `curl -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  ${baseUrlForRateLimit}/api/users/me/usage-limits`
-          }
-
-          default:
-            return formatCurlCommand(command, apiKey)
-        }
-
       default:
         return formatCurlCommand(command, apiKey)
-    }
-  }
-
-  const getExampleTitle = () => {
-    switch (exampleType) {
-      case 'execute':
-        return 'Async Execution'
-      case 'status':
-        return 'Check Job Status'
-      case 'rate-limits':
-        return 'Rate Limits & Usage'
-      default:
-        return 'Async Execution'
     }
   }
 
@@ -177,55 +127,6 @@ export function ExampleCommand({
             >
               Stream
             </Button>
-            {asyncExecutionEnabled && (
-              <>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => setMode('async')}
-                  className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${
-                    mode === 'async'
-                      ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
-                      : ''
-                  }`}
-                >
-                  Async
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      className='h-6 min-w-[140px] justify-between px-2 py-1 text-xs'
-                      disabled={mode === 'sync' || mode === 'stream'}
-                    >
-                      <span className='truncate'>{getExampleTitle()}</span>
-                      <ChevronDown className='ml-1 h-3 w-3 flex-shrink-0' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='end'>
-                    <DropdownMenuItem
-                      className='cursor-pointer'
-                      onClick={() => setExampleType('execute')}
-                    >
-                      Async Execution
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className='cursor-pointer'
-                      onClick={() => setExampleType('status')}
-                    >
-                      Check Job Status
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className='cursor-pointer'
-                      onClick={() => setExampleType('rate-limits')}
-                    >
-                      Rate Limits & Usage
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
           </div>
         </div>
 

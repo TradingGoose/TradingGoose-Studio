@@ -4,7 +4,7 @@ TradingGoose SDK for Python
 Official Python SDK for TradingGoose, allowing you to execute workflows programmatically.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 import time
 import random
@@ -19,7 +19,6 @@ __all__ = [
     "TradingGooseError",
     "WorkflowExecutionResult",
     "WorkflowStatus",
-    "AsyncExecutionResult",
     "RateLimitInfo",
     "UsageLimits",
 ]
@@ -44,16 +43,6 @@ class WorkflowStatus:
     deployed_at: Optional[str] = None
     is_published: bool = False
     needs_redeployment: bool = False
-
-
-@dataclass
-class AsyncExecutionResult:
-    """Result of an async workflow execution."""
-    success: bool
-    task_id: str
-    status: str  # 'queued'
-    created_at: str
-    links: Dict[str, str]
 
 
 @dataclass
@@ -164,11 +153,9 @@ class TradingGooseClient:
         timeout: float = 30.0,
         stream: Optional[bool] = None,
         selected_outputs: Optional[list] = None,
-        async_execution: Optional[bool] = None
-    ) -> Union[WorkflowExecutionResult, AsyncExecutionResult]:
+    ) -> WorkflowExecutionResult:
         """
         Execute a workflow with optional input data.
-        If async_execution is True, returns immediately with a task ID.
 
         File objects in input_data will be automatically detected and converted to base64.
 
@@ -178,20 +165,16 @@ class TradingGooseClient:
             timeout: Timeout in seconds (default: 30.0)
             stream: Enable streaming responses (default: None)
             selected_outputs: Block outputs to stream (e.g., ["agent1.content"])
-            async_execution: Execute asynchronously (default: None)
 
         Returns:
-            WorkflowExecutionResult or AsyncExecutionResult object
+            WorkflowExecutionResult object
 
         Raises:
             TradingGooseError: If the workflow execution fails
         """
         url = f"{self.base_url}/api/workflows/{workflow_id}/execute"
 
-        # Build headers - async execution uses X-Execution-Mode header
         headers = self._session.headers.copy()
-        if async_execution:
-            headers['X-Execution-Mode'] = 'async'
 
         try:
             # Build JSON body - spread input at root level, then add API control parameters
@@ -236,16 +219,6 @@ class TradingGooseClient:
                 raise TradingGooseError(error_message, error_code, response.status_code)
 
             result_data = response.json()
-
-            # Check if this is an async execution response (202 status)
-            if response.status_code == 202 and 'taskId' in result_data:
-                return AsyncExecutionResult(
-                    success=result_data.get('success', True),
-                    task_id=result_data['taskId'],
-                    status=result_data.get('status', 'queued'),
-                    created_at=result_data.get('createdAt', ''),
-                    links=result_data.get('links', {})
-                )
 
             return WorkflowExecutionResult(
                 success=result_data['success'],
@@ -319,37 +292,6 @@ class TradingGooseClient:
         except TradingGooseError:
             return False
     
-    def execute_workflow_sync(
-        self,
-        workflow_id: str,
-        input_data: Optional[Dict[str, Any]] = None,
-        timeout: float = 30.0,
-        stream: Optional[bool] = None,
-        selected_outputs: Optional[list] = None
-    ) -> WorkflowExecutionResult:
-        """
-        Execute a workflow and poll for completion (useful for long-running workflows).
-
-        Note: Currently, the API is synchronous, so this method just calls execute_workflow.
-        In the future, if async execution is added, this method can be enhanced.
-
-        Args:
-            workflow_id: The ID of the workflow to execute
-            input_data: Input data to pass to the workflow (can include file-like objects)
-            timeout: Timeout for the initial request in seconds
-            stream: Enable streaming responses (default: None)
-            selected_outputs: Block outputs to stream (e.g., ["agent1.content"])
-
-        Returns:
-            WorkflowExecutionResult object containing the execution result
-
-        Raises:
-            TradingGooseError: If the workflow execution fails
-        """
-        # For now, the API is synchronous, so we just execute directly
-        # In the future, if async execution is added, this method can be enhanced
-        return self.execute_workflow(workflow_id, input_data, timeout, stream, selected_outputs)
-    
     def set_api_key(self, api_key: str) -> None:
         """
         Update the API key.
@@ -373,42 +315,6 @@ class TradingGooseClient:
         """Close the underlying HTTP session."""
         self._session.close()
 
-    def get_job_status(self, task_id: str) -> Dict[str, Any]:
-        """
-        Get the status of an async job.
-
-        Args:
-            task_id: The task ID returned from async execution
-
-        Returns:
-            Dictionary containing the job status
-
-        Raises:
-            TradingGooseError: If getting the status fails
-        """
-        url = f"{self.base_url}/api/jobs/{task_id}"
-
-        try:
-            response = self._session.get(url)
-
-            self._update_rate_limit_info(response)
-
-            if not response.ok:
-                try:
-                    error_data = response.json()
-                    error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
-                    error_code = error_data.get('code')
-                except (ValueError, KeyError):
-                    error_message = f'HTTP {response.status_code}: {response.reason}'
-                    error_code = None
-
-                raise TradingGooseError(error_message, error_code, response.status_code)
-
-            return response.json()
-
-        except requests.RequestException as e:
-            raise TradingGooseError(f'Failed to get job status: {str(e)}', 'STATUS_ERROR')
-
     def execute_with_retry(
         self,
         workflow_id: str,
@@ -416,12 +322,11 @@ class TradingGooseClient:
         timeout: float = 30.0,
         stream: Optional[bool] = None,
         selected_outputs: Optional[list] = None,
-        async_execution: Optional[bool] = None,
         max_retries: int = 3,
         initial_delay: float = 1.0,
         max_delay: float = 30.0,
         backoff_multiplier: float = 2.0
-    ) -> Union[WorkflowExecutionResult, AsyncExecutionResult]:
+    ) -> WorkflowExecutionResult:
         """
         Execute workflow with automatic retry on rate limit.
 
@@ -431,14 +336,13 @@ class TradingGooseClient:
             timeout: Timeout in seconds
             stream: Enable streaming responses
             selected_outputs: Block outputs to stream
-            async_execution: Execute asynchronously
             max_retries: Maximum number of retries (default: 3)
             initial_delay: Initial delay in seconds (default: 1.0)
             max_delay: Maximum delay in seconds (default: 30.0)
             backoff_multiplier: Backoff multiplier (default: 2.0)
 
         Returns:
-            WorkflowExecutionResult or AsyncExecutionResult object
+            WorkflowExecutionResult object
 
         Raises:
             TradingGooseError: If max retries exceeded or other error occurs
@@ -454,7 +358,6 @@ class TradingGooseClient:
                     timeout,
                     stream,
                     selected_outputs,
-                    async_execution
                 )
             except TradingGooseError as e:
                 if e.code != 'RATE_LIMIT_EXCEEDED':

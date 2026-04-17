@@ -6,7 +6,6 @@ import {
   removePublishedChatsForWorkflowTx,
 } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 import { deployWorkflow, loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
@@ -35,8 +34,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return createErrorResponse(error.message, error.status)
     }
 
-    const asyncExecutionEnabled = await isTriggerExecutionEnabled()
-
     if (!workflowData.isDeployed) {
       logger.info(`[${requestId}] Workflow is not deployed: ${id}`)
       return createSuccessResponse({
@@ -46,7 +43,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         pinnedApiKeyId: null,
         needsRedeployment: false,
         hasReusableApiKey: false,
-        asyncExecutionEnabled,
       })
     }
 
@@ -120,7 +116,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       deployedAt: workflowData.deployedAt,
       needsRedeployment,
       hasReusableApiKey,
-      asyncExecutionEnabled,
     })
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching deployment info: ${id}`, error)

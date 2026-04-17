@@ -11,7 +11,6 @@ interface WorkflowDeploymentInfo {
   apiKey: string
   endpoint: string
   exampleCommand: string
-  asyncExecutionEnabled: boolean
 }
 
 interface DeploymentInfoProps {
@@ -75,7 +74,6 @@ export function DeploymentInfo({
               endpoint={deploymentInfo.endpoint}
               getInputFormatExample={getInputFormatExample}
               workflowId={workflowId}
-              asyncExecutionEnabled={deploymentInfo.asyncExecutionEnabled}
               selectedStreamingOutputs={selectedStreamingOutputs}
               onSelectedStreamingOutputsChange={onSelectedStreamingOutputsChange}
             />

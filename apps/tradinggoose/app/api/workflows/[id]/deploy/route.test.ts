@@ -6,7 +6,6 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockValidateWorkflowPermissions = vi.fn()
-const mockIsTriggerExecutionEnabled = vi.fn()
 const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockDbLimit = vi.fn()
 
@@ -15,7 +14,6 @@ describe('Workflow Deploy API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    mockIsTriggerExecutionEnabled.mockResolvedValue(true)
     mockLoadWorkflowStateWithFallback.mockResolvedValue(null)
     mockDbLimit.mockReset()
 
@@ -30,10 +28,6 @@ describe('Workflow Deploy API Route', () => {
 
     vi.doMock('@/lib/utils', () => ({
       generateRequestId: vi.fn(() => 'request-id'),
-    }))
-
-    vi.doMock('@/lib/trigger/settings', () => ({
-      isTriggerExecutionEnabled: (...args: unknown[]) => mockIsTriggerExecutionEnabled(...args),
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -109,7 +103,7 @@ describe('Workflow Deploy API Route', () => {
     }))
   })
 
-  it('includes asyncExecutionEnabled when the workflow is not deployed', async () => {
+  it('returns deployment info when the workflow is not deployed', async () => {
     mockValidateWorkflowPermissions.mockResolvedValueOnce({
       error: null,
       workflow: {
@@ -118,7 +112,6 @@ describe('Workflow Deploy API Route', () => {
         isDeployed: false,
       },
     })
-    mockIsTriggerExecutionEnabled.mockResolvedValueOnce(true)
 
     const { GET } = await import('./route')
     const response = await GET(
@@ -130,11 +123,11 @@ describe('Workflow Deploy API Route', () => {
     expect(response.status).toBe(200)
     expect(payload).toMatchObject({
       isDeployed: false,
-      asyncExecutionEnabled: true,
+      hasReusableApiKey: false,
     })
   })
 
-  it('includes asyncExecutionEnabled when the workflow is already deployed', async () => {
+  it('returns deployment info when the workflow is already deployed', async () => {
     mockValidateWorkflowPermissions.mockResolvedValueOnce({
       error: null,
       workflow: {
@@ -146,7 +139,6 @@ describe('Workflow Deploy API Route', () => {
         lastSynced: new Date('2026-04-13T00:00:00.000Z').toISOString(),
       },
     })
-    mockIsTriggerExecutionEnabled.mockResolvedValueOnce(false)
     mockDbLimit
       .mockResolvedValueOnce([
         {
@@ -172,7 +164,6 @@ describe('Workflow Deploy API Route', () => {
     expect(payload).toMatchObject({
       isDeployed: true,
       apiKey: 'Primary key (personal)',
-      asyncExecutionEnabled: false,
     })
   })
 })

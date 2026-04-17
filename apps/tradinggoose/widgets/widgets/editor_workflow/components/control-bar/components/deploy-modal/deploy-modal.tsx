@@ -101,7 +101,6 @@ interface WorkflowDeploymentInfo {
   exampleCommand: string
   needsRedeployment: boolean
   hasReusableApiKey: boolean
-  asyncExecutionEnabled: boolean
 }
 
 interface DeployFormValues {
@@ -850,7 +849,6 @@ export function DeployModal({
           exampleCommand: `curl -X POST -H "X-API-Key: ${data.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${endpoint}`,
           needsRedeployment,
           hasReusableApiKey: Boolean(data.hasReusableApiKey),
-          asyncExecutionEnabled: Boolean(data.asyncExecutionEnabled),
         })
       } catch (error) {
         logger.error('Error fetching deployment info:', { error })
@@ -931,7 +929,6 @@ export function DeployModal({
           exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
           needsRedeployment: isActivatingVersion,
           hasReusableApiKey: Boolean(deploymentData.hasReusableApiKey),
-          asyncExecutionEnabled: Boolean(deploymentData.asyncExecutionEnabled),
         })
       }
 

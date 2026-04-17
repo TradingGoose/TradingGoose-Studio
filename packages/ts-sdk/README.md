@@ -96,25 +96,6 @@ if (isReady) {
 
 **Returns:** `Promise<boolean>`
 
-##### executeWorkflowSync(workflowId, options?)
-
-Execute a workflow and poll for completion (useful for long-running workflows).
-
-```typescript
-const result = await client.executeWorkflowSync('workflow-id', {
-  input: { data: 'some input' },
-  timeout: 60000
-});
-```
-
-**Parameters:**
-- `workflowId` (string): The ID of the workflow to execute
-- `options` (ExecutionOptions, optional):
-  - `input` (any): Input data to pass to the workflow
-  - `timeout` (number): Timeout for the initial request in milliseconds
-
-**Returns:** `Promise<WorkflowExecutionResult>`
-
 ##### setApiKey(apiKey)
 
 Update the API key.
