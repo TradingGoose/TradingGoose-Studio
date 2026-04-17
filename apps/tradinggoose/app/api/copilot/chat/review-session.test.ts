@@ -341,7 +341,7 @@ describe('Copilot Chat Review Session GET', () => {
     expect(mockSelect).not.toHaveBeenCalled()
   })
 
-  it('hydrates messages for panel-scoped generic copilot chat lists', async () => {
+  it('hydrates messages for workspace-scoped generic copilot chat lists', async () => {
     mockSelect.mockReset()
     mockSelect
       .mockReturnValueOnce({ from: mockFromSessions })

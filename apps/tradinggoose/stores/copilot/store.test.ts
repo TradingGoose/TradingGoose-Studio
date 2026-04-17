@@ -2329,6 +2329,58 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isSendingMessage).toBe(false)
   })
 
+  it('aborts reviewed tool calls even when no stream is active', () => {
+    const channelId = 'copilot-abort-reviewed-tool'
+    const toolCallId = 'reviewed-tool'
+    const store = getCopilotStore(channelId)
+
+    store.setState({
+      messages: [
+        {
+          id: 'assistant-message',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-03-30T00:00:00.000Z',
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: toolCallId,
+                name: 'edit_workflow',
+                state: ClientToolCallState.review,
+                params: { workflowDocument: 'flowchart TD' },
+              },
+            },
+          ],
+        },
+      ],
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'edit_workflow',
+          state: ClientToolCallState.review,
+          params: { workflowDocument: 'flowchart TD' },
+          provenance: {
+            channelId,
+            workflowId: 'wf-review-abort',
+          },
+        } as any,
+      },
+      isSendingMessage: false,
+      abortController: null,
+    })
+
+    store.getState().abortMessage()
+
+    const reviewedBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
+
+    expect(reviewedBlock?.toolCall?.state).toBe(ClientToolCallState.aborted)
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
+    expect(store.getState().isSendingMessage).toBe(false)
+    expect(store.getState().isAborting).toBe(false)
+  })
+
   it('loads generic chats with an explicit workspace scope even before live context is hydrated', async () => {
     const channelId = 'copilot-workspace-scoped-history'
     const store = getCopilotStore(channelId)
@@ -2378,7 +2430,7 @@ describe('copilot streaming regressions', () => {
         'workspace-1'
       )}`
     )
-    expect(store.getState().chatsLoadedForScope).toBe(`workspace-1:${channelId}`)
+    expect(store.getState().chatsLoadedForScope).toBe('workspace-1')
   })
 })
 

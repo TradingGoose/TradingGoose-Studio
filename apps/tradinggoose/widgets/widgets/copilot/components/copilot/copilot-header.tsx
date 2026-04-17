@@ -176,7 +176,13 @@ function ChatHistoryGroup({
   )
 }
 
-export function CopilotHeader({ channelId }: { channelId: string }) {
+export function CopilotHeader({
+  channelId,
+  workspaceId,
+}: {
+  channelId: string
+  workspaceId?: string
+}) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
@@ -186,10 +192,21 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const { currentChat, chats, isLoadingChats, isSendingMessage } = state
-  const grouped = groupChats(chats || [])
+  const scopedChats = useMemo(
+    () =>
+      (chats || []).filter(
+        (chat) => (chat.workspaceId ?? null) === (workspaceId ?? null)
+      ),
+    [chats, workspaceId]
+  )
+  const scopedCurrentChat =
+    currentChat && (currentChat.workspaceId ?? null) === (workspaceId ?? null)
+      ? currentChat
+      : null
+  const grouped = groupChats(scopedChats)
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
+    if (scopedCurrentChat?.reviewSessionId === chat.reviewSessionId) return
     try {
       await store.getState().selectChat(chat)
     } catch {}
@@ -200,11 +217,13 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   }
 
   const handleRefresh = async () => {
-    await store.getState().loadChats(true)
+    await store.getState().loadChats(true, { workspaceId: workspaceId ?? null })
   }
 
-  const title = currentChat?.title || 'New Chat'
-  const deleteChat = deleteChatId ? chats.find((chat) => chat.reviewSessionId === deleteChatId) : null
+  const title = scopedCurrentChat?.title || 'New Chat'
+  const deleteChat = deleteChatId
+    ? scopedChats.find((chat) => chat.reviewSessionId === deleteChatId)
+    : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
       return <div className='p-3 text-sm text-muted-foreground'>Loading…</div>

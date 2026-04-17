@@ -69,27 +69,8 @@ import type {
 
 const logger = createLogger('CopilotStore')
 
-function buildPanelScopedGenericCopilotChatKey(
-  channelId: string | null | undefined,
-  workspaceId?: string | null
-) {
-  if (!channelId) {
-    return null
-  }
-
-  return `${workspaceId ?? 'global'}:${channelId}`
-}
-
-function isPanelScopedGenericCopilotChat(
-  chat: CopilotChat,
-  channelId: string | undefined,
-  workspaceId?: string | null
-) {
-  return (
-    chat.channelId === (channelId ?? DEFAULT_COPILOT_CHANNEL_ID) &&
-    (chat.workspaceId ?? null) === (workspaceId ?? null) &&
-    (!chat.entityKind || chat.entityKind === COPILOT_SESSION_KIND)
-  )
+function buildWorkspaceScopedGenericCopilotChatKey(workspaceId?: string | null) {
+  return workspaceId ?? 'global'
 }
 
 // Constants
@@ -385,7 +366,11 @@ async function postCopilotMarkComplete(params: {
 }
 
 // Helper: abort all in-progress client tools and keep message-level tool state aligned.
-function abortAllInProgressTools(set: any, get: () => CopilotStore) {
+function abortAllInProgressTools(
+  set: any,
+  get: () => CopilotStore,
+  options?: { includeReview?: boolean }
+) {
   try {
     const { toolCallsById } = get()
     const updatedMap = { ...toolCallsById }
@@ -397,7 +382,7 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
         st === ClientToolCallState.error ||
         st === ClientToolCallState.rejected ||
         st === ClientToolCallState.aborted ||
-        isReviewState(st)
+        (!options?.includeReview && isReviewState(st))
       if (!isTerminal) {
         abortedIds.push(id)
         updatedMap[id] = {
@@ -1595,8 +1580,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           } catch {}
         }
 
-        // Generic copilot keeps prior chats in panel history. "New chat" only clears
-        // the active selection so the next send creates a fresh session for this panel.
+        // Generic copilot keeps prior chats in workspace history. "New chat"
+        // only clears the active selection so the next send creates a fresh
+        // session in the same workspace bucket.
         logger.info('[Context Usage] New chat created, clearing context usage')
         set(() => ({
           currentChat: null,
@@ -1643,10 +1629,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       loadChats: async (_forceRefresh = false, options) => {
         const { liveContext, currentChat } = get()
         const resolvedWorkspaceId = options?.workspaceId ?? liveContext.workspaceId
-        const channelScopeKey = buildPanelScopedGenericCopilotChatKey(
-          storeChannelId,
-          resolvedWorkspaceId
-        )
+        const channelScopeKey = buildWorkspaceScopedGenericCopilotChatKey(resolvedWorkspaceId)
 
         if (!channelScopeKey) {
           set({
@@ -1764,9 +1747,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           messageId?: string
         }
 
-        // Generic copilot chat persistence is panel-scoped. The user's currently viewed
-        // workflow/entity is attached here as live per-turn context instead of changing
-        // the underlying chat thread when the panel view changes.
+        // Generic copilot chat persistence is workspace-scoped. The user's
+        // currently viewed workflow/entity is attached here as live per-turn
+        // context instead of changing the underlying chat thread when the
+        // current UI target changes.
         const resolvedContexts = mergeCopilotContexts({
           explicitContexts: contexts,
           implicitContexts,
@@ -1927,8 +1911,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
       // Abort streaming
       abortMessage: () => {
-        const { abortController, isSendingMessage, messages } = get()
-        if (!isSendingMessage) return
+        const { abortController, currentChat, isSendingMessage, messages, toolCallsById } = get()
+        const hasPendingReview = Object.values(toolCallsById).some((toolCall) =>
+          isReviewState(toolCall.state)
+        )
+        if (!isSendingMessage && !isChatTurnInProgress(currentChat) && !hasPendingReview) return
         set({ isAborting: true })
         try {
           abortController?.abort()
@@ -1960,7 +1947,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           }
 
           // Immediately put all in-progress tools into aborted state
-          abortAllInProgressTools(set, get)
+          abortAllInProgressTools(set, get, { includeReview: true })
 
           const { currentChat } = get()
           if (currentChat) {

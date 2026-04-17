@@ -100,8 +100,9 @@ const CopilotAppContent = ({
   } | null>(null)
   const lastRejectedResolutionKeyRef = useRef<string | null>(null)
   const pairContextRef = useRef(pairContext)
-  // Copilot threads stay channel-scoped. Editable entity sessions are mounted
-  // only from explicit review targets; ambient current_* context is read-only.
+  // Copilot history stays in the workspace-scoped generic channel. Editable
+  // entity sessions are mounted only from explicit review targets; ambient
+  // current_* context is read-only.
   const entityTargetResolution = useMemo(() => {
     const immediate: ReviewTargetDescriptor[] = []
     const unresolved: CopilotEditableReviewTarget[] = []

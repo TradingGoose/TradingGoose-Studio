@@ -114,9 +114,16 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       selectedModel,
       setSelectedModel,
       currentChat,
+      toolCallsById,
       fetchContextUsage,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
+    const hasPendingToolReview = useMemo(
+      () => Object.values(toolCallsById).some((toolCall) => toolCall.state === 'review'),
+      [toolCallsById]
+    )
+    const isTurnInProgress =
+      isSendingMessage || currentChat?.latestTurnStatus === 'in_progress' || hasPendingToolReview
 
     useLayoutEffect(() => {
       const storeState = copilotStoreApi.getState()
@@ -429,7 +436,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         fileAttachments?: MessageFileAttachment[],
         contexts?: ChatContext[]
       ) => {
-        if (!query || isSendingMessage) return
+        if (!query || isTurnInProgress) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -452,7 +459,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [isSendingMessage, sendMessage, showPlanTodos, copilotStoreApi]
+      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -486,7 +493,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                     ref={messagesContainerRef}
                     className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
                   >
-                    {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
+                    {messages.length === 0 && !isTurnInProgress && !isEditingMessage ? (
                       <div className='flex h-full items-center justify-center p-4'>
                         <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
                       </div>
@@ -548,7 +555,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
                   disabled={inputDisabled}
-                  isLoading={isSendingMessage}
+                  isLoading={isTurnInProgress}
                   isAborting={isAborting}
                   accessLevel={accessLevel}
                   onAccessLevelChange={setAccessLevel}

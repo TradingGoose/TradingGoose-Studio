@@ -114,9 +114,9 @@ function getPersistedReviewMessageId(message: ReviewMessageApi | Record<string, 
   return ''
 }
 
-// Generic copilot chats are grouped by widget panel channel + workspace for
-// history lists. Creating a new generic chat inserts a fresh session unless a
-// specific reviewSessionId is explicitly supplied by the client.
+// Generic copilot chats are grouped by workspace for history lists. Creating a
+// new generic chat inserts a fresh session unless a specific reviewSessionId is
+// explicitly supplied by the client.
 
 /**
  * Persists user + assistant messages and updates the review session in a single transaction.
@@ -796,9 +796,9 @@ export async function POST(req: NextRequest) {
       if (!model || typeof model !== 'string') {
         return createBadRequestResponse('model is required when creating a new review session')
       }
-      // Generic copilot supports multiple chats per panel. When the client omits
-      // reviewSessionId, this route always creates a fresh session in that panel's
-      // history bucket instead of reusing the latest channel-matched row.
+      // Generic copilot supports multiple chats per workspace. When the client
+      // omits reviewSessionId, this route always creates a fresh session in
+      // that workspace's history bucket instead of reusing the latest row.
       const [newSession] = await db
         .insert(copilotReviewSessions)
         .values({
@@ -1379,7 +1379,6 @@ export async function GET(req: NextRequest) {
           and(
             eq(copilotReviewSessions.userId, authenticatedUserId),
             eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND),
-            eq(copilotReviewSessions.channelId, channelId!),
             workspaceId
               ? eq(copilotReviewSessions.workspaceId, workspaceId)
               : isNull(copilotReviewSessions.workspaceId)
@@ -1436,7 +1435,7 @@ export async function GET(req: NextRequest) {
     )
 
     logger.info(
-      `Retrieved ${transformedChats.length} review sessions for ${channelId ? `channel ${channelId}` : `session ${reviewSessionId}`}`
+      `Retrieved ${transformedChats.length} review sessions for ${reviewSessionId ? `session ${reviewSessionId}` : `workspace ${workspaceId ?? 'global'}`}`
     )
 
     return NextResponse.json({

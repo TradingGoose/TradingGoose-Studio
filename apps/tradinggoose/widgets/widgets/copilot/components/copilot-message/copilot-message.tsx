@@ -76,6 +76,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       abortMessage,
       accessLevel,
       setAccessLevel,
+      toolCallsById,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
 
@@ -91,10 +92,17 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return messages[messages.length - 1]?.id === message.id
     }, [messages, message.id])
 
-    const isLatestTurnInProgress =
-      isLastMessage &&
-      (isStreaming || isSendingMessage || currentChat?.latestTurnStatus === 'in_progress')
+    const hasPendingToolReview = useMemo(
+      () => Object.values(toolCallsById).some((toolCall) => toolCall.state === 'review'),
+      [toolCallsById]
+    )
+    const isTurnInProgress =
+      isStreaming ||
+      isSendingMessage ||
+      currentChat?.latestTurnStatus === 'in_progress' ||
+      hasPendingToolReview
     const isMessageTyping = typingSegmentKeys.length > 0
+    const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
 
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
@@ -291,7 +299,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       }
 
       // If a stream is in progress, abort it first
-      if (isSendingMessage) {
+      if (isTurnInProgress) {
         abortMessage()
         // Wait a brief moment for abort to complete
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -666,7 +674,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 workspaceId={currentChat?.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
                 onAbort={handleCancelEdit}
-                isLoading={isSendingMessage && isLastUserMessage}
+                isLoading={isTurnInProgress && isLastUserMessage}
                 disabled={false}
                 value={editedContent}
                 onChange={setEditedContent}
@@ -829,7 +837,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                   <div className='absolute right-0 bottom-0 left-0 h-full rounded-b-lg bg-gradient-to-t from-background/60 to-transparent' />
                 )}
                 {/* Abort button when hovering and response is generating (only on last user message) */}
-                {isSendingMessage && isHoveringMessage && isLastUserMessage && (
+                {isTurnInProgress && isHoveringMessage && isLastUserMessage && (
                   <div className='absolute right-2 bottom-2'>
                     <button
                       onClick={(e) => {
@@ -872,7 +880,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             )}
 
             {/* Action buttons for completed messages */}
-            {!isLatestTurnInProgress && !isMessageTyping && cleanTextContent && (
+            {!shouldHidePostTurnControls && cleanTextContent && (
               <div className='flex items-center gap-1'>
                 <button
                   onClick={handleCopyContent}
@@ -939,7 +947,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 hasOptions: Boolean(options && Object.keys(options).length > 0),
               })
               const isOptionsReady =
-                !isLatestTurnInProgress && !isMessageTyping && parsedTags?.optionsComplete === true
+                !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
 
               if (!shouldRenderOptions || !options || !isOptionsReady) return null
 

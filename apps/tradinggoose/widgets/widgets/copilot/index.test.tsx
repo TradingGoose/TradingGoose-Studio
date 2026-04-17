@@ -66,7 +66,7 @@ describe('copilotWidget', () => {
       )
     })
 
-    expect(container.textContent).toContain('copilot-panel-1')
+    expect(container.textContent).toContain('copilot')
   })
 
   it('renders the copilot app without passing any review-target props', async () => {
@@ -102,14 +102,14 @@ describe('copilotWidget', () => {
     expect(copilotAppPropsSpy).toHaveBeenCalled()
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
-      channelId: 'copilot-panel-1',
+      channelId: 'copilot',
       pairColor: 'blue',
     })
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTargetMode')
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewSessionId')
   })
 
-  it('keeps linked copilot history on the panel channel instead of splitting by pair color', async () => {
+  it('keeps linked copilot history on the generic copilot channel instead of splitting by pair color', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
@@ -132,7 +132,7 @@ describe('copilotWidget', () => {
     })
 
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
-      channelId: 'copilot-panel-1',
+      channelId: 'copilot',
       pairColor: 'red',
     })
   })
@@ -161,12 +161,12 @@ describe('copilotWidget', () => {
 
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
-      channelId: 'copilot-panel-1',
+      channelId: 'copilot',
       pairColor: 'gray',
     })
   })
 
-  it('uses the panel channel when the widget is unpaired', async () => {
+  it('uses the generic copilot channel when the widget is unpaired', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
@@ -190,7 +190,7 @@ describe('copilotWidget', () => {
 
     expect(container.querySelector('[data-testid="copilot-app"]')).not.toBeNull()
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
-      channelId: 'copilot-panel-42',
+      channelId: 'copilot',
       pairColor: 'gray',
     })
   })
