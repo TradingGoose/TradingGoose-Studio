@@ -5,7 +5,8 @@ import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
-import { ensureTriggerExecutionEnabled } from '@/lib/trigger/settings'
+import { createLogger } from '@/lib/logs/console/logger'
+import { getTriggerExecutionState } from '@/lib/trigger/settings'
 
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
 export const PENDING_EXECUTION_RETRY_DELAY_MS = 15_000
@@ -13,6 +14,9 @@ export const PENDING_EXECUTION_RETRY_DELAY_MS = 15_000
 const CLAIM_ATTEMPT_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+const logger = createLogger('PendingExecutionQueue')
+
+let warnedLocalExecution = false
 
 export type PendingExecutionType =
   | 'workflow'
@@ -102,7 +106,8 @@ function isPendingExecutionPayload(
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert,
 ): Promise<PendingExecutionHandle> {
-  await ensureTriggerExecutionEnabled()
+  const triggerState = await getTriggerExecutionState()
+  const useTriggerDev = triggerState.executionEnabled
   let inserted = false
 
   const billingEnabled = await isBillingEnabledForRuntime()
@@ -204,22 +209,39 @@ export async function enqueuePendingExecution(
     inserted = true
   })
 
-  try {
-    await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
+  if (useTriggerDev) {
+    try {
+      await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
+        billingScopeId,
+      })
+    } catch (error) {
+      if (inserted) {
+        await db
+          .delete(pendingExecution)
+          .where(
+            and(
+              eq(pendingExecution.id, params.pendingExecutionId),
+              eq(pendingExecution.status, 'pending'),
+            ),
+          )
+      }
+      throw error
+    }
+  } else {
+    if (!triggerState.configurationReady && !warnedLocalExecution) {
+      warnedLocalExecution = true
+      logger.warn(
+        'Trigger.dev is not configured; draining pending executions locally.',
+      )
+    }
+
+    const { drainPendingExecutionsForBillingScope } = await import(
+      '@/background/pending-execution-drain'
+    )
+
+    await drainPendingExecutionsForBillingScope({
       billingScopeId,
     })
-  } catch (error) {
-    if (inserted) {
-      await db
-        .delete(pendingExecution)
-        .where(
-          and(
-            eq(pendingExecution.id, params.pendingExecutionId),
-            eq(pendingExecution.status, 'pending'),
-          ),
-        )
-    }
-    throw error
   }
 
   return {

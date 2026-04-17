@@ -41,6 +41,15 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
+type PendingExecutionDrainOptions = {
+  waitForRetry?: (delayMs: number) => Promise<void>
+}
+
+const sleep = (delayMs: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs)
+  })
+
 const isTransientPendingExecutionError = (error: unknown) =>
   isExecutionConcurrencyLimitError(error) ||
   isExecutionConcurrencyBackendUnavailableError(error) ||
@@ -126,71 +135,81 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
   }
 }
 
+export async function drainPendingExecutionsForBillingScope(
+  payload: PendingExecutionDrainPayload,
+  options: PendingExecutionDrainOptions = {},
+) {
+  let lastPendingExecutionId: string | undefined
+  let hadFailure = false
+  let wasDeferred = false
+  let hasDeferredWork = false
+  const waitForRetry = options.waitForRetry ?? sleep
+
+  while (true) {
+    const row = await claimNextPendingExecution(payload.billingScopeId)
+
+    if (!row) {
+      if (hasDeferredWork) {
+        hasDeferredWork = false
+        await waitForRetry(PENDING_EXECUTION_RETRY_DELAY_MS)
+        continue
+      }
+
+      if (!lastPendingExecutionId) {
+        return { success: true, skipped: 'empty' as const }
+      }
+
+      return {
+        success: !hadFailure,
+        pendingExecutionId: lastPendingExecutionId,
+        ...(wasDeferred ? { skipped: 'deferred' as const } : {}),
+      }
+    }
+
+    lastPendingExecutionId = row.id
+
+    try {
+      await dispatchPendingExecution(row)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Pending execution failed'
+
+      if (isTransientPendingExecutionError(error)) {
+        await retryPendingExecution({
+          pendingExecutionId: row.id,
+          errorMessage,
+          delayMs: PENDING_EXECUTION_RETRY_DELAY_MS,
+        })
+        wasDeferred = true
+        hasDeferredWork = true
+        continue
+      }
+
+      await failPendingExecution({
+        pendingExecutionId: row.id,
+        errorMessage,
+      })
+
+      logger.error('Pending execution failed', {
+        pendingExecutionId: row.id,
+        executionType: row.executionType,
+        workflowId: row.workflowId,
+        error,
+      })
+
+      hadFailure = true
+    }
+  }
+}
+
 export const pendingExecutionDrain = task({
   id: PENDING_EXECUTION_DRAIN_TASK_ID,
   retry: {
     maxAttempts: 1,
   },
   run: async (payload: PendingExecutionDrainPayload) => {
-    let lastPendingExecutionId: string | undefined
-    let hadFailure = false
-    let wasDeferred = false
-    let hasDeferredWork = false
-
-    while (true) {
-      const row = await claimNextPendingExecution(payload.billingScopeId)
-
-      if (!row) {
-        if (hasDeferredWork) {
-          hasDeferredWork = false
-          await wait.for({ seconds: PENDING_EXECUTION_RETRY_DELAY_MS / 1000 })
-          continue
-        }
-
-        if (!lastPendingExecutionId) {
-          return { success: true, skipped: 'empty' as const }
-        }
-
-        return {
-          success: !hadFailure,
-          pendingExecutionId: lastPendingExecutionId,
-          ...(wasDeferred ? { skipped: 'deferred' as const } : {}),
-        }
-      }
-
-      lastPendingExecutionId = row.id
-
-      try {
-        await dispatchPendingExecution(row)
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Pending execution failed'
-
-        if (isTransientPendingExecutionError(error)) {
-          await retryPendingExecution({
-            pendingExecutionId: row.id,
-            errorMessage,
-            delayMs: PENDING_EXECUTION_RETRY_DELAY_MS,
-          })
-          wasDeferred = true
-          hasDeferredWork = true
-          continue
-        }
-
-        await failPendingExecution({
-          pendingExecutionId: row.id,
-          errorMessage,
-        })
-
-        logger.error('Pending execution failed', {
-          pendingExecutionId: row.id,
-          executionType: row.executionType,
-          workflowId: row.workflowId,
-          error,
-        })
-
-        hadFailure = true
-      }
-    }
+    return drainPendingExecutionsForBillingScope(payload, {
+      waitForRetry: (delayMs) => wait.for({ seconds: delayMs / 1000 }),
+    })
   },
 })
