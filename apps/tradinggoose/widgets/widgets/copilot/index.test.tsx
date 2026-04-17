@@ -16,7 +16,11 @@ vi.mock('./components/copilot-app', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
     copilotAppPropsSpy(props)
-    return <button type='button' data-testid='copilot-app'>copilot-app</button>
+    return (
+      <button type='button' data-testid='copilot-app'>
+        copilot-app
+      </button>
+    )
   },
 }))
 
@@ -98,14 +102,14 @@ describe('copilotWidget', () => {
     expect(copilotAppPropsSpy).toHaveBeenCalled()
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
-      channelId: 'pair-blue',
+      channelId: 'copilot-panel-1',
       pairColor: 'blue',
     })
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTargetMode')
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewSessionId')
   })
 
-  it('uses the stable pair channel for linked copilot history instead of a panel-specific suffix', async () => {
+  it('keeps linked copilot history on the panel channel instead of splitting by pair color', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
@@ -128,7 +132,7 @@ describe('copilotWidget', () => {
     })
 
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
-      channelId: 'pair-red',
+      channelId: 'copilot-panel-1',
       pairColor: 'red',
     })
   })

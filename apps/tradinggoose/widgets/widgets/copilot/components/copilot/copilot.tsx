@@ -47,17 +47,9 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  (
-    {
-      workspaceId,
-      panelWidth,
-      channelId,
-      pairColor = 'gray',
-      inputDisabled = false,
-    },
-    ref
-  ) => {
+  ({ workspaceId, panelWidth, channelId, pairColor = 'gray', inputDisabled = false }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [isInitialized, setIsInitialized] = useState(false)
     const [todosCollapsed, setTodosCollapsed] = useState(false)
@@ -142,8 +134,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         currentLiveContext.reviewTarget?.entityId !== liveContext.reviewTarget?.entityId ||
         currentLiveContext.reviewTarget?.reviewSessionId !==
           liveContext.reviewTarget?.reviewSessionId ||
-        currentLiveContext.reviewTarget?.draftSessionId !==
-          liveContext.reviewTarget?.draftSessionId
+        currentLiveContext.reviewTarget?.draftSessionId !== liveContext.reviewTarget?.draftSessionId
       ) {
         nextState.liveContext = liveContext
       }
@@ -201,7 +192,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
 
     // Scroll to bottom function
-    const scrollToBottom = useCallback(() => {
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
       if (scrollAreaRef.current) {
         const scrollContainer = scrollAreaRef.current.querySelector(
           '[data-radix-scroll-area-viewport]'
@@ -211,7 +202,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           isUserScrollingRef.current = false
           scrollContainer.scrollTo({
             top: scrollContainer.scrollHeight,
-            behavior: 'smooth',
+            behavior,
           })
         }
       }
@@ -276,6 +267,30 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }
     }, [handleScroll])
 
+    useEffect(() => {
+      const messagesContainer = messagesContainerRef.current
+      if (!messagesContainer || typeof ResizeObserver === 'undefined') return
+
+      const observer = new ResizeObserver(() => {
+        const shouldAutoScroll =
+          (isSendingMessage && !userHasScrolledDuringStream) || (!isSendingMessage && isNearBottom)
+
+        if (!shouldAutoScroll) {
+          return
+        }
+
+        requestAnimationFrame(() => {
+          scrollToBottom('auto')
+        })
+      })
+
+      observer.observe(messagesContainer)
+
+      return () => {
+        observer.disconnect()
+      }
+    }, [isNearBottom, isSendingMessage, scrollToBottom, userHasScrolledDuringStream])
+
     // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
     useEffect(() => {
       if (messages.length === 0) return
@@ -292,20 +307,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         (isSendingMessage && !userHasScrolledDuringStream) ||
         (!isSendingMessage && isNearBottom)
 
-      if (shouldAutoScroll && scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector(
-          '[data-radix-scroll-area-viewport]'
-        )
-        if (scrollContainer) {
-          // Mark that we're programmatically scrolling
-          isUserScrollingRef.current = false
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth',
-          })
-        }
+      if (shouldAutoScroll) {
+        scrollToBottom('smooth')
       }
-    }, [messages, isNearBottom, isSendingMessage, userHasScrolledDuringStream])
+    }, [isNearBottom, isSendingMessage, messages, scrollToBottom, userHasScrolledDuringStream])
 
     // Reset user scroll state when streaming starts or when user sends a message
     useEffect(() => {
@@ -477,7 +482,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                   viewportClassName={COPILOT_MESSAGE_VIEWPORT_CLASSNAME}
                   hideScrollbar={true}
                 >
-                  <div className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'>
+                  <div
+                    ref={messagesContainerRef}
+                    className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
+                  >
                     {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
                       <div className='flex h-full items-center justify-center p-4'>
                         <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />

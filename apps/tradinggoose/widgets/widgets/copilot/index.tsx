@@ -8,6 +8,25 @@ import CopilotApp from './components/copilot-app'
 
 const COPILOT_WIDGET_KEY = 'copilot'
 
+const resolveCopilotWidgetScope = ({
+  pairColor,
+  panelId,
+  widget,
+}: Pick<WidgetComponentProps, 'pairColor' | 'panelId' | 'widget'>) => {
+  const { resolvedPairColor, widgetKey } = resolveWidgetChannel({
+    pairColor,
+    widget,
+    panelId,
+    fallbackWidgetKey: COPILOT_WIDGET_KEY,
+  })
+  const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
+
+  return {
+    resolvedPairColor,
+    channelId: `${widgetKey}-${normalizedPanelId}`,
+  }
+}
+
 const CopilotHeaderActionSlot = ({
   channelId,
   widget,
@@ -25,11 +44,10 @@ const CopilotWidgetBody = ({
   widget,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
-  const { channelId, resolvedPairColor } = resolveWidgetChannel({
+  const { channelId, resolvedPairColor } = resolveCopilotWidgetScope({
     pairColor,
     widget,
     panelId,
-    fallbackWidgetKey: COPILOT_WIDGET_KEY,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -77,11 +95,10 @@ export const copilotWidget: DashboardWidgetDefinition = {
   description: 'AI copilot experience across workflows and workspace tools.',
   component: (props) => <CopilotWidgetBody {...props} />,
   renderHeader: ({ widget, panelId }) => {
-    const { channelId } = resolveWidgetChannel({
+    const { channelId } = resolveCopilotWidgetScope({
       pairColor: widget?.pairColor ?? 'gray',
       widget,
       panelId,
-      fallbackWidgetKey: COPILOT_WIDGET_KEY,
     })
 
     return {

@@ -930,7 +930,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               </div>
             )}
 
-            {/* Options selector when agent presents choices - streams in but disabled until complete */}
+            {/* Options selector after the full assistant message has finished rendering */}
             {(() => {
               const options = parsedTags?.options
               const shouldRenderOptions = shouldRenderAssistantOptions({
@@ -938,18 +938,18 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 isLastMessage,
                 hasOptions: Boolean(options && Object.keys(options).length > 0),
               })
+              const isOptionsReady =
+                !isLatestTurnInProgress && !isMessageTyping && parsedTags?.optionsComplete === true
 
-              if (!shouldRenderOptions || !options) return null
+              if (!shouldRenderOptions || !options || !isOptionsReady) return null
 
               return (
                 <OptionsSelector
                   options={options}
                   onSelect={handleOptionSelect}
-                  disabled={!isLastMessage || isSendingMessage || isStreaming}
-                  enableKeyboardNav={
-                    isLastMessage && !isStreaming && parsedTags?.optionsComplete === true
-                  }
-                  streaming={isStreaming || parsedTags?.optionsComplete === false}
+                  disabled={false}
+                  enableKeyboardNav={true}
+                  streaming={false}
                 />
               )
             })()}
