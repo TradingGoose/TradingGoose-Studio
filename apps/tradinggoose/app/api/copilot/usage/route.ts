@@ -31,6 +31,7 @@ const MODEL_SYNONYMS: Record<string, string> = {
 
 const BILLING_EVENT_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 days
 const DEFAULT_ESTIMATED_RESERVATION_USD = 1
+const BILLING_DISABLED_RESERVATION_ID = 'billing-disabled'
 const logger = createLogger('CopilotUsageAPI')
 
 const ContextUsageRequestSchema = z.object({
@@ -533,6 +534,9 @@ async function handleContextUsage(
 
 async function releaseCommittedReservation(reservationId?: string): Promise<void> {
   if (!reservationId) return
+  if (reservationId === BILLING_DISABLED_RESERVATION_ID) {
+    return
+  }
 
   await releaseCopilotUsageReservation({ reservationId }).catch((error) => {
     logger.warn('Failed to release copilot usage reservation after commit', {
@@ -553,6 +557,24 @@ async function withCommittedReservationRelease<T>(
   }
 }
 
+function buildBillingDisabledReservation(params: {
+  userId: string
+  reservationId?: string
+}) {
+  return {
+    allowed: true,
+    status: 200,
+    reservationId: params.reservationId ?? BILLING_DISABLED_RESERVATION_ID,
+    reservedUsd: 0,
+    currentUsage: 0,
+    limit: Number.MAX_SAFE_INTEGER,
+    remaining: Number.MAX_SAFE_INTEGER,
+    activeReservedUsd: 0,
+    scopeType: 'user' as const,
+    scopeId: params.userId,
+  }
+}
+
 async function handleReserveUsage(
   req: NextRequest,
   payload: z.infer<typeof ReserveUsageRequestSchema>
@@ -560,6 +582,10 @@ async function handleReserveUsage(
   const auth = checkInternalApiKey(req)
   if (!auth.success) {
     return new NextResponse(null, { status: 401 })
+  }
+
+  if (!(await isBillingEnabledForRuntime())) {
+    return NextResponse.json(buildBillingDisabledReservation({ userId: payload.userId }))
   }
 
   const requestedUsd =
@@ -590,6 +616,15 @@ async function handleAdjustUsage(
   const auth = checkInternalApiKey(req)
   if (!auth.success) {
     return new NextResponse(null, { status: 401 })
+  }
+
+  if (!(await isBillingEnabledForRuntime())) {
+    return NextResponse.json(
+      buildBillingDisabledReservation({
+        userId: payload.userId,
+        reservationId: payload.reservationId,
+      })
+    )
   }
 
   const requestedUsd = await calculateReservationUsdFromEstimate({
@@ -711,6 +746,13 @@ async function handleReleaseUsage(
   const auth = checkInternalApiKey(req)
   if (!auth.success) {
     return new NextResponse(null, { status: 401 })
+  }
+
+  if (payload.reservationId === BILLING_DISABLED_RESERVATION_ID) {
+    return NextResponse.json({
+      released: true,
+      reservationId: payload.reservationId,
+    })
   }
 
   const result = await releaseCopilotUsageReservation({

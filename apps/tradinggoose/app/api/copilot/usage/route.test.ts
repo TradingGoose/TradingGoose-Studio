@@ -534,6 +534,7 @@ describe('Copilot Usage API - Context', () => {
 
   it('releases the reservation when committed context usage throws before billing completes', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockProxyCopilotRequest.mockRejectedValue(new Error('copilot unavailable'))
 
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
@@ -562,6 +563,7 @@ describe('Copilot Usage API - Context', () => {
 
   it('reserves shared usage budget through the internal reserve action', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
@@ -600,6 +602,7 @@ describe('Copilot Usage API - Context', () => {
 
   it('prices reserve requests from token estimates through the same Studio pricing path', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockGetPersonalEffectiveSubscription.mockResolvedValue({
       id: 'subscription-personal',
       tier: createTier(2),
@@ -653,8 +656,45 @@ describe('Copilot Usage API - Context', () => {
     })
   })
 
+  it('no-ops reserve requests when billing is disabled', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'reserve',
+        userId: 'user-1',
+        model: 'openai/gpt-5.4',
+        estimatedPromptTokens: 100,
+        reservedCompletionTokens: 25,
+        reason: 'copilot_turn_model_call',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      allowed: true,
+      status: 200,
+      reservationId: 'billing-disabled',
+      reservedUsd: 0,
+      currentUsage: 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      remaining: Number.MAX_SAFE_INTEGER,
+      activeReservedUsd: 0,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    expect(mockReserveCopilotUsage).not.toHaveBeenCalled()
+    expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
+  })
+
   it('adjusts shared usage budget through the internal adjust action using Studio pricing', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockGetPersonalEffectiveSubscription.mockResolvedValue({
       id: 'subscription-personal',
       tier: createTier(2),
@@ -698,8 +738,97 @@ describe('Copilot Usage API - Context', () => {
     })
   })
 
+  it('no-ops adjust requests when billing is disabled', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'adjust',
+        reservationId: 'reservation-1',
+        userId: 'user-1',
+        model: 'openai/gpt-5.4',
+        estimatedPromptTokens: 100,
+        reservedCompletionTokens: 25,
+        reason: 'copilot_turn_model_call',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      allowed: true,
+      status: 200,
+      reservationId: 'reservation-1',
+      reservedUsd: 0,
+      currentUsage: 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      remaining: Number.MAX_SAFE_INTEGER,
+      activeReservedUsd: 0,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    expect(mockAdjustCopilotUsageReservation).not.toHaveBeenCalled()
+    expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
+  })
+
   it('releases reservations through the internal release action', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'release',
+        reservationId: 'reservation-1',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      released: true,
+      reservationId: 'reservation-1',
+      reservedUsd: 1,
+      scopeType: 'user',
+      scopeId: 'user-1',
+    })
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
+  })
+
+  it('no-ops release requests for the billing-disabled sentinel', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'release',
+        reservationId: 'billing-disabled',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      released: true,
+      reservationId: 'billing-disabled',
+    })
+    expect(mockReleaseCopilotUsageReservation).not.toHaveBeenCalled()
+  })
+
+  it('releases real reservations even when billing is disabled', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
 
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
@@ -985,6 +1114,44 @@ describe('Copilot Usage API - Completion', () => {
       billing: {
         billed: false,
         reason: 'no_token_metrics',
+      },
+    })
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
+  })
+
+  it('releases the reservation when completion billing is disabled', async () => {
+    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'completion',
+        userId: 'user-1',
+        model: 'gpt-5.4',
+        completionId: 'completion-3',
+        reservationId: 'reservation-1',
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 25,
+          total_tokens: 125,
+        },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      billing: {
+        billed: false,
+        reason: 'billing_disabled',
       },
     })
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
