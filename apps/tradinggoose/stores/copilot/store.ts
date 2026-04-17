@@ -15,7 +15,10 @@ import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
 import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
-import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import {
+  ClientToolCallState,
+  REJECTED_TOOL_COMPLETION_STATUS,
+} from '@/lib/copilot/tools/client/base-tool'
 import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
 import {
   executeCopilotServerTool,
@@ -41,6 +44,7 @@ import { reportClientManagedToolFailure } from '@/stores/copilot/tool-failure'
 import {
   bindClientToolExecutionContext,
   copilotToolHasInterrupt,
+  copilotToolSupportsState,
   createExecutionContext,
   ensureClientToolInstance,
   isBackgroundState,
@@ -100,8 +104,10 @@ const COMPLETED_TURN_STATUS = 'completed'
 const VALID_TOOL_CALL_STATES = new Set<string>(Object.values(ClientToolCallState))
 
 function normalizeReloadedToolState(
+  toolName: string | undefined,
   state: unknown,
-  latestTurnStatus?: string | null
+  latestTurnStatus?: string | null,
+  accessLevel?: CopilotStore['accessLevel']
 ): ClientToolCallState {
   const nextState =
     typeof state === 'string' && VALID_TOOL_CALL_STATES.has(state)
@@ -114,6 +120,11 @@ function normalizeReloadedToolState(
   ) {
     if (latestTurnStatus === ACTIVE_TURN_STATUS) {
       return nextState
+    }
+    if (accessLevel !== 'full' && nextState === ClientToolCallState.executing) {
+      if (copilotToolSupportsState(toolName, ClientToolCallState.review)) {
+        return ClientToolCallState.review
+      }
     }
     return ClientToolCallState.aborted
   }
@@ -157,12 +168,22 @@ function resolveTurnStatusFromToolCalls(
       state === ClientToolCallState.generating ||
       state === ClientToolCallState.pending ||
       state === ClientToolCallState.executing ||
-      state === ClientToolCallState.review ||
       state === ClientToolCallState.background
     )
   })
 
   return hasActiveToolCall ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS
+}
+
+function resolveStreamPausedTurnStatus(
+  toolCallsById: Record<string, CopilotToolCall>,
+  awaitingTools: boolean
+): string {
+  if (awaitingTools && Object.keys(toolCallsById).length === 0) {
+    return ACTIVE_TURN_STATUS
+  }
+
+  return resolveTurnStatusFromToolCalls(toolCallsById)
 }
 
 const pendingChatPersistence = new Map<string, ReturnType<typeof setTimeout>>()
@@ -371,13 +392,13 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
     const abortedIds: string[] = []
     for (const [id, tc] of Object.entries(toolCallsById)) {
       const st = tc.state as any
-      // Abort anything not already terminal success/error/rejected/aborted
       const isTerminal =
         st === ClientToolCallState.success ||
         st === ClientToolCallState.error ||
         st === ClientToolCallState.rejected ||
-        st === ClientToolCallState.aborted
-      if (!isTerminal || isReviewState(st)) {
+        st === ClientToolCallState.aborted ||
+        isReviewState(st)
+      if (!isTerminal) {
         abortedIds.push(id)
         updatedMap[id] = {
           ...tc,
@@ -388,8 +409,7 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
     }
     if (abortedIds.length > 0) {
       set((s: CopilotStore) => {
-        const latestTurnStatus = resolveTurnStatusFromToolCalls(updatedMap)
-        const nextChatState = buildChatTurnStatusState(s, latestTurnStatus)
+        const nextChatState = buildChatTurnStatusState(s, COMPLETED_TURN_STATUS)
         let nextMessages = s.messages
         for (const toolCallId of abortedIds) {
           nextMessages = updateMessagesForToolCallState(
@@ -440,7 +460,11 @@ function autoExecuteEligibleToolsForAccessLevel(
 
     if (isCopilotTool(toolCall.name)) {
       const hasInterrupt = copilotToolHasInterrupt(toolCall.name, id)
-      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt)) {
+      const entersReviewState = copilotToolSupportsState(
+        toolCall.name,
+        ClientToolCallState.review
+      )
+      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
         copilotToolIds.push(id)
       }
       continue
@@ -488,7 +512,8 @@ function autoExecuteEligibleToolsForAccessLevel(
 // Normalize loaded messages so assistant messages render correctly from DB
 function normalizeMessagesForUI(
   messages: CopilotMessage[],
-  latestTurnStatus?: string | null
+  latestTurnStatus?: string | null,
+  accessLevel?: CopilotStore['accessLevel']
 ): CopilotMessage[] {
   try {
     return messages.map((message) => {
@@ -512,7 +537,12 @@ function normalizeMessagesForUI(
             if (b?.type === 'tool_call' && b.toolCall) {
               const normalizedToolCall = {
                 ...b.toolCall,
-                state: normalizeReloadedToolState(b.toolCall?.state, latestTurnStatus),
+                state: normalizeReloadedToolState(
+                  b.toolCall?.name,
+                  b.toolCall?.state,
+                  latestTurnStatus,
+                  accessLevel
+                ),
               }
               // Ensure client tool instance is registered for this tool call
               const instance = ensureClientToolInstance(
@@ -546,7 +576,12 @@ function normalizeMessagesForUI(
         ? (message as any).toolCalls.map((tc: any) => {
             const normalizedToolCall = {
               ...tc,
-              state: normalizeReloadedToolState(tc?.state, latestTurnStatus),
+              state: normalizeReloadedToolState(
+                tc?.name,
+                tc?.state,
+                latestTurnStatus,
+                accessLevel
+              ),
             }
             // Ensure client tool instance is registered for this tool call
             const instance = ensureClientToolInstance(
@@ -839,23 +874,42 @@ function applyStreamedFunctionCallItem(
     logger.warn('Failed to bind execution context', { id, name, error })
   }
 
-  if (isCopilotTool(name)) {
+  if (!context.pendingAutoExecutionToolCallIds) {
+    context.pendingAutoExecutionToolCallIds = new Set()
+  }
+  context.pendingAutoExecutionToolCallIds.add(id)
+}
+
+function scheduleAutomaticToolExecution(
+  toolCallId: string,
+  toolName: string,
+  get: () => CopilotStore
+) {
+  if (isCopilotTool(toolName)) {
     try {
-      const hasInterrupt = copilotToolHasInterrupt(name, id)
+      const hasInterrupt = copilotToolHasInterrupt(toolName, toolCallId)
+      const entersReviewState = copilotToolSupportsState(
+        toolName,
+        ClientToolCallState.review
+      )
       const { accessLevel } = get()
-      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt)) {
+      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
         setTimeout(() => {
-          get().executeCopilotToolCall(id)
+          get().executeCopilotToolCall(toolCallId)
         }, 0)
       } else {
         logger.info('[copilot access] copilot tool awaiting confirmation', {
           accessLevel,
-          id,
-          name,
+          id: toolCallId,
+          name: toolName,
         })
       }
     } catch (error) {
-      logger.warn('Copilot tool auto-exec check failed', { id, name, error })
+      logger.warn('Copilot tool auto-exec check failed', {
+        id: toolCallId,
+        name: toolName,
+        error,
+      })
     }
     return
   }
@@ -865,21 +919,57 @@ function applyStreamedFunctionCallItem(
     if (shouldAutoExecuteIntegrationTool(accessLevel)) {
       logger.info('[copilot access] auto-executing integration tool', {
         accessLevel,
-        id,
-        name,
+        id: toolCallId,
+        name: toolName,
       })
       setTimeout(() => {
-        get().executeIntegrationTool(id)
+        get().executeIntegrationTool(toolCallId)
       }, 0)
     } else {
       logger.info('[copilot access] integration tool awaiting confirmation', {
         accessLevel,
-        id,
-        name,
+        id: toolCallId,
+        name: toolName,
       })
     }
   } catch (error) {
-    logger.warn('Integration tool access check failed', { id, name, error })
+    logger.warn('Integration tool access check failed', {
+      id: toolCallId,
+      name: toolName,
+      error,
+    })
+  }
+}
+
+async function flushPendingAutoExecutionToolCalls(
+  context: StreamingContext,
+  get: () => CopilotStore
+) {
+  const pendingToolCallIds = context.pendingAutoExecutionToolCallIds
+  if (!pendingToolCallIds || pendingToolCallIds.size === 0) {
+    return
+  }
+
+  const pendingIds = [...pendingToolCallIds]
+  pendingToolCallIds.clear()
+  const toolCallsById = get().toolCallsById
+  const { accessLevel } = get()
+  for (const toolCallId of pendingIds) {
+    const toolCall = toolCallsById[toolCallId]
+    if (!toolCall || toolCall.state !== ClientToolCallState.pending) {
+      continue
+    }
+
+    if (
+      accessLevel !== 'full' &&
+      isCopilotTool(toolCall.name) &&
+      copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
+    ) {
+      await get().executeCopilotToolCall(toolCallId)
+      continue
+    }
+
+    scheduleAutomaticToolExecution(toolCallId, toolCall.name, get)
   }
 }
 
@@ -1402,7 +1492,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Capture previous chat/messages for optimistic background save after local aborts have settled.
         const previousChat = get().currentChat
         const previousMessages = get().messages
-        const normalizedMessages = normalizeMessagesForUI(chat.messages || [], chat.latestTurnStatus)
+        const normalizedMessages = normalizeMessagesForUI(
+          chat.messages || [],
+          chat.latestTurnStatus,
+          get().accessLevel
+        )
         const optimisticToolCallsById = buildPinnedToolCallsById(normalizedMessages, {
           channelId: storeChannelId,
           workspaceId: chat.workspaceId,
@@ -1451,7 +1545,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             if (latestChat) {
               const normalizedMessages = normalizeMessagesForUI(
                 latestChat.messages || [],
-                latestChat.latestTurnStatus
+                latestChat.latestTurnStatus,
+                get().accessLevel
               )
               const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                 channelId: storeChannelId,
@@ -1597,7 +1692,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 } else {
                   const normalizedMessages = normalizeMessagesForUI(
                     updatedCurrentChat.messages || [],
-                    updatedCurrentChat.latestTurnStatus
+                    updatedCurrentChat.latestTurnStatus,
+                    get().accessLevel
                   )
                   const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                     channelId: storeChannelId,
@@ -1616,7 +1712,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 const mostRecentChat: CopilotChat = data.chats[0]
                 const normalizedMessages = normalizeMessagesForUI(
                   mostRecentChat.messages || [],
-                  mostRecentChat.latestTurnStatus
+                  mostRecentChat.latestTurnStatus,
+                  get().accessLevel
                 )
                 const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                   channelId: storeChannelId,
@@ -2023,9 +2120,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               targetState === ClientToolCallState.success
                 ? 200
                 : targetState === ClientToolCallState.rejected
-                  ? 409
+                  ? REJECTED_TOOL_COMPLETION_STATUS
                   : 500,
             message: toolCallState,
+            ...(targetState === ClientToolCallState.rejected ? { data: { rejected: true } } : {}),
           })
             .then(async (res) => {
               if (!res.ok) {
@@ -2134,9 +2232,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           resetStreamingQueue()
           const finalContent = getStreamingAssistantContent(context)
-          const latestTurnStatus = context.awaitingTools
-            ? ACTIVE_TURN_STATUS
-            : COMPLETED_TURN_STATUS
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
@@ -2147,7 +2242,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : msg
             ),
-            ...buildChatTurnStatusState(state, latestTurnStatus),
+            ...buildChatTurnStatusState(
+              state,
+              context.awaitingTools ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS
+            ),
             isSendingMessage: context.awaitingTools === true,
             abortController: null,
             currentUserMessageId: null,
@@ -2156,6 +2254,18 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           if (context.newReviewSessionId && !get().currentChat) {
             await get().handleNewReviewSessionCreation(context.newReviewSessionId)
           }
+
+          await flushPendingAutoExecutionToolCalls(context, get)
+
+          const latestTurnStatus = resolveStreamPausedTurnStatus(
+            get().toolCallsById,
+            context.awaitingTools === true
+          )
+
+          set((state) => ({
+            ...buildChatTurnStatusState(state, latestTurnStatus),
+            isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
+          }))
 
           // Persist full message state (including contentBlocks) to database
           const { currentChat } = get()
@@ -2377,14 +2487,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           provenance: { ...provenance, channelId: provenance.channelId || DEFAULT_COPILOT_CHANNEL_ID },
         })
         const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
+        const targetStore = getCopilotStore(storeChannelId)
 
-        const executingMap = { ...get().toolCallsById }
-        executingMap[id] = {
-          ...executingMap[id],
-          state: ClientToolCallState.executing,
-          display: resolveToolDisplay(name, ClientToolCallState.executing, id, params),
-        }
-        set({ toolCallsById: executingMap })
+        applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
         logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
 
         if (isServerManagedCopilotTool(name)) {
@@ -2467,12 +2572,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             }
 
             const message = error instanceof Error ? error.message : String(error)
-            errorMap[id] = {
-              ...errorMap[id],
-              state: ClientToolCallState.error,
-              display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
-            }
-            set({ toolCallsById: errorMap })
+            applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
 
             try {
               await postCopilotMarkComplete({
@@ -2489,13 +2589,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         const instance = ensureClientToolInstance(name, id) as any
         if (!instance) {
-          const errorMap = { ...get().toolCallsById }
-          errorMap[id] = {
-            ...errorMap[id],
-            state: ClientToolCallState.error,
-            display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
-          }
-          set({ toolCallsById: errorMap })
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
           await reportClientManagedToolFailure({
             id,
             name,
@@ -2520,6 +2614,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           } else {
             await instance.execute(preparedArgs)
           }
+          syncClientToolInstanceState(id, instance)
         } catch (error) {
           const errorMap = { ...get().toolCallsById }
           if (
@@ -2530,12 +2625,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             return
           }
           const message = error instanceof Error ? error.message : String(error)
-          errorMap[id] = {
-            ...errorMap[id],
-            state: ClientToolCallState.error,
-            display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
-          }
-          set({ toolCallsById: errorMap })
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
           await reportClientManagedToolFailure({
             id,
             name,
@@ -2551,23 +2641,18 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const toolCall = toolCallsById[toolCallId]
         if (!toolCall) return
 
-        const { id, name, params } = toolCall
+        const { id, name } = toolCall
+        const targetStore = getCopilotStore(storeChannelId)
 
         if (isServerManagedCopilotTool(name)) {
-          const rejectedMap = { ...get().toolCallsById }
-          rejectedMap[id] = {
-            ...rejectedMap[id],
-            state: ClientToolCallState.rejected,
-            display: resolveToolDisplay(name, ClientToolCallState.rejected, id, params),
-          }
-          set({ toolCallsById: rejectedMap })
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
 
           postCopilotMarkComplete({
             toolCallId: id,
             toolName: name || 'unknown_tool',
-            status: 200,
+            status: REJECTED_TOOL_COMPLETION_STATUS,
             message: 'Tool execution was skipped by the user',
-            data: { skipped: true },
+            data: { rejected: true, skipped: true },
           }).catch(() => {})
           return
         }
@@ -2578,13 +2663,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           return
         }
 
-        const rejectedMap = { ...get().toolCallsById }
-        rejectedMap[id] = {
-          ...rejectedMap[id],
-          state: ClientToolCallState.rejected,
-          display: resolveToolDisplay(name, ClientToolCallState.rejected, id, params),
-        }
-        set({ toolCallsById: rejectedMap })
+        applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
       },
 
       executeIntegrationTool: async (toolCallId: string) => {
@@ -2594,14 +2673,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (!toolCall || !workflowId) return
 
         const { id, name, params } = toolCall
+        const targetStore = getCopilotStore(storeChannelId)
 
-        const executingMap = { ...get().toolCallsById }
-        executingMap[id] = {
-          ...executingMap[id],
-          state: ClientToolCallState.executing,
-          display: resolveToolDisplay(name, ClientToolCallState.executing, id, params),
-        }
-        set({ toolCallsById: executingMap })
+        applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
         logger.info('[toolCallsById] pending → executing (integration tool)', { id, name })
 
         try {
@@ -2674,12 +2748,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           ) {
             return
           }
-          errorMap[id] = {
-            ...errorMap[id],
-            state: ClientToolCallState.error,
-            display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
-          }
-          set({ toolCallsById: errorMap })
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
           logger.error('Integration tool execution failed', { id, name, error })
         }
       },
@@ -2689,23 +2758,17 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const toolCall = toolCallsById[toolCallId]
         if (!toolCall) return
 
-        const { id, name, params } = toolCall
+        const { id, name } = toolCall
 
-        const rejectedMap = { ...get().toolCallsById }
-        rejectedMap[id] = {
-          ...rejectedMap[id],
-          state: ClientToolCallState.rejected,
-          display: resolveToolDisplay(name, ClientToolCallState.rejected, id, params),
-        }
-        set({ toolCallsById: rejectedMap })
+        applyToolStateUpdate(getCopilotStore(storeChannelId), id, ClientToolCallState.rejected)
         logger.info('[toolCallsById] pending → rejected (integration tool skipped)', { id, name })
 
         postCopilotMarkComplete({
           toolCallId: id,
           toolName: name || 'unknown_tool',
-          status: 200,
+          status: REJECTED_TOOL_COMPLETION_STATUS,
           message: 'Tool execution skipped by user',
-          data: { skipped: true },
+          data: { rejected: true, skipped: true },
         }).catch(() => {})
       },
     }))
@@ -2802,12 +2865,107 @@ export function useCopilotStoreApi(channelId?: string) {
   return getCopilotStore(channelId)
 }
 
+function applyToolStateUpdate(
+  targetStore: StoreApi<CopilotStore>,
+  toolCallId: string,
+  mapped: ClientToolCallState,
+  options?: { result?: any }
+) {
+  const state = targetStore.getState()
+  const current = state.toolCallsById[toolCallId]
+  if (!current) return
+
+  const isTerminal = (toolState: ClientToolCallState) =>
+    toolState === ClientToolCallState.success ||
+    toolState === ClientToolCallState.error ||
+    toolState === ClientToolCallState.rejected ||
+    toolState === ClientToolCallState.aborted ||
+    toolState === ClientToolCallState.review ||
+    toolState === ClientToolCallState.background
+
+  if (isTerminal(current.state) && !isTerminal(mapped)) {
+    return
+  }
+
+  if (
+    (current.state === ClientToolCallState.executing && mapped === ClientToolCallState.pending) ||
+    (current.state === ClientToolCallState.pending && mapped === ClientToolCallState.generating)
+  ) {
+    return
+  }
+
+  const hasResultUpdate =
+    options?.result !== undefined && current.result !== options.result
+  if (mapped === current.state && !hasResultUpdate) return
+
+  const updated = {
+    ...state.toolCallsById,
+    [toolCallId]: {
+      ...current,
+      state: mapped,
+      display: resolveToolDisplay(current.name, mapped, toolCallId, current.params),
+      ...(hasResultUpdate ? { result: options?.result } : {}),
+    },
+  }
+  const updatedMessages = updateMessagesForToolCallState(state.messages, toolCallId, mapped, options)
+  const latestTurnStatus = resolveTurnStatusFromToolCalls(updated)
+  const nextChatState = buildChatTurnStatusState(state, latestTurnStatus)
+  const nextCurrentChat = nextChatState.currentChat
+    ? {
+        ...nextChatState.currentChat,
+        messages: updatedMessages,
+      }
+    : nextChatState.currentChat
+
+  targetStore.setState({
+    toolCallsById: updated,
+    messages: updatedMessages,
+    chats: nextChatState.chats,
+    isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
+    ...(nextCurrentChat ? { currentChat: nextCurrentChat } : {}),
+  })
+
+  const shouldPersist =
+    mapped === ClientToolCallState.success ||
+    mapped === ClientToolCallState.error ||
+    mapped === ClientToolCallState.aborted ||
+    mapped === ClientToolCallState.rejected ||
+    mapped === ClientToolCallState.review ||
+    mapped === ClientToolCallState.background
+
+  if (!shouldPersist) {
+    return
+  }
+
+  const currentChat = targetStore.getState().currentChat
+  if (currentChat?.reviewSessionId) {
+    void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
+      latestTurnStatus,
+    })
+  }
+}
+
+function syncClientToolInstanceState(toolCallId: string, instance: any) {
+  const nextState = instance?.getState?.()
+  if (!nextState) {
+    return
+  }
+
+  const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
+  const result = instance?.persistedToolCall?.result
+  applyToolStateUpdate(
+    targetStore,
+    toolCallId,
+    nextState as ClientToolCallState,
+    result !== undefined ? { result } : undefined
+  )
+}
+
 // Sync class-based tool instance state changes back into the store map
 try {
   registerToolStateSync((toolCallId: string, nextState: any, options?: { result?: any }) => {
     const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
-    const state = targetStore.getState()
-    const current = state.toolCallsById[toolCallId]
+    const current = targetStore.getState().toolCallsById[toolCallId]
     if (!current) return
     let mapped: ClientToolCallState = current.state
     if (nextState === 'executing') mapped = ClientToolCallState.executing
@@ -2820,78 +2978,6 @@ try {
     else if (nextState === 'review') mapped = ClientToolCallState.review
     else if (nextState === 'background') mapped = ClientToolCallState.background
     else if (typeof nextState === 'number') mapped = nextState as unknown as ClientToolCallState
-
-    // Store-authoritative gating: ignore invalid/downgrade transitions
-    const isTerminal = (s: ClientToolCallState) =>
-      s === ClientToolCallState.success ||
-      s === ClientToolCallState.error ||
-      s === ClientToolCallState.rejected ||
-      s === ClientToolCallState.aborted ||
-      s === ClientToolCallState.review ||
-      s === ClientToolCallState.background
-
-    // If we've already reached a terminal state, ignore any further non-terminal updates
-    if (isTerminal(current.state) && !isTerminal(mapped)) {
-      return
-    }
-    // Prevent downgrades (executing → pending, pending → generating)
-    if (
-      (current.state === ClientToolCallState.executing && mapped === ClientToolCallState.pending) ||
-      (current.state === ClientToolCallState.pending &&
-        mapped === ClientToolCallState.generating)
-    ) {
-      return
-    }
-    const hasResultUpdate = options?.result !== undefined
-    // No-op if unchanged and there is no staged-result update to persist
-    if (mapped === current.state && !hasResultUpdate) return
-    const updated = {
-      ...state.toolCallsById,
-      [toolCallId]: {
-        ...current,
-        state: mapped,
-        display: resolveToolDisplay(current.name, mapped, toolCallId, current.params),
-        ...(options?.result !== undefined ? { result: options.result } : {}),
-      },
-    }
-    const updatedMessages = updateMessagesForToolCallState(
-      state.messages,
-      toolCallId,
-      mapped,
-      options
-    )
-    const latestTurnStatus = resolveTurnStatusFromToolCalls(updated)
-    const nextChatState = buildChatTurnStatusState(state, latestTurnStatus)
-    const nextCurrentChat = nextChatState.currentChat
-      ? {
-          ...nextChatState.currentChat,
-          messages: updatedMessages,
-        }
-      : nextChatState.currentChat
-    targetStore.setState({
-      toolCallsById: updated,
-      messages: updatedMessages,
-      chats: nextChatState.chats,
-      ...(nextCurrentChat ? { currentChat: nextCurrentChat } : {}),
-    })
-
-    // Only persist on terminal/meaningful state transitions to avoid redundant DB writes.
-    // Intermediate states (generating, pending, executing) carry no new persisted data.
-    const shouldPersist =
-      mapped === ClientToolCallState.success ||
-      mapped === ClientToolCallState.error ||
-      mapped === ClientToolCallState.aborted ||
-      mapped === ClientToolCallState.rejected ||
-      mapped === ClientToolCallState.review ||
-      mapped === ClientToolCallState.background
-
-    if (shouldPersist) {
-      const currentChat = targetStore.getState().currentChat
-      if (currentChat?.reviewSessionId) {
-        void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
-          latestTurnStatus,
-        })
-      }
-    }
+    applyToolStateUpdate(targetStore, toolCallId, mapped, options)
   })
 } catch {}

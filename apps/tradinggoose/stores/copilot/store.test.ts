@@ -844,6 +844,352 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().messages[0]?.contentBlocks?.[0]?.type).toBe('text')
   })
 
+  it('keeps limited-access pending approval tools active after awaiting_tools', async () => {
+    const channelId = 'copilot-awaiting-tools-pending-approval'
+    const assistantMessageId = 'assistant-message-awaiting-pending'
+    const reviewSessionId = 'review-awaiting-pending'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/copilot/usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ tokensUsed: 10, percentage: 1 }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      accessLevel: 'limited',
+      liveContext: {
+        workflowId: 'wf-awaiting-pending',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: {
+        reviewSessionId,
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Awaiting pending approval',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-awaiting-pending',
+        latestTurnStatus: 'in_progress',
+        createdAt: new Date('2026-04-17T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-17T00:00:00.000Z'),
+      } as any,
+      chats: [],
+      messages: [
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-17T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'pending-approval-tool',
+            name: 'make_api_request',
+            arguments: {
+              url: 'https://example.com/data',
+              method: 'GET',
+            },
+          },
+        },
+        { type: 'awaiting_tools', data: { pendingToolCallIds: ['pending-approval-tool'] } },
+      ]),
+      assistantMessageId
+    )
+
+    const updateMessageCalls = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+    const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
+    expect(updateMessagesBody.latestTurnStatus).toBe('in_progress')
+    expect(store.getState().currentChat?.latestTurnStatus).toBe('in_progress')
+    expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
+      ClientToolCallState.pending
+    )
+    expect(store.getState().isSendingMessage).toBe(true)
+  })
+
+  it('starts queued tool execution before chat persistence finishes', async () => {
+    vi.useFakeTimers()
+    const channelId = 'copilot-deferred-tool-auto-exec'
+    const toolCallId = 'copilot-deferred-mark-todo'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fakeTool = {
+      execute: vi.fn(async () => {}),
+    }
+    let resolveSaveMessages: ((value: { ok: boolean; status: number }) => void) | null = null
+
+    registerClientTool(toolCallId, fakeTool)
+
+    try {
+      store.setState({
+        accessLevel: 'full',
+        liveContext: {
+          workflowId: null,
+          workspaceId: 'workspace-1',
+        },
+        currentChat: null,
+        chats: [],
+        messages: [
+          {
+            id: 'assistant-message-deferred-tool',
+            role: 'assistant',
+            content: '',
+            timestamp: '2026-04-17T00:00:00.000Z',
+          },
+        ],
+        isSendingMessage: true,
+        abortController: null,
+        toolCallsById: {},
+      })
+
+      const saveMessagesResponse = new Promise<{ ok: boolean; status: number }>((resolve) => {
+        resolveSaveMessages = resolve
+      })
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          if (url === '/api/copilot/chat/update-messages') {
+            return saveMessagesResponse
+          }
+
+          if (url === '/api/copilot/usage') {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                usage: { usage: 0, percentage: 0, contextWindow: 0, model: 'claude-sonnet-4.6' },
+              }),
+            }
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true }),
+          }
+        })
+      )
+
+      const responsePromise = store
+        .getState()
+        .handleStreamingResponse(deferredStream.stream, 'assistant-message-deferred-tool')
+
+      await deferredStream.ready
+      deferredStream.push({
+        type: 'response.output_item.done',
+        item: {
+          type: 'function_call',
+          call_id: toolCallId,
+          name: 'mark_todo_in_progress',
+          arguments: { id: 'todo-1' },
+        },
+      })
+
+      await Promise.resolve()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(fakeTool.execute).not.toHaveBeenCalled()
+      deferredStream.push({ type: 'response.completed', response: { id: 'response-deferred-tool' } })
+      deferredStream.close()
+
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(fakeTool.execute).toHaveBeenCalledTimes(1)
+      resolveSaveMessages?.({ ok: true, status: 200 })
+      await responsePromise
+    } finally {
+      unregisterClientTool(toolCallId)
+      vi.useRealTimers()
+    }
+  })
+
+  it('persists limited-access review tools after awaiting_tools stages review', async () => {
+    const channelId = 'copilot-limited-access-edit-workflow'
+    const assistantMessageId = 'assistant-message-limited-edit'
+    const reviewSessionId = 'review-limited-edit'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/workflows/wf-limited-edit') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: 'wf-limited-edit',
+              name: 'Limited edit workflow',
+              workspaceId: 'workspace-1',
+              state: {
+                blocks: {},
+                edges: [],
+                loops: {},
+                parallels: {},
+                variables: {},
+              },
+            },
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        const body = JSON.parse(String(init?.body))
+        expect(body.toolName).toBe('edit_workflow')
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            result: {
+              workflowState: {
+                blocks: {},
+                edges: [],
+                loops: {},
+                parallels: {},
+              },
+              workflowDocument:
+                'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+              preview: {
+                warnings: [],
+              },
+            },
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/copilot/usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            usage: { usage: 0, percentage: 0, contextWindow: 0, model: 'claude-sonnet-4.6' },
+          }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      accessLevel: 'limited',
+      liveContext: {
+        workflowId: 'wf-limited-edit',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: {
+        reviewSessionId,
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'workflow',
+        entityId: 'wf-limited-edit',
+        draftSessionId: null,
+        title: 'Limited edit',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-limited-edit',
+        latestTurnStatus: 'in_progress',
+        createdAt: new Date('2026-04-17T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-17T00:00:00.000Z'),
+      } as any,
+      chats: [],
+      messages: [
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-17T00:00:00.000Z',
+        },
+      ],
+      isSendingMessage: true,
+      abortController: null,
+      toolCallsById: {},
+    })
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'edit-workflow-limited-tool',
+            name: 'edit_workflow',
+            arguments: {
+              workflowId: 'wf-limited-edit',
+              workflowDocument: 'workflow: {}',
+              documentFormat: 'tg-mermaid-v1',
+            },
+          },
+        },
+        { type: 'awaiting_tools', data: { pendingToolCallIds: ['edit-workflow-limited-tool'] } },
+      ]),
+      assistantMessageId
+    )
+
+    const updateMessageCalls = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+    const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
+    expect(updateMessagesBody.latestTurnStatus).toBe('completed')
+    expect((updateMessagesBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.review
+    )
+    expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
+    expect(store.getState().toolCallsById['edit-workflow-limited-tool']?.state).toBe(
+      ClientToolCallState.review
+    )
+    expect(store.getState().isSendingMessage).toBe(false)
+  })
+
   it('starts a new generic copilot chat without deleting prior panel history', async () => {
     const channelId = 'copilot-new-chat-scope'
     const store = getCopilotStore(channelId)
@@ -1055,6 +1401,153 @@ describe('copilot streaming regressions', () => {
     )
     expect(
       store.getState().chats.find((chat) => chat.reviewSessionId === 'review-active-chat')
+        ?.latestTurnStatus
+    ).toBe('completed')
+  })
+
+  it('preserves review-state workflow edits when selecting another chat', async () => {
+    const channelId = 'copilot-select-chat-review-tools'
+    const store = getCopilotStore(channelId)
+    const nextChat = {
+      reviewSessionId: 'review-next-chat-review-tools',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      latestTurnStatus: 'completed' as const,
+      title: 'Next chat',
+      messages: [],
+      messageCount: 0,
+      conversationId: 'conversation-next-chat-review-tools',
+      createdAt: new Date('2026-03-30T00:05:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:05:00.000Z'),
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (
+        url ===
+        `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, chats: [nextChat] }),
+        }
+      }
+
+      if (url === '/api/copilot/usage') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ tokensUsed: 10, percentage: 1 }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const currentChat = {
+      reviewSessionId: 'review-active-chat-review-tools',
+      workspaceId: 'workspace-1',
+      channelId,
+      entityKind: 'workflow',
+      entityId: 'wf-active-chat-review-tools',
+      draftSessionId: null,
+      latestTurnStatus: 'completed' as const,
+      title: 'Workflow edit review chat',
+      messages: [],
+      messageCount: 1,
+      conversationId: 'conversation-active-chat-review-tools',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+    }
+
+    store.setState({
+      accessLevel: 'limited',
+      liveContext: {
+        workflowId: 'wf-active-chat-review-tools',
+        workspaceId: 'workspace-1',
+      },
+      currentChat,
+      chats: [currentChat, nextChat],
+      messages: [
+        {
+          id: 'assistant-message-review-chat',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-03-30T00:00:00.000Z',
+          toolCalls: [
+            {
+              id: 'tool-review-chat',
+              name: 'edit_workflow',
+              state: ClientToolCallState.review,
+              params: {
+                workflowDocument: 'workflow: {}',
+                workflowId: 'wf-active-chat-review-tools',
+              },
+            },
+          ],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'tool-review-chat',
+                name: 'edit_workflow',
+                state: ClientToolCallState.review,
+                params: {
+                  workflowDocument: 'workflow: {}',
+                  workflowId: 'wf-active-chat-review-tools',
+                },
+              },
+            },
+          ],
+        },
+      ],
+      toolCallsById: {
+        'tool-review-chat': {
+          id: 'tool-review-chat',
+          name: 'edit_workflow',
+          state: ClientToolCallState.review,
+          params: {
+            workflowDocument: 'workflow: {}',
+            workflowId: 'wf-active-chat-review-tools',
+          },
+        },
+      },
+    })
+
+    await store.getState().selectChat(nextChat)
+
+    const updateRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+
+    const requestBody = parseJsonRequestBody(updateRequest)
+    expect(requestBody).toMatchObject({
+      reviewSessionId: 'review-active-chat-review-tools',
+      latestTurnStatus: 'completed',
+    })
+    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
+      ClientToolCallState.review
+    )
+    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.review
+    )
+    expect(
+      store.getState().chats.find((chat) => chat.reviewSessionId === 'review-active-chat-review-tools')
         ?.latestTurnStatus
     ).toBe('completed')
   })
@@ -1733,6 +2226,109 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isSendingMessage).toBe(true)
   })
 
+  it('restores stale limited-access workflow edits as review on reload', async () => {
+    const channelId = 'copilot-tool-state-reload-edit-workflow-review'
+    const store = getCopilotStore(channelId)
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (!url.includes(`/api/copilot/chat?channelId=${channelId}`)) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true }),
+          }
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            chats: [
+              {
+                reviewSessionId: 'review-reload-edit-workflow',
+                workspaceId: 'workspace-1',
+                channelId,
+                entityKind: 'workflow',
+                entityId: 'wf-reload-edit-workflow',
+                draftSessionId: null,
+                latestTurnStatus: 'completed',
+                title: 'Reloaded workflow edit',
+                conversationId: null,
+                messages: [
+                  {
+                    id: 'assistant-message',
+                    role: 'assistant',
+                    content: '',
+                    timestamp: '2026-03-30T00:00:00.000Z',
+                    contentBlocks: [
+                      {
+                        type: 'tool_call',
+                        timestamp: 1,
+                        toolCall: {
+                          id: 'edit-workflow-tool',
+                          name: 'edit_workflow',
+                          state: ClientToolCallState.executing,
+                          params: {
+                            workflowDocument: 'workflow: {}',
+                            workflowId: 'wf-reload-edit-workflow',
+                          },
+                          result: {
+                            workflowId: 'wf-reload-edit-workflow',
+                            workflowState: {
+                              blocks: {},
+                              edges: [],
+                              loops: {},
+                              parallels: {},
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ],
+                messageCount: 1,
+                createdAt: '2026-03-30T00:00:00.000Z',
+                updatedAt: '2026-03-30T00:00:00.000Z',
+              },
+            ],
+          }),
+        }
+      })
+    )
+
+    store.setState({
+      accessLevel: 'limited',
+      liveContext: {
+        workflowId: 'wf-reload-edit-workflow',
+        workspaceId: 'workspace-1',
+      },
+      currentChat: null,
+      chats: [],
+      messages: [],
+      toolCallsById: {},
+      isLoadingChats: false,
+      isSendingMessage: false,
+      abortController: null,
+      chatsLoadedForScope: null,
+      chatsLastLoadedAt: null,
+      suppressAutoSelect: false,
+    })
+
+    await store.getState().loadChats(true)
+
+    const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
+
+    expect(toolBlock?.toolCall?.state).toBe(ClientToolCallState.review)
+    expect(store.getState().toolCallsById['edit-workflow-tool']?.state).toBe(
+      ClientToolCallState.review
+    )
+    expect(store.getState().isSendingMessage).toBe(false)
+  })
+
   it('loads generic chats with an explicit workspace scope even before live context is hydrated', async () => {
     const channelId = 'copilot-workspace-scoped-history'
     const store = getCopilotStore(channelId)
@@ -1943,6 +2539,7 @@ describe('copilot tool user action delegation', () => {
     await store.getState().executeCopilotToolCall(toolCallId)
 
     expect(calls).toEqual(['userAction'])
+    expect(store.getState().isSendingMessage).toBe(true)
 
     unregisterClientTool(toolCallId)
   })

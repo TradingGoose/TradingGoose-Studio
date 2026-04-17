@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import {
+  ClientToolCallState,
+  REJECTED_TOOL_COMPLETION_STATUS,
+} from '@/lib/copilot/tools/client/base-tool'
 import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
@@ -173,6 +176,13 @@ describe('EditWorkflowClientTool approval gating', () => {
     expect(tool.getState()).toBe(ClientToolCallState.rejected)
     expect(mockSetWorkflowState).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenCalledTimes(2)
+    const rejectRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete'
+    })
+    const rejectBody = JSON.parse(String(rejectRequest?.[1]?.body))
+    expect(rejectBody.status).toBe(REJECTED_TOOL_COMPLETION_STATUS)
+    expect(rejectBody.data).toEqual({ rejected: true })
   })
 
   it('stages workflow edits from a persisted workflow fallback when no live session is registered yet', async () => {

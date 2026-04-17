@@ -287,6 +287,13 @@ export function copilotToolHasInterrupt(
   return !!getToolInterruptDisplays(toolName, toolCallId)
 }
 
+export function copilotToolSupportsState(
+  toolName: string | undefined,
+  state: ClientToolCallState
+): boolean {
+  return !!getCopilotToolMetadata(toolName)?.displayNames?.[state]
+}
+
 export function resolveToolDisplay(
   toolName: string | undefined,
   state: ClientToolCallState,

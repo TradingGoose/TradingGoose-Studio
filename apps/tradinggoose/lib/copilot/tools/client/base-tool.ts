@@ -11,6 +11,7 @@ const DEFAULT_TOOL_TIMEOUT_MS = 2 * 60 * 1000
 
 /** Timeout for tools that run workflows (10 minutes) */
 export const WORKFLOW_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
+export const REJECTED_TOOL_COMPLETION_STATUS = 409
 
 // Client tool call states used by the new runtime
 export enum ClientToolCallState {
@@ -324,7 +325,9 @@ export class BaseClientTool {
 
   // Reject (skip) for interrupt flows: mark complete with a standard skip message
   async handleReject(): Promise<void> {
-    await this.markToolComplete(200, this.getRejectCompletionMessage())
+    await this.markToolComplete(REJECTED_TOOL_COMPLETION_STATUS, this.getRejectCompletionMessage(), {
+      rejected: true,
+    })
     this.setState(ClientToolCallState.rejected)
   }
 
