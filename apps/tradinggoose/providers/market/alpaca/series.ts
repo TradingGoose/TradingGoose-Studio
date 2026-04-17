@@ -142,11 +142,10 @@ export function resolveCredentials(auth?: { apiKey?: string; apiSecret?: string 
   keyId?: string
   secretKey?: string
 } {
-  const keyId = auth?.apiKey || process.env.ALPACA_API_KEY_ID
-
-  const secretKey = auth?.apiSecret || process.env.ALPACA_API_SECRET_KEY
-
-  return { keyId, secretKey }
+  return {
+    keyId: auth?.apiKey,
+    secretKey: auth?.apiSecret,
+  }
 }
 
 async function fetchLatestBarTimestamp(

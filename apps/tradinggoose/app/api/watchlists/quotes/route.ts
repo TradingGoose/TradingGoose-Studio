@@ -1,10 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import {
-  type ListingIdentity,
-  toListingValueObject,
-} from '@/lib/listing/identity'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { executeProviderRequest } from '@/providers/market'
@@ -171,6 +169,53 @@ const buildQuoteSnapshot = async ({
   }
 }
 
+const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
+
+function hasEnvVarRefs(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes('{{') && value.includes('}}')
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => hasEnvVarRefs(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).some((item) => hasEnvVarRefs(item))
+  }
+  return false
+}
+
+function resolveEnvVarRefs(
+  value: unknown,
+  envVars: Record<string, string>,
+  missing: Set<string>
+): unknown {
+  if (typeof value === 'string') {
+    return value.replace(ENV_VAR_PATTERN, (_match, key) => {
+      const trimmedKey = String(key).trim()
+      if (!trimmedKey) return _match
+      const envValue = envVars[trimmedKey]
+      if (envValue === undefined) {
+        missing.add(trimmedKey)
+        return ''
+      }
+      return envValue
+    })
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveEnvVarRefs(item, envVars, missing))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
+      acc[key] = resolveEnvVarRefs(val, envVars, missing)
+      return acc
+    }, {})
+  }
+
+  return value
+}
+
 const BATCH_SIZE = 10
 
 export async function POST(request: NextRequest) {
@@ -184,6 +229,35 @@ export async function POST(request: NextRequest) {
     const hasPermission = await requireWorkspaceReadPermission(userId, parsed.workspaceId)
     if (!hasPermission) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    let auth = parsed.auth
+    let providerParams = parsed.providerParams
+    if (hasEnvVarRefs(parsed.auth) || hasEnvVarRefs(parsed.providerParams)) {
+      const envVars = await getEffectiveDecryptedEnv(userId, parsed.workspaceId)
+      const missingVars = new Set<string>()
+
+      auth = parsed.auth
+        ? (resolveEnvVarRefs(parsed.auth, envVars, missingVars) as typeof parsed.auth)
+        : parsed.auth
+      providerParams = parsed.providerParams
+        ? (resolveEnvVarRefs(
+            parsed.providerParams,
+            envVars,
+            missingVars
+          ) as typeof parsed.providerParams)
+        : parsed.providerParams
+
+      if (missingVars.size > 0) {
+        const missingList = Array.from(missingVars)
+        return NextResponse.json(
+          {
+            error: `Missing required environment variable${missingList.length > 1 ? 's' : ''}: ${missingList.join(', ')}`,
+            details: { missing: missingList },
+          },
+          { status: 400 }
+        )
+      }
     }
 
     const normalizedItems = parsed.items
@@ -205,8 +279,8 @@ export async function POST(request: NextRequest) {
           buildQuoteSnapshot({
             provider: parsed.provider,
             listing: entry.listing,
-            auth: parsed.auth,
-            providerParams: parsed.providerParams,
+            auth,
+            providerParams,
           })
         )
       )

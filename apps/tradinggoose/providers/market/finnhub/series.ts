@@ -128,7 +128,7 @@ export async function fetchFinnhubSeries(
   const interval = request.interval || (request.providerParams?.interval as string | undefined)
   const resolution = resolveResolution(interval)
 
-  const apiKey = request.auth?.apiKey || process.env.FINNHUB_API_KEY
+  const apiKey = request.auth?.apiKey
 
   if (!apiKey) {
     throw new Error('Finnhub API key is required')
