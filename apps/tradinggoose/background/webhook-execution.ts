@@ -1,12 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { webhook, workflow as workflowTable } from '@tradinggoose/db/schema'
-import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import { processExecutionFiles } from '@/lib/execution/files'
-import { IdempotencyService, webhookIdempotency } from '@/lib/idempotency'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -87,18 +86,33 @@ export type WebhookExecutionPayload = {
   webhookId: string
   workflowId: string
   userId: string
+  executionId?: string
   provider: string
   body: any
   headers: Record<string, string>
-  path: string
   blockId?: string
   testMode?: boolean
   executionTarget?: 'deployed' | 'live'
-  credentialId?: string
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+export function isWebhookExecutionPayload(
+  value: unknown,
+): value is WebhookExecutionPayload {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.webhookId === 'string' &&
+    typeof candidate.workflowId === 'string' &&
+    typeof candidate.userId === 'string' &&
+    typeof candidate.provider === 'string'
+  )
+}
 
 const toTrimmedString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
@@ -145,7 +159,7 @@ const buildIndicatorTriggerData = (
 }
 
 export async function executeWebhookJob(payload: WebhookExecutionPayload) {
-  const executionId = uuidv4()
+  const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
 
   logger.info(`[${requestId}] Starting webhook execution`, {
@@ -156,20 +170,11 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     executionId,
   })
 
-  const idempotencyKey = IdempotencyService.createWebhookIdempotencyKey(
-    payload.webhookId,
-    payload.headers
-  )
-
-  const runOperation = async () => {
-    return await executeWebhookJobInternal(payload, executionId, requestId)
-  }
-
-  return await webhookIdempotency.executeWithIdempotency(
-    payload.provider,
-    idempotencyKey,
-    runOperation
-  )
+  return withExecutionConcurrencyLimit({
+    userId: payload.userId,
+    workflowId: payload.workflowId,
+    task: () => executeWebhookJobInternal(payload, executionId, requestId),
+  })
 }
 
 async function executeWebhookJobInternal(
@@ -314,6 +319,7 @@ async function executeWebhookJobInternal(
             executionId,
             workspaceId: workspaceId || '',
             userId: payload.userId,
+            concurrencyLeaseInherited: true,
             isDeployedContext: !payload.testMode,
           },
         })
@@ -377,8 +383,7 @@ async function executeWebhookJobInternal(
       }
     }
 
-    // Format input for standard webhooks
-    // Load the actual webhook to get providerConfig (needed for Teams credentialId)
+    // Format input for standard webhooks using the stored provider config.
     const webhookRows = await db
       .select()
       .from(webhook)
@@ -504,6 +509,8 @@ async function executeWebhookJobInternal(
       contextExtensions: {
         executionId,
         workspaceId: workspaceId || '',
+        userId: payload.userId,
+        concurrencyLeaseInherited: true,
         isDeployedContext: !payload.testMode,
       },
     })
@@ -582,11 +589,3 @@ async function executeWebhookJobInternal(
     throw error
   }
 }
-
-export const webhookExecution = task({
-  id: 'webhook-execution',
-  retry: {
-    maxAttempts: 1,
-  },
-  run: async (payload: WebhookExecutionPayload) => executeWebhookJob(payload),
-})

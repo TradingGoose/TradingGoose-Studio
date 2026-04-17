@@ -2,11 +2,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { RateLimiter } from '@/services/queue/RateLimiter'
+import { ExecutionLimiter } from '@/services/queue/ExecutionLimiter'
 import { authenticateV1Request } from './auth'
 
 const logger = createLogger('V1Middleware')
-const rateLimiter = new RateLimiter()
+const rateLimiter = new ExecutionLimiter()
 
 type RateLimitFailureKind = 'auth' | 'dependency'
 

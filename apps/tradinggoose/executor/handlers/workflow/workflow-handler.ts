@@ -132,6 +132,7 @@ export class WorkflowBlockHandler implements BlockHandler {
           // Propagate deployed context down to child execution so nested children obey constraints
           isDeployedContext: context.isDeployedContext === true,
           userId: context.userId,
+          concurrencyLeaseInherited: context.concurrencyLeaseInherited === true,
         },
       })
 

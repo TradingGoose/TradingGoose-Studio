@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
-import { RateLimiter } from '@/services/queue/RateLimiter'
+import { ExecutionLimiter } from '@/services/queue/ExecutionLimiter'
 
 const TEST_RATE_LIMITS = {
   syncPerMinute: 10,
@@ -8,26 +7,17 @@ const TEST_RATE_LIMITS = {
   apiEndpointPerMinute: 10,
 } as const
 
-// Mock the database module
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
-    delete: vi.fn(),
   },
 }))
 
-// Mock drizzle-orm
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((field, value) => ({ field, value })),
   sql: vi.fn((strings, ...values) => ({ sql: strings.join('?'), values })),
-  and: vi.fn((...conditions) => ({ and: conditions })),
-}))
-
-// Mock getEffectiveSubscription
-vi.mock('@/lib/billing/core/subscription', () => ({
-  getEffectiveSubscription: vi.fn().mockResolvedValue(null),
 }))
 
 const mockIsBillingEnabledForRuntime = vi.fn().mockResolvedValue(true)
@@ -80,8 +70,8 @@ vi.mock('@/lib/billing/tiers', () => ({
 
 import { db } from '@tradinggoose/db'
 
-describe('RateLimiter', () => {
-  const rateLimiter = new RateLimiter()
+describe('ExecutionLimiter', () => {
+  const rateLimiter = new ExecutionLimiter()
   const testUserId = 'test-user-123'
   const subscribedTier = {
     id: 'tier_default',
@@ -95,22 +85,27 @@ describe('RateLimiter', () => {
     monthlyPriceUsd: null,
     yearlyPriceUsd: null,
   }
+  const activeSubscription = {
+    id: 'subscription-1',
+    referenceType: 'user',
+    referenceId: testUserId,
+    status: 'active',
+    tier: subscribedTier,
+  } as any
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    vi.mocked(getEffectiveSubscription).mockResolvedValue({
-      id: 'subscription-1',
-      referenceType: 'user',
-      referenceId: testUserId,
-      status: 'active',
-      tier: subscribedTier,
-    } as any)
   })
 
-  describe('checkRateLimit', () => {
+  describe('checkRateLimitWithSubscription', () => {
     it('should allow unlimited requests for manual trigger type', async () => {
-      const result = await rateLimiter.checkRateLimit(testUserId, 'manual', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'manual',
+        false
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
@@ -143,7 +138,12 @@ describe('RateLimiter', () => {
         }),
       } as any)
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute - 1)
@@ -175,7 +175,12 @@ describe('RateLimiter', () => {
         }),
       } as any)
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'api', true)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        true
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(TEST_RATE_LIMITS.asyncPerMinute - 1)
@@ -210,7 +215,12 @@ describe('RateLimiter', () => {
           }),
         } as any)
 
-        const result = await rateLimiter.checkRateLimit(testUserId, triggerType, false)
+        const result = await rateLimiter.checkRateLimitWithSubscription(
+          testUserId,
+          activeSubscription,
+          triggerType,
+          false
+        )
 
         expect(result.allowed).toBe(true)
         expect(result.remaining).toBe(TEST_RATE_LIMITS.syncPerMinute - 1)
@@ -220,7 +230,12 @@ describe('RateLimiter', () => {
     it('skips rate limiting entirely when billing is disabled', async () => {
       mockIsBillingEnabledForRuntime.mockResolvedValue(false)
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
@@ -228,9 +243,7 @@ describe('RateLimiter', () => {
     })
 
     it('allows billed requests when the user has no active subscription tier', async () => {
-      vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
-
-      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(testUserId, null, 'api', false)
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
@@ -242,16 +255,26 @@ describe('RateLimiter', () => {
         throw new Error('rate limit storage unavailable')
       })
 
-      const result = await rateLimiter.checkRateLimit(testUserId, 'api', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
     })
   })
 
-  describe('getRateLimitStatus', () => {
+  describe('getRateLimitStatusWithSubscription', () => {
     it('should return unlimited for manual trigger type', async () => {
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'manual', false)
+      const status = await rateLimiter.getRateLimitStatusWithSubscription(
+        testUserId,
+        activeSubscription,
+        'manual',
+        false
+      )
 
       expect(status.used).toBe(0)
       expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
@@ -271,7 +294,12 @@ describe('RateLimiter', () => {
         limit: mockLimit,
       } as any)
 
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
+      const status = await rateLimiter.getRateLimitStatusWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false
+      )
 
       expect(status.used).toBe(0)
       expect(status.limit).toBe(TEST_RATE_LIMITS.syncPerMinute)
@@ -280,9 +308,12 @@ describe('RateLimiter', () => {
     })
 
     it('returns a permissive rate-limit status when billing is enabled but no subscription exists', async () => {
-      vi.mocked(getEffectiveSubscription).mockResolvedValueOnce(null)
-
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
+      const status = await rateLimiter.getRateLimitStatusWithSubscription(
+        testUserId,
+        null,
+        'api',
+        false
+      )
 
       expect(status.used).toBe(0)
       expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
@@ -295,23 +326,16 @@ describe('RateLimiter', () => {
         throw new Error('rate limit storage unavailable')
       })
 
-      const status = await rateLimiter.getRateLimitStatus(testUserId, 'api', false)
+      const status = await rateLimiter.getRateLimitStatusWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false
+      )
 
       expect(status.used).toBe(0)
       expect(status.limit).toBe(Number.MAX_SAFE_INTEGER)
       expect(status.remaining).toBe(Number.MAX_SAFE_INTEGER)
-    })
-  })
-
-  describe('resetRateLimit', () => {
-    it('should delete rate limit record for user', async () => {
-      vi.mocked(db.delete).mockReturnValue({
-        where: vi.fn().mockResolvedValue({}),
-      } as any)
-
-      await rateLimiter.resetRateLimit(testUserId)
-
-      expect(db.delete).toHaveBeenCalled()
     })
   })
 })

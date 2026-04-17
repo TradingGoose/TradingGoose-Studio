@@ -765,6 +765,7 @@ export class Executor {
       workspaceId: this.contextExtensions.workspaceId,
       userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
+      concurrencyLeaseInherited: this.contextExtensions.concurrencyLeaseInherited,
       isDeployedContext: this.contextExtensions.isDeployedContext || false,
       blockStates: new Map(),
       blockLogs: [],

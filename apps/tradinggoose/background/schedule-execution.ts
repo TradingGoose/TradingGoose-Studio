@@ -1,17 +1,18 @@
 import { db, workflow, workflowSchedule } from '@tradinggoose/db'
-import { task } from '@trigger.dev/sdk'
 import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import {
-  getBillingContextResolutionMessage,
-  resolveWorkspaceBillingContext,
-  toRateLimitBillingScope,
-} from '@/lib/billing/workspace-billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import {
+  ExecutionGateError,
+  enforceServerExecutionRateLimit,
+  getExecutionConcurrencyLimitMessage,
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
+} from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -27,7 +28,7 @@ import { blockExistsInDeployment, loadDeployedWorkflowState } from '@/lib/workfl
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'
 import { Serializer } from '@/serializer'
-import { RateLimiter } from '@/services/queue'
+import { RateLimitError } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
 const logger = createLogger('TriggerScheduleExecution')
@@ -37,12 +38,29 @@ const MAX_CONSECUTIVE_FAILURES = 3
 export type ScheduleExecutionPayload = {
   scheduleId: string
   workflowId: string
+  executionId?: string
   blockId?: string
   cronExpression?: string
   lastRanAt?: string
   failedCount?: number
   timezone: string
   now: string
+}
+
+export function isScheduleExecutionPayload(
+  value: unknown,
+): value is ScheduleExecutionPayload {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.scheduleId === 'string' &&
+    typeof candidate.workflowId === 'string' &&
+    typeof candidate.timezone === 'string' &&
+    typeof candidate.now === 'string'
+  )
 }
 
 async function calculateNextRunTime(
@@ -72,7 +90,7 @@ async function calculateNextRunTime(
 }
 
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
-  const executionId = uuidv4()
+  const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const now = new Date(payload.now)
 
@@ -125,48 +143,33 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const billingEnabled = await isBillingEnabledForRuntime()
-    let billingContext = null
-    if (billingEnabled) {
-      try {
-        billingContext = await resolveWorkspaceBillingContext({
-          workspaceId: workflowRecord.workspaceId,
+    try {
+      await enforceServerExecutionRateLimit({
+        actorUserId,
+        workflowId: payload.workflowId,
+        workspaceId: workflowRecord.workspaceId,
+        isAsync: false,
+        logger,
+        requestId,
+        source: 'scheduled execution',
+        triggerType: 'schedule',
+      })
+    } catch (error) {
+      if (error instanceof ExecutionGateError) {
+        logger.warn(`[${requestId}] ${error.message} Skipping scheduled execution.`, {
           actorUserId,
+          workflowId: payload.workflowId,
+          workspaceId: workflowRecord.workspaceId,
         })
-      } catch (error) {
-        logger.warn(
-          `[${requestId}] ${getBillingContextResolutionMessage(error)} Skipping scheduled execution.`,
-          {
-            actorUserId,
-            workflowId: payload.workflowId,
-            workspaceId: workflowRecord.workspaceId,
-            error,
-          }
-        )
         await rescheduleSkippedExecution()
         return
       }
-    }
 
-    if (billingContext) {
-      const rateLimiter = new RateLimiter()
-      const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-        billingContext.billingUserId,
-        billingContext.subscription,
-        'schedule',
-        false,
-        toRateLimitBillingScope(billingContext, actorUserId)
-      )
-
-      if (!rateLimitCheck.allowed) {
-        logger.warn(
-          `[${requestId}] Rate limit exceeded for scheduled workflow ${payload.workflowId}`,
-          {
-            userId: workflowRecord.userId,
-            remaining: rateLimitCheck.remaining,
-            resetAt: rateLimitCheck.resetAt,
-          }
-        )
+      if (error instanceof RateLimitError) {
+        logger.warn(`[${requestId}] ${error.message}`, {
+          userId: workflowRecord.userId,
+          workflowId: payload.workflowId,
+        })
 
         const retryDelay = 5 * 60 * 1000
         const nextRetryAt = new Date(now.getTime() + retryDelay)
@@ -187,6 +190,8 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
         return
       }
+
+      throw error
     }
 
     const usageCheck = await checkServerSideUsageLimits({
@@ -199,7 +204,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
         {
           actorUserId,
-          ...(billingContext ? { billingUserId: billingContext.billingUserId } : {}),
           currentUsage: usageCheck.currentUsage,
           limit: usageCheck.limit,
           workflowId: payload.workflowId,
@@ -219,226 +223,231 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     )
 
     try {
-      const executionSuccess = await (async () => {
-        try {
-          logger.debug(`[${requestId}] Loading deployed workflow ${payload.workflowId}`)
-          const deployedData = await loadDeployedWorkflowState(payload.workflowId)
+      const executionSuccess = await withExecutionConcurrencyLimit({
+        userId: actorUserId,
+        workflowId: payload.workflowId,
+        task: async () => {
+          try {
+            logger.debug(`[${requestId}] Loading deployed workflow ${payload.workflowId}`)
+            const deployedData = await loadDeployedWorkflowState(payload.workflowId)
 
-          const blocks = deployedData.blocks
-          const edges = deployedData.edges
-          const loops = deployedData.loops
-          const parallels = deployedData.parallels
-          logger.info(`[${requestId}] Loaded deployed workflow ${payload.workflowId}`)
+            const blocks = deployedData.blocks
+            const edges = deployedData.edges
+            const loops = deployedData.loops
+            const parallels = deployedData.parallels
+            logger.info(`[${requestId}] Loaded deployed workflow ${payload.workflowId}`)
 
-          if (payload.blockId) {
-            const blockExists = await blockExistsInDeployment(payload.workflowId, payload.blockId)
-            if (!blockExists) {
-              logger.warn(
-                `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`
-              )
-              return { skip: true, blocks: {} as Record<string, BlockState> }
+            if (payload.blockId) {
+              const blockExists = await blockExistsInDeployment(payload.workflowId, payload.blockId)
+              if (!blockExists) {
+                logger.warn(
+                  `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`
+                )
+                return { skip: true, blocks: {} as Record<string, BlockState> }
+              }
             }
-          }
 
-          const mergedStates = mergeSubblockState(blocks)
+            const mergedStates = mergeSubblockState(blocks)
 
-          const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-            actorUserId,
-            workflowRecord.workspaceId || undefined
-          )
-          const variables = EnvVarsSchema.parse({
-            ...personalEncrypted,
-            ...workspaceEncrypted,
-          })
-          const decryptedEnvVars: Record<string, string> = {}
-          for (const [key, encryptedValue] of Object.entries(variables)) {
-            try {
-              const { decrypted } = await decryptSecret(encryptedValue)
-              decryptedEnvVars[key] = decrypted
-            } catch (error: any) {
-              logger.error(`[${requestId}] Failed to decrypt environment variable "${key}"`, error)
-              throw new Error(`Failed to decrypt environment variable "${key}": ${error.message}`)
+            const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+              actorUserId,
+              workflowRecord.workspaceId || undefined
+            )
+            const variables = EnvVarsSchema.parse({
+              ...personalEncrypted,
+              ...workspaceEncrypted,
+            })
+            const decryptedEnvVars: Record<string, string> = {}
+            for (const [key, encryptedValue] of Object.entries(variables)) {
+              try {
+                const { decrypted } = await decryptSecret(encryptedValue)
+                decryptedEnvVars[key] = decrypted
+              } catch (error: any) {
+                logger.error(`[${requestId}] Failed to decrypt environment variable "${key}"`, error)
+                throw new Error(`Failed to decrypt environment variable "${key}": ${error.message}`)
+              }
             }
-          }
 
-          const currentBlockStates = await Object.entries(mergedStates).reduce(
-            async (accPromise, [id, block]) => {
-              const acc = await accPromise
-              acc[id] = await Object.entries(block.subBlocks).reduce(
-                async (subAccPromise, [key, subBlock]) => {
-                  const subAcc = await subAccPromise
-                  let value = subBlock.value
+            const currentBlockStates = await Object.entries(mergedStates).reduce(
+              async (accPromise, [id, block]) => {
+                const acc = await accPromise
+                acc[id] = await Object.entries(block.subBlocks).reduce(
+                  async (subAccPromise, [key, subBlock]) => {
+                    const subAcc = await subAccPromise
+                    let value = subBlock.value
 
-                  if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
-                    const matches = value.match(/{{([^}]+)}}/g)
-                    if (matches) {
-                      for (const match of matches) {
-                        const varName = match.slice(2, -2)
-                        const decryptedValue = decryptedEnvVars[varName]
-                        if (decryptedValue === undefined) {
-                          throw new Error(`Environment variable "${varName}" was not found`)
+                    if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+                      const matches = value.match(/{{([^}]+)}}/g)
+                      if (matches) {
+                        for (const match of matches) {
+                          const varName = match.slice(2, -2)
+                          const decryptedValue = decryptedEnvVars[varName]
+                          if (decryptedValue === undefined) {
+                            throw new Error(`Environment variable "${varName}" was not found`)
+                          }
+                          value = (value as string).replace(match, decryptedValue)
                         }
-                        value = (value as string).replace(match, decryptedValue)
                       }
                     }
-                  }
 
-                  subAcc[key] = value
-                  return subAcc
-                },
-                Promise.resolve({} as Record<string, any>)
-              )
-              return acc
-            },
-            Promise.resolve({} as Record<string, Record<string, any>>)
-          )
+                    subAcc[key] = value
+                    return subAcc
+                  },
+                  Promise.resolve({} as Record<string, any>)
+                )
+                return acc
+              },
+              Promise.resolve({} as Record<string, Record<string, any>>)
+            )
 
-          const processedBlockStates = Object.entries(currentBlockStates).reduce(
-            (acc, [blockId, blockState]) => {
-              if (blockState.responseFormat && typeof blockState.responseFormat === 'string') {
-                const responseFormatValue = blockState.responseFormat.trim()
+            const processedBlockStates = Object.entries(currentBlockStates).reduce(
+              (acc, [blockId, blockState]) => {
+                if (blockState.responseFormat && typeof blockState.responseFormat === 'string') {
+                  const responseFormatValue = blockState.responseFormat.trim()
 
-                if (responseFormatValue.startsWith('<') && responseFormatValue.includes('>')) {
-                  logger.debug(
-                    `[${requestId}] Response format contains variable reference for block ${blockId}`
-                  )
-                  acc[blockId] = blockState
-                } else if (responseFormatValue === '') {
-                  acc[blockId] = {
-                    ...blockState,
-                    responseFormat: undefined,
-                  }
-                } else {
-                  try {
-                    logger.debug(`[${requestId}] Parsing responseFormat for block ${blockId}`)
-                    const parsedResponseFormat = JSON.parse(responseFormatValue)
-
-                    acc[blockId] = {
-                      ...blockState,
-                      responseFormat: parsedResponseFormat,
-                    }
-                  } catch (error) {
-                    logger.warn(
-                      `[${requestId}] Failed to parse responseFormat for block ${blockId}, using undefined`,
-                      error
+                  if (responseFormatValue.startsWith('<') && responseFormatValue.includes('>')) {
+                    logger.debug(
+                      `[${requestId}] Response format contains variable reference for block ${blockId}`
                     )
+                    acc[blockId] = blockState
+                  } else if (responseFormatValue === '') {
                     acc[blockId] = {
                       ...blockState,
                       responseFormat: undefined,
                     }
+                  } else {
+                    try {
+                      logger.debug(`[${requestId}] Parsing responseFormat for block ${blockId}`)
+                      const parsedResponseFormat = JSON.parse(responseFormatValue)
+
+                      acc[blockId] = {
+                        ...blockState,
+                        responseFormat: parsedResponseFormat,
+                      }
+                    } catch (error) {
+                      logger.warn(
+                        `[${requestId}] Failed to parse responseFormat for block ${blockId}, using undefined`,
+                        error
+                      )
+                      acc[blockId] = {
+                        ...blockState,
+                        responseFormat: undefined,
+                      }
+                    }
                   }
+                } else {
+                  acc[blockId] = blockState
                 }
-              } else {
-                acc[blockId] = blockState
-              }
-              return acc
-            },
-            {} as Record<string, Record<string, any>>
-          )
-
-          let workflowVariables = {}
-          if (workflowRecord.variables) {
-            try {
-              if (typeof workflowRecord.variables === 'string') {
-                workflowVariables = JSON.parse(workflowRecord.variables)
-              } else {
-                workflowVariables = workflowRecord.variables
-              }
-            } catch (error) {
-              logger.error(`Failed to parse workflow variables: ${payload.workflowId}`, error)
-            }
-          }
-
-          const serializedWorkflow = new Serializer().serializeWorkflow(
-            mergedStates,
-            edges,
-            loops,
-            parallels,
-            true
-          )
-
-          const input = {
-            _context: {
-              workflowId: payload.workflowId,
-            },
-          }
-
-          await loggingSession.safeStart({
-            userId: actorUserId,
-            workspaceId: workflowRecord.workspaceId || '',
-            variables: variables || {},
-          })
-
-          const executor = new Executor({
-            workflow: serializedWorkflow,
-            currentBlockStates: processedBlockStates,
-            envVarValues: decryptedEnvVars,
-            workflowInput: input,
-            workflowVariables,
-            contextExtensions: {
-              executionId,
-              workspaceId: workflowRecord.workspaceId || '',
-              userId: actorUserId,
-              isDeployedContext: true,
-            },
-          })
-
-          loggingSession.setupExecutor(executor)
-
-          const result = await executor.execute(payload.workflowId, payload.blockId || undefined)
-
-          const executionResult =
-            'stream' in result && 'execution' in result ? result.execution : result
-
-          logger.info(`[${requestId}] Workflow execution completed: ${payload.workflowId}`, {
-            success: executionResult.success,
-            executionTime: executionResult.metadata?.duration,
-          })
-
-          if (executionResult.success) {
-            await updateWorkflowRunCounts(payload.workflowId)
-          }
-
-          const { traceSpans, totalDuration } = buildTraceSpans(executionResult)
-
-          await loggingSession.safeComplete({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: totalDuration || 0,
-            finalOutput: executionResult.output || {},
-            traceSpans: (traceSpans || []) as any,
-          })
-
-          return { success: executionResult.success, blocks, executionResult }
-        } catch (earlyError: any) {
-          logger.error(
-            `[${requestId}] Early failure in scheduled workflow ${payload.workflowId}`,
-            earlyError
-          )
-
-          try {
-            await loggingSession.safeStart({
-              userId: workflowRecord.userId,
-              workspaceId: workflowRecord.workspaceId || '',
-              variables: {},
-            })
-
-            await loggingSession.safeCompleteWithError({
-              error: {
-                message: `Schedule execution failed before workflow started: ${earlyError.message}`,
-                stackTrace: earlyError.stack,
+                return acc
               },
-              traceSpans: [],
-            })
-          } catch (loggingError) {
-            logger.error(
-              `[${requestId}] Failed to create log entry for early schedule failure`,
-              loggingError
+              {} as Record<string, Record<string, any>>
             )
-          }
 
-          throw earlyError
-        }
-      })()
+            let workflowVariables = {}
+            if (workflowRecord.variables) {
+              try {
+                if (typeof workflowRecord.variables === 'string') {
+                  workflowVariables = JSON.parse(workflowRecord.variables)
+                } else {
+                  workflowVariables = workflowRecord.variables
+                }
+              } catch (error) {
+                logger.error(`Failed to parse workflow variables: ${payload.workflowId}`, error)
+              }
+            }
+
+            const serializedWorkflow = new Serializer().serializeWorkflow(
+              mergedStates,
+              edges,
+              loops,
+              parallels,
+              true
+            )
+
+            const input = {
+              _context: {
+                workflowId: payload.workflowId,
+              },
+            }
+
+            await loggingSession.safeStart({
+              userId: actorUserId,
+              workspaceId: workflowRecord.workspaceId || '',
+              variables: variables || {},
+            })
+
+            const executor = new Executor({
+              workflow: serializedWorkflow,
+              currentBlockStates: processedBlockStates,
+              envVarValues: decryptedEnvVars,
+              workflowInput: input,
+              workflowVariables,
+              contextExtensions: {
+                executionId,
+                workspaceId: workflowRecord.workspaceId || '',
+                userId: actorUserId,
+                concurrencyLeaseInherited: true,
+                isDeployedContext: true,
+              },
+            })
+
+            loggingSession.setupExecutor(executor)
+
+            const result = await executor.execute(payload.workflowId, payload.blockId || undefined)
+
+            const executionResult =
+              'stream' in result && 'execution' in result ? result.execution : result
+
+            logger.info(`[${requestId}] Workflow execution completed: ${payload.workflowId}`, {
+              success: executionResult.success,
+              executionTime: executionResult.metadata?.duration,
+            })
+
+            if (executionResult.success) {
+              await updateWorkflowRunCounts(payload.workflowId)
+            }
+
+            const { traceSpans, totalDuration } = buildTraceSpans(executionResult)
+
+            await loggingSession.safeComplete({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: totalDuration || 0,
+              finalOutput: executionResult.output || {},
+              traceSpans: (traceSpans || []) as any,
+            })
+
+            return { success: executionResult.success, blocks, executionResult }
+          } catch (earlyError: any) {
+            logger.error(
+              `[${requestId}] Early failure in scheduled workflow ${payload.workflowId}`,
+              earlyError
+            )
+
+            try {
+              await loggingSession.safeStart({
+                userId: workflowRecord.userId,
+                workspaceId: workflowRecord.workspaceId || '',
+                variables: {},
+              })
+
+              await loggingSession.safeCompleteWithError({
+                error: {
+                  message: `Schedule execution failed before workflow started: ${earlyError.message}`,
+                  stackTrace: earlyError.stack,
+                },
+                traceSpans: [],
+              })
+            } catch (loggingError) {
+              logger.error(
+                `[${requestId}] Failed to create log entry for early schedule failure`,
+                loggingError
+              )
+            }
+
+            throw earlyError
+          }
+        },
+      })
 
       if ('skip' in executionSuccess && executionSuccess.skip) {
         return
@@ -509,25 +518,27 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         }
       }
     } catch (error: any) {
-      if (error.message?.includes('Service overloaded')) {
-        logger.warn(`[${requestId}] Service overloaded, retrying schedule in 5 minutes`)
-
-        const retryDelay = 5 * 60 * 1000
-        const nextRetryAt = new Date(now.getTime() + retryDelay)
-
-        try {
-          await db
-            .update(workflowSchedule)
-            .set({
-              updatedAt: now,
-              nextRunAt: nextRetryAt,
-            })
-            .where(eq(workflowSchedule.id, payload.scheduleId))
-
-          logger.debug(`[${requestId}] Updated schedule retry time due to service overload`)
-        } catch (updateError) {
-          logger.error(`[${requestId}] Error updating schedule for service overload:`, updateError)
-        }
+      if (
+        isExecutionConcurrencyLimitError(error) ||
+        isExecutionConcurrencyBackendUnavailableError(error)
+      ) {
+        logger.warn(
+          `[${requestId}] ${
+            isExecutionConcurrencyLimitError(error)
+              ? getExecutionConcurrencyLimitMessage(error)
+              : error.message
+          }`,
+          {
+            actorUserId,
+            workflowId: payload.workflowId,
+          }
+        )
+        throw error
+      } else if (error.message?.includes('Service overloaded')) {
+        logger.warn(`[${requestId}] Service overloaded while executing schedule`, {
+          workflowId: payload.workflowId,
+        })
+        throw error
       } else {
         logger.error(
           `[${requestId}] Error executing scheduled workflow ${payload.workflowId}`,
@@ -621,13 +632,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Error processing schedule ${payload.scheduleId}`, error)
+    throw error
   }
 }
-
-export const scheduleExecution = task({
-  id: 'schedule-execution',
-  retry: {
-    maxAttempts: 1,
-  },
-  run: async (payload: ScheduleExecutionPayload) => executeScheduleJob(payload),
-})

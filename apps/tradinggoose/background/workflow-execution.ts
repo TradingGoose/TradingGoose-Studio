@@ -1,10 +1,14 @@
 import { db } from '@tradinggoose/db'
 import { workflow as workflowTable } from '@tradinggoose/db/schema'
-import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import {
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
+} from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -22,6 +26,7 @@ const logger = createLogger('TriggerWorkflowExecution')
 export type WorkflowExecutionPayload = {
   workflowId: string
   userId: string
+  executionId?: string
   input?: any
   triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
   startBlockId?: string
@@ -30,9 +35,23 @@ export type WorkflowExecutionPayload = {
   metadata?: Record<string, any>
 }
 
+export function isWorkflowExecutionPayload(
+  value: unknown,
+): value is WorkflowExecutionPayload & Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.workflowId === 'string' &&
+    typeof candidate.userId === 'string'
+  )
+}
+
 export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
-  const executionId = uuidv4()
+  const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
@@ -43,162 +62,185 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
 
   // Initialize logging session
   const triggerType = payload.triggerType || 'api'
-  const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
+  const loggingSession = new LoggingSession(
+    workflowId,
+    executionId,
+    triggerType,
+    requestId,
+  )
 
   try {
-    const usageCheck = await checkServerSideUsageLimits({
+    return await withExecutionConcurrencyLimit({
       userId: payload.userId,
       workflowId,
-    })
-    if (usageCheck.isExceeded) {
-      logger.warn(
-        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping workflow execution.`,
-        {
-          actorUserId: payload.userId,
-          currentUsage: usageCheck.currentUsage,
-          limit: usageCheck.limit,
-          workflowId: payload.workflowId,
+      task: async () => {
+        const usageCheck = await checkServerSideUsageLimits({
+          userId: payload.userId,
+          workflowId,
+        })
+        if (usageCheck.isExceeded) {
+          logger.warn(
+            `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping workflow execution.`,
+            {
+              actorUserId: payload.userId,
+              currentUsage: usageCheck.currentUsage,
+              limit: usageCheck.limit,
+              workflowId: payload.workflowId,
+            },
+          )
+          throw new Error(
+            usageCheck.message ||
+              'Usage limit exceeded. Please upgrade your billing tier to continue using workflows.',
+          )
         }
-      )
-      throw new Error(
-        usageCheck.message ||
-          'Usage limit exceeded. Please upgrade your billing tier to continue using workflows.'
-      )
-    }
 
-    const workflowData =
-      payload.executionTarget === 'live'
-        ? await loadWorkflowFromNormalizedTables(workflowId)
-        : await loadDeployedWorkflowState(workflowId)
-    if (!workflowData) {
-      throw new Error(
-        `Workflow ${workflowId} has no ${payload.executionTarget ?? 'deployed'} state`
-      )
-    }
+        const workflowData =
+          payload.executionTarget === 'live'
+            ? await loadWorkflowFromNormalizedTables(workflowId)
+            : await loadDeployedWorkflowState(workflowId)
+        if (!workflowData) {
+          throw new Error(
+            `Workflow ${workflowId} has no ${payload.executionTarget ?? 'deployed'} state`,
+          )
+        }
 
-    const { blocks, edges, loops, parallels } = workflowData
+        const { blocks, edges, loops, parallels } = workflowData
 
-    // Merge subblock states (server-safe version doesn't need workflowId)
-    const mergedStates = mergeSubblockState(blocks, {})
+        const mergedStates = mergeSubblockState(blocks, {})
 
-    // Process block states for execution
-    const processedBlockStates = Object.entries(mergedStates).reduce(
-      (acc, [blockId, blockState]) => {
-        acc[blockId] = Object.entries(blockState.subBlocks).reduce(
-          (subAcc, [key, subBlock]) => {
-            subAcc[key] = subBlock.value
-            return subAcc
+        const processedBlockStates = Object.entries(mergedStates).reduce(
+          (acc, [blockId, blockState]) => {
+            acc[blockId] = Object.entries(blockState.subBlocks).reduce(
+              (subAcc, [key, subBlock]) => {
+                subAcc[key] = subBlock.value
+                return subAcc
+              },
+              {} as Record<string, any>,
+            )
+            return acc
           },
-          {} as Record<string, any>
+          {} as Record<string, Record<string, any>>,
         )
-        return acc
-      },
-      {} as Record<string, Record<string, any>>
-    )
 
-    // Get environment variables with workspace precedence
-    const wfRows = await db
-      .select({ workspaceId: workflowTable.workspaceId })
-      .from(workflowTable)
-      .where(eq(workflowTable.id, workflowId))
-      .limit(1)
-    const workspaceId = wfRows[0]?.workspaceId || undefined
+        const wfRows = await db
+          .select({ workspaceId: workflowTable.workspaceId })
+          .from(workflowTable)
+          .where(eq(workflowTable.id, workflowId))
+          .limit(1)
+        const workspaceId = wfRows[0]?.workspaceId || undefined
 
-    const decryptedEnvVars = await getEffectiveDecryptedEnv(payload.userId, workspaceId)
-
-    // Start logging session
-    await loggingSession.safeStart({
-      userId: payload.userId,
-      workspaceId: workspaceId || '',
-      variables: decryptedEnvVars,
-      triggerData: payload.triggerData,
-    })
-
-    // Create serialized workflow
-    const serializer = new Serializer()
-    const serializedWorkflow = serializer.serializeWorkflow(
-      mergedStates,
-      edges,
-      loops || {},
-      parallels || {},
-      true // Enable validation during execution
-    )
-
-    // Create executor and execute
-    const executor = new Executor({
-      workflow: serializedWorkflow,
-      currentBlockStates: processedBlockStates,
-      envVarValues: decryptedEnvVars,
-      workflowInput: payload.input || {},
-      workflowVariables: {},
-      contextExtensions: {
-        executionId,
-        workspaceId: workspaceId || '',
-        userId: payload.userId,
-        isDeployedContext: payload.executionTarget !== 'live',
-      },
-    })
-
-    // Set up logging on the executor
-    loggingSession.setupExecutor(executor)
-
-    const startBlockId = payload.startBlockId
-    if (startBlockId && !mergedStates[startBlockId]) {
-      throw new Error(`Workflow ${workflowId} does not contain trigger block ${startBlockId}`)
-    }
-
-    if (startBlockId) {
-      const outgoingConnections = serializedWorkflow.connections.filter(
-        (connection) => connection.source === startBlockId
-      )
-      if (outgoingConnections.length === 0) {
-        throw new Error(
-          `Trigger block ${startBlockId} must be connected to other blocks to execute`
+        const decryptedEnvVars = await getEffectiveDecryptedEnv(
+          payload.userId,
+          workspaceId,
         )
-      }
-    }
 
-    const result = await executor.execute(workflowId, startBlockId)
+        await loggingSession.safeStart({
+          userId: payload.userId,
+          workspaceId: workspaceId || '',
+          variables: decryptedEnvVars,
+          triggerData: payload.triggerData,
+        })
 
-    // Handle streaming vs regular result
-    const executionResult = 'stream' in result && 'execution' in result ? result.execution : result
+        const serializer = new Serializer()
+        const serializedWorkflow = serializer.serializeWorkflow(
+          mergedStates,
+          edges,
+          loops || {},
+          parallels || {},
+          true,
+        )
 
-    logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
-      success: executionResult.success,
-      executionTime: executionResult.metadata?.duration,
-      executionId,
+        const executor = new Executor({
+          workflow: serializedWorkflow,
+          currentBlockStates: processedBlockStates,
+          envVarValues: decryptedEnvVars,
+          workflowInput: payload.input || {},
+          workflowVariables: {},
+          contextExtensions: {
+            executionId,
+            workspaceId: workspaceId || '',
+            userId: payload.userId,
+            concurrencyLeaseInherited: true,
+            isDeployedContext: payload.executionTarget !== 'live',
+          },
+        })
+
+        loggingSession.setupExecutor(executor)
+
+        const startBlockId = payload.startBlockId
+        if (startBlockId && !mergedStates[startBlockId]) {
+          throw new Error(
+            `Workflow ${workflowId} does not contain trigger block ${startBlockId}`,
+          )
+        }
+
+        if (startBlockId) {
+          const outgoingConnections = serializedWorkflow.connections.filter(
+            (connection) => connection.source === startBlockId,
+          )
+          if (outgoingConnections.length === 0) {
+            throw new Error(
+              `Trigger block ${startBlockId} must be connected to other blocks to execute`,
+            )
+          }
+        }
+
+        const result = await executor.execute(workflowId, startBlockId)
+        const executionResult =
+          'stream' in result && 'execution' in result
+            ? result.execution
+            : result
+
+        logger.info(
+          `[${requestId}] Workflow execution completed: ${workflowId}`,
+          {
+            success: executionResult.success,
+            executionTime: executionResult.metadata?.duration,
+            executionId,
+          },
+        )
+
+        if (executionResult.success) {
+          await updateWorkflowRunCounts(workflowId)
+        }
+
+        const { traceSpans, totalDuration } = buildTraceSpans(executionResult)
+
+        await loggingSession.safeComplete({
+          endedAt: new Date().toISOString(),
+          totalDurationMs: totalDuration || 0,
+          finalOutput: executionResult.output || {},
+          traceSpans: traceSpans as any,
+        })
+
+        return {
+          success: executionResult.success,
+          workflowId: payload.workflowId,
+          executionId,
+          output: executionResult.output,
+          executedAt: new Date().toISOString(),
+          metadata: payload.metadata,
+        }
+      },
     })
-
-    // Update workflow run counts on success
-    if (executionResult.success) {
-      await updateWorkflowRunCounts(workflowId)
-    }
-
-    // Build trace spans and complete logging session (for both success and failure)
-    const { traceSpans, totalDuration } = buildTraceSpans(executionResult)
-
-    await loggingSession.safeComplete({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: totalDuration || 0,
-      finalOutput: executionResult.output || {},
-      traceSpans: traceSpans as any,
-    })
-
-    return {
-      success: executionResult.success,
-      workflowId: payload.workflowId,
-      executionId,
-      output: executionResult.output,
-      executedAt: new Date().toISOString(),
-      metadata: payload.metadata,
-    }
   } catch (error: any) {
+    if (
+      isExecutionConcurrencyLimitError(error) ||
+      isExecutionConcurrencyBackendUnavailableError(error)
+    ) {
+      throw error
+    }
+
     logger.error(`[${requestId}] Workflow execution failed: ${workflowId}`, {
       error: error.message,
       stack: error.stack,
     })
 
-    const executionResult = error?.executionResult || { success: false, output: {}, logs: [] }
+    const executionResult = error?.executionResult || {
+      success: false,
+      output: {},
+      logs: [],
+    }
     const { traceSpans } = buildTraceSpans(executionResult)
 
     await loggingSession.safeCompleteWithError({
@@ -214,11 +256,3 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     throw error
   }
 }
-
-export const workflowExecution = task({
-  id: 'workflow-execution',
-  retry: {
-    maxAttempts: 1,
-  },
-  run: async (payload: WorkflowExecutionPayload) => executeWorkflowJob(payload),
-})

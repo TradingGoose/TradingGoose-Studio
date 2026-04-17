@@ -253,7 +253,7 @@ export function KnowledgeBase({
   // Check for documents stuck in processing due to dead processes
   const checkForDeadProcesses = async () => {
     const now = new Date()
-    const DEAD_PROCESS_THRESHOLD_MS = 150 * 1000 // 150 seconds (2.5 minutes)
+    const DEAD_PROCESS_THRESHOLD_MS = 30 * 60 * 1000
 
     const staleDocuments = documents.filter((doc) => {
       if (doc.processingStatus !== 'processing' || !doc.processingStartedAt) {
@@ -277,7 +277,7 @@ export function KnowledgeBase({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            markFailedDueToTimeout: true,
+            failStaleProcessing: true,
           }),
         })
 

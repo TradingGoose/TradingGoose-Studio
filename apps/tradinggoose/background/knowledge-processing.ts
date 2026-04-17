@@ -1,13 +1,17 @@
-import { task } from '@trigger.dev/sdk'
-import { env } from '@/lib/env'
-import { processDocumentAsync } from '@/lib/knowledge/documents/service'
+import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
+import {
+  prepareDocumentForProcessing,
+  processDocumentAsync,
+} from '@/lib/knowledge/documents/service'
 import { createLogger } from '@/lib/logs/console/logger'
 
-const logger = createLogger('TriggerKnowledgeProcessing')
+const logger = createLogger('KnowledgeProcessing')
 
 export type DocumentProcessingPayload = {
   knowledgeBaseId: string
   documentId: string
+  userId: string
+  workspaceId?: string | null
   docData: {
     filename: string
     fileUrl: string
@@ -21,41 +25,62 @@ export type DocumentProcessingPayload = {
     lang?: string
     chunkOverlap?: number
   }
+  resetBeforeProcessing?: boolean
   requestId: string
 }
 
-export const processDocument = task({
-  id: 'knowledge-process-document',
-  maxDuration: env.KB_CONFIG_MAX_DURATION || 600,
-  retry: {
-    maxAttempts: env.KB_CONFIG_MAX_ATTEMPTS || 3,
-    factor: env.KB_CONFIG_RETRY_FACTOR || 2,
-    minTimeoutInMs: env.KB_CONFIG_MIN_TIMEOUT || 1000,
-    maxTimeoutInMs: env.KB_CONFIG_MAX_TIMEOUT || 10000,
-  },
-  queue: {
-    concurrencyLimit: env.KB_CONFIG_CONCURRENCY_LIMIT || 20,
-    name: 'document-processing-queue',
-  },
-  run: async (payload: DocumentProcessingPayload) => {
-    const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
+export function isDocumentProcessingPayload(
+  value: unknown,
+): value is DocumentProcessingPayload {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
 
-    logger.info(`[${requestId}] Starting Trigger.dev processing for document: ${docData.filename}`)
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.knowledgeBaseId === 'string' &&
+    typeof candidate.documentId === 'string' &&
+    typeof candidate.userId === 'string' &&
+    typeof candidate.requestId === 'string'
+  )
+}
 
-    try {
-      await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
+export async function executeDocumentProcessingJob(
+  payload: DocumentProcessingPayload,
+) {
+  const { knowledgeBaseId, documentId, docData, processingOptions, requestId } =
+    payload
 
-      logger.info(`[${requestId}] Successfully processed document: ${docData.filename}`)
+  logger.info(
+    `[${requestId}] Starting document pending execution: ${docData.filename}`,
+  )
 
-      return {
-        success: true,
-        documentId,
-        filename: docData.filename,
-        processingTime: Date.now(),
-      }
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to process document: ${docData.filename}`, error)
-      throw error
-    }
-  },
-})
+  try {
+    await withExecutionConcurrencyLimit({
+      userId: payload.userId,
+      workspaceId: payload.workspaceId,
+      task: async () => {
+        if (payload.resetBeforeProcessing) {
+          await prepareDocumentForProcessing(documentId)
+        }
+
+        await processDocumentAsync(
+          knowledgeBaseId,
+          documentId,
+          docData,
+          processingOptions,
+        )
+      },
+    })
+
+    logger.info(
+      `[${requestId}] Successfully completed document pending execution: ${docData.filename}`,
+    )
+  } catch (error) {
+    logger.error(
+      `[${requestId}] Failed document pending execution: ${docData.filename}`,
+      error,
+    )
+    throw error
+  }
+}

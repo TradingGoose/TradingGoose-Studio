@@ -26,15 +26,24 @@ vi.mock('@/app/api/knowledge/utils', () => ({
 
 vi.mock('@/lib/knowledge/documents/service', () => ({
   getDocuments: vi.fn(),
-  createSingleDocument: vi.fn(),
   createDocumentRecords: vi.fn(),
-  processDocumentsWithQueue: vi.fn(),
-  getProcessingConfig: vi.fn(),
+  enqueueDocumentProcessingJobs: vi.fn(),
   bulkDocumentOperation: vi.fn(),
   updateDocument: vi.fn(),
   deleteDocument: vi.fn(),
-  markDocumentAsFailedTimeout: vi.fn(),
   retryDocumentProcessing: vi.fn(),
+}))
+
+vi.mock('@/lib/trigger/settings', () => ({
+  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+    constructor(
+      message: string,
+      public statusCode = 503
+    ) {
+      super(message)
+      this.name = 'TriggerExecutionUnavailableError'
+    }
+  },
 }))
 
 mockDrizzleOrm()
@@ -309,7 +318,9 @@ describe('Knowledge Base Documents API Route', () => {
 
     it('should create single document successfully', async () => {
       const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { createSingleDocument } = await import('@/lib/knowledge/documents/service')
+      const { createDocumentRecords, enqueueDocumentProcessingJobs } = await import(
+        '@/lib/knowledge/documents/service'
+      )
 
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
@@ -318,16 +329,11 @@ describe('Knowledge Base Documents API Route', () => {
       })
 
       const createdDocument = {
-        id: 'doc-123',
-        knowledgeBaseId: 'kb-123',
+        documentId: 'doc-123',
         filename: validDocumentData.filename,
         fileUrl: validDocumentData.fileUrl,
         fileSize: validDocumentData.fileSize,
         mimeType: validDocumentData.mimeType,
-        chunkCount: 0,
-        tokenCount: 0,
-        characterCount: 0,
-        enabled: true,
         uploadedAt: new Date(),
         tag1: null,
         tag2: null,
@@ -337,7 +343,8 @@ describe('Knowledge Base Documents API Route', () => {
         tag6: null,
         tag7: null,
       }
-      vi.mocked(createSingleDocument).mockResolvedValue(createdDocument)
+      vi.mocked(createDocumentRecords).mockResolvedValue([createdDocument])
+      vi.mocked(enqueueDocumentProcessingJobs).mockResolvedValue(['pending-document-1'])
 
       const req = createMockRequest('POST', validDocumentData)
       const { POST } = await import('@/app/api/knowledge/[id]/documents/route')
@@ -348,12 +355,15 @@ describe('Knowledge Base Documents API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.filename).toBe(validDocumentData.filename)
       expect(data.data.fileUrl).toBe(validDocumentData.fileUrl)
-      expect(vi.mocked(createSingleDocument)).toHaveBeenCalledWith(
-        validDocumentData,
+      expect(data.data.status).toBe('pending')
+      expect(data.data.taskId).toBe('pending-document-1')
+      expect(vi.mocked(createDocumentRecords)).toHaveBeenCalledWith(
+        [validDocumentData],
         'kb-123',
         expect.any(String),
         'user-123'
       )
+      expect(vi.mocked(enqueueDocumentProcessingJobs)).toHaveBeenCalled()
     })
 
     it('should validate single document data', async () => {
@@ -412,8 +422,9 @@ describe('Knowledge Base Documents API Route', () => {
 
     it('should create bulk documents successfully', async () => {
       const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { createDocumentRecords, processDocumentsWithQueue, getProcessingConfig } =
-        await import('@/lib/knowledge/documents/service')
+      const { createDocumentRecords, enqueueDocumentProcessingJobs } = await import(
+        '@/lib/knowledge/documents/service'
+      )
 
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
@@ -439,13 +450,10 @@ describe('Knowledge Base Documents API Route', () => {
       ]
 
       vi.mocked(createDocumentRecords).mockResolvedValue(createdDocuments)
-      vi.mocked(processDocumentsWithQueue).mockResolvedValue(undefined)
-      vi.mocked(getProcessingConfig).mockReturnValue({
-        maxConcurrentDocuments: 8,
-        batchSize: 20,
-        delayBetweenBatches: 100,
-        delayBetweenDocuments: 0,
-      })
+      vi.mocked(enqueueDocumentProcessingJobs).mockResolvedValue([
+        'pending-doc-1',
+        'pending-doc-2',
+      ])
 
       const req = createMockRequest('POST', validBulkData)
       const { POST } = await import('@/app/api/knowledge/[id]/documents/route')
@@ -456,14 +464,15 @@ describe('Knowledge Base Documents API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.total).toBe(2)
       expect(data.data.documentsCreated).toHaveLength(2)
-      expect(data.data.processingMethod).toBe('background')
+      expect(data.data.documentsCreated[0].taskId).toBe('pending-doc-1')
+      expect(data.data.documentsCreated[1].taskId).toBe('pending-doc-2')
       expect(vi.mocked(createDocumentRecords)).toHaveBeenCalledWith(
         validBulkData.documents,
         'kb-123',
         expect.any(String),
         'user-123'
       )
-      expect(vi.mocked(processDocumentsWithQueue)).toHaveBeenCalled()
+      expect(vi.mocked(enqueueDocumentProcessingJobs)).toHaveBeenCalled()
     })
 
     it('should validate bulk document data', async () => {
@@ -506,8 +515,9 @@ describe('Knowledge Base Documents API Route', () => {
 
     it('should handle processing errors gracefully', async () => {
       const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { createDocumentRecords, processDocumentsWithQueue, getProcessingConfig } =
-        await import('@/lib/knowledge/documents/service')
+      const { createDocumentRecords, enqueueDocumentProcessingJobs } = await import(
+        '@/lib/knowledge/documents/service'
+      )
 
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
@@ -526,13 +536,7 @@ describe('Knowledge Base Documents API Route', () => {
       ]
 
       vi.mocked(createDocumentRecords).mockResolvedValue(createdDocuments)
-      vi.mocked(processDocumentsWithQueue).mockResolvedValue(undefined)
-      vi.mocked(getProcessingConfig).mockReturnValue({
-        maxConcurrentDocuments: 8,
-        batchSize: 20,
-        delayBetweenBatches: 100,
-        delayBetweenDocuments: 0,
-      })
+      vi.mocked(enqueueDocumentProcessingJobs).mockResolvedValue(['pending-doc-1'])
 
       const req = createMockRequest('POST', validBulkData)
       const { POST } = await import('@/app/api/knowledge/[id]/documents/route')
@@ -600,14 +604,14 @@ describe('Knowledge Base Documents API Route', () => {
 
     it('should handle database errors during creation', async () => {
       const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { createSingleDocument } = await import('@/lib/knowledge/documents/service')
+      const { createDocumentRecords } = await import('@/lib/knowledge/documents/service')
 
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
         knowledgeBase: { id: 'kb-123', userId: 'user-123' },
       })
-      vi.mocked(createSingleDocument).mockRejectedValue(new Error('Database error'))
+      vi.mocked(createDocumentRecords).mockRejectedValue(new Error('Database error'))
 
       const req = createMockRequest('POST', validDocumentData)
       const { POST } = await import('@/app/api/knowledge/[id]/documents/route')

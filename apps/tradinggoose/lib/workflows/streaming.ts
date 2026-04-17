@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import { encodeSSE } from '@/lib/utils'
 import type { ExecutionResult } from '@/executor/types'
 
@@ -129,22 +130,28 @@ export async function createStreamingResponse(
           }
         }
 
-        const result = await executeWorkflow(
-          workflow,
-          requestId,
-          input,
-          executingUserId,
-          {
-            enabled: true,
-            selectedOutputs: streamConfig.selectedOutputs,
-            isSecureMode: streamConfig.isSecureMode,
-            workflowTriggerType: streamConfig.workflowTriggerType,
-            onStream: onStreamCallback,
-            onBlockComplete: onBlockCompleteCallback,
-            skipLoggingComplete: true, // We'll complete logging after tokenization
-          },
-          executionId
-        )
+        const result = await withExecutionConcurrencyLimit({
+          userId: executingUserId,
+          workflowId: workflow.id,
+          workspaceId: workflow.workspaceId,
+          task: () =>
+            executeWorkflow(
+              workflow,
+              requestId,
+              input,
+              executingUserId,
+              {
+                enabled: true,
+                selectedOutputs: streamConfig.selectedOutputs,
+                isSecureMode: streamConfig.isSecureMode,
+                workflowTriggerType: streamConfig.workflowTriggerType,
+                onStream: onStreamCallback,
+                onBlockComplete: onBlockCompleteCallback,
+                skipLoggingComplete: true, // We'll complete logging after tokenization
+              },
+              executionId
+            ),
+        })
 
         if (result.logs && streamedContent.size > 0) {
           result.logs = result.logs.map((log: any) => {

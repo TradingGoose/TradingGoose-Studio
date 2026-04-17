@@ -31,8 +31,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/services/queue/RateLimiter', () => ({
-  RateLimiter: class {
+vi.mock('@/services/queue/ExecutionLimiter', () => ({
+  ExecutionLimiter: class {
     checkRateLimitWithSubscription = vi.fn().mockResolvedValue({
       allowed: true,
       remaining: 5,

@@ -23,3 +23,29 @@ export async function isTriggerExecutionEnabled() {
   const { executionEnabled } = await getTriggerExecutionState()
   return executionEnabled
 }
+
+export class TriggerExecutionUnavailableError extends Error {
+  statusCode: number
+  code: string
+
+  constructor(
+    message = 'Trigger.dev execution is disabled or not configured.',
+    statusCode = 503
+  ) {
+    super(message)
+    this.name = 'TriggerExecutionUnavailableError'
+    this.statusCode = statusCode
+    this.code = 'TRIGGER_EXECUTION_DISABLED'
+  }
+}
+
+export async function ensureTriggerExecutionEnabled(options?: {
+  message?: string
+  statusCode?: number
+}) {
+  if (await isTriggerExecutionEnabled()) {
+    return
+  }
+
+  throw new TriggerExecutionUnavailableError(options?.message, options?.statusCode)
+}

@@ -105,6 +105,7 @@ export interface ExecutionContext {
   workspaceId?: string // Workspace ID for file storage scoping
   userId?: string // Authenticated acting user for internal server-to-server calls
   executionId?: string // Unique execution ID for file storage scoping
+  concurrencyLeaseInherited?: boolean
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
   // Manual executions in the builder should leave this undefined/false
   isDeployedContext?: boolean
@@ -191,6 +192,7 @@ export interface ExecutionContextExtensions {
   executionId?: string
   workspaceId?: string
   userId?: string
+  concurrencyLeaseInherited?: boolean
   isChildExecution?: boolean
   // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
   isDeployedContext?: boolean

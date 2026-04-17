@@ -192,7 +192,7 @@ export const logsWebhookDelivery = task({
             try {
               const limits = await getUserLimits(workflow[0].userId)
               if (needsRateLimits) {
-                payload.data.rateLimits = limits.workflowExecutionRateLimit
+                payload.data.rateLimits = limits.executionRateLimit
               }
               if (needsUsage) {
                 payload.data.usage = limits.usage

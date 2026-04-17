@@ -9,6 +9,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockCreateContext = vi.fn()
 const mockRunInContext = vi.fn()
+const withExecutionConcurrencyLimitMock = vi.fn()
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
@@ -17,6 +18,8 @@ const mockLogger = {
 }
 
 describe('Function Execute API Route', () => {
+  const enqueuePendingExecutionMock = vi.fn()
+
   beforeEach(() => {
     vi.resetModules()
     vi.resetAllMocks()
@@ -63,19 +66,38 @@ describe('Function Execute API Route', () => {
       accrueUserUsageCost: vi.fn().mockResolvedValue(true),
     }))
     vi.doMock('@/lib/auth/hybrid', () => ({
+      AuthType: {
+        SESSION: 'session',
+        API_KEY: 'api_key',
+        INTERNAL_JWT: 'internal_jwt',
+      },
       checkSessionOrInternalAuth: vi.fn().mockResolvedValue({
         success: true,
         userId: 'test-user-id',
         authType: 'session',
       }),
     }))
-    vi.doMock('@/lib/execution/concurrency-limit', () => ({
-      getCodeExecutionConcurrencyLimitMessage: vi.fn(() => 'Concurrency limited'),
-      isCodeExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
-      isCodeExecutionConcurrencyLimitError: vi.fn(() => false),
-      withCodeExecutionConcurrencyLimit: vi.fn(
-        async ({ task }: { task: () => Promise<unknown> }) => await task()
-      ),
+    vi.doMock('@/services/queue', () => ({
+      RateLimitError: class RateLimitError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 429
+        ) {
+          super(message)
+          this.name = 'RateLimitError'
+        }
+      },
+      ExecutionLimiter: vi.fn().mockImplementation(() => ({
+        checkRateLimitWithSubscription: vi.fn().mockResolvedValue({
+          allowed: true,
+          remaining: 10,
+          resetAt: new Date(),
+        }),
+      })),
+    }))
+    vi.doMock('@/lib/execution/pending-execution', () => ({
+      enqueuePendingExecution: enqueuePendingExecutionMock,
+      isPendingExecutionLimitError: vi.fn(() => false),
     }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
@@ -83,6 +105,35 @@ describe('Function Execute API Route', () => {
       withLocalVmSaturationLimit: vi.fn(
         async ({ task }: { task: () => Promise<unknown> }) => await task()
       ),
+    }))
+    vi.doMock('@/lib/execution/execution-concurrency-limit', () => ({
+      ExecutionGateError: class ExecutionGateError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 402
+        ) {
+          super(message)
+          this.name = 'ExecutionGateError'
+        }
+      },
+      enforceServerExecutionRateLimit: vi.fn().mockResolvedValue(undefined),
+      getExecutionConcurrencyLimitMessage: vi.fn(() => 'Execution concurrency limit reached'),
+      isExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
+      isExecutionConcurrencyLimitError: vi.fn(() => false),
+      withExecutionConcurrencyLimit: withExecutionConcurrencyLimitMock.mockImplementation(
+        async ({ task }: { task: () => Promise<unknown> }) => await task()
+      ),
+    }))
+    vi.doMock('@/lib/trigger/settings', () => ({
+      TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 503
+        ) {
+          super(message)
+          this.name = 'TriggerExecutionUnavailableError'
+        }
+      },
     }))
 
     vi.doMock('@/lib/execution/e2b', () => ({
@@ -109,6 +160,15 @@ describe('Function Execute API Route', () => {
 
     mockRunInContext.mockResolvedValue('vm success')
     mockCreateContext.mockReturnValue({})
+    withExecutionConcurrencyLimitMock.mockReset()
+    withExecutionConcurrencyLimitMock.mockImplementation(
+      async ({ task }: { task: () => Promise<unknown> }) => await task()
+    )
+    enqueuePendingExecutionMock.mockReset()
+    enqueuePendingExecutionMock.mockResolvedValue({
+      pendingExecutionId: 'pending-function-123',
+      billingScopeId: 'billing-scope-1',
+    })
   })
 
   afterEach(() => {
@@ -181,6 +241,99 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Basic Function Execution', () => {
+    it('should only inherit the execution lease for internal workflow calls', async () => {
+      const { checkSessionOrInternalAuth } = await import('@/lib/auth/hybrid')
+      vi.mocked(checkSessionOrInternalAuth).mockResolvedValueOnce({
+        success: true,
+        userId: 'test-user-id',
+        authType: 'internal_jwt',
+      })
+
+      const req = createMockRequest('POST', {
+        code: 'return "nested"',
+        concurrencyLeaseInherited: true,
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      await POST(req)
+
+      expect(withExecutionConcurrencyLimitMock).toHaveBeenCalledWith(
+        expect.objectContaining({ concurrencyLeaseInherited: true })
+      )
+    })
+
+    it('should ignore lease inheritance flags on non-internal requests', async () => {
+      const req = createMockRequest('POST', {
+        code: 'return "top-level"',
+        concurrencyLeaseInherited: true,
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      await POST(req)
+
+      expect(withExecutionConcurrencyLimitMock).toHaveBeenCalledWith(
+        expect.objectContaining({ concurrencyLeaseInherited: false })
+      )
+    })
+
+    it('should queue async execution through pending execution', async () => {
+      const req = createMockRequest(
+        'POST',
+        {
+          code: 'return "queued"',
+        },
+        { 'X-Execution-Mode': 'async' }
+      )
+
+      const { enqueuePendingExecution } = await import('@/lib/execution/pending-execution')
+      const { POST } = await import('@/app/api/function/execute/route')
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(202)
+      expect(enqueuePendingExecution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          executionType: 'function',
+          userId: 'test-user-id',
+          payload: expect.objectContaining({
+            code: 'return "queued"',
+            userId: 'test-user-id',
+            requestId: expect.any(String),
+            deferOnQueueSaturation: true,
+          }),
+        })
+      )
+      expect(data.taskId).toBe('pending-function-123')
+      expect(data.links.status).toBe('/api/jobs/pending-function-123')
+    })
+
+    it('should reject async execution before enqueue when usage limits are exceeded', async () => {
+      const req = createMockRequest(
+        'POST',
+        {
+          code: 'return "blocked"',
+        },
+        { 'X-Execution-Mode': 'async' }
+      )
+
+      const { checkServerSideUsageLimits } = await import('@/lib/billing')
+      vi.mocked(checkServerSideUsageLimits).mockResolvedValueOnce({
+        isExceeded: true,
+        currentUsage: 125,
+        limit: 100,
+        message: 'Usage limit exceeded before enqueue.',
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(402)
+      expect(data.success).toBe(false)
+      expect(data.error).toBe('Usage limit exceeded before enqueue.')
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+    })
+
     it('should execute simple JavaScript code successfully', async () => {
       const req = createMockRequest('POST', {
         code: 'return "Hello World"',

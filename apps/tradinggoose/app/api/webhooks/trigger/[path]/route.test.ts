@@ -8,19 +8,7 @@ import {
   createMockRequest,
   globalMockData,
   mockExecutionDependencies,
-  mockTriggerDevSdk,
 } from '@/app/api/__test-utils__/utils'
-
-// Prefer mocking the background module to avoid loading Trigger.dev at all during tests
-vi.mock('@/background/webhook-execution', () => ({
-  executeWebhookJob: vi.fn().mockResolvedValue({
-    success: true,
-    workflowId: 'test-workflow-id',
-    executionId: 'test-exec-id',
-    output: {},
-    executedAt: new Date().toISOString(),
-  }),
-}))
 
 const hasProcessedMessageMock = vi.fn().mockResolvedValue(false)
 const markMessageAsProcessedMock = vi.fn().mockResolvedValue(true)
@@ -33,6 +21,10 @@ const handleSlackChallengeMock = vi.fn().mockReturnValue(null)
 const processWhatsAppDeduplicationMock = vi.fn().mockResolvedValue(null)
 const processGenericDeduplicationMock = vi.fn().mockResolvedValue(null)
 const fetchAndProcessAirtablePayloadsMock = vi.fn().mockResolvedValue(undefined)
+const enqueuePendingExecutionMock = vi.fn().mockResolvedValue({
+  pendingExecutionId: 'pending-webhook-1',
+  billingScopeId: 'billing-scope-1',
+})
 const processWebhookMock = vi
   .fn()
   .mockResolvedValue(new Response('Webhook processed', { status: 200 }))
@@ -52,6 +44,7 @@ vi.mock('@/lib/redis', () => ({
   markMessageAsProcessed: markMessageAsProcessedMock,
   closeRedisConnection: closeRedisConnectionMock,
   acquireLock: acquireLockMock,
+  getRedisClient: vi.fn().mockReturnValue(null),
 }))
 
 vi.mock('@/lib/webhooks/utils', () => ({
@@ -105,7 +98,17 @@ describe('Webhook Trigger API Route', () => {
     globalMockData.schedules.length = 0
 
     mockExecutionDependencies()
-    mockTriggerDevSdk()
+    vi.doMock('@/lib/trigger/settings', () => ({
+      TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 503
+        ) {
+          super(message)
+          this.name = 'TriggerExecutionUnavailableError'
+        }
+      },
+    }))
 
     globalMockData.workflows.push({
       id: 'test-workflow-id',
@@ -125,12 +128,17 @@ describe('Webhook Trigger API Route', () => {
       isBillingEnabledForRuntime: vi.fn().mockResolvedValue(false),
     }))
 
+    vi.doMock('@/lib/execution/pending-execution', () => ({
+      enqueuePendingExecution: (...args: any[]) => enqueuePendingExecutionMock(...args),
+      isPendingExecutionLimitError: vi.fn(() => false),
+    }))
+
     vi.doMock('@/lib/billing/workspace-billing', () => ({
       resolveWorkspaceBillingContext: vi.fn(),
     }))
 
     vi.doMock('@/services/queue', () => ({
-      RateLimiter: vi.fn().mockImplementation(() => ({
+      ExecutionLimiter: vi.fn().mockImplementation(() => ({
         checkRateLimit: vi.fn().mockResolvedValue({
           allowed: true,
           remaining: 10,
@@ -165,6 +173,11 @@ describe('Webhook Trigger API Route', () => {
     handleWhatsAppVerificationMock.mockResolvedValue(null)
     processGenericDeduplicationMock.mockResolvedValue(null)
     processWebhookMock.mockResolvedValue(new Response('Webhook processed', { status: 200 }))
+    enqueuePendingExecutionMock.mockReset()
+    enqueuePendingExecutionMock.mockResolvedValue({
+      pendingExecutionId: 'pending-webhook-1',
+      billingScopeId: 'billing-scope-1',
+    })
 
     if ((global as any).crypto?.randomUUID) {
       vi.spyOn(crypto, 'randomUUID').mockRestore()
@@ -359,12 +372,6 @@ describe('Webhook Trigger API Route', () => {
         pinnedApiKeyId: 'test-pinned-api-key-id',
       })
 
-      vi.doMock('@trigger.dev/sdk', () => ({
-        tasks: {
-          trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
-        },
-      }))
-
       const testCases = [
         'Bearer case-test-token',
         'bearer case-test-token',
@@ -408,12 +415,6 @@ describe('Webhook Trigger API Route', () => {
         userId: 'test-user-id',
         pinnedApiKeyId: 'test-pinned-api-key-id',
       })
-
-      vi.doMock('@trigger.dev/sdk', () => ({
-        tasks: {
-          trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
-        },
-      }))
 
       const testCases = ['X-Secret-Key', 'x-secret-key', 'X-SECRET-KEY', 'x-Secret-Key']
 

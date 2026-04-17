@@ -141,7 +141,7 @@ export async function POST(
     foundWebhook,
     foundWorkflow,
     body,
-    { kind: 'http', request },
+    request,
     {
       requestId,
       path,

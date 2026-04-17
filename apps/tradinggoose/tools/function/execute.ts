@@ -82,6 +82,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
         blockOutputSchemas: params.blockOutputSchemas || {},
         workflowId: params._context?.workflowId,
         userId: params._context?.userId,
+        concurrencyLeaseInherited: params._context?.concurrencyLeaseInherited,
         ...(params._context?.workspaceId
           ? { workspaceId: params._context.workspaceId }
           : {}),

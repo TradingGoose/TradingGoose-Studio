@@ -4,15 +4,14 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
-  getCodeExecutionConcurrencyLimitMessage,
-  isCodeExecutionConcurrencyBackendUnavailableError,
-  isCodeExecutionConcurrencyLimitError,
-  withCodeExecutionConcurrencyLimit,
-} from '@/lib/execution/concurrency-limit'
-import {
-  getLocalVmSaturationLimitMessage,
-  isLocalVmSaturationLimitError,
-} from '@/lib/execution/local-saturation-limit'
+  ExecutionGateError,
+  enforceServerExecutionRateLimit,
+  getExecutionConcurrencyLimitMessage,
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
+} from '@/lib/execution/execution-concurrency-limit'
+import { getLocalVmSaturationLimitMessage, isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
@@ -20,6 +19,7 @@ import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { RateLimitError } from '@/services/queue'
 import {
   authenticateIndicatorRequest,
   getWorkspaceWritePermissionError,
@@ -99,6 +99,16 @@ export async function POST(request: NextRequest) {
     const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
     if (permissionError) return permissionError
 
+    await enforceServerExecutionRateLimit({
+      actorUserId: auth.userId,
+      authType: auth.authType,
+      workspaceId,
+      isAsync: false,
+      logger,
+      requestId,
+      source: 'indicator execute',
+    })
+
     const marketSeries = parsedBody.data.marketSeries
     const barsMs = mapMarketSeriesToBarsMs(marketSeries, intervalMs ?? null)
     const executionListing = toListingValueObject(marketSeries.listing ?? null)
@@ -119,17 +129,18 @@ export async function POST(request: NextRequest) {
 
     const indicatorMap = new Map(storedIndicators.map((indicator) => [indicator.id, indicator]))
 
-    const results = await withCodeExecutionConcurrencyLimit({
+    const results = await withExecutionConcurrencyLimit({
       userId: auth.userId,
       workspaceId,
       task: async () => {
-        const results: ExecuteResult[] = []
+        const nextResults: ExecuteResult[] = []
+
         for (const indicatorId of indicatorIds) {
           const customIndicator = indicatorMap.get(indicatorId)
           const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
 
           if (!customIndicator && !defaultIndicator) {
-            results.push({
+            nextResults.push({
               indicatorId,
               output: null,
               warnings: [{ code: 'missing_indicator', message: `${indicatorId} is missing.` }],
@@ -161,7 +172,7 @@ export async function POST(request: NextRequest) {
             })
 
             if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
-              results.push({
+              nextResults.push({
                 indicatorId,
                 output: null,
                 warnings: compiled.warnings,
@@ -177,7 +188,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (!compiled.output) {
-              results.push({
+              nextResults.push({
                 indicatorId,
                 output: null,
                 warnings: compiled.warnings,
@@ -192,7 +203,7 @@ export async function POST(request: NextRequest) {
             }
 
             const output = compiled.output
-            results.push({
+            nextResults.push({
               indicatorId,
               output,
               warnings: compiled.warnings,
@@ -207,8 +218,9 @@ export async function POST(request: NextRequest) {
             if (isLocalVmSaturationLimitError(error)) {
               throw error
             }
+
             const timedOut = isExecutionTimeoutError(error)
-            results.push({
+            nextResults.push({
               indicatorId,
               output: null,
               warnings: [],
@@ -221,29 +233,52 @@ export async function POST(request: NextRequest) {
             })
           }
         }
-        return results
+
+        return nextResults
       },
     })
 
     return NextResponse.json({ success: true, data: results })
   } catch (error) {
-    if (isCodeExecutionConcurrencyBackendUnavailableError(error)) {
+    if (error instanceof ExecutionGateError) {
       return NextResponse.json(
         {
           success: false,
           error: error.message,
-          code: 'execution_backend_unavailable',
+          code: 'usage_limit_exceeded',
         },
         { status: error.statusCode }
       )
     }
 
-    if (isCodeExecutionConcurrencyLimitError(error)) {
+    if (error instanceof RateLimitError) {
       return NextResponse.json(
         {
           success: false,
-          error: getCodeExecutionConcurrencyLimitMessage(error),
-          code: 'concurrency_limit_exceeded',
+          error: error.message,
+          code: 'rate_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isExecutionConcurrencyLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getExecutionConcurrencyLimitMessage(error),
+          code: 'execution_concurrency_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isExecutionConcurrencyBackendUnavailableError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: 'execution_limiter_unavailable',
         },
         { status: error.statusCode }
       )
