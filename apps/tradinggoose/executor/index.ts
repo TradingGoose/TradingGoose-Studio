@@ -28,6 +28,7 @@ import { InputResolver } from '@/executor/resolver/resolver'
 import type {
   BlockHandler,
   BlockLog,
+  DeferredBlockExecution,
   ExecutionContext,
   ExecutionContextExtensions,
   ExecutionResult,
@@ -90,6 +91,16 @@ function isSerializedTriggerBlock(block: SerializedBlock | undefined): boolean {
   }
 
   return block.config?.params?.triggerMode === true
+}
+
+function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecution {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'deferred' &&
+    'wait' in value
+  )
 }
 
 /**
@@ -766,6 +777,8 @@ export class Executor {
       userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
       concurrencyLeaseInherited: this.contextExtensions.concurrencyLeaseInherited,
+      triggerType: this.contextExtensions.triggerType,
+      workflowDepth: this.contextExtensions.workflowDepth ?? 0,
       isDeployedContext: this.contextExtensions.isDeployedContext || false,
       blockStates: new Map(),
       blockLogs: [],
@@ -1708,10 +1721,16 @@ export class Executor {
       // Extract successful results and collect any errors
       const results: (NormalizedBlockOutput | StreamingExecution)[] = []
       const errors: Error[] = []
+      const deferredResultIndexes: number[] = []
 
       settledResults.forEach((result) => {
         if (result.status === 'fulfilled') {
-          results.push(result.value)
+          if (isDeferredBlockExecution(result.value)) {
+            deferredResultIndexes.push(results.length)
+            results.push({ status: 102, result: 'Deferred block execution pending' })
+          } else {
+            results.push(result.value)
+          }
         } else {
           errors.push(result.reason)
           // For failed blocks, we still need to add a placeholder result
@@ -1722,6 +1741,45 @@ export class Executor {
           })
         }
       })
+
+      if (deferredResultIndexes.length > 0) {
+        const deferredWaitTask = async () => {
+          const waitedResults = await Promise.allSettled(
+            deferredResultIndexes.map(async (index) => {
+              const deferred = settledResults[index]
+              if (deferred?.status !== 'fulfilled' || !isDeferredBlockExecution(deferred.value)) {
+                throw new Error('Deferred workflow execution was not available')
+              }
+
+              return deferred.value.wait()
+            })
+          )
+
+          waitedResults.forEach((waitedResult, waitedIndex) => {
+            const resultIndex = deferredResultIndexes[waitedIndex]
+
+            if (waitedResult.status === 'fulfilled') {
+              results[resultIndex] =
+                typeof waitedResult.value === 'object' && waitedResult.value !== null
+                  ? waitedResult.value
+                  : { result: waitedResult.value }
+              return
+            }
+
+            errors.push(waitedResult.reason)
+            results[resultIndex] = {
+              error: waitedResult.reason?.message || 'Block execution failed',
+              status: 500,
+            }
+          })
+        }
+
+        await (
+          this.contextExtensions.executionConcurrencyController?.runWithoutLease(
+            deferredWaitTask
+          ) ?? deferredWaitTask()
+        )
+      }
 
       // If there were any errors, log them but don't throw immediately
       // This allows successful blocks to complete their streaming
@@ -1765,7 +1823,7 @@ export class Executor {
   private async executeBlock(
     blockId: string,
     context: ExecutionContext
-  ): Promise<NormalizedBlockOutput | StreamingExecution> {
+  ): Promise<NormalizedBlockOutput | StreamingExecution | DeferredBlockExecution> {
     // Check if this is a virtual block ID for parallel execution
     let actualBlockId = blockId
     let parallelInfo:
@@ -1856,6 +1914,33 @@ export class Executor {
       return { iterationCurrent, iterationTotal, iterationType }
     }
 
+    const clearActiveBlock = () => {
+      if (this.isChildExecution) {
+        return
+      }
+
+      useExecutionStore.setState((state) => {
+        const updatedActiveBlockIds = new Set(state.activeBlockIds)
+        updatedActiveBlockIds.delete(blockId)
+
+        if (parallelInfo) {
+          const hasOtherVirtualBlocks = Array.from(state.activeBlockIds).some((activeId) => {
+            if (activeId === blockId) return false
+            const mapping = context.parallelBlockMapping?.get(activeId)
+            return mapping && mapping.originalBlockId === parallelInfo.originalBlockId
+          })
+
+          if (!hasOtherVirtualBlocks) {
+            updatedActiveBlockIds.delete(parallelInfo.originalBlockId)
+          }
+        }
+
+        return { activeBlockIds: updatedActiveBlockIds }
+      })
+    }
+
+    let handleBlockFailure: ((error: any) => NormalizedBlockOutput) | undefined
+
     try {
       if (block.enabled === false) {
         throw new Error(`Cannot execute disabled block: ${block.metadata?.name || block.id}`)
@@ -1896,69 +1981,16 @@ export class Executor {
         this.consoleEntryIdByBlockId.set(consoleBlockId, consoleEntry.id)
       }
 
-      // Track block execution start
-      trackWorkflowTelemetry('block_execution_start', {
-        workflowId: context.workflowId,
-        blockId: block.id,
-        virtualBlockId: parallelInfo ? blockId : undefined,
-        iterationIndex: parallelInfo?.iterationIndex,
-        blockType: block.metadata?.id || 'unknown',
-        blockName: block.metadata?.name || 'Unnamed Block',
-        inputSize: Object.keys(inputs).length,
-        startTime: new Date().toISOString(),
-      })
-
-      // Find the appropriate handler
-      const handler = this.blockHandlers.find((h) => h.canHandle(block))
-      if (!handler) {
-        throw new Error(`No handler found for block type: ${block.metadata?.id}`)
-      }
-
-      // Execute the block
-      const startTime = performance.now()
-      const rawOutput = await handler.execute(block, inputs, context)
-      const executionTime = performance.now() - startTime
-
-      // Remove this block from active blocks immediately after execution
-      // This ensures the pulse effect stops as soon as the block completes
-      // Only manage active blocks for parent executions
-      if (!this.isChildExecution) {
-        useExecutionStore.setState((state) => {
-          const updatedActiveBlockIds = new Set(state.activeBlockIds)
-          updatedActiveBlockIds.delete(blockId)
-
-          // For virtual blocks, also check if we should remove the actual block ID
-          if (parallelInfo) {
-            // Check if there are any other virtual blocks for the same actual block still active
-            const hasOtherVirtualBlocks = Array.from(state.activeBlockIds).some((activeId) => {
-              if (activeId === blockId) return false // Skip the current block we're removing
-              const mapping = context.parallelBlockMapping?.get(activeId)
-              return mapping && mapping.originalBlockId === parallelInfo.originalBlockId
-            })
-
-            // If no other virtual blocks are active for this actual block, remove the actual block ID too
-            if (!hasOtherVirtualBlocks) {
-              updatedActiveBlockIds.delete(parallelInfo.originalBlockId)
-            }
-          }
-
-          return { activeBlockIds: updatedActiveBlockIds }
-        })
-      }
-
-      if (
-        rawOutput &&
-        typeof rawOutput === 'object' &&
-        'stream' in rawOutput &&
-        'execution' in rawOutput
-      ) {
-        const deferStreamingFinalize = Boolean(context.onStream)
-        const streamingExec = rawOutput as StreamingExecution
-        const streamingExecutionData = streamingExec.execution as any
-        if (parallelInfo || !streamingExecutionData?.blockId) {
-          streamingExecutionData.blockId = consoleBlockId
-        }
-        const output = (streamingExec.execution as any).output as NormalizedBlockOutput
+      const finalizeSuccessfulOutput = async ({
+        output,
+        executionTime,
+        streamingExecution,
+      }: {
+        output: NormalizedBlockOutput
+        executionTime: number
+        streamingExecution?: StreamingExecution
+      }) => {
+        clearActiveBlock()
 
         context.blockStates.set(blockId, {
           output,
@@ -1966,9 +1998,7 @@ export class Executor {
           executionTime,
         })
 
-        // Also store under the actual block ID for reference
         if (parallelInfo) {
-          // Store iteration result in parallel state
           this.parallelManager.storeIterationResult(
             context,
             parallelInfo.parallelId,
@@ -1977,30 +2007,25 @@ export class Executor {
           )
         }
 
-        // Store result for loops (IDENTICAL to parallel logic)
         const containingLoopId = this.resolver.getContainingLoopId(block.id)
         if (containingLoopId && !parallelInfo) {
-          // Only store for loops if not already in a parallel (avoid double storage)
           const currentIteration = context.loopIterations.get(containingLoopId)
           if (currentIteration !== undefined) {
             this.loopManager.storeIterationResult(
               context,
               containingLoopId,
-              currentIteration - 1, // Convert to 0-based index
+              currentIteration - 1,
               output
             )
           }
         }
 
-        // Update the execution log
         blockLog.success = true
         blockLog.output = output
         blockLog.durationMs = Math.round(executionTime)
         blockLog.endedAt = new Date().toISOString()
 
-        // Handle child workflow logs integration
         this.integrateChildWorkflowLogs(block, output)
-
         context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
@@ -2008,9 +2033,9 @@ export class Executor {
             updateConsoleEntry(consoleEntryId, {
               replaceOutput: blockLog.output,
               success: true,
-              durationMs: deferStreamingFinalize ? undefined : blockLog.durationMs,
-              endedAt: deferStreamingFinalize ? undefined : blockLog.endedAt,
-              isRunning: deferStreamingFinalize,
+              durationMs: streamingExecution ? undefined : blockLog.durationMs,
+              endedAt: streamingExecution ? undefined : blockLog.endedAt,
+              isRunning: Boolean(streamingExecution),
               isCanceled: false,
             })
           } else if (didAddConsole) {
@@ -2019,9 +2044,9 @@ export class Executor {
               {
                 replaceOutput: blockLog.output,
                 success: true,
-                durationMs: deferStreamingFinalize ? undefined : blockLog.durationMs,
-                endedAt: deferStreamingFinalize ? undefined : blockLog.endedAt,
-                isRunning: deferStreamingFinalize,
+                durationMs: streamingExecution ? undefined : blockLog.durationMs,
+                endedAt: streamingExecution ? undefined : blockLog.endedAt,
+                isRunning: Boolean(streamingExecution),
                 isCanceled: false,
               },
               this.contextExtensions.executionId
@@ -2048,7 +2073,7 @@ export class Executor {
           }
         }
 
-        if (didAddConsole && !deferStreamingFinalize) {
+        if (didAddConsole && !streamingExecution) {
           this.consoleEntryIdByBlockId.delete(consoleBlockId)
         }
 
@@ -2063,194 +2088,44 @@ export class Executor {
           success: true,
         })
 
-        return streamingExec
-      }
-
-      // Handle error outputs and ensure object structure
-      const output: NormalizedBlockOutput =
-        typeof rawOutput === 'object' && rawOutput !== null ? rawOutput : { result: rawOutput }
-
-      // Update the context with the execution result
-      // Use virtual block ID for parallel executions
-      context.blockStates.set(blockId, {
-        output,
-        executed: true,
-        executionTime,
-      })
-
-      // Also store under the actual block ID for reference
-      if (parallelInfo) {
-        // Store iteration result in parallel state
-        this.parallelManager.storeIterationResult(
-          context,
-          parallelInfo.parallelId,
-          parallelInfo.iterationIndex,
-          output
-        )
-      }
-
-      // Store result for loops (IDENTICAL to parallel logic)
-      const containingLoopId = this.resolver.getContainingLoopId(block.id)
-      if (containingLoopId && !parallelInfo) {
-        // Only store for loops if not already in a parallel (avoid double storage)
-        const currentIteration = context.loopIterations.get(containingLoopId)
-        if (currentIteration !== undefined) {
-          this.loopManager.storeIterationResult(
-            context,
-            containingLoopId,
-            currentIteration - 1, // Convert to 0-based index
-            output
-          )
-        }
-      }
-
-      // Update the execution log
-      blockLog.success = true
-      blockLog.output = output
-      blockLog.durationMs = Math.round(executionTime)
-      blockLog.endedAt = new Date().toISOString()
-
-      // Handle child workflow logs integration
-      this.integrateChildWorkflowLogs(block, output)
-
-      context.blockLogs.push(blockLog)
-
-      if (shouldLogToConsole) {
-        if (didAddConsole && consoleEntryId) {
-          updateConsoleEntry(consoleEntryId, {
-            replaceOutput: blockLog.output,
-            success: true,
-            durationMs: blockLog.durationMs,
-            endedAt: blockLog.endedAt,
-            isRunning: false,
-            isCanceled: false,
-          })
-        } else if (didAddConsole) {
-          updateConsole(
-            consoleBlockId,
-            {
-              replaceOutput: blockLog.output,
-              success: true,
-              durationMs: blockLog.durationMs,
-              endedAt: blockLog.endedAt,
-              isRunning: false,
-              isCanceled: false,
-            },
-            this.contextExtensions.executionId
-          )
-        } else {
-          addConsole({
-            input: blockLog.input,
-            output: blockLog.output,
-            success: true,
-            durationMs: blockLog.durationMs,
-            startedAt: blockLog.startedAt,
-            endedAt: blockLog.endedAt,
-            workflowId: context.workflowId,
-            blockId: consoleBlockId,
-            executionId: this.contextExtensions.executionId,
-            blockName,
-            blockType,
-            iterationCurrent: iterationContext.iterationCurrent,
-            iterationTotal: iterationContext.iterationTotal,
-            iterationType: iterationContext.iterationType,
-            isRunning: false,
-            isCanceled: false,
-          })
-        }
-      }
-
-      if (didAddConsole) {
-        this.consoleEntryIdByBlockId.delete(consoleBlockId)
-      }
-
-      trackWorkflowTelemetry('block_execution', {
-        workflowId: context.workflowId,
-        blockId: block.id,
-        virtualBlockId: parallelInfo ? blockId : undefined,
-        iterationIndex: parallelInfo?.iterationIndex,
-        blockType: block.metadata?.id || 'unknown',
-        blockName: block.metadata?.name || 'Unnamed Block',
-        durationMs: Math.round(executionTime),
-        success: true,
-      })
-
-      if (context.onBlockComplete && !isTriggerBlock) {
-        try {
-          await context.onBlockComplete(blockId, output)
-        } catch (callbackError: any) {
-          logger.error('Error in onBlockComplete callback:', callbackError)
-        }
-      }
-
-      return output
-    } catch (error: any) {
-      // Remove this block from active blocks if there's an error
-      // Only manage active blocks for parent executions
-      if (!this.isChildExecution) {
-        useExecutionStore.setState((state) => {
-          const updatedActiveBlockIds = new Set(state.activeBlockIds)
-          updatedActiveBlockIds.delete(blockId)
-
-          // For virtual blocks, also check if we should remove the actual block ID
-          if (parallelInfo) {
-            // Check if there are any other virtual blocks for the same actual block still active
-            const hasOtherVirtualBlocks = Array.from(state.activeBlockIds).some((activeId) => {
-              if (activeId === blockId) return false // Skip the current block we're removing
-              const mapping = context.parallelBlockMapping?.get(activeId)
-              return mapping && mapping.originalBlockId === parallelInfo.originalBlockId
-            })
-
-            // If no other virtual blocks are active for this actual block, remove the actual block ID too
-            if (!hasOtherVirtualBlocks) {
-              updatedActiveBlockIds.delete(parallelInfo.originalBlockId)
-            }
+        if (context.onBlockComplete && !isTriggerBlock && !streamingExecution) {
+          try {
+            await context.onBlockComplete(blockId, output)
+          } catch (callbackError: any) {
+            logger.error('Error in onBlockComplete callback:', callbackError)
           }
-
-          return { activeBlockIds: updatedActiveBlockIds }
-        })
+        }
       }
 
-      blockLog.success = false
-      blockLog.error =
-        error.message ||
-        `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
-      blockLog.endedAt = new Date().toISOString()
-      blockLog.durationMs =
-        new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
-      const isCancellation =
-        this.isCancelled ||
-        error?.message === 'Workflow execution was cancelled' ||
-        error === 'Workflow execution was cancelled'
-      const consoleErrorMessage = isCancellation
-        ? undefined
-        : error.message ||
-        `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
-      const errorIterationContext = resolveIterationContext()
+      handleBlockFailure = (error: any): NormalizedBlockOutput => {
+        clearActiveBlock()
 
-      // If this error came from a child workflow execution, persist its trace spans on the log
-      if (isWorkflowBlockType(block.metadata?.id)) {
-        this.attachChildWorkflowSpansToLog(blockLog, error)
-      }
+        blockLog.success = false
+        blockLog.error =
+          error.message ||
+          `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
+        blockLog.endedAt = new Date().toISOString()
+        blockLog.durationMs =
+          new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
+        const isCancellation =
+          this.isCancelled ||
+          error?.message === 'Workflow execution was cancelled' ||
+          error === 'Workflow execution was cancelled'
+        const consoleErrorMessage = isCancellation
+          ? undefined
+          : error.message ||
+            `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
+        const errorIterationContext = resolveIterationContext()
 
-      // Log the error even if we'll continue execution through error path
-      context.blockLogs.push(blockLog)
+        if (isWorkflowBlockType(block.metadata?.id)) {
+          this.attachChildWorkflowSpansToLog(blockLog, error)
+        }
 
-      if (shouldLogToConsole) {
-        if (didAddConsole && consoleEntryId) {
-          updateConsoleEntry(consoleEntryId, {
-            replaceOutput: isCancellation ? undefined : {},
-            success: false,
-            error: consoleErrorMessage,
-            durationMs: blockLog.durationMs,
-            endedAt: blockLog.endedAt,
-            isRunning: false,
-            isCanceled: isCancellation,
-          })
-        } else if (didAddConsole) {
-          updateConsole(
-            consoleBlockId,
-            {
+        context.blockLogs.push(blockLog)
+
+        if (shouldLogToConsole) {
+          if (didAddConsole && consoleEntryId) {
+            updateConsoleEntry(consoleEntryId, {
               replaceOutput: isCancellation ? undefined : {},
               success: false,
               error: consoleErrorMessage,
@@ -2258,142 +2133,227 @@ export class Executor {
               endedAt: blockLog.endedAt,
               isRunning: false,
               isCanceled: isCancellation,
-            },
-            this.contextExtensions.executionId
-          )
-        } else {
-          addConsole({
-            input: blockLog.input,
-            output: isCancellation ? undefined : {},
-            success: false,
-            error: consoleErrorMessage,
-            durationMs: blockLog.durationMs,
-            startedAt: blockLog.startedAt,
-            endedAt: blockLog.endedAt,
-            workflowId: context.workflowId,
-            blockId: consoleBlockId,
-            executionId: this.contextExtensions.executionId,
-            blockName,
-            blockType,
-            iterationCurrent: errorIterationContext.iterationCurrent,
-            iterationTotal: errorIterationContext.iterationTotal,
-            iterationType: errorIterationContext.iterationType,
-            isRunning: false,
-            isCanceled: isCancellation,
-          })
+            })
+          } else if (didAddConsole) {
+            updateConsole(
+              consoleBlockId,
+              {
+                replaceOutput: isCancellation ? undefined : {},
+                success: false,
+                error: consoleErrorMessage,
+                durationMs: blockLog.durationMs,
+                endedAt: blockLog.endedAt,
+                isRunning: false,
+                isCanceled: isCancellation,
+              },
+              this.contextExtensions.executionId
+            )
+          } else {
+            addConsole({
+              input: blockLog.input,
+              output: isCancellation ? undefined : {},
+              success: false,
+              error: consoleErrorMessage,
+              durationMs: blockLog.durationMs,
+              startedAt: blockLog.startedAt,
+              endedAt: blockLog.endedAt,
+              workflowId: context.workflowId,
+              blockId: consoleBlockId,
+              executionId: this.contextExtensions.executionId,
+              blockName,
+              blockType,
+              iterationCurrent: errorIterationContext.iterationCurrent,
+              iterationTotal: errorIterationContext.iterationTotal,
+              iterationType: errorIterationContext.iterationType,
+              isRunning: false,
+              isCanceled: isCancellation,
+            })
+          }
         }
-      }
 
-      if (didAddConsole) {
-        this.consoleEntryIdByBlockId.delete(consoleBlockId)
-      }
+        if (didAddConsole) {
+          this.consoleEntryIdByBlockId.delete(consoleBlockId)
+        }
 
-      // Check for error connections and follow them if they exist
-      const hasErrorPath = this.activateErrorPath(actualBlockId, context)
+        const hasErrorPath = this.activateErrorPath(actualBlockId, context)
 
-      // Log the error for visibility
-      logger.error(
-        `Error executing block ${block.metadata?.name || actualBlockId}:`,
-        this.sanitizeError(error)
-      )
-
-      // Create error output with appropriate structure
-      const errorOutput: NormalizedBlockOutput = {
-        error: this.extractErrorMessage(error),
-        status: error.status || 500,
-      }
-
-      // Preserve child workflow spans on the block state so downstream logging can render them
-      if (isWorkflowBlockType(block.metadata?.id)) {
-        this.attachChildWorkflowSpansToOutput(errorOutput, error)
-      }
-
-      // Set block state with error output
-      context.blockStates.set(blockId, {
-        output: errorOutput,
-        executed: true,
-        executionTime: blockLog.durationMs,
-      })
-
-      const failureEndTime = context.metadata.endTime ?? new Date().toISOString()
-      if (!context.metadata.endTime) {
-        context.metadata.endTime = failureEndTime
-      }
-      const failureDuration = context.metadata.startTime
-        ? Math.max(
-          0,
-          new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
+        logger.error(
+          `Error executing block ${block.metadata?.name || actualBlockId}:`,
+          this.sanitizeError(error)
         )
-        : (context.metadata.duration ?? 0)
-      context.metadata.duration = failureDuration
 
-      const failureMetadata = {
-        ...context.metadata,
-        endTime: failureEndTime,
-        duration: failureDuration,
-        workflowConnections: this.actualWorkflow.connections.map((conn) => ({
-          source: conn.source,
-          target: conn.target,
-        })),
-      }
-
-      const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
-        ?.executionResult
-      const executionResultPayload: ExecutionResult = {
-        success: false,
-        output: upstreamExecutionResult?.output ?? errorOutput,
-        error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
-        logs: [...context.blockLogs],
-        metadata: {
-          ...failureMetadata,
-          ...(upstreamExecutionResult?.metadata ?? {}),
-          workflowConnections: failureMetadata.workflowConnections,
-        },
-      }
-
-      if (hasErrorPath) {
-        // Return the error output to allow execution to continue along error path
-        return errorOutput
-      }
-
-      // Create a proper error message that is never undefined
-      let errorMessage = error.message
-
-      // Handle the specific "undefined (undefined)" case
-      if (!errorMessage || errorMessage === 'undefined (undefined)') {
-        errorMessage = `Error executing ${block.metadata?.id || 'unknown'} block: ${block.metadata?.name || 'Unnamed Block'}`
-
-        // Try to get more details if possible
-        if (error && typeof error === 'object') {
-          if (error.code) errorMessage += ` (code: ${error.code})`
-          if (error.status) errorMessage += ` (status: ${error.status})`
-          if (error.type) errorMessage += ` (type: ${error.type})`
+        const errorOutput: NormalizedBlockOutput = {
+          error: this.extractErrorMessage(error),
+          status: error.status || 500,
         }
+
+        if (isWorkflowBlockType(block.metadata?.id)) {
+          this.attachChildWorkflowSpansToOutput(errorOutput, error)
+        }
+
+        context.blockStates.set(blockId, {
+          output: errorOutput,
+          executed: true,
+          executionTime: blockLog.durationMs,
+        })
+
+        const failureEndTime = context.metadata.endTime ?? new Date().toISOString()
+        if (!context.metadata.endTime) {
+          context.metadata.endTime = failureEndTime
+        }
+        const failureDuration = context.metadata.startTime
+          ? Math.max(
+              0,
+              new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
+            )
+          : (context.metadata.duration ?? 0)
+        context.metadata.duration = failureDuration
+
+        const failureMetadata = {
+          ...context.metadata,
+          endTime: failureEndTime,
+          duration: failureDuration,
+          workflowConnections: this.actualWorkflow.connections.map((conn) => ({
+            source: conn.source,
+            target: conn.target,
+          })),
+        }
+
+        const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
+          ?.executionResult
+        const executionResultPayload: ExecutionResult = {
+          success: false,
+          output: upstreamExecutionResult?.output ?? errorOutput,
+          error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
+          logs: [...context.blockLogs],
+          metadata: {
+            ...failureMetadata,
+            ...(upstreamExecutionResult?.metadata ?? {}),
+            workflowConnections: failureMetadata.workflowConnections,
+          },
+        }
+
+        if (hasErrorPath) {
+          return errorOutput
+        }
+
+        let errorMessage = error.message
+
+        if (!errorMessage || errorMessage === 'undefined (undefined)') {
+          errorMessage = `Error executing ${block.metadata?.id || 'unknown'} block: ${block.metadata?.name || 'Unnamed Block'}`
+
+          if (error && typeof error === 'object') {
+            if (error.code) errorMessage += ` (code: ${error.code})`
+            if (error.status) errorMessage += ` (status: ${error.status})`
+            if (error.type) errorMessage += ` (type: ${error.type})`
+          }
+        }
+
+        trackWorkflowTelemetry('block_execution_error', {
+          workflowId: context.workflowId,
+          blockId: block.id,
+          virtualBlockId: parallelInfo ? blockId : undefined,
+          iterationIndex: parallelInfo?.iterationIndex,
+          blockType: block.metadata?.id || 'unknown',
+          blockName: block.metadata?.name || 'Unnamed Block',
+          durationMs: blockLog.durationMs,
+          errorType: error.name || 'Error',
+          errorMessage: this.extractErrorMessage(error),
+        })
+
+        const executionError = new Error(errorMessage)
+        ;(executionError as any).executionResult = executionResultPayload
+        if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
+          ;(executionError as any).childTraceSpans = (
+            error as { childTraceSpans?: TraceSpan[] }
+          ).childTraceSpans
+          ;(executionError as any).childWorkflowName = (
+            error as { childWorkflowName?: string }
+          ).childWorkflowName
+        }
+        throw executionError
       }
 
-      trackWorkflowTelemetry('block_execution_error', {
+      // Track block execution start
+      trackWorkflowTelemetry('block_execution_start', {
         workflowId: context.workflowId,
         blockId: block.id,
         virtualBlockId: parallelInfo ? blockId : undefined,
         iterationIndex: parallelInfo?.iterationIndex,
         blockType: block.metadata?.id || 'unknown',
         blockName: block.metadata?.name || 'Unnamed Block',
-        durationMs: blockLog.durationMs,
-        errorType: error.name || 'Error',
-        errorMessage: this.extractErrorMessage(error),
+        inputSize: Object.keys(inputs).length,
+        startTime: new Date().toISOString(),
       })
 
-      const executionError = new Error(errorMessage)
-        ; (executionError as any).executionResult = executionResultPayload
-      if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
-        ; (executionError as any).childTraceSpans = (
-          error as { childTraceSpans?: TraceSpan[] }
-        ).childTraceSpans
-          ; (executionError as any).childWorkflowName = (
-            error as { childWorkflowName?: string }
-          ).childWorkflowName
+      // Find the appropriate handler
+      const handler = this.blockHandlers.find((h) => h.canHandle(block))
+      if (!handler) {
+        throw new Error(`No handler found for block type: ${block.metadata?.id}`)
       }
-      throw executionError
+
+      // Execute the block
+      const startTime = performance.now()
+      const rawOutput = await handler.execute(block, inputs, context)
+
+      if (isDeferredBlockExecution(rawOutput)) {
+        return {
+          kind: 'deferred',
+          wait: async () => {
+            try {
+              const deferredOutput = await rawOutput.wait()
+              const output: NormalizedBlockOutput =
+                typeof deferredOutput === 'object' && deferredOutput !== null
+                  ? deferredOutput
+                  : { result: deferredOutput }
+              await finalizeSuccessfulOutput({
+                output,
+                executionTime: performance.now() - startTime,
+              })
+              return output
+            } catch (error) {
+              return handleBlockFailure!(error)
+            }
+          },
+        }
+      }
+
+      if (
+        rawOutput &&
+        typeof rawOutput === 'object' &&
+        'stream' in rawOutput &&
+        'execution' in rawOutput
+      ) {
+        const deferStreamingFinalize = Boolean(context.onStream)
+        const streamingExec = rawOutput as StreamingExecution
+        const streamingExecutionData = streamingExec.execution as any
+        const executionTime = performance.now() - startTime
+        if (parallelInfo || !streamingExecutionData?.blockId) {
+          streamingExecutionData.blockId = consoleBlockId
+        }
+        const output = (streamingExec.execution as any).output as NormalizedBlockOutput
+        await finalizeSuccessfulOutput({
+          output,
+          executionTime,
+          streamingExecution: deferStreamingFinalize ? streamingExec : undefined,
+        })
+        return streamingExec
+      }
+
+      // Handle error outputs and ensure object structure
+      const output: NormalizedBlockOutput =
+        typeof rawOutput === 'object' && rawOutput !== null ? rawOutput : { result: rawOutput }
+      await finalizeSuccessfulOutput({
+        output,
+        executionTime: performance.now() - startTime,
+      })
+
+      return output
+    } catch (error: any) {
+      if (handleBlockFailure) {
+        return handleBlockFailure(error)
+      }
+      throw error
     }
   }
 

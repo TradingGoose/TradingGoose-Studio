@@ -4,11 +4,10 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import {
-  ExecutionGateError,
-  enforceServerExecutionRateLimit,
   getExecutionConcurrencyLimitMessage,
   isExecutionConcurrencyBackendUnavailableError,
   isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
 } from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -24,7 +23,6 @@ import {
   runPreparedWorkflowExecution,
   WorkflowUsageLimitError,
 } from '@/lib/workflows/execution-runner'
-import { RateLimitError } from '@/services/queue'
 
 const logger = createLogger('TriggerScheduleExecution')
 
@@ -202,130 +200,95 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    try {
-      await enforceServerExecutionRateLimit({
-        actorUserId,
-        workflowId: payload.workflowId,
-        workspaceId: workflowRecord.workspaceId,
-        isAsync: false,
-        logger,
-        requestId,
-        source: 'scheduled execution',
-        triggerType: 'schedule',
-      })
-    } catch (error) {
-      if (error instanceof ExecutionGateError) {
-        logger.warn(
-          `[${requestId}] ${error.message} Skipping scheduled execution.`,
-          {
-            actorUserId,
-            workflowId: payload.workflowId,
-            workspaceId: workflowRecord.workspaceId,
-          },
-        )
-        await rescheduleSkippedExecution()
-        return
-      }
-
-      if (error instanceof RateLimitError) {
-        logger.warn(`[${requestId}] ${error.message}`, {
-          userId: workflowRecord.userId,
+    await withExecutionConcurrencyLimit({
+      userId: actorUserId,
+      workflowId: payload.workflowId,
+      workspaceId: workflowRecord.workspaceId,
+      task: async () => {
+        const blueprint = await loadWorkflowExecutionBlueprint({
           workflowId: payload.workflowId,
+          workflowContext: workflowRecord,
+          executionTarget: 'deployed',
         })
+        const scheduleBlocks = blueprint.workflowData.blocks as Record<
+          string,
+          BlockState
+        >
+
+        if (payload.blockId && !scheduleBlocks[payload.blockId]) {
+          logger.warn(
+            `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`,
+          )
+          return
+        }
+
+        const { result } = await runPreparedWorkflowExecution({
+          blueprint,
+          actorUserId,
+          requestId,
+          executionId,
+          triggerType: 'schedule',
+          workflowInput: {
+            _context: {
+              workflowId: payload.workflowId,
+            },
+          },
+          start: {
+            kind: 'block',
+            blockId: payload.blockId || undefined,
+          },
+          concurrencyLeaseInherited: true,
+        })
+
+        if (result.success) {
+          logger.info(
+            `[${requestId}] Workflow ${payload.workflowId} executed successfully`,
+          )
+
+          const nextRunAt = await calculateNextRunTime(
+            payload,
+            scheduleBlocks,
+            payload.timezone,
+          )
+
+          await updateScheduleNextRun({
+            scheduleId: payload.scheduleId,
+            now,
+            nextRunAt,
+            lastRanAt: now,
+            failedCount: 0,
+          })
+
+          return
+        }
+
+        logger.warn(
+          `[${requestId}] Workflow ${payload.workflowId} execution failed`,
+        )
+
+        const newFailedCount = (payload.failedCount || 0) + 1
+        const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          scheduleBlocks,
+          payload.timezone,
+        )
+
+        if (shouldDisable) {
+          logger.warn(
+            `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`,
+          )
+        }
 
         await updateScheduleNextRun({
           scheduleId: payload.scheduleId,
           now,
-          nextRunAt: new Date(now.getTime() + 5 * 60 * 1000),
+          nextRunAt,
+          failedCount: newFailedCount,
+          lastFailedAt: now,
+          status: shouldDisable ? 'disabled' : 'active',
         })
-
-        return
-      }
-
-      throw error
-    }
-
-    const blueprint = await loadWorkflowExecutionBlueprint({
-      workflowId: payload.workflowId,
-      workflowContext: workflowRecord,
-      executionTarget: 'deployed',
-    })
-    const scheduleBlocks = blueprint.workflowData.blocks as Record<
-      string,
-      BlockState
-    >
-
-    if (payload.blockId && !scheduleBlocks[payload.blockId]) {
-      logger.warn(
-        `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`,
-      )
-      return
-    }
-
-    const { result } = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId,
-      requestId,
-      executionId,
-      triggerType: 'schedule',
-      workflowInput: {
-        _context: {
-          workflowId: payload.workflowId,
-        },
       },
-      start: {
-        kind: 'block',
-        blockId: payload.blockId || undefined,
-      },
-    })
-
-    if (result.success) {
-      logger.info(
-        `[${requestId}] Workflow ${payload.workflowId} executed successfully`,
-      )
-
-      const nextRunAt = await calculateNextRunTime(
-        payload,
-        scheduleBlocks,
-        payload.timezone,
-      )
-
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-        lastRanAt: now,
-        failedCount: 0,
-      })
-
-      return
-    }
-
-    logger.warn(
-      `[${requestId}] Workflow ${payload.workflowId} execution failed`,
-    )
-
-    const newFailedCount = (payload.failedCount || 0) + 1
-    const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-    const nextRunAt = await calculateNextRunTime(
-      payload,
-      scheduleBlocks,
-      payload.timezone,
-    )
-
-    if (shouldDisable) {
-      logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`,
-      )
-    }
-
-    await updateScheduleNextRun({
-      scheduleId: payload.scheduleId,
-      now,
-      nextRunAt,
-      failedCount: newFailedCount,
-      lastFailedAt: now,
-      status: shouldDisable ? 'disabled' : 'active',
     })
   } catch (error: any) {
     if (

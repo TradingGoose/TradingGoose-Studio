@@ -23,7 +23,6 @@ export async function uploadExecutionFile(
   fileBuffer: Buffer,
   fileName: string,
   contentType: string,
-  isAsync?: boolean
 ): Promise<UserFile> {
   logger.info(`Uploading execution file: ${fileName} for execution ${context.executionId}`)
   logger.debug(`File upload context:`, {
@@ -39,7 +38,7 @@ export async function uploadExecutionFile(
 
   logger.info(`Generated storage key: "${storageKey}" for file: ${fileName}`)
 
-  const urlExpirationSeconds = isAsync ? 10 * 60 : 5 * 60
+  const urlExpirationSeconds = 5 * 60
 
   try {
     const fileInfo = await uploadFile({

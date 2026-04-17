@@ -18,8 +18,6 @@ const mockLogger = {
 }
 
 describe('Function Execute API Route', () => {
-  const enqueuePendingExecutionMock = vi.fn()
-
   beforeEach(() => {
     vi.resetModules()
     vi.resetAllMocks()
@@ -95,10 +93,6 @@ describe('Function Execute API Route', () => {
         }),
       })),
     }))
-    vi.doMock('@/lib/execution/pending-execution', () => ({
-      enqueuePendingExecution: enqueuePendingExecutionMock,
-      isPendingExecutionLimitError: vi.fn(() => false),
-    }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
       isLocalVmSaturationLimitError: vi.fn(() => false),
@@ -164,11 +158,6 @@ describe('Function Execute API Route', () => {
     withExecutionConcurrencyLimitMock.mockImplementation(
       async ({ task }: { task: () => Promise<unknown> }) => await task()
     )
-    enqueuePendingExecutionMock.mockReset()
-    enqueuePendingExecutionMock.mockResolvedValue({
-      pendingExecutionId: 'pending-function-123',
-      billingScopeId: 'billing-scope-1',
-    })
   })
 
   afterEach(() => {
@@ -274,64 +263,6 @@ describe('Function Execute API Route', () => {
       expect(withExecutionConcurrencyLimitMock).toHaveBeenCalledWith(
         expect.objectContaining({ concurrencyLeaseInherited: false })
       )
-    })
-
-    it('should queue async execution through pending execution', async () => {
-      const req = createMockRequest(
-        'POST',
-        {
-          code: 'return "queued"',
-        },
-        { 'X-Execution-Mode': 'async' }
-      )
-
-      const { enqueuePendingExecution } = await import('@/lib/execution/pending-execution')
-      const { POST } = await import('@/app/api/function/execute/route')
-      const response = await POST(req)
-      const data = await response.json()
-
-      expect(response.status).toBe(202)
-      expect(enqueuePendingExecution).toHaveBeenCalledWith(
-        expect.objectContaining({
-          executionType: 'function',
-          userId: 'test-user-id',
-          payload: expect.objectContaining({
-            code: 'return "queued"',
-            userId: 'test-user-id',
-            requestId: expect.any(String),
-            deferOnQueueSaturation: true,
-          }),
-        })
-      )
-      expect(data.taskId).toBe('pending-function-123')
-      expect(data.links.status).toBe('/api/jobs/pending-function-123')
-    })
-
-    it('should reject async execution before enqueue when usage limits are exceeded', async () => {
-      const req = createMockRequest(
-        'POST',
-        {
-          code: 'return "blocked"',
-        },
-        { 'X-Execution-Mode': 'async' }
-      )
-
-      const { checkServerSideUsageLimits } = await import('@/lib/billing')
-      vi.mocked(checkServerSideUsageLimits).mockResolvedValueOnce({
-        isExceeded: true,
-        currentUsage: 125,
-        limit: 100,
-        message: 'Usage limit exceeded before enqueue.',
-      })
-
-      const { POST } = await import('@/app/api/function/execute/route')
-      const response = await POST(req)
-      const data = await response.json()
-
-      expect(response.status).toBe(402)
-      expect(data.success).toBe(false)
-      expect(data.error).toBe('Usage limit exceeded before enqueue.')
-      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     it('should execute simple JavaScript code successfully', async () => {

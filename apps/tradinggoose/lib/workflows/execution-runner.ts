@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
+import { withExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
@@ -139,13 +139,14 @@ function buildProcessedBlockStates(
     const blockState: Record<string, any> = {}
 
     for (const [key, subBlock] of Object.entries(block.subBlocks)) {
-      let value = subBlock.value
+      let value = (subBlock as { value?: unknown }).value
 
       if (
         typeof value === 'string' &&
         value.includes('{{') &&
         value.includes('}}')
       ) {
+        let stringValue = value
         const matches = value.match(/{{([^}]+)}}/g)
 
         if (matches) {
@@ -159,9 +160,11 @@ function buildProcessedBlockStates(
               )
             }
 
-            value = value.replace(match, decryptedValue)
+            stringValue = stringValue.replace(match, decryptedValue)
           }
         }
+
+        value = stringValue
       }
 
       blockState[key] = value
@@ -225,20 +228,25 @@ function resolveStartBlockId(params: {
     return startBlock.blockId
   }
 
-  if (params.start.blockId && !params.mergedStates[params.start.blockId]) {
+  if (
+    params.start.kind === 'block' &&
+    params.start.blockId &&
+    !params.mergedStates[params.start.blockId]
+  ) {
     throw new Error(
       `Workflow does not contain trigger block ${params.start.blockId}`,
     )
   }
 
-  if (params.start.blockId) {
+  if (params.start.kind === 'block' && params.start.blockId) {
+    const blockId = params.start.blockId
     const outgoingConnections = params.serializedWorkflow.connections.filter(
-      (connection) => connection.source === params.start.blockId,
+      (connection) => connection.source === blockId,
     )
 
     if (outgoingConnections.length === 0) {
       throw new Error(
-        `Trigger block ${params.start.blockId} must be connected to other blocks to execute`,
+        `Trigger block ${blockId} must be connected to other blocks to execute`,
       )
     }
   }
@@ -292,22 +300,26 @@ export async function runPreparedWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   stream?: WorkflowStreamOptions
   contextExtensions?: Record<string, unknown>
+  concurrencyLeaseInherited?: boolean
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
   const workspaceId = params.blueprint.workflowContext.workspaceId ?? undefined
+  const loggingTriggerType =
+    params.triggerType === 'api-endpoint' ? 'api' : params.triggerType
   const loggingSession = new LoggingSession(
     params.blueprint.workflowId,
     executionId,
-    params.triggerType,
+    loggingTriggerType,
     requestId,
   )
 
-  return withExecutionConcurrencyLimit({
+  return withExecutionConcurrencyController({
+    concurrencyLeaseInherited: params.concurrencyLeaseInherited,
     userId: params.actorUserId,
     workflowId: params.blueprint.workflowId,
     workspaceId,
-    task: async () => {
+    task: async (executionConcurrencyController) => {
       const usageCheck = await checkServerSideUsageLimits({
         userId: params.actorUserId,
         workflowId: params.blueprint.workflowId,
@@ -361,7 +373,10 @@ export async function runPreparedWorkflowExecution(params: {
           workspaceId: workspaceId || '',
           userId: params.actorUserId,
           concurrencyLeaseInherited: true,
+          executionConcurrencyController,
           isDeployedContext: params.blueprint.executionTarget !== 'live',
+          triggerType: params.triggerType,
+          workflowDepth: 0,
           ...params.contextExtensions,
         }
 
@@ -472,6 +487,7 @@ export async function runWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   stream?: WorkflowStreamOptions
   contextExtensions?: Record<string, unknown>
+  concurrencyLeaseInherited?: boolean
 }): Promise<WorkflowRunnerResult> {
   const blueprint = await loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
@@ -490,5 +506,6 @@ export async function runWorkflowExecution(params: {
     triggerData: params.triggerData,
     stream: params.stream,
     contextExtensions: params.contextExtensions,
+    concurrencyLeaseInherited: params.concurrencyLeaseInherited,
   })
 }

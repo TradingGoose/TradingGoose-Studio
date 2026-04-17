@@ -12,12 +12,13 @@ export const PENDING_EXECUTION_RETRY_DELAY_MS = 15_000
 
 const CLAIM_ATTEMPT_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
+const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 
 export type PendingExecutionType =
   | 'workflow'
-  | 'function'
   | 'webhook'
   | 'schedule'
+  | 'indicator_monitor'
   | 'document'
 
 type PendingExecutionPayload = Record<string, unknown>
@@ -128,6 +129,10 @@ export async function enqueuePendingExecution(
       }
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`,
+    )
+
     if (limits.maxPendingAgeSeconds !== null) {
       const staleBefore = new Date(
         Date.now() - limits.maxPendingAgeSeconds * 1000,

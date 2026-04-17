@@ -2,11 +2,7 @@ import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import {
-  authenticateApiKeyFromHeader,
-  updateApiKeyLastUsed,
-} from '@/lib/api-key/service'
-import { getSession } from '@/lib/auth'
+import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { createErrorResponse } from '@/app/api/workflows/utils'
@@ -23,31 +19,8 @@ export async function GET(
   try {
     logger.debug(`[${requestId}] Getting status for task: ${taskId}`)
 
-    const session = await getSession()
-    let authenticatedUserId: string | null = session?.user?.id || null
-
-    if (!authenticatedUserId) {
-      const apiKeyHeader = request.headers.get('x-api-key')
-      if (apiKeyHeader) {
-        const authResult = await authenticateApiKeyFromHeader(apiKeyHeader)
-        if (authResult.success && authResult.userId) {
-          authenticatedUserId = authResult.userId
-          if (authResult.keyId) {
-            await updateApiKeyLastUsed(authResult.keyId).catch((error) => {
-              logger.warn(
-                `[${requestId}] Failed to update API key last used timestamp:`,
-                {
-                  keyId: authResult.keyId,
-                  error,
-                },
-              )
-            })
-          }
-        }
-      }
-    }
-
-    if (!authenticatedUserId) {
+    const auth = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
       return createErrorResponse('Authentication required', 401)
     }
 
@@ -65,7 +38,7 @@ export async function GET(
       .where(
         and(
           eq(pendingExecution.id, taskId),
-          eq(pendingExecution.userId, authenticatedUserId),
+          eq(pendingExecution.userId, auth.userId),
         ),
       )
       .limit(1)

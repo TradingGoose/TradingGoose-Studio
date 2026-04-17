@@ -1,6 +1,8 @@
 import type { TraceSpan } from '@/lib/logs/types'
+import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import type { BlockOutput } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import type { TriggerType } from '@/services/queue'
 
 /**
  * User-facing file object with simplified interface
@@ -106,6 +108,8 @@ export interface ExecutionContext {
   userId?: string // Authenticated acting user for internal server-to-server calls
   executionId?: string // Unique execution ID for file storage scoping
   concurrencyLeaseInherited?: boolean
+  triggerType?: TriggerType
+  workflowDepth?: number
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
   // Manual executions in the builder should leave this undefined/false
   isDeployedContext?: boolean
@@ -193,6 +197,9 @@ export interface ExecutionContextExtensions {
   workspaceId?: string
   userId?: string
   concurrencyLeaseInherited?: boolean
+  executionConcurrencyController?: ExecutionConcurrencyController
+  triggerType?: TriggerType
+  workflowDepth?: number
   isChildExecution?: boolean
   // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
   isDeployedContext?: boolean
@@ -223,6 +230,11 @@ export interface StreamingExecution {
   execution: ExecutionResult & { isStreaming?: boolean } // The complete execution data for logging purposes
 }
 
+export interface DeferredBlockExecution {
+  kind: 'deferred'
+  wait: () => Promise<BlockOutput>
+}
+
 /**
  * Interface for a block executor component.
  */
@@ -239,7 +251,7 @@ export interface BlockExecutor {
     block: SerializedBlock,
     inputs: Record<string, any>,
     context: ExecutionContext
-  ): Promise<BlockOutput>
+  ): Promise<BlockOutput | StreamingExecution | DeferredBlockExecution>
 }
 
 /**
@@ -267,7 +279,7 @@ export interface BlockHandler {
     block: SerializedBlock,
     inputs: Record<string, any>,
     context: ExecutionContext
-  ): Promise<BlockOutput | StreamingExecution>
+  ): Promise<BlockOutput | StreamingExecution | DeferredBlockExecution>
 }
 
 /**

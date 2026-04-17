@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
-  checkRateLimits,
   checkUsageLimits,
   findWebhookAndWorkflow,
   handleProviderChallenges,
@@ -110,12 +109,6 @@ export async function POST(
   const authError = await verifyProviderAuth(foundWebhook, request, rawBody, requestId)
   if (authError) {
     return authError
-  }
-
-  const rateLimitResult = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
-  const rateLimitError = mapDispatchGateResultToHttpResponse(rateLimitResult, foundWebhook.provider)
-  if (rateLimitError) {
-    return rateLimitError
   }
 
   const usageLimitResult = await checkUsageLimits(foundWorkflow, foundWebhook, requestId, false)

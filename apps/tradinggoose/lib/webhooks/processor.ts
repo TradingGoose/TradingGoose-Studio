@@ -4,10 +4,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import {
-  ExecutionGateError,
-  enforceServerExecutionRateLimit,
-} from '@/lib/execution/execution-concurrency-limit'
-import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
@@ -20,7 +16,6 @@ import {
   validateMicrosoftTeamsSignature,
   verifyProviderWebhook,
 } from '@/lib/webhooks/utils'
-import { RateLimitError } from '@/services/queue'
 
 const logger = createLogger('WebhookProcessor')
 
@@ -36,7 +31,7 @@ export type DispatchGateResult =
   | { allowed: true }
   | {
       allowed: false
-      code: 'PINNED_API_KEY_REQUIRED' | 'RATE_LIMIT_EXCEEDED' | 'USAGE_LIMIT_EXCEEDED'
+      code: 'PINNED_API_KEY_REQUIRED' | 'USAGE_LIMIT_EXCEEDED'
       message: string
     }
 
@@ -52,16 +47,6 @@ export function mapDispatchGateResultToHttpResponse(
 
   if (result.code === 'PINNED_API_KEY_REQUIRED') {
     return NextResponse.json({ message: 'Pinned API key required' }, { status: 200 })
-  }
-
-  if (result.code === 'RATE_LIMIT_EXCEEDED') {
-    if (provider === 'microsoftteams') {
-      return NextResponse.json({
-        type: 'message',
-        text: 'Rate limit exceeded. Please try again later.',
-      })
-    }
-    return NextResponse.json({ message: 'Rate limit exceeded' }, { status: 200 })
   }
 
   if (provider === 'microsoftteams') {
@@ -308,70 +293,6 @@ export async function verifyProviderAuth(
   }
 
   return null
-}
-
-export async function checkRateLimits(
-  foundWorkflow: any,
-  foundWebhook: any,
-  requestId: string
-): Promise<DispatchGateResult> {
-  let actorUserId: string | null = null
-
-  try {
-    actorUserId = await getApiKeyOwnerUserId(foundWorkflow.pinnedApiKeyId)
-
-    if (!actorUserId) {
-      logger.warn(`[${requestId}] Webhook requires pinned API key to attribute usage`)
-      return {
-        allowed: false,
-        code: 'PINNED_API_KEY_REQUIRED',
-        message: 'Pinned API key required',
-      }
-    }
-
-    await enforceServerExecutionRateLimit({
-      actorUserId,
-      workflowId: foundWorkflow.id,
-      workspaceId: foundWorkflow.workspaceId,
-      isAsync: true,
-      logger,
-      requestId,
-      source: 'webhook execution',
-      triggerType: 'webhook',
-    })
-
-    logger.debug(`[${requestId}] Rate limit check passed for webhook`, {
-      provider: foundWebhook.provider,
-    })
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      logger.warn(`[${requestId}] ${error.message}`, {
-        provider: foundWebhook.provider,
-        actorUserId,
-      })
-      return {
-        allowed: false,
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Rate limit exceeded',
-      }
-    }
-
-    if (error instanceof ExecutionGateError) {
-      logger.warn(`[${requestId}] ${error.message}`, {
-        provider: foundWebhook.provider,
-        actorUserId,
-      })
-      return {
-        allowed: false,
-        code: 'USAGE_LIMIT_EXCEEDED',
-        message: error.message,
-      }
-    }
-
-    logger.error(`[${requestId}] Error checking webhook rate limits:`, error)
-  }
-
-  return { allowed: true }
 }
 
 export async function checkUsageLimits(

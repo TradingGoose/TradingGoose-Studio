@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
 
 const logger = createLogger('TriggerWorkflowExecution')
@@ -12,6 +13,7 @@ export type WorkflowExecutionPayload = {
   triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
   startBlockId?: string
   executionTarget?: 'deployed' | 'live'
+  workflowDepth?: number
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
 }
@@ -54,7 +56,12 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       blockId: payload.startBlockId,
     },
     triggerData: payload.triggerData,
+    contextExtensions: {
+      workflowDepth: payload.workflowDepth ?? 0,
+    },
   })
+
+  const { traceSpans } = buildTraceSpans(result)
 
   logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
     success: result.success,
@@ -67,6 +74,8 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     workflowId: payload.workflowId,
     executionId,
     output: result.output,
+    error: result.error,
+    traceSpans: traceSpans || [],
     executedAt: new Date().toISOString(),
     metadata: payload.metadata,
   }

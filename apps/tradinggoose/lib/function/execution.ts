@@ -44,7 +44,6 @@ export type FunctionExecutionPayload = {
   workflowId?: string
   workspaceId?: string
   concurrencyLeaseInherited?: boolean
-  deferOnQueueSaturation?: boolean
   isCustomTool?: boolean
 }
 
@@ -62,19 +61,6 @@ type FunctionExecutionResponseBody = {
 export type FunctionExecutionResponse = {
   statusCode: number
   body: FunctionExecutionResponseBody
-}
-
-export function isFunctionExecutionPayload(
-  value: unknown,
-): value is FunctionExecutionPayload {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.userId === 'string' && typeof candidate.code === 'string'
-  )
 }
 
 function calculateFunctionExecutionCost(params: {
@@ -141,7 +127,6 @@ export async function executeFunctionRequest(
       workflowId,
       workspaceId,
       concurrencyLeaseInherited = false,
-      deferOnQueueSaturation = false,
       isCustomTool = false,
     } = payload
     const e2bUserScope = payload.userId
@@ -286,10 +271,7 @@ export async function executeFunctionRequest(
       })
 
       if ('rawError' in runtimeExecution) {
-        if (
-          deferOnQueueSaturation &&
-          isLocalVmSaturationLimitError(runtimeExecution.rawError)
-        ) {
+        if (isLocalVmSaturationLimitError(runtimeExecution.rawError)) {
           throw runtimeExecution.rawError
         }
 
@@ -343,10 +325,6 @@ export async function executeFunctionRequest(
     return respondSuccess(runtimeExecution.result, executionTime)
   } catch (error: any) {
     if (isExecutionConcurrencyLimitError(error)) {
-      if (payload.deferOnQueueSaturation) {
-        throw error
-      }
-
       return respondFailure(
         getExecutionConcurrencyLimitMessage(error),
         Date.now() - startTime,
@@ -355,18 +333,10 @@ export async function executeFunctionRequest(
     }
 
     if (isExecutionConcurrencyBackendUnavailableError(error)) {
-      if (payload.deferOnQueueSaturation) {
-        throw error
-      }
-
       return respondFailure(error.message, Date.now() - startTime, error.statusCode)
     }
 
     if (isLocalVmSaturationLimitError(error)) {
-      if (payload.deferOnQueueSaturation) {
-        throw error
-      }
-
       return respondFailure(
         getLocalVmSaturationLimitMessage(error),
         Date.now() - startTime,

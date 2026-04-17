@@ -1,26 +1,18 @@
-import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
-import { checkServerSideUsageLimits } from '@/lib/billing'
 import {
   ExecutionGateError,
   enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
 import {
-  enqueuePendingExecution,
-  isPendingExecutionLimitError,
-} from '@/lib/execution/pending-execution'
-import {
   executeFunctionRequest,
-  type FunctionExecutionPayload,
 } from '@/lib/function/execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { RateLimitError } from '@/services/queue'
-import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -103,87 +95,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const executionMode = req.headers.get('X-Execution-Mode')
-    const isAsync = executionMode === 'async'
-
     await enforceServerExecutionRateLimit({
       actorUserId: auth.userId,
       authType: auth.authType,
       workflowId,
       workspaceId,
-      isAsync,
+      isAsync: false,
       logger,
       requestId,
       source: 'function execution',
     })
-
-    if (isAsync) {
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: auth.userId,
-        workspaceId,
-        workflowId,
-      })
-
-      if (usageCheck.isExceeded) {
-        return respondFailure(
-          usageCheck.message ||
-            'Usage limit exceeded. Please upgrade your billing tier to continue.',
-          Date.now() - startTime,
-          402,
-        )
-      }
-
-      try {
-        const pendingExecutionId = `function_execution_${randomUUID()}`
-        const handle = await enqueuePendingExecution({
-          executionType: 'function',
-          pendingExecutionId,
-          workflowId,
-          workspaceId,
-          userId: auth.userId,
-          source: 'function_api',
-          requestId,
-          payload: {
-            ...body,
-            concurrencyLeaseInherited,
-            deferOnQueueSaturation: true,
-            userId: auth.userId,
-            requestId: pendingExecutionId,
-          },
-        })
-
-        logger.info(
-          `[${requestId}] Queued function execution as pending execution ${handle.pendingExecutionId}`,
-          {
-            workflowId,
-            workspaceId,
-          },
-        )
-
-        return NextResponse.json(
-          {
-            success: true,
-            taskId: handle.pendingExecutionId,
-            status: 'queued',
-            createdAt: new Date().toISOString(),
-            links: {
-              status: `/api/jobs/${handle.pendingExecutionId}`,
-            },
-          },
-          { status: 202 },
-        )
-      } catch (error) {
-        if (isPendingExecutionLimitError(error)) {
-          return respondFailure(
-            'Pending execution backlog is full',
-            Date.now() - startTime,
-            error.statusCode,
-          )
-        }
-
-        throw error
-      }
-    }
 
     const result = await executeFunctionRequest({
       ...body,
@@ -196,8 +117,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     if (
       error instanceof ExecutionGateError ||
-      error instanceof RateLimitError ||
-      error instanceof TriggerExecutionUnavailableError
+      error instanceof RateLimitError
     ) {
       return respondFailure(error.message, Date.now() - startTime, error.statusCode)
     }

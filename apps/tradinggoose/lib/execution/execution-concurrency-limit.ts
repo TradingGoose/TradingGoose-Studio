@@ -45,7 +45,12 @@ export class ExecutionGateError extends Error {
 
 type Lease = { release: () => Promise<void> }
 
+export type ExecutionConcurrencyController = {
+  runWithoutLease: <T>(task: () => Promise<T>) => Promise<T>
+}
+
 const activeExecutionsByScope = new Map<string, number>()
+const REACQUIRE_RETRY_DELAY_MS = 1_000
 
 const REDIS_ACQUIRE_SCRIPT = `
 local limit = tonumber(ARGV[1])
@@ -275,6 +280,97 @@ export const isExecutionConcurrencyBackendUnavailableError = (
       (error as { code?: string }).code === 'EXECUTION_CONCURRENCY_BACKEND_UNAVAILABLE'
   )
 
+const noopExecutionConcurrencyController: ExecutionConcurrencyController = {
+  runWithoutLease: async <T>(task: () => Promise<T>) => task(),
+}
+
+export const withExecutionConcurrencyController = async <T>({
+  concurrencyLeaseInherited,
+  userId,
+  workspaceId,
+  workflowId,
+  task,
+}: {
+  concurrencyLeaseInherited?: boolean
+  userId?: string
+  workspaceId?: string | null
+  workflowId?: string | null
+  task: (controller: ExecutionConcurrencyController) => Promise<T>
+}): Promise<T> => {
+  if (concurrencyLeaseInherited || !userId) {
+    return task(noopExecutionConcurrencyController)
+  }
+
+  const billingContext = await resolveServerExecutionBillingContext({
+    actorUserId: userId,
+    workflowId,
+    workspaceId,
+  })
+
+  if (!billingContext) {
+    return task(noopExecutionConcurrencyController)
+  }
+
+  const maxConcurrentExecutions = billingContext.tier.concurrencyLimit
+
+  if (maxConcurrentExecutions === null || maxConcurrentExecutions < 0) {
+    throw new Error(`Billing tier ${billingContext.tier.displayName} is missing concurrencyLimit`)
+  }
+
+  const acquireLease = () =>
+    acquireExecutionLease({
+      scopeId: billingContext.scopeId,
+      maxConcurrentExecutions,
+    })
+
+  let lease: Lease | null = await acquireLease()
+
+  const reacquireLease = async () => {
+    while (!lease) {
+      try {
+        lease = await acquireLease()
+        return
+      } catch (error) {
+        if (
+          isExecutionConcurrencyLimitError(error) ||
+          isExecutionConcurrencyBackendUnavailableError(error)
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, REACQUIRE_RETRY_DELAY_MS))
+          continue
+        }
+
+        throw error
+      }
+    }
+  }
+
+  const controller: ExecutionConcurrencyController = {
+    runWithoutLease: async <U>(releasedTask: () => Promise<U>) => {
+      if (!lease) {
+        return releasedTask()
+      }
+
+      const heldLease = lease
+      lease = null
+      await heldLease.release()
+
+      try {
+        return await releasedTask()
+      } finally {
+        await reacquireLease()
+      }
+    },
+  }
+
+  try {
+    return await task(controller)
+  } finally {
+    if (lease) {
+      await lease.release()
+    }
+  }
+}
+
 export const withExecutionConcurrencyLimit = async <T>({
   concurrencyLeaseInherited,
   userId,
@@ -288,38 +384,11 @@ export const withExecutionConcurrencyLimit = async <T>({
   workflowId?: string | null
   task: () => Promise<T>
 }): Promise<T> => {
-  if (concurrencyLeaseInherited) {
-    return task()
-  }
-
-  if (!userId) {
-    return task()
-  }
-
-  const billingContext = await resolveServerExecutionBillingContext({
-    actorUserId: userId,
-    workflowId,
+  return withExecutionConcurrencyController({
+    concurrencyLeaseInherited,
+    userId,
     workspaceId,
+    workflowId,
+    task: async () => task(),
   })
-
-  if (!billingContext) {
-    return task()
-  }
-
-  const maxConcurrentExecutions = billingContext.tier.concurrencyLimit
-
-  if (maxConcurrentExecutions === null || maxConcurrentExecutions < 0) {
-    throw new Error(`Billing tier ${billingContext.tier.displayName} is missing concurrencyLimit`)
-  }
-
-  const lease = await acquireExecutionLease({
-    scopeId: billingContext.scopeId,
-    maxConcurrentExecutions,
-  })
-
-  try {
-    return await task()
-  } finally {
-    await lease.release()
-  }
 }

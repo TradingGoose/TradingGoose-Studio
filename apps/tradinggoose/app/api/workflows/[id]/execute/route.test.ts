@@ -17,15 +17,6 @@ describe('Workflow Execution API Route', () => {
     }
   }
 
-  class MockTriggerExecutionUnavailableError extends Error {
-    statusCode: number
-    constructor(message: string, statusCode = 503) {
-      super(message)
-      this.name = 'TriggerExecutionUnavailableError'
-      this.statusCode = statusCode
-    }
-  }
-
   class MockRateLimitError extends Error {
     statusCode: number
     constructor(message: string, statusCode = 429) {
@@ -51,8 +42,8 @@ describe('Workflow Execution API Route', () => {
   let checkServerSideUsageLimitsMock = vi.fn()
   let authenticateApiKeyFromHeaderMock = vi.fn()
   let updateApiKeyLastUsedMock = vi.fn()
-  let enqueuePendingExecutionMock = vi.fn()
   let withExecutionConcurrencyLimitMock = vi.fn()
+  let withExecutionConcurrencyControllerMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -68,12 +59,21 @@ describe('Workflow Execution API Route', () => {
       limit: 100,
     })
     updateApiKeyLastUsedMock = vi.fn().mockResolvedValue(undefined)
-    enqueuePendingExecutionMock = vi.fn().mockResolvedValue({
-      pendingExecutionId: 'pending-execution-id',
-      billingScopeId: 'scope-id',
-    })
     withExecutionConcurrencyLimitMock = vi.fn(
       async ({ task }: { task: () => Promise<unknown> }) => await task(),
+    )
+    withExecutionConcurrencyControllerMock = vi.fn(
+      async ({
+        task,
+      }: {
+        task: (controller: {
+          runWithoutLease: <T>(releasedTask: () => Promise<T>) => Promise<T>
+        }) => Promise<unknown>
+      }) =>
+        await task({
+          runWithoutLease: async <T>(releasedTask: () => Promise<T>) =>
+            await releasedTask(),
+        }),
     )
 
     vi.doMock('@/app/api/workflows/middleware', () => ({
@@ -114,16 +114,8 @@ describe('Workflow Execution API Route', () => {
         enforceServerExecutionRateLimitMock(...args),
       withExecutionConcurrencyLimit: (...args: any[]) =>
         withExecutionConcurrencyLimitMock(...args),
-    }))
-
-    vi.doMock('@/lib/execution/pending-execution', () => ({
-      enqueuePendingExecution: (...args: any[]) =>
-        enqueuePendingExecutionMock(...args),
-      isPendingExecutionLimitError: vi.fn(() => false),
-    }))
-
-    vi.doMock('@/lib/trigger/settings', () => ({
-      TriggerExecutionUnavailableError: MockTriggerExecutionUnavailableError,
+      withExecutionConcurrencyController: (...args: any[]) =>
+        withExecutionConcurrencyControllerMock(...args),
     }))
 
     vi.doMock('@/lib/environment/utils', () => ({
@@ -443,12 +435,6 @@ describe('Workflow Execution API Route', () => {
     expect(Executor).toHaveBeenCalled()
 
     expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
-    expect(withExecutionConcurrencyLimitMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-id',
-        workflowId: 'workflow-id',
-      }),
-    )
 
     expect(Executor).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -531,43 +517,6 @@ describe('Workflow Execution API Route', () => {
         workflowInput: expect.objectContaining({}), // processedInput with empty input
         workflowVariables: expect.any(Object),
         contextExtensions: expect.any(Object), // Allow any context extensions object
-      }),
-    )
-  })
-
-  it('should queue async workflow execution through pending execution', async () => {
-    const req = new NextRequest(
-      'http://localhost/api/workflows/workflow-id/execute',
-      {
-        method: 'POST',
-        body: JSON.stringify({ message: 'queued input' }),
-        headers: {
-          'content-type': 'application/json',
-          'x-execution-mode': 'async',
-        },
-      },
-    )
-
-    const params = Promise.resolve({ id: 'workflow-id' })
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await POST(req, { params })
-    const data = await response.json()
-
-    expect(response.status).toBe(202)
-    expect(data.taskId).toBe('pending-execution-id')
-    expect(data.links.status).toBe('/api/jobs/pending-execution-id')
-    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        executionType: 'workflow',
-        workflowId: 'workflow-id',
-        userId: 'user-id',
-        source: 'workflow_api',
-        payload: expect.objectContaining({
-          workflowId: 'workflow-id',
-          userId: 'user-id',
-          triggerType: 'manual',
-        }),
       }),
     )
   })
@@ -814,71 +763,4 @@ describe('Workflow Execution API Route', () => {
     )
   })
 
-  it('returns a usage-limit response instead of a queue failure when async execution cannot resolve billing context', async () => {
-    enforceServerExecutionRateLimitMock.mockRejectedValueOnce(
-      new MockExecutionGateError(
-        'Workspace billing is not configured correctly. Please update billing settings before executing workflows.',
-      ),
-    )
-
-    const { getSession } = await import('@/lib/auth')
-    vi.mocked(getSession).mockResolvedValueOnce(null)
-
-    const req = new NextRequest(
-      'https://example.com/api/workflows/workflow-id/execute',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': 'test-api-key',
-          'X-Execution-Mode': 'async',
-        },
-        body: JSON.stringify({}),
-      },
-    )
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-    const response = await POST(req, { params })
-    const payload = await response.json()
-
-    expect(response.status).toBe(402)
-    expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
-    expect(payload.error).toContain(
-      'Workspace billing is not configured correctly',
-    )
-  })
-
-  it('returns a clean error when async execution is disabled', async () => {
-    const { getSession } = await import('@/lib/auth')
-    const { TriggerExecutionUnavailableError } = await import('@/lib/trigger/settings')
-    enqueuePendingExecutionMock.mockRejectedValueOnce(
-      new TriggerExecutionUnavailableError(
-        'Async execution is unavailable because Trigger.dev is disabled or not configured.',
-      ),
-    )
-    vi.mocked(getSession).mockResolvedValueOnce(null)
-
-    const req = new NextRequest(
-      'https://example.com/api/workflows/workflow-id/execute',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': 'test-api-key',
-          'X-Execution-Mode': 'async',
-        },
-        body: JSON.stringify({}),
-      },
-    )
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-    const response = await POST(req, { params })
-    const payload = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(payload.code).toBe('ASYNC_EXECUTION_DISABLED')
-    expect(payload.error).toContain('Async execution is unavailable')
-  })
 })

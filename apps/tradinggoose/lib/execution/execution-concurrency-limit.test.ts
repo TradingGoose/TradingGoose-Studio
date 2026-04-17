@@ -129,4 +129,27 @@ describe('withExecutionConcurrencyLimit', () => {
     expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
     expect(resolveWorkflowBillingContextMock).not.toHaveBeenCalled()
   })
+
+  it('temporarily releases the lease while waiting on deferred work', async () => {
+    const {
+      withExecutionConcurrencyController,
+      withExecutionConcurrencyLimit,
+    } = await import('@/lib/execution/execution-concurrency-limit')
+
+    const result = await withExecutionConcurrencyController({
+      userId: 'user-123',
+      workspaceId: 'workspace-123',
+      task: async (controller) =>
+        controller.runWithoutLease(() =>
+          withExecutionConcurrencyLimit({
+            userId: 'user-123',
+            workspaceId: 'workspace-123',
+            task: async () => 'child-ok',
+          })
+        ),
+    })
+
+    expect(result).toBe('child-ok')
+    expect(resolveWorkspaceBillingContextMock).toHaveBeenCalled()
+  })
 })

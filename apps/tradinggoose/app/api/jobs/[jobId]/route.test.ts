@@ -5,16 +5,12 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 
 const {
-  getSessionMock,
-  authenticateApiKeyFromHeaderMock,
-  updateApiKeyLastUsedMock,
+  checkHybridAuthMock,
   eqMock,
   andMock,
   limitMock,
 } = vi.hoisted(() => ({
-  getSessionMock: vi.fn(),
-  authenticateApiKeyFromHeaderMock: vi.fn(),
-  updateApiKeyLastUsedMock: vi.fn(),
+  checkHybridAuthMock: vi.fn(),
   eqMock: vi.fn((field, value) => ({ field, value })),
   andMock: vi.fn((...args) => ({ args })),
   limitMock: vi.fn(),
@@ -50,13 +46,8 @@ vi.mock('drizzle-orm', () => ({
   and: andMock,
 }))
 
-vi.mock('@/lib/api-key/service', () => ({
-  authenticateApiKeyFromHeader: authenticateApiKeyFromHeaderMock,
-  updateApiKeyLastUsed: updateApiKeyLastUsedMock,
-}))
-
-vi.mock('@/lib/auth', () => ({
-  getSession: getSessionMock,
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkHybridAuth: checkHybridAuthMock,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -83,17 +74,17 @@ describe('GET /api/jobs/[jobId]', () => {
     vi.clearAllMocks()
     queryChain.from.mockReturnThis()
     queryChain.where.mockReturnThis()
-    getSessionMock.mockResolvedValue({ user: { id: 'user-1' } })
-    authenticateApiKeyFromHeaderMock.mockResolvedValue({
-      success: false,
-      userId: null,
-      keyId: null,
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
     })
-    updateApiKeyLastUsedMock.mockResolvedValue(undefined)
   })
 
   it('requires authentication', async () => {
-    getSessionMock.mockResolvedValue(null)
+    checkHybridAuthMock.mockResolvedValue({
+      success: false,
+      userId: null,
+    })
 
     const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
       params: Promise.resolve({ jobId: 'job-1' }),

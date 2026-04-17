@@ -10,13 +10,8 @@ import {
   ExecutionGateError,
   enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
-import {
-  enqueuePendingExecution,
-  isPendingExecutionLimitError,
-} from '@/lib/execution/pending-execution'
 import { processExecutionFiles } from '@/lib/execution/files'
 import { createLogger } from '@/lib/logs/console/logger'
-import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 import {
   runWorkflowExecution,
@@ -248,9 +243,6 @@ export async function POST(
       )
     }
 
-    const executionMode = request.headers.get('X-Execution-Mode')
-    const isAsync = executionMode === 'async'
-
     const body = await request.text()
     logger.info(
       `[${requestId}] ${body ? 'Request body provided' : 'No request body provided'}`,
@@ -379,7 +371,6 @@ export async function POST(
                 fieldValue,
                 executionContext,
                 requestId,
-                isAsync,
               )
 
               if (uploadedFiles.length > 0) {
@@ -439,81 +430,6 @@ export async function POST(
     const executionTriggerType =
       workflowStartTriggerType === 'chat' ? 'chat' : triggerType
 
-    if (isAsync) {
-      await enforceServerExecutionRateLimit({
-        actorUserId: authenticatedUserId,
-        workflowId,
-        workspaceId: validation.workflow.workspaceId,
-        isAsync: true,
-        logger,
-        requestId,
-        source: 'workflow execution',
-        triggerType: executionTriggerType,
-      })
-
-      try {
-        const pendingExecutionId = `workflow_execution_${uuidv4()}`
-        const handle = await enqueuePendingExecution({
-          executionType: 'workflow',
-          pendingExecutionId,
-          workflowId,
-          workspaceId: validation.workflow.workspaceId,
-          userId: authenticatedUserId,
-          source: 'workflow_api',
-          requestId,
-          payload: {
-            executionId: pendingExecutionId,
-            workflowId,
-            userId: authenticatedUserId,
-            input,
-            triggerType: executionTriggerType,
-            metadata: { triggerType: executionTriggerType },
-          },
-        })
-
-        logger.info(
-          `[${requestId}] Queued workflow ${workflowId} as pending execution`,
-          {
-            pendingExecutionId: handle.pendingExecutionId,
-          },
-        )
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            taskId: handle.pendingExecutionId,
-            status: 'queued',
-            createdAt: new Date().toISOString(),
-            links: {
-              status: `/api/jobs/${handle.pendingExecutionId}`,
-            },
-          }),
-          {
-            status: 202,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        )
-      } catch (error: any) {
-        if (isPendingExecutionLimitError(error)) {
-          return createErrorResponse('Pending execution backlog is full', 429)
-        }
-
-        if (error instanceof TriggerExecutionUnavailableError) {
-          return createErrorResponse(
-            error.message,
-            409,
-            'ASYNC_EXECUTION_DISABLED',
-          )
-        }
-
-        logger.error(
-          `[${requestId}] Failed to queue workflow execution:`,
-          error,
-        )
-        return createErrorResponse('Failed to queue workflow execution', 500)
-      }
-    }
-
     try {
       await enforceServerExecutionRateLimit({
         actorUserId: authenticatedUserId,
@@ -523,7 +439,7 @@ export async function POST(
         logger,
         requestId,
         source: 'workflow execution',
-        triggerType,
+        triggerType: executionTriggerType,
       })
 
       if (streamResponse) {
@@ -613,10 +529,6 @@ export async function POST(
         error.statusCode,
         'USAGE_LIMIT_EXCEEDED',
       )
-    }
-
-    if (error instanceof TriggerExecutionUnavailableError) {
-      return createErrorResponse(error.message, 409, 'ASYNC_EXECUTION_DISABLED')
     }
 
     return createErrorResponse(

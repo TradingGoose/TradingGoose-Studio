@@ -7,21 +7,13 @@ import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import {
   ExecutionGateError,
-  enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
-import {
-  applyIndicatorTriggerPayloadBudget,
-  buildIndicatorTriggerDispatchPayload,
-  buildLiveIndicatorTriggerEventId,
-  resolveDispatchIntervalMs,
-  resolveLatestBarOpenTimeSec,
-} from '@/lib/indicators/dispatch'
-import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
+import { resolveDispatchIntervalMs } from '@/lib/indicators/dispatch'
 import {
   buildInputsMapFromMeta,
   normalizeInputMetaMap,
@@ -33,7 +25,7 @@ import {
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
-import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
+import type { BarMs } from '@/lib/indicators/types'
 import {
   type ListingIdentity,
   toListingValueObject,
@@ -56,7 +48,7 @@ import {
   resolveListingContext,
   resolveProviderSymbol,
 } from '@/providers/market/utils'
-import { RateLimitError } from '@/services/queue'
+import type { IndicatorMonitorExecutionPayload } from '@/background/indicator-monitor-execution'
 import { marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
@@ -129,7 +121,6 @@ type IndicatorMonitorSubscription = {
   timezone?: string
   startAt?: string
   endAt?: string
-  lastDispatchedBarBucketMs: number | null
 }
 
 const logger = createLogger('IndicatorMonitorRuntime')
@@ -175,73 +166,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const normalizeSymbol = (value: string) => value.trim().toUpperCase()
-
-const toMarketSeries = ({
-  bars,
-  listing,
-  marketCode,
-  timezone,
-}: {
-  bars: BarMs[]
-  listing: ListingIdentity
-  marketCode?: string
-  timezone?: string
-}): MarketSeries => {
-  const listingBase =
-    listing.listing_type === 'default' ? listing.listing_id : listing.base_id
-  const listingQuote =
-    listing.listing_type === 'default' ? undefined : listing.quote_id
-
-  return {
-    listing,
-    listingBase,
-    listingQuote,
-    marketCode,
-    timezone,
-    start: bars[0] ? new Date(bars[0].openTime).toISOString() : undefined,
-    end: bars[bars.length - 1]
-      ? new Date(bars[bars.length - 1].openTime).toISOString()
-      : undefined,
-    bars: bars.map((bar) => ({
-      timeStamp: new Date(bar.openTime).toISOString(),
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-      volume: bar.volume,
-    })),
-  }
-}
-
-const chooseCandidate = ({
-  triggers,
-  latestBarOpenTimeSec,
-}: {
-  triggers: NormalizedPineSignal[]
-  latestBarOpenTimeSec: number | null
-}): {
-  candidate: NormalizedPineSignal | null
-  reason: 'no_latest_candidate' | 'ok'
-} => {
-  if (latestBarOpenTimeSec === null) {
-    return { candidate: null, reason: 'no_latest_candidate' }
-  }
-
-  const latestCandidates = triggers.filter(
-    (signal) => signal.time === latestBarOpenTimeSec,
-  )
-  if (latestCandidates.length === 0) {
-    return { candidate: null, reason: 'no_latest_candidate' }
-  }
-
-  const sorted = [...latestCandidates].sort((a, b) => {
-    if (a.time !== b.time) return a.time - b.time
-    if (a.event !== b.event) return a.event.localeCompare(b.event)
-    return a.signal.localeCompare(b.signal)
-  })
-
-  return { candidate: sorted[0] ?? null, reason: 'ok' }
-}
 
 const normalizeProviderConfig = (
   row: typeof webhook.$inferSelect,
@@ -912,7 +836,6 @@ export class IndicatorMonitorRuntime {
       endAt: cappedBars[cappedBars.length - 1]
         ? new Date(cappedBars[cappedBars.length - 1].openTime).toISOString()
         : undefined,
-      lastDispatchedBarBucketMs: null,
     }
   }
 
@@ -1052,105 +975,15 @@ export class IndicatorMonitorRuntime {
       ? new Date(cappedBars[cappedBars.length - 1].openTime).toISOString()
       : undefined
 
-    await this.computeAndDispatch(subscription)
+    await this.enqueueMonitorExecution(subscription)
   }
 
-  private async computeAndDispatch(subscription: IndicatorMonitorSubscription) {
+  private async enqueueMonitorExecution(
+    subscription: IndicatorMonitorSubscription,
+  ) {
     const monitor = subscription.config
 
     try {
-      const compiled = await executeCompiledIndicator({
-        pineCode: subscription.indicator.pineCode,
-        barsMs: subscription.bars,
-        inputsMap: subscription.inputsMap,
-        listing: monitor.listing,
-        interval: monitor.interval,
-        intervalMs: monitor.intervalMs,
-        executionTimeoutMs: 15_000,
-        userId: monitor.userId,
-      })
-
-      if (!compiled.output) return
-      const latestBarOpenTimeSec = resolveLatestBarOpenTimeSec(
-        subscription.bars,
-      )
-      const candidate = chooseCandidate({
-        triggers: compiled.output.triggers,
-        latestBarOpenTimeSec,
-      })
-
-      if (!candidate.candidate) {
-        return
-      }
-
-      const barBucketMs = candidate.candidate.time * 1000
-      if (subscription.lastDispatchedBarBucketMs === barBucketMs) {
-        this.skippedCount += 1
-        return
-      }
-
-      const eventId = buildLiveIndicatorTriggerEventId({
-        monitorId: monitor.id,
-        indicatorId: monitor.indicatorId,
-        barBucketMs,
-      })
-
-      const marketSeries = toMarketSeries({
-        bars: subscription.bars,
-        listing: monitor.listing,
-        marketCode: subscription.marketCode,
-        timezone: subscription.timezone,
-      })
-
-      const payload = buildIndicatorTriggerDispatchPayload({
-        eventId,
-        executionId: eventId,
-        emittedAt: new Date().toISOString(),
-        triggerSignal: candidate.candidate,
-        indicatorId: monitor.indicatorId,
-        indicatorName: subscription.indicator.name,
-        output: compiled.output,
-        inputsMap: subscription.inputsMap,
-        interval: monitor.interval,
-        intervalMs: monitor.intervalMs ?? undefined,
-        marketSeries,
-        monitor: {
-          id: monitor.id,
-          workflowId: monitor.workflowId,
-          blockId: monitor.blockId,
-          listing: monitor.listing,
-          providerId: monitor.providerId,
-          interval: monitor.interval,
-          indicatorId: monitor.indicatorId,
-        },
-      })
-
-      const budgetResult = applyIndicatorTriggerPayloadBudget(payload)
-      if (budgetResult.skipped) {
-        this.logger.warn(
-          'Indicator monitor dispatch skipped: payload too large',
-          {
-            monitorId: monitor.id,
-            workflowId: monitor.workflowId,
-            originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-            finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-            retainedBars: budgetResult.metadata.retainedBars,
-          },
-        )
-        this.skippedCount += 1
-        return
-      }
-
-      if (budgetResult.metadata.truncated) {
-        this.logger.warn('Indicator monitor payload truncated', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
-          originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-          finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-          retainedBars: budgetResult.metadata.retainedBars,
-        })
-      }
-
       const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
       if (!actorUserId) {
         await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
@@ -1161,104 +994,43 @@ export class IndicatorMonitorRuntime {
         return
       }
 
-      try {
-        await enforceServerExecutionRateLimit({
-          actorUserId,
+      const pendingExecutionId = `indicator_monitor:${monitor.id}:${randomUUID()}`
+      const payload: IndicatorMonitorExecutionPayload = {
+        monitor: {
+          id: monitor.id,
           workflowId: monitor.workflowId,
           workspaceId: monitor.workspaceId,
-          isAsync: true,
-          logger: this.logger,
-          requestId: eventId,
-          source: 'indicator trigger',
-          triggerType: 'webhook',
-        })
-      } catch (error) {
-        if (error instanceof ExecutionGateError) {
-          await this.disconnectMonitor(monitor.id, 'invalid_billing_context', {
-            monitorId: monitor.id,
-            workflowId: monitor.workflowId,
-            error: error.message,
-          })
-          this.skippedCount += 1
-          return
-        }
-
-        if (error instanceof RateLimitError) {
-          this.skippedCount += 1
-          return
-        }
-
-        throw error
-      }
-
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: actorUserId,
-        workflowId: monitor.workflowId,
-        workspaceId: monitor.workspaceId,
-      })
-      if (usageCheck.isExceeded) {
-        await this.disconnectMonitor(monitor.id, 'usage_limit_exceeded', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
-          currentUsage: usageCheck.currentUsage,
-          limit: usageCheck.limit,
-        })
-        this.skippedCount += 1
-        return
-      }
-
-      if (
-        !(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))
-      ) {
-        await this.disconnectMonitor(monitor.id, 'missing_trigger_block', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
+          userId: monitor.userId,
+          actorUserId,
           blockId: monitor.blockId,
-        })
-        this.skippedCount += 1
-        return
-      }
-
-      const workflowPayload = {
-        executionId: eventId,
-        workflowId: monitor.workflowId,
-        userId: actorUserId,
-        input: budgetResult.payload,
-        triggerType: 'webhook' as const,
-        startBlockId: monitor.blockId,
-        executionTarget: 'deployed' as const,
-        triggerData: {
-          source: 'indicator_trigger',
-          executionTarget: 'deployed',
-          monitor: {
-            id: monitor.id,
-            workflowId: monitor.workflowId,
-            blockId: monitor.blockId,
-            listing: monitor.listing,
-            providerId: monitor.providerId,
-            interval: monitor.interval,
-            indicatorId: monitor.indicatorId,
-          },
+          providerId: monitor.providerId,
+          interval: monitor.interval,
+          intervalMs: monitor.intervalMs,
+          indicatorId: monitor.indicatorId,
+          listing: monitor.listing,
         },
-        metadata: {
-          triggerType: 'webhook',
-          source: 'indicator_monitor',
-          eventId,
-          monitorId: monitor.id,
+        indicator: {
+          id: subscription.indicator.id,
+          name: subscription.indicator.name,
+          pineCode: subscription.indicator.pineCode,
         },
+        inputsMap: subscription.inputsMap,
+        bars: subscription.bars,
+        marketCode: subscription.marketCode,
+        timezone: subscription.timezone,
       }
 
       try {
         await enqueuePendingExecution({
-          executionType: 'workflow',
-          pendingExecutionId: eventId,
+          executionType: 'indicator_monitor',
+          pendingExecutionId,
           workflowId: monitor.workflowId,
           workspaceId: monitor.workspaceId,
           userId: actorUserId,
           source: 'indicator_monitor',
           orderingKey: `indicator_monitor:${monitor.id}`,
-          requestId: eventId,
-          payload: workflowPayload,
+          requestId: pendingExecutionId,
+          payload,
         })
       } catch (error) {
         if (error instanceof ExecutionGateError) {
@@ -1282,9 +1054,8 @@ export class IndicatorMonitorRuntime {
         }
 
         if (isPendingExecutionLimitError(error)) {
-          await this.disconnectMonitor(
-            monitor.id,
-            'pending_execution_backlog_full',
+          this.logger.warn(
+            'Indicator monitor queue backlog is full; skipping monitor event',
             {
               monitorId: monitor.id,
               workflowId: monitor.workflowId,
@@ -1299,10 +1070,9 @@ export class IndicatorMonitorRuntime {
         throw error
       }
 
-      subscription.lastDispatchedBarBucketMs = barBucketMs
       this.dispatchedCount += 1
     } catch (error) {
-      this.logger.warn('Indicator monitor compute/dispatch failed', {
+      this.logger.warn('Indicator monitor queueing failed', {
         monitorId: monitor.id,
         workflowId: monitor.workflowId,
         error,

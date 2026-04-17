@@ -137,25 +137,6 @@ describe('Webhook Trigger API Route', () => {
       resolveWorkspaceBillingContext: vi.fn(),
     }))
 
-    vi.doMock('@/services/queue', () => ({
-      ExecutionLimiter: vi.fn().mockImplementation(() => ({
-        checkRateLimit: vi.fn().mockResolvedValue({
-          allowed: true,
-          remaining: 10,
-          resetAt: new Date(),
-        }),
-      })),
-      RateLimitError: class RateLimitError extends Error {
-        constructor(
-          message: string,
-          public statusCode = 429
-        ) {
-          super(message)
-          this.name = 'RateLimitError'
-        }
-      },
-    }))
-
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       loadWorkflowFromNormalizedTables: vi.fn().mockResolvedValue({
         blocks: {},
@@ -204,7 +185,6 @@ describe('Webhook Trigger API Route', () => {
    */
   it('should handle 404 for non-existent webhooks', async () => {
     vi.doMock('@/lib/webhooks/processor', () => ({
-      checkRateLimits: vi.fn(),
       checkUsageLimits: vi.fn(),
       findWebhookAndWorkflow: vi.fn().mockResolvedValue(null),
       handleProviderChallenges: vi.fn(),

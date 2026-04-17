@@ -3,11 +3,6 @@ import {
   isExecutionConcurrencyBackendUnavailableError,
   isExecutionConcurrencyLimitError,
 } from '@/lib/execution/execution-concurrency-limit'
-import {
-  executeFunctionRequest,
-  type FunctionExecutionPayload,
-  isFunctionExecutionPayload,
-} from '@/lib/function/execution'
 import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -23,6 +18,10 @@ import {
   executeDocumentProcessingJob,
   isDocumentProcessingPayload,
 } from './knowledge-processing'
+import {
+  executeIndicatorMonitorJob,
+  isIndicatorMonitorExecutionPayload,
+} from './indicator-monitor-execution'
 import {
   executeScheduleJob,
   isScheduleExecutionPayload,
@@ -67,35 +66,6 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
       return
     }
 
-    case 'function': {
-      if (!isFunctionExecutionPayload(row.payload)) {
-        throw new Error('Invalid function pending payload')
-      }
-
-      const result = await executeFunctionRequest({
-        ...row.payload,
-        requestId: row.id,
-      })
-
-      if (!result.body.success) {
-        await failPendingExecution({
-          pendingExecutionId: row.id,
-          errorMessage: result.body.error ?? 'Function execution failed',
-        })
-        return
-      }
-
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-        deleteOnSuccess: false,
-        result: {
-          ...result.body,
-          statusCode: result.statusCode,
-        },
-      })
-      return
-    }
-
     case 'webhook': {
       if (!isWebhookExecutionPayload(row.payload)) {
         throw new Error('Invalid webhook pending payload')
@@ -117,6 +87,21 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
       }
 
       await executeScheduleJob({
+        ...row.payload,
+        executionId: row.id,
+      })
+      await completePendingExecution({
+        pendingExecutionId: row.id,
+      })
+      return
+    }
+
+    case 'indicator_monitor': {
+      if (!isIndicatorMonitorExecutionPayload(row.payload)) {
+        throw new Error('Invalid indicator monitor pending payload')
+      }
+
+      await executeIndicatorMonitorJob({
         ...row.payload,
         executionId: row.id,
       })
