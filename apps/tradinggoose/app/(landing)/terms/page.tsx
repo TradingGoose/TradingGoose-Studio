@@ -1,11 +1,9 @@
-'use client'
-
 import Link from 'next/link'
-import { useBrandConfig } from '@/lib/branding/branding'
-import { LegalLayout } from '@/app/(landing)/components'
+import LegalLayout from '@/app/(landing)/components/legal-layout'
+import { getBrandConfig } from '@/lib/branding/branding'
 
 export default function TermsOfService() {
-  const brand = useBrandConfig()
+  const brand = getBrandConfig()
   const projectName = brand.name
   const supportEmail = brand.supportEmail
   const supportEmailHref = `mailto:${supportEmail}`

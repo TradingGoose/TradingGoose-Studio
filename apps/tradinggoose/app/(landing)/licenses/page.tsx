@@ -1,4 +1,4 @@
-import { LegalLayout } from '@/app/(landing)/components'
+import LegalLayout from '@/app/(landing)/components/legal-layout'
 
 export default function LicensesPage() {
   return (
