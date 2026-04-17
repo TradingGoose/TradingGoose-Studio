@@ -1,6 +1,6 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import {
   buildWorkflowDocumentPreviewDiff,
@@ -10,6 +10,7 @@ import {
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
+import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 interface EditWorkflowParams {
   workflowId: string
@@ -70,6 +71,15 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     const parsedWorkflowDocument = parseTgMermaidToWorkflow(workflowDocument)
     const requestedDirection = parsedWorkflowDocument.direction
     const parsedWorkflowState = createWorkflowSnapshot(parsedWorkflowDocument)
+    const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
+      parsedWorkflowState,
+      baseWorkflowState
+    )
+
+    if (nonCanonicalSubBlockErrors.length > 0) {
+      throw new Error(`Invalid edited workflow: ${nonCanonicalSubBlockErrors.join('; ')}`)
+    }
+
     const validation = validateWorkflowState(parsedWorkflowState, { sanitize: true })
 
     if (!validation.valid) {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/blocks/registry', () => ({
-  registry: {
+vi.mock('@/blocks/registry', () => {
+  const registry = {
     github: {
       name: 'GitHub',
       longDescription: 'Interact with GitHub repositories.',
@@ -29,8 +29,29 @@ vi.mock('@/blocks/registry', () => ({
       subBlocks: [],
       outputs: {},
     },
-  },
-}))
+    input_trigger: {
+      name: 'Input Form',
+      description: 'Collect structured workflow input.',
+      triggerAllowed: true,
+      subBlocks: [
+        {
+          id: 'inputFormat',
+          type: 'input-format',
+        },
+      ],
+      outputs: {},
+    },
+  }
+
+  return {
+    registry,
+    getBlock: (blockType: string) => registry[blockType as keyof typeof registry],
+    getAllBlocks: () => Object.values(registry),
+    getAllBlockTypes: () => Object.keys(registry),
+    getBlocksByCategory: () => [],
+    isValidBlockType: (blockType: string) => blockType in registry,
+  }
+})
 
 vi.mock('@/tools/registry', () => ({
   tools: {
@@ -50,7 +71,7 @@ describe('getBlocksMetadataServerTool', () => {
     )
 
     const result = await getBlocksMetadataServerTool.execute({
-      blockIds: ['github', 'condition', 'loop'],
+      blockIds: ['github', 'condition', 'input_trigger', 'loop'],
     })
 
     expect(result.metadata.github).toEqual(
@@ -79,6 +100,12 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.github).not.toHaveProperty('inputSchema')
 
     expect(result.metadata.condition?.mermaidContract.renderKind).toBe('condition')
+    expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).toContain(
+      '"inputFormat"'
+    )
+    expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).not.toContain(
+      '"inputSchema"'
+    )
     expect(result.metadata.loop?.mermaidContract.renderKind).toBe('loop_container')
   })
 })

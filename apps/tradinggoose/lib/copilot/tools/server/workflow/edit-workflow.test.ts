@@ -13,6 +13,48 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
   loadWorkflowFromNormalizedTables: vi.fn(),
 }))
 
+const INPUT_TRIGGER_CURRENT_WORKFLOW_STATE = JSON.stringify({
+  blocks: {
+    input1: {
+      id: 'input1',
+      type: 'input_trigger',
+      name: 'Input Form',
+      position: { x: 0, y: 0 },
+      enabled: true,
+      subBlocks: {
+        inputFormat: {
+          id: 'inputFormat',
+          type: 'input-format',
+          value: [],
+        },
+      },
+      outputs: {},
+    },
+  },
+  edges: [],
+  loops: {},
+  parallels: {},
+})
+
+function buildInputTriggerWorkflowDocument(subBlocks: Record<string, unknown>): string {
+  return [
+    'flowchart TD',
+    '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+    [
+      '%% TG_BLOCK ',
+      JSON.stringify({
+        id: 'input1',
+        type: 'input_trigger',
+        name: 'Input Form',
+        position: { x: 0, y: 0 },
+        enabled: true,
+        subBlocks,
+        outputs: {},
+      }),
+    ].join(''),
+  ].join('\n')
+}
+
 describe('editWorkflowServerTool', () => {
   it(
     'does not persist canonical side effects while preparing a workflow edit proposal',
@@ -159,6 +201,72 @@ describe('editWorkflowServerTool', () => {
     expect(result.workflowDocument).toContain('flowchart LR')
     expect(result.preview.warnings).toContain(
       'Re-laid out workflow blocks to match Mermaid direction LR.'
+    )
+  })
+
+  it('rejects input-trigger edits that invent inputSchema instead of inputFormat', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          workflowId: 'wf-1',
+          workflowDocument: buildInputTriggerWorkflowDocument({
+            inputSchema: {
+              id: 'inputSchema',
+              type: 'short_text',
+              value: JSON.stringify({
+                type: 'object',
+                properties: {
+                  ticker: { type: 'string' },
+                  trade_date: { type: 'string' },
+                },
+              }),
+            },
+            ticker: {
+              id: 'ticker',
+              type: 'short_text',
+              value: 'AAPL',
+            },
+            trade_date: {
+              id: 'trade_date',
+              type: 'short_text',
+              value: '2026-04-17',
+            },
+          }),
+          currentWorkflowState: INPUT_TRIGGER_CURRENT_WORKFLOW_STATE,
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow(
+      'Block Input Form: non-canonical sub-block "inputSchema" is not part of the input_trigger block config.'
+    )
+  })
+
+  it('rejects newly introduced non-canonical sub-block ids for known block configs', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          workflowId: 'wf-1',
+          workflowDocument: buildInputTriggerWorkflowDocument({
+            ticker: {
+              id: 'ticker',
+              type: 'short_text',
+              value: 'AAPL',
+            },
+          }),
+          currentWorkflowState: INPUT_TRIGGER_CURRENT_WORKFLOW_STATE,
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow(
+      'Block Input Form: non-canonical sub-block "ticker" is not part of the input_trigger block config.'
     )
   })
 })

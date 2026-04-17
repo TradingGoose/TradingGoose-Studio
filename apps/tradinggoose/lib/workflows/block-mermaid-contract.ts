@@ -1,5 +1,4 @@
 import type { Edge } from 'reactflow'
-import type { BlockState, Parallel, Loop } from '@/stores/workflows/workflow/types'
 import {
   serializeWorkflowToTgMermaid,
   TG_BLOCK_PREFIX,
@@ -7,6 +6,8 @@ import {
   TG_WORKFLOW_PREFIX,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { getBlock } from '@/blocks'
+import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export type WorkflowBlockMermaidRenderKind =
   | 'standard'
@@ -118,17 +119,39 @@ function createConditionSubBlocks(blockId: string): BlockState['subBlocks'] {
 }
 
 function createTargetSubBlocks(params: ExampleParams): BlockState['subBlocks'] {
-  if (!params.operation) {
-    return {}
+  const blockConfig = getBlock(params.blockType)
+  const subBlocks: BlockState['subBlocks'] = {}
+
+  for (const subBlock of blockConfig?.subBlocks ?? []) {
+    if (subBlock.id === 'operation') {
+      if (params.operation) {
+        subBlocks.operation = {
+          id: 'operation',
+          type: 'dropdown',
+          value: params.operation,
+        }
+      }
+      continue
+    }
+
+    if (subBlock.type === 'input-format' || subBlock.type === 'response-format') {
+      subBlocks[subBlock.id] = {
+        id: subBlock.id,
+        type: subBlock.type,
+        value: [
+          {
+            id: `${params.blockType}-${subBlock.id}-field-1`,
+            name: 'fieldName',
+            type: 'string',
+            value: 'example',
+            collapsed: false,
+          },
+        ],
+      }
+    }
   }
 
-  return {
-    operation: {
-      id: 'operation',
-      type: 'dropdown',
-      value: params.operation,
-    },
-  }
+  return subBlocks
 }
 
 function buildStandardWorkflowExamples(params: ExampleParams): WorkflowBlockMermaidExamples {
@@ -415,9 +438,7 @@ function resolveRenderKind(blockType: string): WorkflowBlockMermaidRenderKind {
   return 'standard'
 }
 
-export function buildWorkflowBlockMermaidShape(
-  params: ExampleParams
-): WorkflowBlockMermaidShape {
+export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowBlockMermaidShape {
   const renderKind = resolveRenderKind(params.blockType)
 
   const baseContract = {
