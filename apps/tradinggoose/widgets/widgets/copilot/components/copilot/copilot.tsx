@@ -529,16 +529,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
               </div>
 
               {/* Todo list from plan tool */}
-              {showPlanTodos && (
-                <TodoList
-                  todos={planTodos}
-                  collapsed={todosCollapsed}
-                  onClose={() => {
-                    const store = copilotStoreApi.getState()
-                    store.setPlanTodos([])
-                  }}
-                />
-              )}
+              {showPlanTodos && <TodoList todos={planTodos} collapsed={todosCollapsed} />}
 
               {/* Input area with integrated access selector */}
               <div className='pt-2'>

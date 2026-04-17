@@ -28,14 +28,14 @@ import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { ChatContext, CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
+  buildAssistantMessageSegments,
   FileAttachmentDisplay,
   OptionsSelector,
   parseSpecialTags,
   SmoothStreamingText,
   StreamingIndicator,
-  ThinkingBlock,
+  ThinkingGroup,
 } from './components'
-import CopilotMarkdownRenderer from './components/markdown-renderer'
 import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
@@ -66,6 +66,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const messageContentRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [needsExpansion, setNeedsExpansion] = useState(false)
+    const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
 
     const {
       currentChat,
@@ -89,6 +90,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       if (messages.length === 0) return false
       return messages[messages.length - 1]?.id === message.id
     }, [messages, message.id])
+
+    const isLatestTurnInProgress =
+      isLastMessage &&
+      (isStreaming || isSendingMessage || currentChat?.latestTurnStatus === 'in_progress')
+    const isMessageTyping = typingSegmentKeys.length > 0
 
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
@@ -528,68 +534,116 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return normalized
     }, [message.content, isAssistant, parsedTags])
 
-    // Memoize content blocks to avoid re-rendering unchanged blocks
-    const memoizedContentBlocks = useMemo(() => {
+    const assistantSegments = useMemo(() => {
       if (!message.contentBlocks || message.contentBlocks.length === 0) {
         return null
       }
 
-      return message.contentBlocks.map((block, index) => {
-        if (block.type === 'text') {
+      return buildAssistantMessageSegments(message.contentBlocks)
+    }, [message.contentBlocks])
+
+    const visibleAssistantSegments = useMemo(() => {
+      if (!assistantSegments) {
+        return null
+      }
+
+      if (typingSegmentKeys.length === 0) {
+        return assistantSegments
+      }
+
+      const typingKeySet = new Set(typingSegmentKeys)
+      const visibleSegments = []
+
+      for (const segment of assistantSegments) {
+        visibleSegments.push(segment)
+        if (segment.type === 'text' && typingKeySet.has(segment.key)) {
+          break
+        }
+      }
+
+      return visibleSegments
+    }, [assistantSegments, typingSegmentKeys])
+
+    const handleTypingStateChange = useCallback((typingKey: string, isTyping: boolean) => {
+      setTypingSegmentKeys((currentKeys) => {
+        const hasKey = currentKeys.includes(typingKey)
+        if (isTyping) {
+          return hasKey ? currentKeys : [...currentKeys, typingKey]
+        }
+        return hasKey ? currentKeys.filter((key) => key !== typingKey) : currentKeys
+      })
+    }, [])
+
+    useEffect(() => {
+      const activeTextSegmentKeys = new Set(
+        assistantSegments
+          ?.filter((segment) => segment.type === 'text')
+          .map((segment) => segment.key) ?? []
+      )
+
+      setTypingSegmentKeys((currentKeys) =>
+        currentKeys.filter((key) => activeTextSegmentKeys.has(key))
+      )
+    }, [assistantSegments])
+
+    // Memoize content blocks to avoid re-rendering unchanged blocks
+    const memoizedContentBlocks = useMemo(() => {
+      if (!visibleAssistantSegments) {
+        return null
+      }
+
+      return visibleAssistantSegments.map((segment, index) => {
+        if (segment.type === 'text') {
+          const block = segment.block
           const isLastTextBlock =
-            index === message.contentBlocks!.length - 1 && block.type === 'text'
+            index === visibleAssistantSegments.length - 1 && segment.type === 'text'
           // Clean content for this text block and strip special tags
           const parsed = parseSpecialTags(block.content)
           const cleanBlockContent = parsed.cleanContent.replace(/\n{3,}/g, '\n\n')
 
           if (!cleanBlockContent.trim()) return null
 
-          // Use smooth streaming for the last text block if we're streaming
-          const shouldUseSmoothing = isStreaming && isLastTextBlock
-
           return (
             <div
-              key={`text-${index}-${block.timestamp || index}`}
+              key={segment.key}
               className='w-full max-w-full overflow-hidden transition-opacity duration-200 ease-in-out'
               style={{
                 opacity: cleanBlockContent.length > 0 ? 1 : 0.7,
-                transform: shouldUseSmoothing ? 'translateY(0)' : undefined,
-                transition: shouldUseSmoothing
+                transform: isLastTextBlock ? 'translateY(0)' : undefined,
+                transition: isLastTextBlock
                   ? 'transform 0.1s ease-out, opacity 0.2s ease-in-out'
                   : 'opacity 0.2s ease-in-out',
               }}
             >
-              {shouldUseSmoothing ? (
-                <SmoothStreamingText content={cleanBlockContent} isStreaming={isStreaming} />
-              ) : (
-                <CopilotMarkdownRenderer content={cleanBlockContent} />
-              )}
-            </div>
-          )
-        }
-        if (block.type === 'thinking') {
-          // Consider the thinking block streaming if the overall message is streaming
-          // and the block has not been finalized with a duration yet. This avoids
-          // freezing the timer when new blocks are appended after the thinking block.
-          const isStreamingThinking = isStreaming && (block as any).duration == null
-
-          return (
-            <div key={`thinking-${index}-${block.timestamp || index}`} className='w-full'>
-              <ThinkingBlock
-                content={block.content}
-                isStreaming={isStreamingThinking}
-                duration={block.duration}
-                startTime={block.startTime}
+              <SmoothStreamingText
+                content={cleanBlockContent}
+                isStreaming={isStreaming}
+                typingKey={segment.key}
+                onTypingStateChange={handleTypingStateChange}
               />
             </div>
           )
         }
-        if (block.type === 'tool_call') {
+        if (segment.type === 'thinking') {
+          const isStreamingThinking =
+            isStreaming && segment.blocks.some((block) => block.duration == null)
+
+          return (
+            <div
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 w-full animate-in transition-opacity duration-200 ease-out'
+            >
+              <ThinkingGroup blocks={segment.blocks} isStreaming={isStreamingThinking} />
+            </div>
+          )
+        }
+        if (segment.type === 'tool_call') {
+          const block = segment.block
           // Visibility and filtering handled by InlineToolCall
           return (
             <div
-              key={`tool-${block.toolCall.id}`}
-              className='transition-opacity duration-300 ease-in-out'
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 animate-in transition-opacity duration-200 ease-out'
               style={{ opacity: 1 }}
             >
               <InlineToolCall toolCallId={block.toolCall.id} toolCall={block.toolCall} />
@@ -598,7 +652,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         }
         return null
       })
-    }, [message.contentBlocks, isStreaming])
+    }, [handleTypingStateChange, isStreaming, visibleAssistantSegments])
 
     if (isUser) {
       return (
@@ -818,7 +872,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             )}
 
             {/* Action buttons for completed messages */}
-            {!isStreaming && cleanTextContent && (
+            {!isLatestTurnInProgress && !isMessageTyping && cleanTextContent && (
               <div className='flex items-center gap-1'>
                 <button
                   onClick={handleCopyContent}

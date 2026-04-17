@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, ListTodo, Loader2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, ListTodo, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface TodoItem {
@@ -13,14 +13,12 @@ export interface TodoItem {
 
 interface TodoListProps {
   todos: TodoItem[]
-  onClose?: () => void
   collapsed?: boolean
   className?: string
 }
 
 export const TodoList = memo(function TodoList({
   todos,
-  onClose,
   collapsed = false,
   className,
 }: TodoListProps) {
@@ -41,23 +39,18 @@ export const TodoList = memo(function TodoList({
 
   return (
     <div
-      className={cn('border-neutral-200 rounded-md border-t dark:border-neutral-700 dark:bg-neutral-900', className)}
+      className={cn(
+        'rounded-md border-neutral-200 border-t dark:border-neutral-700 dark:bg-neutral-900',
+        className
+      )}
     >
       {/* Header */}
-      <div className='flex rounded-md items-center justify-between border-neutral-100 border-b px-3 py-2 dark:border-neutral-800'>
+      <div className='flex items-center justify-between rounded-md border-neutral-100 border-b px-3 py-2 dark:border-neutral-800'>
         <div className='flex items-center gap-1'>
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className='rounded p-0.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800'
-          >
-            {isCollapsed ? (
-              <ChevronRight className='h-4 w-4 text-neutral-500' />
-            ) : (
-              <ChevronDown className='h-4 w-4 text-neutral-500' />
-            )}
-          </button>
           <ListTodo className='h-4 w-4 text-neutral-500' />
-          <span className='font-medium text-neutral-700 text-xs dark:text-neutral-300'>Todo List</span>
+          <span className='font-medium text-neutral-700 text-xs dark:text-neutral-300'>
+            Todo List
+          </span>
           <span className='text-neutral-500 text-xs dark:text-neutral-400'>
             {completedCount}/{totalCount}
           </span>
@@ -71,16 +64,17 @@ export const TodoList = memo(function TodoList({
               style={{ width: `${progress}%` }}
             />
           </div>
-
-          {onClose && (
-            <button
-              onClick={onClose}
-              className='rounded p-1 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              aria-label='Close todo list'
-            >
-              <X className='h-3.5 w-3.5 text-neutral-400' />
-            </button>
-          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className='rounded p-0.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            aria-label={isCollapsed ? 'Expand todo list' : 'Collapse todo list'}
+          >
+            {isCollapsed ? (
+              <ChevronRight className='h-4 w-4 text-neutral-500' />
+            ) : (
+              <ChevronDown className='h-4 w-4 text-neutral-500' />
+            )}
+          </button>
         </div>
       </div>
 
@@ -115,7 +109,9 @@ export const TodoList = memo(function TodoList({
               <span
                 className={cn(
                   'flex-1 text-xs leading-relaxed',
-                  todo.completed ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-300'
+                  todo.completed
+                    ? 'text-neutral-400 line-through'
+                    : 'text-neutral-700 dark:text-neutral-300'
                 )}
               >
                 {todo.content}

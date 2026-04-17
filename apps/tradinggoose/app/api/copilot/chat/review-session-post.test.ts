@@ -3,11 +3,7 @@
  */
 import { NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createMockRequest,
-  mockAuth,
-  setupCommonApiMocks,
-} from '@/app/api/__test-utils__/utils'
+import { createMockRequest, mockAuth, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
 describe('Copilot Chat POST Generic Sessions', () => {
   const mockSelect = vi.fn()
@@ -106,9 +102,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     return new ReadableStream<Uint8Array>({
       start(controller) {
         for (const event of events) {
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
-          )
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
         }
         controller.close()
       },
@@ -239,13 +233,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
 
     vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
       buildCopilotRuntimeProviderConfig: vi.fn(
-        async ({
-          model,
-          provider,
-        }: {
-          model: string
-          provider?: string
-        }) => ({
+        async ({ model, provider }: { model: string; provider?: string }) => ({
           provider: provider ?? 'openai',
           providerConfig: {
             provider: provider ?? 'openai',
@@ -341,28 +329,30 @@ describe('Copilot Chat POST Generic Sessions', () => {
       'review-session-1',
       'collaborator-user'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Please update the summary',
-        userId: 'collaborator-user',
-        model: 'gpt-5.4',
-        provider: {
-          provider: 'openai',
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Please update the summary',
+          userId: 'collaborator-user',
           model: 'gpt-5.4',
-          apiKey: 'test-copilot-key',
-        },
-        chatId: 'review-session-1',
-        toolManifest: expect.objectContaining({
-          version: 'v1',
-          tools: expect.arrayContaining([
-            expect.objectContaining({ name: 'get_user_workflow' }),
-            expect.objectContaining({ name: 'edit_workflow' }),
-          ]),
+          provider: {
+            provider: 'openai',
+            model: 'gpt-5.4',
+            apiKey: 'test-copilot-key',
+          },
+          chatId: 'review-session-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+            tools: expect.arrayContaining([
+              expect.objectContaining({ name: 'get_user_workflow' }),
+              expect.objectContaining({ name: 'edit_workflow' }),
+            ]),
+          }),
         }),
-      }),
-      signal: expect.any(AbortSignal),
-    }))
+        signal: expect.any(AbortSignal),
+      })
+    )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(txInsertValues).toHaveBeenCalledTimes(2)
     expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
@@ -489,26 +479,28 @@ describe('Copilot Chat POST Generic Sessions', () => {
       'Update the current indicator',
       'workspace-1'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Update the current indicator',
-        userId: 'collaborator-user',
-        model: 'claude-sonnet-4.6',
-        chatId: 'review-session-1',
-        toolManifest: expect.objectContaining({
-          version: 'v1',
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Update the current indicator',
+          userId: 'collaborator-user',
+          model: 'claude-sonnet-4.6',
+          chatId: 'review-session-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+          }),
+          context: [
+            {
+              type: 'current_indicator',
+              tag: '@Current Indicator',
+              content: '{"id":"indicator-1"}',
+            },
+          ],
         }),
-        context: [
-          {
-            type: 'current_indicator',
-            tag: '@Current Indicator',
-            content: '{"id":"indicator-1"}',
-          },
-        ],
-      }),
-      signal: expect.any(AbortSignal),
-    }))
+        signal: expect.any(AbortSignal),
+      })
+    )
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {
@@ -782,19 +774,21 @@ describe('Copilot Chat POST Generic Sessions', () => {
         channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Start a fresh generic copilot chat',
-        userId: 'collaborator-user',
-        model: 'claude-sonnet-4.6',
-        chatId: 'review-session-channel-1',
-        toolManifest: expect.objectContaining({
-          version: 'v1',
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Start a fresh generic copilot chat',
+          userId: 'collaborator-user',
+          model: 'claude-sonnet-4.6',
+          chatId: 'review-session-channel-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+          }),
         }),
-      }),
-      signal: expect.any(AbortSignal),
-    }))
+        signal: expect.any(AbortSignal),
+      })
+    )
   })
 
   it('creates a new generic copilot session even when older chats already exist for the same panel channel', async () => {
@@ -841,14 +835,16 @@ describe('Copilot Chat POST Generic Sessions', () => {
         channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(expect.objectContaining({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Create another chat in the same panel',
-        chatId: 'review-session-channel-newer',
-      }),
-      signal: expect.any(AbortSignal),
-    }))
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Create another chat in the same panel',
+          chatId: 'review-session-channel-newer',
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
   })
 
   it('persists the finalized assistant item text from a streamed reply', async () => {
@@ -918,6 +914,115 @@ describe('Copilot Chat POST Generic Sessions', () => {
         }),
       })
     )
+  })
+
+  it('persists streamed reasoning content blocks from a streamed reply', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'review-session-reasoning-stream',
+      userId: 'collaborator-user',
+      workspaceId: 'workspace-1',
+      channelId: 'copilot-panel-reasoning',
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Reasoning stream chat',
+      model: 'claude-sonnet-4.6',
+      conversationId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    mockProxyCopilotRequest.mockResolvedValueOnce({
+      ok: true,
+      body: createSseStream([
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'reasoning-item-1',
+            type: 'reasoning',
+            content: [{ type: 'reasoning_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.reasoning_text.delta',
+          item_id: 'reasoning-item-1',
+          delta: 'Inspecting the workflow before saving.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'reasoning-item-1',
+            type: 'reasoning',
+            content: [
+              {
+                type: 'reasoning_text',
+                text: 'Inspecting the workflow before saving.',
+              },
+            ],
+          },
+        },
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-reasoning-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-reasoning-1',
+          delta: 'Done.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-reasoning-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Done.' }],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-reasoning' } },
+      ]),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Persist the reasoning blocks too',
+      reviewSessionId: 'review-session-reasoning-stream',
+      model: 'claude-sonnet-4.6',
+      stream: true,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+    await response.text()
+
+    const persistedAssistantMessage =
+      mockBuildAppendReviewTurn.mock.calls.at(-1)?.[0]?.assistantMessage
+
+    expect(persistedAssistantMessage).toMatchObject({
+      content: 'Done.',
+      contentBlocks: [
+        {
+          type: 'thinking',
+          content: 'Inspecting the workflow before saving.',
+          itemId: 'reasoning-item-1',
+          timestamp: expect.any(Number),
+          startTime: expect.any(Number),
+          duration: expect.any(Number),
+        },
+        {
+          type: 'text',
+          content: 'Done.',
+          itemId: 'assistant-item-reasoning-1',
+          timestamp: expect.any(Number),
+        },
+      ],
+    })
   })
 
   it('normalizes JSON-string function call arguments before persisting streamed tool calls', async () => {
