@@ -53,6 +53,8 @@ export interface BillingTierSummary {
   syncRateLimitPerMinute: number | null
   asyncRateLimitPerMinute: number | null
   apiEndpointRateLimitPerMinute: number | null
+  maxPendingAgeSeconds: number | null
+  maxPendingCount: number | null
   canEditUsageLimit: boolean
   canConfigureSso: boolean
   logRetentionDays: number | null

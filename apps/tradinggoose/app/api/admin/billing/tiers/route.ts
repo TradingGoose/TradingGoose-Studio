@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (!stripeConfigured) {
       return NextResponse.json(
         { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 }
+        { status: 409 },
       )
     }
     const body = await request.json()
@@ -36,8 +36,11 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid billing tier payload' },
-        { status: 400 }
+        {
+          error:
+            parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
+        },
+        { status: 400 },
       )
     }
 
@@ -52,8 +55,10 @@ export async function POST(request: Request) {
       parsed.data.status !== 'active'
     ) {
       return NextResponse.json(
-        { error: 'The default tier must stay active while billing is enabled.' },
-        { status: 409 }
+        {
+          error: 'The default tier must stay active while billing is enabled.',
+        },
+        { status: 409 },
       )
     }
 
@@ -73,7 +78,9 @@ export async function POST(request: Request) {
         seatMode: parsed.data.seatMode,
         monthlyPriceUsd: toDecimalString(parsed.data.monthlyPriceUsd),
         yearlyPriceUsd: toDecimalString(parsed.data.yearlyPriceUsd),
-        includedUsageLimitUsd: toDecimalString(parsed.data.includedUsageLimitUsd),
+        includedUsageLimitUsd: toDecimalString(
+          parsed.data.includedUsageLimitUsd,
+        ),
         storageLimitGb: parsed.data.storageLimitGb,
         concurrencyLimit: parsed.data.concurrencyLimit,
         seatCount: parsed.data.seatCount,
@@ -83,13 +90,18 @@ export async function POST(request: Request) {
         stripeProductId: parsed.data.stripeProductId,
         syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
         asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
-        apiEndpointRateLimitPerMinute: parsed.data.apiEndpointRateLimitPerMinute,
+        apiEndpointRateLimitPerMinute:
+          parsed.data.apiEndpointRateLimitPerMinute,
+        maxPendingAgeSeconds: parsed.data.maxPendingAgeSeconds,
+        maxPendingCount: parsed.data.maxPendingCount,
         canEditUsageLimit: parsed.data.canEditUsageLimit,
         canConfigureSso: parsed.data.canConfigureSso,
         logRetentionDays: parsed.data.logRetentionDays,
-        workflowModelCostMultiplier: String(parsed.data.workflowModelCostMultiplier ?? 1),
+        workflowModelCostMultiplier: String(
+          parsed.data.workflowModelCostMultiplier ?? 1,
+        ),
         functionExecutionDurationMultiplier: String(
-          parsed.data.functionExecutionDurationMultiplier ?? 0
+          parsed.data.functionExecutionDurationMultiplier ?? 0,
         ),
         copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
         pricingFeatures: parsed.data.pricingFeatures,
@@ -112,6 +124,9 @@ export async function POST(request: Request) {
     }
 
     logger.error('Failed to create billing tier', { error })
-    return NextResponse.json({ error: 'Failed to create billing tier' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create billing tier' },
+      { status: 500 },
+    )
   }
 }

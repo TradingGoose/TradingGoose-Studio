@@ -183,6 +183,13 @@
       "when": 1776102340299,
       "tag": "0025_glamorous_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1776392681911,
+      "tag": "0026_plain_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

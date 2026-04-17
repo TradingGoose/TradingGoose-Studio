@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { type AdminBillingTierMutationInput, validateAdminBillingTierInput } from './tier-mutations'
+import {
+  type AdminBillingTierMutationInput,
+  validateAdminBillingTierInput,
+} from './tier-mutations'
 
 function createTierInput(
-  overrides: Partial<AdminBillingTierMutationInput> = {}
+  overrides: Partial<AdminBillingTierMutationInput> = {},
 ): AdminBillingTierMutationInput {
   return {
     displayName: 'Free',
@@ -24,6 +27,8 @@ function createTierInput(
     syncRateLimitPerMinute: null,
     asyncRateLimitPerMinute: null,
     apiEndpointRateLimitPerMinute: null,
+    maxPendingAgeSeconds: null,
+    maxPendingCount: null,
     canEditUsageLimit: false,
     canConfigureSso: false,
     logRetentionDays: null,
@@ -55,14 +60,14 @@ describe('validateAdminBillingTierInput', () => {
           asyncRateLimitPerMinute: 15,
           apiEndpointRateLimitPerMinute: 30,
           canEditUsageLimit: true,
-        })
-      )
+        }),
+      ),
     ).toBeNull()
   })
 
   it('still requires default tiers to stay public', () => {
-    expect(validateAdminBillingTierInput(createTierInput({ isPublic: false }))).toBe(
-      'The default tier must be visible in the public catalog'
-    )
+    expect(
+      validateAdminBillingTierInput(createTierInput({ isPublic: false })),
+    ).toBe('The default tier must be visible in the public catalog')
   })
 })
