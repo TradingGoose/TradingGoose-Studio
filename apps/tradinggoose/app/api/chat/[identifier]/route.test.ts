@@ -11,13 +11,19 @@ describe('Chat Identifier API Route', () => {
     return new ReadableStream({
       start(controller) {
         controller.enqueue(
-          new TextEncoder().encode('data: {"blockId":"agent-1","chunk":"Hello"}\n\n')
+          new TextEncoder().encode(
+            'data: {"blockId":"agent-1","chunk":"Hello"}\n\n',
+          ),
         )
         controller.enqueue(
-          new TextEncoder().encode('data: {"blockId":"agent-1","chunk":" world"}\n\n')
+          new TextEncoder().encode(
+            'data: {"blockId":"agent-1","chunk":" world"}\n\n',
+          ),
         )
         controller.enqueue(
-          new TextEncoder().encode('data: {"event":"final","data":{"success":true}}\n\n')
+          new TextEncoder().encode(
+            'data: {"event":"final","data":{"success":true}}\n\n',
+          ),
         )
         controller.close()
       },
@@ -27,7 +33,9 @@ describe('Chat Identifier API Route', () => {
   const mockAddCorsHeaders = vi.fn().mockImplementation((response) => response)
   const mockValidateChatAuth = vi.fn().mockResolvedValue({ authorized: true })
   const mockSetChatAuthCookie = vi.fn()
-  const mockCreateStreamingResponse = vi.fn().mockResolvedValue(createMockStream())
+  const mockCreateStreamingResponse = vi
+    .fn()
+    .mockResolvedValue(createMockStream())
   const mockGetApiKeyOwnerUserId = vi.fn().mockResolvedValue('billing-user-id')
 
   const mockChatResult = [
@@ -90,10 +98,6 @@ describe('Chat Identifier API Route', () => {
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
       },
-    }))
-
-    vi.doMock('@/app/api/workflows/[id]/execute/route', () => ({
-      createFilteredResult: vi.fn((result) => result),
     }))
 
     vi.doMock('@/lib/api-key/service', () => ({
@@ -169,15 +173,17 @@ describe('Chat Identifier API Route', () => {
     }))
 
     vi.doMock('@/app/api/workflows/utils', () => ({
-      createErrorResponse: vi.fn().mockImplementation((message, status, code) => {
-        return new Response(
-          JSON.stringify({
-            error: code || 'Error',
-            message,
-          }),
-          { status }
-        )
-      }),
+      createErrorResponse: vi
+        .fn()
+        .mockImplementation((message, status, code) => {
+          return new Response(
+            JSON.stringify({
+              error: code || 'Error',
+              message,
+            }),
+            { status },
+          )
+        }),
       createSuccessResponse: vi.fn().mockImplementation((data) => {
         return new Response(JSON.stringify(data), { status: 200 })
       }),
@@ -204,7 +210,10 @@ describe('Chat Identifier API Route', () => {
       expect(data).toHaveProperty('title', 'Test Chat')
       expect(data).toHaveProperty('description', 'Test chat description')
       expect(data).toHaveProperty('customizations')
-      expect(data.customizations).toHaveProperty('welcomeMessage', 'Welcome to the test chat')
+      expect(data.customizations).toHaveProperty(
+        'welcomeMessage',
+        'Welcome to the test chat',
+      )
     })
 
     it('should return 404 for non-existent identifier', async () => {
@@ -266,11 +275,15 @@ describe('Chat Identifier API Route', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message', 'This chat is currently unavailable')
+      expect(data).toHaveProperty(
+        'message',
+        'This chat is currently unavailable',
+      )
     })
 
     it('should return 401 when authentication is required', async () => {
-      const originalValidateChatAuth = mockValidateChatAuth.getMockImplementation()
+      const originalValidateChatAuth =
+        mockValidateChatAuth.getMockImplementation()
       mockValidateChatAuth.mockImplementationOnce(async () => ({
         authorized: false,
         error: 'auth_required_password',
@@ -328,7 +341,8 @@ describe('Chat Identifier API Route', () => {
     })
 
     it('should return 401 for unauthorized access', async () => {
-      const originalValidateChatAuth = mockValidateChatAuth.getMockImplementation()
+      const originalValidateChatAuth =
+        mockValidateChatAuth.getMockImplementation()
       mockValidateChatAuth.mockImplementationOnce(async () => ({
         authorized: false,
         error: 'Authentication required',
@@ -412,7 +426,10 @@ describe('Chat Identifier API Route', () => {
     })
 
     it('should return streaming response for valid chat messages', async () => {
-      const req = createMockRequest('POST', { input: 'Hello world', conversationId: 'conv-123' })
+      const req = createMockRequest('POST', {
+        input: 'Hello world',
+        conversationId: 'conv-123',
+      })
       const params = Promise.resolve({ identifier: 'test-chat' })
 
       const { POST } = await import('@/app/api/chat/[identifier]/route')
@@ -437,10 +454,9 @@ describe('Chat Identifier API Route', () => {
             conversationId: 'conv-123',
           }),
           streamConfig: expect.objectContaining({
-            isSecureMode: true,
             workflowTriggerType: 'chat',
           }),
-        })
+        }),
       )
     })
 
@@ -460,7 +476,7 @@ describe('Chat Identifier API Route', () => {
       expect(mockCreateStreamingResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           executingUserId: 'billing-user-id-2',
-        })
+        }),
       )
     })
 
@@ -478,7 +494,7 @@ describe('Chat Identifier API Route', () => {
       const data = await response.json()
       expect(data).toHaveProperty(
         'message',
-        'API key is required. Please create or select an API key before deploying.'
+        'API key is required. Please create or select an API key before deploying.',
       )
     })
 
@@ -508,7 +524,8 @@ describe('Chat Identifier API Route', () => {
     })
 
     it('should handle workflow execution errors gracefully', async () => {
-      const originalStreamingResponse = mockCreateStreamingResponse.getMockImplementation()
+      const originalStreamingResponse =
+        mockCreateStreamingResponse.getMockImplementation()
       mockCreateStreamingResponse.mockImplementationOnce(async () => {
         throw new Error('Execution failed')
       })
@@ -527,7 +544,9 @@ describe('Chat Identifier API Route', () => {
       expect(data).toHaveProperty('message', 'Execution failed')
 
       if (originalStreamingResponse) {
-        mockCreateStreamingResponse.mockImplementation(originalStreamingResponse)
+        mockCreateStreamingResponse.mockImplementation(
+          originalStreamingResponse,
+        )
       }
     })
 
@@ -569,7 +588,7 @@ describe('Chat Identifier API Route', () => {
             input: 'Hello world',
             conversationId: 'test-conversation-123',
           }),
-        })
+        }),
       )
     })
 
@@ -586,7 +605,7 @@ describe('Chat Identifier API Route', () => {
           input: expect.objectContaining({
             input: 'Hello world',
           }),
-        })
+        }),
       )
     })
   })

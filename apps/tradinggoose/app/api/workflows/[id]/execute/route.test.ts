@@ -566,7 +566,7 @@ describe('Workflow Execution API Route', () => {
         payload: expect.objectContaining({
           workflowId: 'workflow-id',
           userId: 'user-id',
-          triggerType: 'api',
+          triggerType: 'manual',
         }),
       }),
     )
