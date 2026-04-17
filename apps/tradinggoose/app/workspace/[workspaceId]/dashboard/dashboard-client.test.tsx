@@ -19,6 +19,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mockPush = vi.fn()
 const mockReplace = vi.fn()
 let mockPathname = '/workspace/ws-a/dashboard'
+let mockSelectLayout: ((layoutId: string) => void) | null = null
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
@@ -41,11 +42,14 @@ vi.mock('@/hooks/use-knowledge', () => ({
 }))
 
 vi.mock('@/global-navbar', () => ({
-  GlobalNavbarHeader: () => null,
+  GlobalNavbarHeader: ({ center }: { center?: ReactNode }) => <>{center}</>,
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
-  LayoutTabs: () => <div data-testid='layout-tabs' />,
+  LayoutTabs: ({ onSelect }: { onSelect: (layoutId: string) => void }) => {
+    mockSelectLayout = onSelect
+    return <div data-testid='layout-tabs' />
+  },
 }))
 
 vi.mock('@/components/ui/input', () => ({
@@ -109,6 +113,7 @@ describe('DashboardClient', () => {
     mockPush.mockReset()
     mockReplace.mockReset()
     mockPathname = '/workspace/ws-a/dashboard'
+    mockSelectLayout = null
     resetDashboardStores()
     vi.stubGlobal(
       'fetch',
@@ -262,6 +267,96 @@ describe('DashboardClient', () => {
       },
     })
   })
+
+  it('ignores stale layout switch responses and persists the loaded layout snapshot', async () => {
+    const persistedLayoutIds: string[] = []
+    const delayedLayoutBResponse = createDeferred<{
+      ok: boolean
+      status: number
+      json: () => Promise<unknown>
+    }>()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+
+        if (url === '/api/workspaces') {
+          return createJsonResponse({ workspaces: [] })
+        }
+
+        if (url === '/api/workspaces/ws-a/layout' && method === 'POST') {
+          const body = JSON.parse(String(init?.body ?? '{}')) as { layoutId?: string }
+          persistedLayoutIds.push(body.layoutId ?? '')
+          return createJsonResponse({ success: true })
+        }
+
+        if (url === '/api/workspaces/ws-a/layout' && method === 'PATCH') {
+          return createJsonResponse({ success: true })
+        }
+
+        if (url === '/api/workspaces/ws-a/layout?layoutId=layout-b' && method === 'GET') {
+          return delayedLayoutBResponse.promise
+        }
+
+        if (url === '/api/workspaces/ws-a/layout?layoutId=layout-a' && method === 'GET') {
+          return createJsonResponse({
+            layoutId: 'layout-a',
+            layout: createPanelLayout('panel-a', 'wf-a'),
+            colorPairs: { pairs: [] },
+            layouts: createLayouts('layout-a'),
+          })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialState={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+        />
+      )
+    })
+
+    if (!mockSelectLayout) {
+      throw new Error('Expected layout select handler to be captured')
+    }
+
+    await act(async () => {
+      mockSelectLayout?.('layout-b')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      mockSelectLayout?.('layout-a')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      delayedLayoutBResponse.resolve(
+        createJsonResponse({
+          layoutId: 'layout-b',
+          layout: createPanelLayout('panel-b', 'wf-b'),
+          colorPairs: { pairs: [] },
+          layouts: createLayouts('layout-b'),
+        })
+      )
+      await Promise.resolve()
+    })
+
+    expect(persistedLayoutIds).toEqual(['layout-a', 'layout-a'])
+    expect(readWidgetSurface(container)).toEqual({
+      workflowId: 'wf-a',
+      workspaceId: 'ws-a',
+      pairColor: 'gray',
+    })
+  })
 })
 
 function createPanelLayout(
@@ -301,10 +396,16 @@ function resetDashboardStores() {
 function createLayouts(layoutId: string): LayoutTab[] {
   return [
     {
-      id: layoutId,
-      name: 'Default Layout',
+      id: 'layout-a',
+      name: 'Layout A',
       sortOrder: 0,
-      isActive: true,
+      isActive: layoutId === 'layout-a',
+    },
+    {
+      id: 'layout-b',
+      name: 'Layout B',
+      sortOrder: 1,
+      isActive: layoutId === 'layout-b',
     },
   ]
 }
@@ -331,4 +432,23 @@ function hasRenderPhaseUpdateWarning(calls: unknown[][]) {
         value.includes('while rendering a different component')
     )
   )
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
+function createJsonResponse(payload: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => payload,
+  }
 }
