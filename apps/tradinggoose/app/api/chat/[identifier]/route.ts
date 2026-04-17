@@ -172,13 +172,24 @@ export async function POST(
 
       // Generate executionId early so it can be used for file uploads and workflow execution
       const executionId = crypto.randomUUID()
+      const workspaceId = workflowResult[0].workspaceId
+
+      if (!workspaceId) {
+        logger.warn(
+          `[${requestId}] Chat workflow is missing a workspace: ${deployment.workflowId}`,
+        )
+        return addCorsHeaders(
+          createErrorResponse('Chat workflow is not available', 503),
+          request,
+        )
+      }
 
       const workflowInput: any = { input, conversationId }
       if (files && Array.isArray(files) && files.length > 0) {
         logger.debug(`[${requestId}] Processing ${files.length} attached files`)
 
         const executionContext = {
-          workspaceId: workflowResult[0].workspaceId,
+          workspaceId,
           workflowId: deployment.workflowId,
           executionId,
         }
@@ -200,7 +211,7 @@ export async function POST(
       const workflowForExecution = {
         id: deployment.workflowId,
         userId: deployment.userId,
-        workspaceId: workflowResult[0].workspaceId,
+        workspaceId,
         isDeployed: true,
         variables: workflowResult[0].variables || {},
       }
