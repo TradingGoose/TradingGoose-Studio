@@ -243,13 +243,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    const persistedWorkflowState = saveResult.normalizedState ?? workflowState
+
     // Apply the validated state to Yjs only when we can also preserve the
     // current variables snapshot. Otherwise this process might publish a
     // partial doc and wipe newer variables owned by the separate socket server.
     if (resolvedVariables.source !== 'unavailable') {
       await tryApplyWorkflowState(
         workflowId,
-        workflowState as WorkflowSnapshot,
+        persistedWorkflowState as WorkflowSnapshot,
         resolvedVariables.value
       )
     } else {
@@ -261,7 +263,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Extract and persist custom tools to database
     try {
       const { saved, errors } = await extractAndPersistCustomTools(
-        workflowState,
+        persistedWorkflowState,
         workflowData.workspaceId ?? null,
         userId
       )

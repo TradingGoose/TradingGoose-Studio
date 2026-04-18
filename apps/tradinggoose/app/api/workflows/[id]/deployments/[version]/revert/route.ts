@@ -71,15 +71,6 @@ export async function POST(
     }
 
     const now = new Date()
-    const revertSnapshot = createWorkflowSnapshot({
-      blocks: deployedState.blocks,
-      edges: deployedState.edges,
-      loops: deployedState.loops,
-      parallels: deployedState.parallels,
-      lastSaved: now.toISOString(),
-      isDeployed: true,
-      deployedAt: now.toISOString(),
-    })
     const revertVariables = deployedState.variables || undefined
 
     const saveResult = await saveWorkflowToNormalizedTables(id, {
@@ -95,6 +86,25 @@ export async function POST(
     if (!saveResult.success) {
       return createErrorResponse(saveResult.error || 'Failed to save deployed state', 500)
     }
+
+    const persistedRevertedState = saveResult.normalizedState ?? {
+      blocks: deployedState.blocks,
+      edges: deployedState.edges,
+      loops: deployedState.loops || {},
+      parallels: deployedState.parallels || {},
+      lastSaved: Date.now(),
+      isDeployed: true,
+      deployedAt: new Date(),
+    }
+    const revertSnapshot = createWorkflowSnapshot({
+      blocks: persistedRevertedState.blocks,
+      edges: persistedRevertedState.edges,
+      loops: persistedRevertedState.loops,
+      parallels: persistedRevertedState.parallels,
+      lastSaved: now.toISOString(),
+      isDeployed: true,
+      deployedAt: now.toISOString(),
+    })
 
     await db
       .update(workflow)

@@ -207,20 +207,22 @@ export async function POST(req: NextRequest) {
       marketplaceData: null,
     })
 
+    let persistedInitialState = initialState?.canonicalState ?? null
     if (initialState) {
       const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
       if (!saveResult.success) {
         await db.delete(workflow).where(eq(workflow.id, workflowId))
         throw new Error(saveResult.error || 'Failed to persist initial workflow state')
       }
+      persistedInitialState = saveResult.normalizedState ?? initialState.canonicalState
     }
 
     // Seed the Yjs doc for the new workflow
     const defaultWorkflowSnapshot = createWorkflowSnapshot({
-      blocks: initialState?.canonicalState.blocks,
-      edges: initialState?.canonicalState.edges,
-      loops: initialState?.canonicalState.loops,
-      parallels: initialState?.canonicalState.parallels,
+      blocks: persistedInitialState?.blocks,
+      edges: persistedInitialState?.edges,
+      loops: persistedInitialState?.loops,
+      parallels: persistedInitialState?.parallels,
       lastSaved: now.toISOString(),
       isDeployed: false,
     })
