@@ -19,6 +19,7 @@ import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -32,6 +33,16 @@ import type { MessageFileAttachment, UserInputRef } from '../user-input/user-inp
 
 const logger = createLogger('Copilot')
 const COPILOT_MESSAGE_VIEWPORT_CLASSNAME = '[&>div]:!block [&>div]:!min-w-0 [&>div]:!w-full'
+const AUTO_SCROLL_LOCK_MS = 120
+const SMOOTH_SCROLL_LOCK_MS = 450
+
+export function shouldMarkUserScrolledDuringStream(params: {
+  isTurnInProgress: boolean
+  nearBottom: boolean
+  scrollSource: 'user' | 'programmatic'
+}) {
+  return params.isTurnInProgress && !params.nearBottom && params.scrollSource === 'user'
+}
 
 interface CopilotProps {
   workspaceId: string
@@ -60,9 +71,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     // Scroll state
     const [isNearBottom, setIsNearBottom] = useState(true)
     const [showScrollButton, setShowScrollButton] = useState(false)
-    // New state to track if user has intentionally scrolled during streaming
     const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
-    const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
+    const programmaticScrollResetTimerRef = useRef<number | null>(null)
+    const programmaticScrollInFlightRef = useRef(false)
 
     const pairContext = usePairColorContext(pairColor)
     const implicitContexts = useMemo(
@@ -99,6 +110,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       chats,
       isLoadingChats,
       isSendingMessage,
+      isAwaitingContinuation,
       abortController,
       isAborting,
       accessLevel,
@@ -118,12 +130,12 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       fetchContextUsage,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
-    const hasPendingToolReview = useMemo(
-      () => Object.values(toolCallsById).some((toolCall) => toolCall.state === 'review'),
-      [toolCallsById]
-    )
+    const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
     const isTurnInProgress =
-      isSendingMessage || currentChat?.latestTurnStatus === 'in_progress' || hasPendingToolReview
+      isSendingMessage ||
+      isAwaitingContinuation ||
+      currentChat?.latestTurnStatus === 'in_progress' ||
+      hasActiveToolCalls
 
     useLayoutEffect(() => {
       const storeState = copilotStoreApi.getState()
@@ -198,81 +210,119 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }
     }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
 
-    // Scroll to bottom function
-    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector(
-          '[data-radix-scroll-area-viewport]'
-        )
-        if (scrollContainer) {
-          // Mark that we're programmatically scrolling
-          isUserScrollingRef.current = false
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior,
-          })
-        }
+    const clearProgrammaticScrollLock = useCallback(() => {
+      if (programmaticScrollResetTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollResetTimerRef.current)
+        programmaticScrollResetTimerRef.current = null
       }
+      programmaticScrollInFlightRef.current = false
     }, [])
 
-    // Handle scroll events to track user position
-    const handleScroll = useCallback(() => {
-      const scrollArea = scrollAreaRef.current
-      if (!scrollArea) return
-
-      // Find the viewport element inside the ScrollArea
-      const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
-      if (!viewport) return
-
-      const { scrollTop, scrollHeight, clientHeight } = viewport
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-
-      // Consider "near bottom" if within 100px of bottom
-      const nearBottom = distanceFromBottom <= 100
-      setIsNearBottom(nearBottom)
-      setShowScrollButton(!nearBottom)
-
-      // If user scrolled up during streaming, mark it
-      if (isSendingMessage && !nearBottom && isUserScrollingRef.current) {
-        setUserHasScrolledDuringStream(true)
+    const markProgrammaticScroll = useCallback((behavior: ScrollBehavior) => {
+      const lockMs = behavior === 'smooth' ? SMOOTH_SCROLL_LOCK_MS : AUTO_SCROLL_LOCK_MS
+      if (programmaticScrollResetTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollResetTimerRef.current)
       }
+      programmaticScrollInFlightRef.current = true
+      programmaticScrollResetTimerRef.current = window.setTimeout(() => {
+        programmaticScrollResetTimerRef.current = null
+        programmaticScrollInFlightRef.current = false
+      }, lockMs)
+    }, [])
 
-      // Reset the user scrolling flag after processing
-      isUserScrollingRef.current = true
-    }, [isSendingMessage])
+    const scrollToBottom = useCallback(
+      (behavior: ScrollBehavior = 'smooth') => {
+        if (scrollAreaRef.current) {
+          const scrollContainer = scrollAreaRef.current.querySelector(
+            '[data-radix-scroll-area-viewport]'
+          )
+          if (scrollContainer) {
+            markProgrammaticScroll(behavior)
+            scrollContainer.scrollTo({
+              top: scrollContainer.scrollHeight,
+              behavior,
+            })
+          }
+        }
+      },
+      [markProgrammaticScroll]
+    )
 
-    // Attach scroll listener
+    const handleScroll = useCallback(
+      (scrollSource: 'user' | 'programmatic' = 'user') => {
+        const scrollArea = scrollAreaRef.current
+        if (!scrollArea) return
+
+        const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+        if (!viewport) return
+
+        const { scrollTop, scrollHeight, clientHeight } = viewport
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+
+        const nearBottom = distanceFromBottom <= 100
+        setIsNearBottom(nearBottom)
+        setShowScrollButton(!nearBottom)
+
+        if (nearBottom) {
+          clearProgrammaticScrollLock()
+        }
+
+        if (
+          shouldMarkUserScrolledDuringStream({
+            isTurnInProgress,
+            nearBottom,
+            scrollSource,
+          })
+        ) {
+          setUserHasScrolledDuringStream(true)
+        }
+      },
+      [clearProgrammaticScrollLock, isTurnInProgress]
+    )
+
+    useEffect(() => {
+      return () => {
+        clearProgrammaticScrollLock()
+      }
+    }, [clearProgrammaticScrollLock])
+
     useEffect(() => {
       const scrollArea = scrollAreaRef.current
       if (!scrollArea) return
 
-      // Find the viewport element inside the ScrollArea
       const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
       if (!viewport) return
 
-      // Mark user-initiated scrolls
-      const handleUserScroll = () => {
-        isUserScrollingRef.current = true
-        handleScroll()
+      const resolveScrollSource = () =>
+        programmaticScrollInFlightRef.current ? 'programmatic' : 'user'
+
+      const handleViewportScroll = () => {
+        handleScroll(resolveScrollSource())
       }
 
-      viewport.addEventListener('scroll', handleUserScroll, { passive: true })
+      const handleViewportScrollEnd = () => {
+        handleScroll(resolveScrollSource())
+        clearProgrammaticScrollLock()
+      }
 
-      // Also listen for scrollend event if available (for smooth scrolling)
+      viewport.addEventListener('scroll', handleViewportScroll, { passive: true })
+
       if ('onscrollend' in viewport) {
-        viewport.addEventListener('scrollend', handleScroll, { passive: true })
+        viewport.addEventListener('scrollend', handleViewportScrollEnd, { passive: true })
       }
 
-      // Initial scroll state check with small delay to ensure DOM is ready
-      setTimeout(handleScroll, 100)
+      const timeoutId = window.setTimeout(() => {
+        handleScroll(resolveScrollSource())
+      }, 100)
 
       return () => {
-        viewport.removeEventListener('scroll', handleUserScroll)
+        window.clearTimeout(timeoutId)
+        viewport.removeEventListener('scroll', handleViewportScroll)
         if ('onscrollend' in viewport) {
-          viewport.removeEventListener('scrollend', handleScroll)
+          viewport.removeEventListener('scrollend', handleViewportScrollEnd)
         }
       }
-    }, [handleScroll])
+    }, [clearProgrammaticScrollLock, handleScroll])
 
     useEffect(() => {
       const messagesContainer = messagesContainerRef.current
@@ -280,7 +330,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
       const observer = new ResizeObserver(() => {
         const shouldAutoScroll =
-          (isSendingMessage && !userHasScrolledDuringStream) || (!isSendingMessage && isNearBottom)
+          (isTurnInProgress && !userHasScrolledDuringStream) || (!isTurnInProgress && isNearBottom)
 
         if (!shouldAutoScroll) {
           return
@@ -296,7 +346,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       return () => {
         observer.disconnect()
       }
-    }, [isNearBottom, isSendingMessage, scrollToBottom, userHasScrolledDuringStream])
+    }, [isNearBottom, isTurnInProgress, scrollToBottom, userHasScrolledDuringStream])
 
     // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
     useEffect(() => {
@@ -311,33 +361,32 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       // 3. For assistant messages when not streaming: only if near bottom
       const shouldAutoScroll =
         isNewUserMessage ||
-        (isSendingMessage && !userHasScrolledDuringStream) ||
-        (!isSendingMessage && isNearBottom)
+        (isTurnInProgress && !userHasScrolledDuringStream) ||
+        (!isTurnInProgress && isNearBottom)
 
       if (shouldAutoScroll) {
-        scrollToBottom('smooth')
+        scrollToBottom(isTurnInProgress && !isNewUserMessage ? 'auto' : 'smooth')
       }
-    }, [isNearBottom, isSendingMessage, messages, scrollToBottom, userHasScrolledDuringStream])
+    }, [isNearBottom, isTurnInProgress, messages, scrollToBottom, userHasScrolledDuringStream])
 
     // Reset user scroll state when streaming starts or when user sends a message
     useEffect(() => {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage?.role === 'user') {
-        // User sent a new message - reset scroll state
         setUserHasScrolledDuringStream(false)
-        isUserScrollingRef.current = false
+        clearProgrammaticScrollLock()
       }
-    }, [messages])
+    }, [clearProgrammaticScrollLock, messages])
 
     // Reset user scroll state when streaming completes
-    const prevIsSendingRef = useRef(false)
+    const prevIsTurnInProgressRef = useRef(false)
     useEffect(() => {
       // When streaming transitions from true to false, reset the user scroll state
-      if (prevIsSendingRef.current && !isSendingMessage) {
+      if (prevIsTurnInProgressRef.current && !isTurnInProgress) {
         setUserHasScrolledDuringStream(false)
       }
-      prevIsSendingRef.current = isSendingMessage
-    }, [isSendingMessage])
+      prevIsTurnInProgressRef.current = isTurnInProgress
+    }, [isTurnInProgress])
 
     // Auto-scroll to bottom when chat loads in
     useEffect(() => {
@@ -347,11 +396,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     }, [isInitialized, messages.length, scrollToBottom])
 
     // Track previous sending state to detect when stream completes
-    const wasSendingRef = useRef(false)
+    const wasTurnInProgressRef = useRef(false)
 
     // Auto-collapse todos and remove uncompleted ones when stream completes
     useEffect(() => {
-      if (wasSendingRef.current && !isSendingMessage && showPlanTodos) {
+      if (wasTurnInProgressRef.current && !isTurnInProgress && showPlanTodos) {
         // Stream just completed, collapse the todos and filter out uncompleted ones
         setTodosCollapsed(true)
 
@@ -363,19 +412,19 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           store.setPlanTodos(completedTodos)
         }
       }
-      wasSendingRef.current = isSendingMessage
-    }, [isSendingMessage, showPlanTodos, planTodos])
+      wasTurnInProgressRef.current = isTurnInProgress
+    }, [isTurnInProgress, showPlanTodos, planTodos])
 
     // Reset collapsed state when todos first appear
     useEffect(() => {
       if (showPlanTodos && planTodos.length > 0) {
         // Check if this is the first time todos are showing
         // (only expand if currently sending a message, meaning new todos are being created)
-        if (isSendingMessage) {
+        if (isTurnInProgress) {
           setTodosCollapsed(false)
         }
       }
-    }, [showPlanTodos, planTodos.length, isSendingMessage])
+    }, [showPlanTodos, planTodos.length, isTurnInProgress])
 
     // Only abort during unmount when there is a live request to cancel.
     // Reloaded/resumable turns intentionally restore isSendingMessage without
@@ -513,7 +562,8 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                             key={message.id}
                             message={message}
                             isStreaming={
-                              isSendingMessage && message.id === messages[messages.length - 1]?.id
+                              (isSendingMessage || isAwaitingContinuation) &&
+                              message.id === messages[messages.length - 1]?.id
                             }
                             panelWidth={panelWidth}
                             isDimmed={isDimmed}
@@ -531,7 +581,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                 {showScrollButton && (
                   <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
                     <Button
-                      onClick={scrollToBottom}
+                      onClick={() => scrollToBottom()}
                       size='sm'
                       variant='outline'
                       className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'

@@ -752,6 +752,7 @@ describe('copilot streaming regressions', () => {
     const message = store.getState().messages[0]
     expect(message?.content).toBe('Final corrected reply.')
     expect((message?.contentBlocks as any[])?.[0]?.content).toBe('Final corrected reply.')
+    expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
   it('treats awaiting_tools as a pause and skips terminal billing fetch', async () => {
@@ -841,6 +842,7 @@ describe('copilot streaming regressions', () => {
       })
     ).toBe(false)
     expect(store.getState().isSendingMessage).toBe(true)
+    expect(store.getState().isAwaitingContinuation).toBe(true)
     expect(store.getState().messages[0]?.contentBlocks?.[0]?.type).toBe('text')
   })
 
@@ -937,6 +939,7 @@ describe('copilot streaming regressions', () => {
       ClientToolCallState.pending
     )
     expect(store.getState().isSendingMessage).toBe(true)
+    expect(store.getState().isAwaitingContinuation).toBe(true)
   })
 
   it('starts queued tool execution before chat persistence finishes', async () => {

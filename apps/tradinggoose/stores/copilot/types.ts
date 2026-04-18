@@ -162,6 +162,7 @@ export interface CopilotState {
   isLoading: boolean
   isLoadingChats: boolean
   isSendingMessage: boolean
+  isAwaitingContinuation: boolean
   isSaving: boolean
   isAborting: boolean
 
