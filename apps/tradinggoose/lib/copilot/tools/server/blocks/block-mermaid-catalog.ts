@@ -20,6 +20,7 @@ type BlockRequiredCredentials = {
 type BlockOperationSummary = BlockMermaidOperationType
 type BlockCatalogItem = BlockMermaidCatalogItemType
 type BlockProfile = BlockMermaidProfileType
+type BlockSubBlockSummary = NonNullable<BlockProfile['subBlocks']>[number]
 
 type BlockCatalogDefinition = {
   blockType: string
@@ -115,7 +116,6 @@ function readBlockDocumentation(blockType: string): string | undefined {
 }
 
 function resolveOperationChoices(
-  blockType: string,
   blockConfig: BlockConfig | undefined
 ): BlockCatalogDefinition['operationChoices'] {
   const operationSubBlock = blockConfig?.subBlocks?.find((subBlock) => subBlock.id === 'operation')
@@ -147,6 +147,47 @@ function resolveOperationChoices(
   })
 }
 
+function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
+  const options = typeof subBlock.options === 'function' ? subBlock.options() : subBlock.options
+  if (!Array.isArray(options) || options.length === 0) {
+    return undefined
+  }
+
+  return options.map((option) => ({
+    id: option.id,
+    label: option.label || option.id,
+  }))
+}
+
+function buildSubBlockSummaries(
+  blockConfig: BlockConfig | undefined
+): BlockProfile['subBlocks'] | undefined {
+  if (!blockConfig?.subBlocks?.length) {
+    return undefined
+  }
+
+  const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
+    const options = resolveSubBlockOptions(subBlock)
+
+    return {
+      id: subBlock.id,
+      ...(subBlock.title ? { title: subBlock.title } : {}),
+      type: subBlock.type,
+      ...(subBlock.mode ? { mode: subBlock.mode } : {}),
+      ...(typeof subBlock.required === 'boolean' ? { required: subBlock.required } : {}),
+      ...(subBlock.description ? { description: subBlock.description } : {}),
+      ...(subBlock.placeholder ? { placeholder: subBlock.placeholder } : {}),
+      ...(subBlock.canonicalParamId ? { canonicalParamId: subBlock.canonicalParamId } : {}),
+      ...(subBlock.language ? { language: subBlock.language } : {}),
+      ...(subBlock.generationType ? { generationType: subBlock.generationType } : {}),
+      ...(subBlock.defaultValue !== undefined ? { defaultValue: subBlock.defaultValue } : {}),
+      ...(options ? { options } : {}),
+    }
+  })
+
+  return subBlocks.length > 0 ? subBlocks : undefined
+}
+
 function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinition | null {
   const specialDefinition = SPECIAL_BLOCK_DEFINITIONS[blockType]
   if (specialDefinition) {
@@ -173,7 +214,7 @@ function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinitio
     authType,
     requiredCredentials: buildRequiredCredentials(authType, blockType, blockConfig.name || blockType),
     yamlDocumentation: readBlockDocumentation(blockType),
-    operationChoices: resolveOperationChoices(blockType, blockConfig),
+    operationChoices: resolveOperationChoices(blockConfig),
   }
 }
 
@@ -257,6 +298,8 @@ export async function getWorkflowBlockProfile(blockType: string): Promise<BlockP
   if (!definition) {
     throw new Error(`Block not found: ${blockType}`)
   }
+  const blockConfig = blockRegistry[blockType]
+  const subBlocks = buildSubBlockSummaries(blockConfig)
 
   const shape = await loadWorkflowBlockMermaidShape({
     blockType,
@@ -274,6 +317,7 @@ export async function getWorkflowBlockProfile(blockType: string): Promise<BlockP
       ? { requiredCredentials: definition.requiredCredentials }
       : {}),
     ...(definition.yamlDocumentation ? { yamlDocumentation: definition.yamlDocumentation } : {}),
+    ...(subBlocks ? { subBlocks } : {}),
     ...shape,
     ...(definition.operationChoices.length > 0
       ? {

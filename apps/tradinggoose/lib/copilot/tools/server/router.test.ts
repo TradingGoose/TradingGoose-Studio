@@ -154,6 +154,9 @@ describe('copilot contract registry', () => {
     const contract = getToolContract('get_blocks_and_tools')
 
     expect(contract?.args.parse({})).toEqual({})
+    expect(contract?.args.parse({ query: 'OHLCV indicator' })).toEqual({
+      query: 'OHLCV indicator',
+    })
     expect(contract?.result.parse({ blocks: [] })).toEqual({ blocks: [] })
   })
 

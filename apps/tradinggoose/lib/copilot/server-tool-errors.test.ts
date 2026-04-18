@@ -42,6 +42,29 @@ describe('copilot server tool errors', () => {
     expect(response.body.hint).toContain('condition blocks')
   })
 
+  it('preserves embedded workflow sub-block paths in structured edit errors', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error(
+        'Invalid edited workflow: Document contract is inconsistent: invalid block sub-block values for functionBlock.subBlocks.code.value (Expected valid raw TypeScript function-body code.).'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_state',
+        retryable: true,
+        issues: [
+          {
+            path: 'workflowDocument.functionBlock.subBlocks.code.value',
+            message: 'Expected valid raw TypeScript function-body code.',
+          },
+        ],
+      }),
+    })
+  })
+
   it('falls back to a generic 500 payload for unknown tool failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',

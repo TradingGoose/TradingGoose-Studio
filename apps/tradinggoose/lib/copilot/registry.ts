@@ -120,12 +120,16 @@ export const ToolArgSchemas = {
     id: z.string().optional(),
     todoId: z.string().optional(),
   }),
-  get_user_workflow: z.object({
-    workflowId: RequiredId,
-    includeMetadata: z.boolean().optional(),
-  }),
+  get_user_workflow: z
+    .object({
+      workflowId: RequiredId,
+      includeMetadata: z.boolean().optional(),
+    })
+    .strict(),
   list_user_workflows: z.object({}),
-  get_workflow_from_name: z.object({ workflow_name: z.string() }),
+  get_workflow_from_name: z
+    .object({ workflow_name: z.string().trim().min(1) })
+    .strict(),
   get_global_workflow_variables: z.object({
     workflowId: RequiredId,
   }),
@@ -152,12 +156,14 @@ export const ToolArgSchemas = {
     workflowId: RequiredId,
   }),
 
-  edit_workflow: z.object({
-    workflowDocument: z.string().min(1),
-    documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
-    workflowId: RequiredId,
-    currentWorkflowState: z.string().optional(),
-  }),
+  edit_workflow: z
+    .object({
+      workflowDocument: z.string().min(1),
+      documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
+      workflowId: RequiredId,
+      currentWorkflowState: z.string().optional(),
+    })
+    .strict(),
 
   run_workflow: z.object({
     workflowId: RequiredId,

@@ -5,6 +5,7 @@ import {
   TG_EDGE_PREFIX,
   TG_WORKFLOW_PREFIX,
 } from '@/lib/workflows/studio-workflow-mermaid'
+import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
@@ -118,6 +119,65 @@ function createConditionSubBlocks(blockId: string): BlockState['subBlocks'] {
   }
 }
 
+function resolveStaticOptions(subBlock: SubBlockConfig) {
+  return typeof subBlock.options === 'function' ? subBlock.options() : subBlock.options
+}
+
+function buildCodeExampleValue(subBlock: SubBlockConfig): string {
+  if (subBlock.generationType === 'json-schema' || subBlock.language === 'json') {
+    return JSON.stringify(
+      {
+        name: 'example_response',
+        description: 'Example structured response',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            result: {
+              type: 'string',
+              description: 'Example result field',
+            },
+          },
+          additionalProperties: false,
+          required: ['result'],
+        },
+      },
+      null,
+      2
+    )
+  }
+
+  return 'return { ok: true }'
+}
+
+function buildDefaultSubBlockValue(subBlock: SubBlockConfig): unknown {
+  if (subBlock.type === 'input-format' || subBlock.type === 'response-format') {
+    return [
+      {
+        id: `${subBlock.id}-field-1`,
+        name: 'fieldName',
+        type: 'string',
+        value: 'example',
+        collapsed: false,
+      },
+    ]
+  }
+
+  if (subBlock.type === 'code') {
+    return buildCodeExampleValue(subBlock)
+  }
+
+  if (subBlock.defaultValue !== undefined) {
+    return subBlock.defaultValue
+  }
+
+  if (subBlock.type === 'dropdown' || subBlock.type === 'combobox') {
+    return resolveStaticOptions(subBlock)?.[0]?.id
+  }
+
+  return undefined
+}
+
 function createTargetSubBlocks(params: ExampleParams): BlockState['subBlocks'] {
   const blockConfig = getBlock(params.blockType)
   const subBlocks: BlockState['subBlocks'] = {}
@@ -134,19 +194,12 @@ function createTargetSubBlocks(params: ExampleParams): BlockState['subBlocks'] {
       continue
     }
 
-    if (subBlock.type === 'input-format' || subBlock.type === 'response-format') {
+    const value = buildDefaultSubBlockValue(subBlock)
+    if (value !== undefined) {
       subBlocks[subBlock.id] = {
         id: subBlock.id,
         type: subBlock.type,
-        value: [
-          {
-            id: `${params.blockType}-${subBlock.id}-field-1`,
-            name: 'fieldName',
-            type: 'string',
-            value: 'example',
-            collapsed: false,
-          },
-        ],
+        value: value as any,
       }
     }
   }

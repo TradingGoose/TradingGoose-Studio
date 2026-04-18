@@ -5,6 +5,10 @@ export interface CopilotServerToolErrorLike {
   code?: string
   hint?: string
   retryable?: boolean
+  issues?: Array<{
+    path: string
+    message: string
+  }>
 }
 
 type CopilotServerToolError = Error & {
@@ -33,7 +37,18 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
 
   try {
     const payload = JSON.parse(text) as CopilotServerToolErrorLike
-    const messageParts = [payload.error, payload.hint ? `Hint: ${payload.hint}` : undefined]
+    const issueSummary =
+      Array.isArray(payload.issues) && payload.issues.length > 0
+        ? `Issues: ${payload.issues
+            .slice(0, 3)
+            .map((issue) => `${issue.path}: ${issue.message}`)
+            .join('; ')}`
+        : undefined
+    const messageParts = [
+      payload.error,
+      payload.hint ? `Hint: ${payload.hint}` : undefined,
+      issueSummary,
+    ]
       .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
 
     return createCopilotServerToolError(

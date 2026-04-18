@@ -22,6 +22,32 @@ describe('server-tool-response', () => {
     expect(error.message).toContain('Hint: Use uppercase HTTP methods.')
   })
 
+  it('includes structured issues in the surfaced error message', async () => {
+    const error = (await buildCopilotServerToolError(
+      new Response(
+        JSON.stringify({
+          error: 'Invalid edit_workflow payload',
+          issues: [
+            {
+              path: 'workflowDocument.functionBlock.subBlocks.code.value',
+              message: 'Expected valid raw TypeScript function-body code.',
+            },
+          ],
+        }),
+        {
+          status: 422,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    )) as Error & { status?: number }
+
+    expect(error.status).toBe(422)
+    expect(error.message).toContain('Invalid edit_workflow payload')
+    expect(error.message).toContain(
+      'workflowDocument.functionBlock.subBlocks.code.value: Expected valid raw TypeScript function-body code.'
+    )
+  })
+
   it('preserves status for plain text server errors', async () => {
     const error = (await buildCopilotServerToolError(
       new Response('socket hang up', {

@@ -3,26 +3,12 @@ import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manife
 import { WORKFLOW_DOCUMENT_CONTRACT } from '@/lib/copilot/runtime-tool-manifest-enrichment'
 
 describe('copilot runtime tool manifest', () => {
-  it('exposes the Studio tool surface and workflow document instructions', async () => {
+  it('exposes the Studio tool surface and workflow document validators', async () => {
     const manifest = await getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)
-    const joinedInstructions = manifest.instructions?.join(' ') ?? ''
 
     expect(manifest.version).toBe('v1')
-    expect(manifest.instructions).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('You are TradingGoose Copilot'),
-        expect.stringContaining('Workflows are edited as full document updates'),
-        expect.stringContaining('TG_EDGE'),
-        expect.stringContaining('child blocks inside the container subgraph'),
-        expect.stringContaining('Condition blocks are not rendered like normal blocks'),
-        expect.stringContaining('Monitors are edited as full document updates'),
-        expect.stringContaining('Keep TradingGoose surfaces distinct'),
-        expect.stringContaining('Do not use `current_*` context as a tool target'),
-      ])
-    )
-    expect(joinedInstructions).not.toContain('user accepts')
-    expect(joinedInstructions).not.toContain('confirmation')
+    expect(manifest).not.toHaveProperty('instructions')
     expect(manifest.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -33,16 +19,28 @@ describe('copilot runtime tool manifest', () => {
           }),
         }),
         expect.objectContaining({
+          name: 'get_blocks_and_tools',
+          description: expect.stringContaining('canonical workflow block catalog'),
+          kind: 'inspect',
+          entityKind: 'workflow',
+          parameters: expect.objectContaining({
+            properties: expect.objectContaining({
+              query: expect.objectContaining({
+                description: expect.stringContaining('capability search query'),
+              }),
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          name: 'get_blocks_metadata',
+          description: expect.stringContaining('canonical profiles'),
+          kind: 'inspect',
+          entityKind: 'workflow',
+        }),
+        expect.objectContaining({
           name: 'edit_workflow',
           kind: 'edit',
           entityKind: 'workflow',
-          mutatesState: true,
-          requiresCurrentState: true,
-          verificationToolNames: ['get_user_workflow'],
-          requiredToolResults: expect.arrayContaining([
-            'get_user_workflow',
-            'get_workflow_from_name',
-          ]),
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
               path: 'workflowDocument',
@@ -61,28 +59,17 @@ describe('copilot runtime tool manifest', () => {
           parameters: expect.objectContaining({
             type: 'object',
           }),
-          instructions: expect.arrayContaining([
-            expect.stringContaining('full document'),
-          ]),
         }),
         expect.objectContaining({
           name: 'get_skill',
           description: expect.stringContaining('editable document payload'),
           kind: 'read',
           entityKind: 'skill',
-          discoveryToolNames: ['list_skills'],
-          parameters: expect.objectContaining({
-            required: expect.arrayContaining(['entityId']),
-          }),
         }),
         expect.objectContaining({
           name: 'edit_skill',
           kind: 'edit',
           entityKind: 'skill',
-          mutatesState: true,
-          requiresCurrentState: true,
-          verificationToolNames: ['get_skill'],
-          requiredToolResults: ['get_skill'],
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
               path: 'entityDocument',
@@ -95,20 +82,11 @@ describe('copilot runtime tool manifest', () => {
           name: 'edit_custom_tool',
           kind: 'edit',
           entityKind: 'custom_tool',
-          mutatesState: true,
-          requiresCurrentState: true,
-          verificationToolNames: ['get_custom_tool'],
-          requiredToolResults: ['get_custom_tool'],
-          rules: expect.stringContaining('full edited custom tool document'),
         }),
         expect.objectContaining({
           name: 'edit_monitor',
           kind: 'edit',
           surfaceKind: 'monitor',
-          mutatesState: true,
-          requiresCurrentState: true,
-          verificationToolNames: ['get_monitor'],
-          requiredToolResults: ['get_monitor'],
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
               path: 'monitorDocument',
@@ -116,12 +94,8 @@ describe('copilot runtime tool manifest', () => {
               args: expect.any(Object),
             }),
           ]),
-          rules: expect.stringContaining('full edited monitor document'),
         }),
       ])
-    )
-    expect(manifest.tools.find((tool) => tool.name === 'edit_workflow')?.rules).not.toContain(
-      'accept'
     )
     const edgeValidator = manifest.tools
       .find((tool) => tool.name === 'edit_workflow')
@@ -169,5 +143,6 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
+    expect(toolNames).toContain('edit_workflow')
   })
 })

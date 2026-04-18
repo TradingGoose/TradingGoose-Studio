@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { getBlocksAndToolsServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-and-tools'
+
+async function loadTool() {
+  return import('./get-blocks-and-tools.ts?actual')
+}
 
 describe('getBlocksAndToolsServerTool', () => {
   it('lists available blocks with Mermaid contracts instead of schema metadata', async () => {
+    const { getBlocksAndToolsServerTool } = await loadTool()
     const result = await getBlocksAndToolsServerTool.execute({})
 
     expect(result.blocks.length).toBeGreaterThan(0)
@@ -28,6 +32,17 @@ describe('getBlocksAndToolsServerTool', () => {
           renderKind: 'loop_container',
         }),
       })
+    )
+  })
+
+  it('matches mixed capability queries across different built-in blocks', async () => {
+    const { getBlocksAndToolsServerTool } = await loadTool()
+    const result = await getBlocksAndToolsServerTool.execute({
+      query: 'OHLCV indicator',
+    })
+
+    expect(result.blocks.map((block) => block.blockType)).toEqual(
+      expect.arrayContaining(['historical_data', 'function'])
     )
   })
 })

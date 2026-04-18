@@ -8,8 +8,16 @@ import {
   executeCopilotServerTool,
   getCopilotServerToolErrorStatus,
 } from '@/lib/copilot/tools/client/server-tool-response'
-import { GetBlocksAndToolsResult } from '@/lib/copilot/tools/shared/schemas'
+import {
+  GetBlocksAndToolsInput,
+  GetBlocksAndToolsResult,
+} from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
+
+interface GetBlocksAndToolsArgs {
+  query?: string
+  triggerAllowed?: boolean
+}
 
 export class GetBlocksAndToolsClientTool extends BaseClientTool {
   static readonly id = 'get_blocks_and_tools'
@@ -31,15 +39,16 @@ export class GetBlocksAndToolsClientTool extends BaseClientTool {
     interrupt: undefined,
   }
 
-  async execute(): Promise<void> {
+  async execute(args?: GetBlocksAndToolsArgs): Promise<void> {
     const logger = createLogger('GetBlocksAndToolsClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const payload = GetBlocksAndToolsInput.parse(args || {})
 
       const result = GetBlocksAndToolsResult.parse(
         await executeCopilotServerTool({
           toolName: 'get_blocks_and_tools',
-          payload: {},
+          payload,
         })
       )
 

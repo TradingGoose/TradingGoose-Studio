@@ -159,14 +159,38 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
   }
 
   if (message.startsWith('Invalid edited workflow:')) {
+    const details = message.replace(/^Invalid edited workflow:\s*/, '').trim()
+    const detailIssues = details
+      .split(/;\s+/)
+      .filter(Boolean)
+      .map((issue) => {
+        const trimmedIssue = issue.trim().replace(/\.$/, '')
+        const embeddedPathMatch = trimmedIssue.match(
+          /^Document contract is inconsistent: invalid block sub-block values for ([^ ]+) \((.+)\)$/
+        )
+
+        return {
+          path: embeddedPathMatch ? `workflowDocument.${embeddedPathMatch[1]}` : 'workflowDocument',
+          message: embeddedPathMatch ? embeddedPathMatch[2] : trimmedIssue,
+        }
+      })
+
+    const hint = details.includes('non-canonical sub-block')
+      ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
+      : details.includes('unknown block type')
+        ? 'Use block types exactly as returned by `get_blocks_and_tools` or `get_blocks_metadata`. Keep `TG_BLOCK.type` unchanged unless you are intentionally replacing the block with another valid type.'
+        : details.includes('Edge references non-existent')
+          ? 'Every `TG_EDGE` source and target must match an existing `TG_BLOCK`, `TG_LOOP`, or `TG_PARALLEL` id in the same document.'
+          : 'Return a complete canonical workflow document that validates as workflow state. Preserve required block fields, canonical ids, and valid edge references.'
+
     return {
       status: 422,
       body: {
         code: 'invalid_workflow_state',
         error: message,
-        hint:
-          'Return a complete canonical workflow document that validates as workflow state. Preserve required block fields and valid edge references.',
+        hint,
         retryable: true,
+        ...(detailIssues.length > 0 ? { issues: detailIssues } : {}),
       },
     }
   }

@@ -3,10 +3,7 @@ import {
 	ToolIds,
 	type ToolId,
 } from "@/lib/copilot/registry";
-import {
-	GLOBAL_TOOL_MANIFEST_INSTRUCTIONS,
-	TOOL_PROMPT_METADATA,
-} from "@/lib/copilot/tool-prompt-metadata";
+import { TOOL_PROMPT_METADATA } from "@/lib/copilot/tool-prompt-metadata";
 import {
 	buildAutomaticSemanticValidators,
 	type RuntimeToolManifestSemanticValidator,
@@ -19,23 +16,15 @@ export const COPILOT_RUNTIME_TOOL_MANIFEST_VERSION = "v1" as const;
 export interface CopilotRuntimeToolManifestTool {
 	name: string;
 	description: string;
-	rules?: string;
-	instructions?: string[];
 	parameters?: Record<string, unknown>;
 	semanticValidators?: RuntimeToolManifestSemanticValidator[];
 	kind?: string;
 	entityKind?: string;
 	surfaceKind?: string;
-	mutatesState?: boolean;
-	requiresCurrentState?: boolean;
-	discoveryToolNames?: string[];
-	verificationToolNames?: string[];
-	requiredToolResults?: string[];
 }
 
 export interface CopilotRuntimeToolManifest {
 	version: typeof COPILOT_RUNTIME_TOOL_MANIFEST_VERSION;
-	instructions?: string[];
 	tools: CopilotRuntimeToolManifestTool[];
 }
 
@@ -85,7 +74,6 @@ export async function getCopilotRuntimeToolManifest(): Promise<CopilotRuntimeToo
 
 	return {
 		version: COPILOT_RUNTIME_TOOL_MANIFEST_VERSION,
-		instructions: GLOBAL_TOOL_MANIFEST_INSTRUCTIONS,
 		tools: TOOL_NAMES.map((toolName) => {
 			const parameters = buildToolParameterSchema(toolName);
 			const semanticValidators = getSemanticValidators(parameters, {

@@ -7,7 +7,20 @@ export const ExecuteResponseSuccessSchema = z.object({
 })
 
 // get_blocks_and_tools
-export const GetBlocksAndToolsInput = z.object({})
+export const GetBlocksAndToolsInput = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      'Optional capability search query used to narrow the canonical workflow block catalog, for example "historical OHLCV", "indicator function", or "Slack notification".'
+    ),
+  triggerAllowed: z
+    .boolean()
+    .optional()
+    .describe('Optional filter for blocks that can start a workflow or be used as triggers.'),
+})
 export const BlockRequiredCredentialsSchema = z.object({
   type: z.enum(['oauth', 'api_key', 'bot_token']),
   service: z.string().optional(),
@@ -33,6 +46,24 @@ export const BlockMermaidExamplesSchema = z.object({
   minimalDocument: z.string(),
   connectedDocument: z.string(),
 })
+export const BlockMermaidSubBlockOptionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+})
+export const BlockMermaidSubBlockSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  type: z.string(),
+  mode: z.enum(['basic', 'advanced', 'both', 'trigger']).optional(),
+  required: z.boolean().optional(),
+  description: z.string().optional(),
+  placeholder: z.string().optional(),
+  canonicalParamId: z.string().optional(),
+  language: z.string().optional(),
+  generationType: z.string().optional(),
+  defaultValue: z.unknown().optional(),
+  options: z.array(BlockMermaidSubBlockOptionSchema).optional(),
+})
 export const BlockMermaidOperationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -55,6 +86,7 @@ export const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
   authType: z.enum(['OAuth', 'API Key', 'Bot Token']).optional(),
   requiredCredentials: BlockRequiredCredentialsSchema.optional(),
   yamlDocumentation: z.string().optional(),
+  subBlocks: z.array(BlockMermaidSubBlockSchema).optional(),
   mermaidExamples: BlockMermaidExamplesSchema,
   operations: z.array(BlockMermaidOperationSchema).optional(),
 })
@@ -65,7 +97,21 @@ export const GetBlocksAndToolsResult = z.object({
 export type GetBlocksAndToolsResultType = z.infer<typeof GetBlocksAndToolsResult>
 
 // get_blocks_metadata
-export const GetBlocksMetadataInput = z.object({ blockIds: z.array(z.string()).min(1) })
+export const GetBlocksMetadataInput = z.object({
+  blockIds: z
+    .array(
+      z
+        .string()
+        .min(1)
+        .describe(
+          'Canonical block type id from `get_blocks_and_tools`, such as `historical_data` or `function`, not a workflow instance block id.'
+        )
+    )
+    .min(1)
+    .describe(
+      'Canonical workflow block type ids to inspect in detail. Use `get_blocks_and_tools` first when the available built-in options are not yet known.'
+    ),
+})
 export const GetBlocksMetadataResult = z.object({ metadata: z.record(BlockMermaidProfileSchema) })
 export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult>
 
