@@ -1,6 +1,6 @@
+import { type NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
-import { NextResponse } from 'next/server'
-import { checkInternalAuth } from '@/lib/auth/hybrid'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
@@ -31,14 +31,14 @@ const hasReadAccess = (
   )
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId()
   const { id: workflowId } = await params
 
   try {
-    const auth = await checkInternalAuth(request as any, {
+    const auth = await checkSessionOrInternalAuth(request, {
       requireWorkflowId: false,
     })
 

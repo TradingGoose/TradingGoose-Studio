@@ -36,6 +36,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
+  const isChildExecution = payload.metadata?.source === 'workflow_block'
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
@@ -58,6 +59,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     triggerData: payload.triggerData,
     contextExtensions: {
       workflowDepth: payload.workflowDepth ?? 0,
+      isChildExecution,
     },
   })
 

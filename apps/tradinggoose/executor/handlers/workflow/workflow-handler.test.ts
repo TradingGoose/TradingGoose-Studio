@@ -3,6 +3,7 @@ import { BlockType } from '@/executor/consts'
 import { WorkflowBlockHandler } from '@/executor/handlers/workflow/workflow-handler'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
+import { generateInternalToken } from '@/lib/auth/internal'
 
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('test-token'),
@@ -47,6 +48,7 @@ describe('WorkflowBlockHandler', () => {
 
     mockContext = {
       workflowId: 'parent-workflow-id',
+      userId: 'user-1',
       executionId: 'execution-1',
       workflowDepth: 0,
       triggerType: 'manual',
@@ -125,6 +127,10 @@ describe('WorkflowBlockHandler', () => {
       'http://localhost:3000/api/workflows/child-workflow-id/queue',
       expect.objectContaining({
         method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+          'Content-Type': 'application/json',
+        }),
       })
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -140,6 +146,7 @@ describe('WorkflowBlockHandler', () => {
       result: { value: 42 },
       childTraceSpans: [],
     })
+    expect(generateInternalToken).toHaveBeenCalledWith('user-1')
   })
 
   it('wraps failed child workflow executions', async () => {

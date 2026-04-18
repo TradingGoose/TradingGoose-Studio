@@ -4,17 +4,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  checkInternalAuthMock,
+  checkSessionOrInternalAuthMock,
   getWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
 } = vi.hoisted(() => ({
-  checkInternalAuthMock: vi.fn(),
+  checkSessionOrInternalAuthMock: vi.fn(),
   getWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
-  checkInternalAuth: checkInternalAuthMock,
+  checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
 }))
 
 vi.mock('@/lib/workflows/utils', () => ({
@@ -47,9 +47,10 @@ import { POST } from './route'
 describe('POST /api/workflows/[id]/queue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    checkInternalAuthMock.mockResolvedValue({
+    checkSessionOrInternalAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
+      authType: 'session',
     })
     getWorkflowAccessContextMock.mockResolvedValue({
       workflow: {
@@ -68,9 +69,9 @@ describe('POST /api/workflows/[id]/queue', () => {
   })
 
   it('requires authentication', async () => {
-    checkInternalAuthMock.mockResolvedValue({
+    checkSessionOrInternalAuthMock.mockResolvedValue({
       success: false,
-      error: 'Internal authentication required',
+      error: 'Unauthorized',
     })
 
     const response = await POST(new Request('http://localhost/api/workflows/workflow-1/queue'), {
@@ -79,11 +80,11 @@ describe('POST /api/workflows/[id]/queue', () => {
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({
-      error: 'Internal authentication required',
+      error: 'Unauthorized',
     })
   })
 
-  it('queues a child workflow execution', async () => {
+  it('queues a child workflow execution for an authenticated session', async () => {
     const response = await POST(
       new Request('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
@@ -137,5 +138,39 @@ describe('POST /api/workflows/[id]/queue', () => {
         status: '/api/jobs/pending-1',
       },
     })
+  })
+
+  it('still accepts internal workflow calls authenticated with an internal JWT', async () => {
+    checkSessionOrInternalAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+    })
+
+    const response = await POST(
+      new Request('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          input: { symbol: 'MSFT' },
+          executionTarget: 'live',
+          parentBlockId: 'block-1',
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer internal-token',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(202)
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        source: 'workflow_block',
+      }),
+    )
   })
 })

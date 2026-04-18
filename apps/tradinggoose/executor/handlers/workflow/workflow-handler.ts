@@ -81,7 +81,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       kind: 'deferred',
       wait: async () => {
         try {
-          const headers = await this.buildHeaders()
+          const headers = await this.buildHeaders(context)
           const queueResponse = await this.queueChildWorkflowExecution({
             headers,
             workflowId,
@@ -172,13 +172,15 @@ export class WorkflowBlockHandler implements BlockHandler {
     return workflowMetadata?.name || workflowId
   }
 
-  private async buildHeaders(): Promise<Record<string, string>> {
+  private async buildHeaders(
+    context: Pick<ExecutionContext, 'userId'>,
+  ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
 
     if (typeof window === 'undefined') {
-      const token = await generateInternalToken()
+      const token = await generateInternalToken(context.userId)
       headers.Authorization = `Bearer ${token}`
     }
 
