@@ -24,15 +24,6 @@ import {
 } from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  createSSEHandlers,
-  flushPendingAutoExecutionToolCalls,
-  getStreamingAssistantContent,
-  hydrateStreamingBlockIndexes,
-  parseSSEStream,
-  resetStreamingQueue,
-  type StreamingContext,
-} from '@/stores/copilot/streaming'
-import {
   maybeHandleCopilotMarkCompleteContinuation,
   registerCopilotMarkCompleteContinuationHandler,
 } from '@/stores/copilot/mark-complete'
@@ -63,6 +54,15 @@ import {
   resolveStreamPausedTurnStatus,
   resolveTurnStatusFromToolCalls,
 } from '@/stores/copilot/store-state'
+import {
+  createSSEHandlers,
+  flushPendingAutoExecutionToolCalls,
+  getStreamingAssistantContent,
+  hydrateStreamingBlockIndexes,
+  parseSSEStream,
+  resetStreamingQueue,
+  type StreamingContext,
+} from '@/stores/copilot/streaming'
 import { reportClientManagedToolFailure } from '@/stores/copilot/tool-failure'
 import {
   bindClientToolExecutionContext,
@@ -78,7 +78,6 @@ import {
   prepareCopilotToolArgs,
   resolveToolDisplay,
 } from '@/stores/copilot/tool-registry'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import type {
   ChatContext,
   CopilotMessage,
@@ -87,6 +86,7 @@ import type {
   CopilotToolExecutionProvenance,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
+import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('CopilotStore')
 
@@ -249,10 +249,7 @@ function autoExecuteEligibleToolsForAccessLevel(
 
     if (isCopilotTool(toolCall.name)) {
       const hasInterrupt = copilotToolHasInterrupt(toolCall.name, id)
-      const entersReviewState = copilotToolSupportsState(
-        toolCall.name,
-        ClientToolCallState.review
-      )
+      const entersReviewState = copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
       if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
         copilotToolIds.push(id)
       }
@@ -441,7 +438,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           const data = await response.json()
           if (data.success && Array.isArray(data.chats)) {
             const latestChat =
-              data.chats.find((c: CopilotChat) => c.reviewSessionId === chat.reviewSessionId) ?? data.chats[0] ?? null
+              data.chats.find((c: CopilotChat) => c.reviewSessionId === chat.reviewSessionId) ??
+              data.chats[0] ??
+              null
             if (latestChat) {
               const normalizedMessages = normalizeMessagesForUI(
                 latestChat.messages || [],
@@ -473,11 +472,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       createNewChat: async () => {
-        const {
-          isSendingMessage,
-          isAwaitingContinuation,
-          currentChat: activeChat,
-        } = get()
+        const { isSendingMessage, isAwaitingContinuation, currentChat: activeChat } = get()
         if (isSendingMessage || isAwaitingContinuation || isChatTurnInProgress(activeChat)) {
           get().abortMessage()
         }
@@ -537,11 +532,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           set((state) => ({
             chats: state.chats.filter((c) => c.reviewSessionId !== reviewSessionId),
             // If deleted chat was current, clear it
-            currentChat: state.currentChat?.reviewSessionId === reviewSessionId ? null : state.currentChat,
+            currentChat:
+              state.currentChat?.reviewSessionId === reviewSessionId ? null : state.currentChat,
             messages: state.currentChat?.reviewSessionId === reviewSessionId ? [] : state.messages,
-            toolCallsById: state.currentChat?.reviewSessionId === reviewSessionId ? {} : state.toolCallsById,
+            toolCallsById:
+              state.currentChat?.reviewSessionId === reviewSessionId ? {} : state.toolCallsById,
             isSendingMessage:
-              state.currentChat?.reviewSessionId === reviewSessionId ? false : state.isSendingMessage,
+              state.currentChat?.reviewSessionId === reviewSessionId
+                ? false
+                : state.isSendingMessage,
             isAwaitingContinuation:
               state.currentChat?.reviewSessionId === reviewSessionId
                 ? false
@@ -559,7 +558,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
       areChatsFresh: () => false,
 
-      loadChats: async (_forceRefresh = false, options) => {
+      loadChats: async (_forceRefresh, options) => {
         const { liveContext, currentChat } = get()
         const resolvedWorkspaceId = options?.workspaceId ?? liveContext.workspaceId
         const channelScopeKey = buildWorkspaceScopedGenericCopilotChatKey(resolvedWorkspaceId)
@@ -597,7 +596,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             if (data.chats.length > 0) {
               const { currentChat, isSendingMessage, suppressAutoSelect } = get()
               const currentChatStillExists =
-                currentChat && data.chats.some((c: CopilotChat) => c.reviewSessionId === currentChat.reviewSessionId)
+                currentChat &&
+                data.chats.some(
+                  (c: CopilotChat) => c.reviewSessionId === currentChat.reviewSessionId
+                )
 
               if (currentChatStillExists) {
                 const updatedCurrentChat = data.chats.find(
@@ -830,16 +832,16 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             }
 
             const errorMessage = createErrorMessage(streamingMessage.id, errorContent)
-          set((state) => ({
-            messages: state.messages.map((m) =>
-              m.id === streamingMessage.id ? errorMessage : m
-            ),
-            ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-            error: errorContent,
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-            abortController: null,
-          }))
+            set((state) => ({
+              messages: state.messages.map((m) =>
+                m.id === streamingMessage.id ? errorMessage : m
+              ),
+              ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
+              error: errorContent,
+              isSendingMessage: false,
+              isAwaitingContinuation: false,
+              abortController: null,
+            }))
           }
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') return
@@ -998,10 +1000,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const current = toolCallsById[id]
         if (!current) return
         // Do not override a rejected tool with success
-        if (
-          isRejectedState(current.state) &&
-          targetState === ClientToolCallState.success
-        ) {
+        if (isRejectedState(current.state) && targetState === ClientToolCallState.success) {
           return
         }
 
@@ -1322,9 +1321,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
-      fetchContextUsage: async (
-        options?: { bill?: boolean; assistantMessageId?: string; workflowId?: string }
-      ) => {
+      fetchContextUsage: async (options?: {
+        bill?: boolean
+        assistantMessageId?: string
+        workflowId?: string
+      }) => {
         try {
           const { bill = false, assistantMessageId, workflowId } = options ?? {}
           const { currentChat, selectedModel, liveContext } = get()
@@ -1426,7 +1427,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const executionContext = createExecutionContext({
           toolCallId: id,
           toolName: name,
-          provenance: { ...provenance, channelId: provenance.channelId || DEFAULT_COPILOT_CHANNEL_ID },
+          provenance: {
+            ...provenance,
+            channelId: provenance.channelId || DEFAULT_COPILOT_CHANNEL_ID,
+          },
         })
         const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
         const targetStore = getCopilotStore(storeChannelId)
@@ -1452,26 +1456,20 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               !('success' in result) ||
               (result as any).success !== false
 
-            const completeMap = { ...get().toolCallsById }
+            const currentToolCall = get().toolCallsById[id]
             if (
-              isRejectedState(completeMap[id]?.state) ||
-              isReviewState(completeMap[id]?.state) ||
-              isBackgroundState(completeMap[id]?.state)
+              isRejectedState(currentToolCall?.state) ||
+              isReviewState(currentToolCall?.state) ||
+              isBackgroundState(currentToolCall?.state)
             ) {
               return
             }
 
-            completeMap[id] = {
-              ...completeMap[id],
-              state: logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
-              display: resolveToolDisplay(
-                name,
-                logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
-                id,
-                params
-              ),
-            }
-            set({ toolCallsById: completeMap })
+            applyToolStateUpdate(
+              targetStore,
+              id,
+              logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error
+            )
 
             if (logicalSuccess && name === 'set_environment_variables') {
               try {
@@ -1639,27 +1637,20 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           const success =
             res.ok && result?.success && result?.result && result.result.success === true
-          const completeMap = { ...get().toolCallsById }
-
+          const currentToolCall = get().toolCallsById[id]
           if (
-            isRejectedState(completeMap[id]?.state) ||
-            isReviewState(completeMap[id]?.state) ||
-            isBackgroundState(completeMap[id]?.state)
+            isRejectedState(currentToolCall?.state) ||
+            isReviewState(currentToolCall?.state) ||
+            isBackgroundState(currentToolCall?.state)
           ) {
             return
           }
 
-          completeMap[id] = {
-            ...completeMap[id],
-            state: success ? ClientToolCallState.success : ClientToolCallState.error,
-            display: resolveToolDisplay(
-              name,
-              success ? ClientToolCallState.success : ClientToolCallState.error,
-              id,
-              params
-            ),
-          }
-          set({ toolCallsById: completeMap })
+          applyToolStateUpdate(
+            targetStore,
+            id,
+            success ? ClientToolCallState.success : ClientToolCallState.error
+          )
           logger.info(
             `[toolCallsById] executing → ${success ? 'success' : 'error'} (integration)`,
             { id, name }
@@ -1765,13 +1756,9 @@ registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) 
     return
   }
 
-  await targetStore.getState().handleStreamingResponse(
-    response.body,
-    assistantMessageId,
-    true,
-    undefined,
-    turnProvenance
-  )
+  await targetStore
+    .getState()
+    .handleStreamingResponse(response.body, assistantMessageId, true, undefined, turnProvenance)
 })
 
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
@@ -1836,8 +1823,7 @@ function applyToolStateUpdate(
     return
   }
 
-  const hasResultUpdate =
-    options?.result !== undefined && current.result !== options.result
+  const hasResultUpdate = options?.result !== undefined && current.result !== options.result
   if (mapped === current.state && !hasResultUpdate) return
 
   const updated = {
@@ -1849,7 +1835,12 @@ function applyToolStateUpdate(
       ...(hasResultUpdate ? { result: options?.result } : {}),
     },
   }
-  const updatedMessages = updateMessagesForToolCallState(state.messages, toolCallId, mapped, options)
+  const updatedMessages = updateMessagesForToolCallState(
+    state.messages,
+    toolCallId,
+    mapped,
+    options
+  )
   const latestTurnStatus = resolveStoreTurnActivityState(state, updated)
   const nextChatState = buildChatTurnStatusState(state, latestTurnStatus)
   const nextCurrentChat = nextChatState.currentChat

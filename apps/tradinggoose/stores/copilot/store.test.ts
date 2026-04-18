@@ -306,7 +306,9 @@ describe('copilot tool execution provenance', () => {
     })
 
     const sendPromise = store.getState().sendMessage('Inspect the attached workflow', {
-      contexts: [{ kind: 'workflow', workflowId: 'wf-message-context', label: 'Attached Workflow' }],
+      contexts: [
+        { kind: 'workflow', workflowId: 'wf-message-context', label: 'Attached Workflow' },
+      ],
     })
     await deferredStream.ready
 
@@ -682,12 +684,7 @@ describe('copilot streaming regressions', () => {
 
     const blocks = store.getState().messages[0]?.contentBlocks as any[]
 
-    expect(blocks.map((block) => block.type)).toEqual([
-      'thinking',
-      'text',
-      'tool_call',
-      'text',
-    ])
+    expect(blocks.map((block) => block.type)).toEqual(['thinking', 'text', 'tool_call', 'text'])
     expect(blocks[0]?.content).toContain('Inspecting the current workflow')
     expect(blocks[1]?.content).toContain('checking the current workflow')
     expect(blocks[2]?.toolCall?.id).toBe('tool-1')
@@ -1027,7 +1024,10 @@ describe('copilot streaming regressions', () => {
       await vi.advanceTimersByTimeAsync(0)
 
       expect(fakeTool.execute).not.toHaveBeenCalled()
-      deferredStream.push({ type: 'response.completed', response: { id: 'response-deferred-tool' } })
+      deferredStream.push({
+        type: 'response.completed',
+        response: { id: 'response-deferred-tool' },
+      })
       deferredStream.close()
 
       await Promise.resolve()
@@ -1302,7 +1302,9 @@ describe('copilot streaming regressions', () => {
         }
       }
 
-      if (url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`) {
+      if (
+        url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
+      ) {
         return {
           ok: true,
           status: 200,
@@ -1437,8 +1439,7 @@ describe('copilot streaming regressions', () => {
       }
 
       if (
-        url ===
-        `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
+        url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
       ) {
         return {
           ok: true,
@@ -1550,7 +1551,9 @@ describe('copilot streaming regressions', () => {
       ClientToolCallState.review
     )
     expect(
-      store.getState().chats.find((chat) => chat.reviewSessionId === 'review-active-chat-review-tools')
+      store
+        .getState()
+        .chats.find((chat) => chat.reviewSessionId === 'review-active-chat-review-tools')
         ?.latestTurnStatus
     ).toBe('completed')
   })
@@ -1953,9 +1956,7 @@ describe('copilot streaming regressions', () => {
         workspaceId: 'workspace-1',
       },
     })
-    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty(
-      'workflowId'
-    )
+    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty('workflowId')
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
@@ -2131,9 +2132,7 @@ describe('copilot streaming regressions', () => {
 
     expect(pendingBlock?.toolCall?.state).toBe(ClientToolCallState.pending)
     expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.aborted)
-    expect(store.getState().toolCallsById['pending-tool']?.state).toBe(
-      ClientToolCallState.pending
-    )
+    expect(store.getState().toolCallsById['pending-tool']?.state).toBe(ClientToolCallState.pending)
     expect(store.getState().toolCallsById['executing-tool']?.state).toBe(
       ClientToolCallState.aborted
     )
@@ -2755,9 +2754,7 @@ describe('copilot tool user action delegation', () => {
           contextWorkflowId: 'wf-api-request-access-switch',
         },
       })
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(
-        ClientToolCallState.success
-      )
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
     } finally {
       vi.useRealTimers()
     }
@@ -2767,8 +2764,7 @@ describe('copilot tool user action delegation', () => {
     const channelId = 'copilot-env-refresh'
     const toolCallId = 'set-env-tool'
     const store = getCopilotStore(channelId)
-    const originalLoadEnvironmentVariables =
-      useEnvironmentStore.getState().loadEnvironmentVariables
+    const originalLoadEnvironmentVariables = useEnvironmentStore.getState().loadEnvironmentVariables
     const loadEnvironmentVariables = vi.fn(async () => {})
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -2824,6 +2820,234 @@ describe('copilot tool user action delegation', () => {
         loadEnvironmentVariables: originalLoadEnvironmentVariables,
       } as any)
     }
+  })
+
+  it('persists completed server-managed tool states into assistant message blocks', async () => {
+    const channelId = 'copilot-server-managed-state-persist'
+    const toolCallId = 'make-api-request-tool'
+    const reviewSessionId = 'review-server-managed-state-persist'
+    const store = getCopilotStore(channelId)
+    const assistantMessage = {
+      id: 'assistant-message-server-managed',
+      role: 'assistant' as const,
+      content: '',
+      timestamp: '2026-04-10T00:00:00.000Z',
+      contentBlocks: [
+        {
+          type: 'tool_call' as const,
+          timestamp: 1,
+          toolCall: {
+            id: toolCallId,
+            name: 'make_api_request',
+            state: ClientToolCallState.pending,
+            params: {
+              url: 'https://example.com/data',
+              method: 'GET',
+            },
+          },
+        },
+      ],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            result: { message: 'ok' },
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      accessLevel: 'full',
+      currentChat: {
+        reviewSessionId,
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Server managed tool persistence',
+        messages: [assistantMessage],
+        messageCount: 1,
+        conversationId: null,
+        createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T00:00:00.000Z'),
+      },
+      messages: [assistantMessage],
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'make_api_request',
+          state: ClientToolCallState.pending,
+          params: {
+            url: 'https://example.com/data',
+            method: 'GET',
+          },
+          provenance: {
+            channelId,
+            contextWorkflowId: 'wf-server-managed-state-persist',
+            workspaceId: 'workspace-1',
+          },
+        } as any,
+      },
+    })
+
+    await store.getState().executeCopilotToolCall(toolCallId)
+
+    const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
+    const currentChatToolBlock = store.getState().currentChat?.messages[0]
+      ?.contentBlocks?.[0] as any
+    expect(toolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
+    expect(currentChatToolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
+
+    const persistRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+    const requestBody = parseJsonRequestBody(persistRequest)
+    const persistedMessages = requestBody.messages as any[]
+
+    expect(requestBody.latestTurnStatus).toBe('completed')
+    expect(persistedMessages[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.success
+    )
+  })
+
+  it('persists completed integration tool states into assistant message blocks', async () => {
+    const channelId = 'copilot-integration-state-persist'
+    const toolCallId = 'integration-tool'
+    const reviewSessionId = 'review-integration-state-persist'
+    const store = getCopilotStore(channelId)
+    const assistantMessage = {
+      id: 'assistant-message-integration',
+      role: 'assistant' as const,
+      content: '',
+      timestamp: '2026-04-10T00:00:00.000Z',
+      contentBlocks: [
+        {
+          type: 'tool_call' as const,
+          timestamp: 1,
+          toolCall: {
+            id: toolCallId,
+            name: 'integration_request',
+            state: ClientToolCallState.pending,
+            params: { query: 'BTC-USD' },
+          },
+        },
+      ],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            result: {
+              success: true,
+              output: { content: 'ok' },
+            },
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      currentChat: {
+        reviewSessionId,
+        workspaceId: 'workspace-1',
+        channelId,
+        entityKind: 'workflow',
+        entityId: 'wf-integration-state-persist',
+        draftSessionId: null,
+        title: 'Integration tool persistence',
+        messages: [assistantMessage],
+        messageCount: 1,
+        conversationId: null,
+        createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T00:00:00.000Z'),
+      },
+      messages: [assistantMessage],
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'integration_request',
+          state: ClientToolCallState.pending,
+          params: { query: 'BTC-USD' },
+          provenance: {
+            channelId,
+            workflowId: 'wf-integration-state-persist',
+            workspaceId: 'workspace-1',
+          },
+        } as any,
+      },
+    })
+
+    await store.getState().executeIntegrationTool(toolCallId)
+
+    const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
+    const currentChatToolBlock = store.getState().currentChat?.messages[0]
+      ?.contentBlocks?.[0] as any
+    expect(toolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
+    expect(currentChatToolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
+
+    const persistRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/chat/update-messages'
+    })
+    const requestBody = parseJsonRequestBody(persistRequest)
+    const persistedMessages = requestBody.messages as any[]
+
+    expect(requestBody.latestTurnStatus).toBe('completed')
+    expect(persistedMessages[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
+      ClientToolCallState.success
+    )
   })
 
   it('auto-executes review-state client tools when access switches to full', async () => {

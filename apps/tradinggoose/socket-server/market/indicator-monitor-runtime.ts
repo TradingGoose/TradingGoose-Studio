@@ -35,6 +35,7 @@ import {
   acquireLock,
   getRedisClient,
   getRedisStorageMode,
+  renewLock,
   releaseLock,
 } from '@/lib/redis'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
@@ -126,7 +127,8 @@ type IndicatorMonitorSubscription = {
 const logger = createLogger('IndicatorMonitorRuntime')
 
 const LOCK_KEY = 'indicator-monitor-runtime-lock'
-const LOCK_EXPIRY_SECONDS = 60 * 60
+const LOCK_EXPIRY_SECONDS = 90
+const LOCK_REFRESH_INTERVAL_MS = 30_000
 const RECONCILE_INTERVAL_MS = 30_000
 const MONITOR_WINDOW_BARS = 2000
 const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
@@ -371,6 +373,7 @@ export class IndicatorMonitorRuntime {
   private starting = false
   private lockHeld = false
   private instanceId = randomUUID()
+  private lockRefreshTimer: ReturnType<typeof setInterval> | null = null
   private reconcileTimer: ReturnType<typeof setInterval> | null = null
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private isReconciling = false
@@ -423,6 +426,12 @@ export class IndicatorMonitorRuntime {
     this.reconcileTimer = null
   }
 
+  private clearLockRefreshTimer() {
+    if (!this.lockRefreshTimer) return
+    clearInterval(this.lockRefreshTimer)
+    this.lockRefreshTimer = null
+  }
+
   private stopSubscriptions() {
     const subscriptions = Array.from(this.subscriptions.values())
     subscriptions.forEach((subscription) => {
@@ -449,6 +458,38 @@ export class IndicatorMonitorRuntime {
     }
   }
 
+  private startLockRefreshTimer() {
+    if (this.lockRefreshTimer) return
+
+    this.lockRefreshTimer = setInterval(() => {
+      void this.refreshLock()
+    }, LOCK_REFRESH_INTERVAL_MS)
+    this.lockRefreshTimer.unref?.()
+  }
+
+  private async refreshLock() {
+    if (!this.running || !this.lockHeld) return
+
+    try {
+      const renewed = await renewLock(
+        LOCK_KEY,
+        this.instanceId,
+        LOCK_EXPIRY_SECONDS,
+      )
+      if (renewed) return
+
+      this.lockHeld = false
+      await this.enterDegradedState(
+        'lock',
+        new Error('Indicator monitor runtime lock ownership was lost'),
+        true,
+      )
+    } catch (error) {
+      this.lockHeld = false
+      await this.enterDegradedState('lock', error, true)
+    }
+  }
+
   private scheduleRetry() {
     if (this.retryTimer) return
 
@@ -460,7 +501,7 @@ export class IndicatorMonitorRuntime {
   }
 
   private async enterDegradedState(
-    reason: 'startup' | 'interval' | 'request',
+    reason: 'startup' | 'interval' | 'request' | 'lock',
     error: unknown,
     shouldLogWarning: boolean,
   ) {
@@ -469,13 +510,14 @@ export class IndicatorMonitorRuntime {
     this.status = 'degraded'
     this.running = false
     this.pendingReconcile = false
+    this.clearLockRefreshTimer()
     this.clearReconcileTimer()
     this.stopSubscriptions()
     await this.releaseLockIfHeld()
     this.scheduleRetry()
 
     if (shouldLogWarning) {
-      this.logger.warn('Indicator monitor paused; database unavailable', {
+      this.logger.warn('Indicator monitor paused; runtime unavailable', {
         reason,
         error:
           error instanceof Error
@@ -524,7 +566,9 @@ export class IndicatorMonitorRuntime {
       this.lockHeld = true
       this.running = true
       this.status = 'running'
+      this.clearLockRefreshTimer()
       this.clearReconcileTimer()
+      this.startLockRefreshTimer()
 
       await this.reconcile('startup')
 
@@ -543,13 +587,11 @@ export class IndicatorMonitorRuntime {
 
   async stop() {
     this.clearRetryTimer()
+    this.clearLockRefreshTimer()
     this.clearReconcileTimer()
     this.stopSubscriptions()
 
-    if (this.lockHeld) {
-      await releaseLock(LOCK_KEY, this.instanceId)
-      this.lockHeld = false
-    }
+    await this.releaseLockIfHeld()
 
     this.running = false
     this.starting = false

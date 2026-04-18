@@ -201,7 +201,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
         children,
         ordered,
       }: React.LiHTMLAttributes<HTMLLIElement> & { ordered?: boolean }) => (
-        <li className='space-y-1 font-sans text-gray-800 dark:text-gray-200' style={{ display: 'list-item' }}>
+        <li className='space-b-1 font-sans text-gray-800 dark:text-gray-200' style={{ display: 'list-item' }}>
           {children}
         </li>
       ),
