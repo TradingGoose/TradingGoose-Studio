@@ -34,8 +34,6 @@ type MonacoTypeScriptNamespace = {
   javascriptDefaults?: MonacoTypeScriptDefaults
   JsxEmit?: { None?: unknown }
   ModuleKind?: { ESNext?: unknown }
-  getTypeScriptWorker?: () => Promise<(...uris: unknown[]) => Promise<any>>
-  getJavaScriptWorker?: () => Promise<(...uris: unknown[]) => Promise<any>>
 }
 
 const parsePx = (value?: string | number): number | undefined => {
@@ -49,20 +47,6 @@ const parsePx = (value?: string | number): number | undefined => {
 
   const parsed = Number.parseFloat(trimmed.slice(0, -2))
   return Number.isNaN(parsed) ? undefined : parsed
-}
-
-const flattenDiagnosticMessageText = (
-  message: string | { messageText: string; next?: Array<{ messageText: string; next?: any[] }> }
-): string => {
-  if (typeof message === 'string') {
-    return message
-  }
-
-  const nextMessages = Array.isArray(message.next)
-    ? message.next.map((entry) => flattenDiagnosticMessageText(entry)).filter(Boolean)
-    : []
-
-  return [message.messageText, ...nextMessages].join('\n')
 }
 
 const getTypeScriptNamespace = (monaco: MonacoModule): MonacoTypeScriptNamespace | undefined => {
@@ -114,7 +98,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const diagnosticsModelIdRef = useRef<string | null>(null)
     const diagnosticsModelRef = useRef<MonacoEditorTypes.ITextModel | null>(null)
     const diagnosticsModelPathRef = useRef<string | null>(null)
-    const diagnosticsRunIdRef = useRef(0)
     const [monacoInstance, setMonacoInstance] = useState<MonacoModule | null>(null)
     const [editorReady, setEditorReady] = useState(false)
     const [placeholderOffset, setPlaceholderOffset] = useState({ top: 8, left: 12 })
@@ -280,7 +263,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           allowJs: true,
           allowNonTsExtensions: true,
           allowTopLevelReturn: true,
-          checkJs: false,
+          checkJs: true,
           noImplicitAny: false,
           suppressImplicitAnyIndexErrors: true,
           ...(jsxEmit?.None ? { jsx: jsxEmit.None } : {}),
@@ -290,9 +273,9 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const applyDiagnosticsOptions = (defaults?: typeof tsDefaults) => {
         if (!defaults) return
         defaults.setDiagnosticsOptions({
-          noSemanticValidation: true,
-          noSyntaxValidation: true,
-          noSuggestionDiagnostics: true,
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+          noSuggestionDiagnostics: false,
         })
       }
       applyCompilerOptions(tsDefaults)
@@ -301,17 +284,40 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       applyDiagnosticsOptions(jsDefaults)
     }
 
-    const clearModelDiagnostics = (model?: MonacoEditorTypes.ITextModel | null) => {
+    const clearVirtualModelDiagnostics = (model?: MonacoEditorTypes.ITextModel | null) => {
       const monaco = monacoRef.current
       if (!monaco || !model) return
 
+      const existingMarkers = monaco.editor.getModelMarkers({
+        owner: VIRTUAL_DIAGNOSTICS_OWNER,
+        resource: model.uri,
+      })
+      if (existingMarkers.length === 0) return
+
       monaco.editor.setModelMarkers(model, VIRTUAL_DIAGNOSTICS_OWNER, [])
+    }
+
+    const clearNativeModelDiagnostics = (model?: MonacoEditorTypes.ITextModel | null) => {
+      const monaco = monacoRef.current
+      if (!monaco || !model) return
+
       NATIVE_DIAGNOSTIC_OWNERS.forEach((owner) => {
+        const existingMarkers = monaco.editor.getModelMarkers({
+          owner,
+          resource: model.uri,
+        })
+        if (existingMarkers.length === 0) return
         monaco.editor.setModelMarkers(model, owner, [])
       })
     }
 
+    const clearModelDiagnostics = (model?: MonacoEditorTypes.ITextModel | null) => {
+      clearVirtualModelDiagnostics(model)
+      clearNativeModelDiagnostics(model)
+    }
+
     const disposeDiagnosticsModel = () => {
+      diagnosticsModelIdRef.current = null
       diagnosticsModelRef.current?.dispose()
       diagnosticsModelRef.current = null
       diagnosticsModelPathRef.current = null
@@ -470,11 +476,88 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const monaco = monacoRef.current
       if (!editor || !monaco) return
 
-      let cancelled = false
-      let timeoutId: number | null = null
+      const mapDiagnosticMarkers = () => {
+        const visibleModel = editor.getModel()
+        const diagnosticsModel = diagnosticsModelRef.current
+        if (!visibleModel || !diagnosticsModel) return
 
-      const runVirtualDiagnostics = async () => {
-        const runId = ++diagnosticsRunIdRef.current
+        const diagnosticMarkers = NATIVE_DIAGNOSTIC_OWNERS.flatMap((owner) =>
+          monaco.editor.getModelMarkers({
+            owner,
+            resource: diagnosticsModel.uri,
+          })
+        )
+
+        const diagnosticBuilder = diagnosticSourceBuilder ?? buildMonacoScriptDiagnosticSource
+        const diagnosticSource = diagnosticBuilder(editor.getValue(), {
+          language: diagnosticsModel.getLanguageId() as 'javascript' | 'typescript',
+          path: visibleModel.uri.toString(),
+        })
+
+        if (!diagnosticSource) {
+          clearVirtualModelDiagnostics(visibleModel)
+          return
+        }
+
+        const userCodeStartOffset = diagnosticsModel.getOffsetAt({
+          lineNumber: diagnosticSource.userCodeStartLine,
+          column: 1,
+        })
+        const userCodeEndOffset = userCodeStartOffset + diagnosticSource.userCodeLength
+        const visibleLength = visibleModel.getValueLength()
+
+        const markers: MonacoEditorTypes.IMarkerData[] = diagnosticMarkers.flatMap((marker) => {
+          const markerStart = diagnosticsModel.getOffsetAt({
+            lineNumber: marker.startLineNumber,
+            column: marker.startColumn,
+          })
+          const markerEnd = diagnosticsModel.getOffsetAt({
+            lineNumber: marker.endLineNumber,
+            column: marker.endColumn,
+          })
+          const clampedStart = Math.max(userCodeStartOffset, markerStart)
+          const clampedEnd = Math.min(
+            userCodeEndOffset,
+            Math.max(clampedStart + 1, markerEnd)
+          )
+
+          if (clampedStart >= userCodeEndOffset || clampedEnd <= userCodeStartOffset) {
+            return []
+          }
+
+          const visibleStartOffset = Math.max(0, clampedStart - userCodeStartOffset)
+          const visibleEndOffset = Math.min(
+            visibleLength,
+            Math.max(visibleStartOffset + 1, clampedEnd - userCodeStartOffset)
+          )
+          const startPosition = visibleModel.getPositionAt(visibleStartOffset)
+          const endPosition = visibleModel.getPositionAt(visibleEndOffset)
+
+          return [
+            {
+              startLineNumber: startPosition.lineNumber,
+              startColumn: startPosition.column,
+              endLineNumber: endPosition.lineNumber,
+              endColumn: endPosition.column,
+              message: marker.message,
+              severity: marker.severity,
+              source: marker.source,
+              code:
+                marker.code === undefined || marker.code === null
+                  ? undefined
+                  : typeof marker.code === 'string' || typeof marker.code === 'number'
+                    ? String(marker.code)
+                    : String(marker.code.value),
+              tags: marker.tags,
+              relatedInformation: marker.relatedInformation,
+            },
+          ]
+        })
+
+        monaco.editor.setModelMarkers(visibleModel, VIRTUAL_DIAGNOSTICS_OWNER, markers)
+      }
+
+      const syncVirtualDiagnosticsModel = () => {
         const visibleModel = editor.getModel()
         if (!visibleModel) return
 
@@ -533,135 +616,36 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             diagnosticsModel.setValue(diagnosticSource.content)
           }
         }
-
-        const tsNamespace = getTypeScriptNamespace(monaco)
-
-        const getWorkerFactory =
-          diagnosticSource.language === 'typescript'
-            ? tsNamespace?.getTypeScriptWorker
-            : tsNamespace?.getJavaScriptWorker
-
-        if (!getWorkerFactory) {
-          return
-        }
-
-        try {
-          const workerFactory = await getWorkerFactory()
-          if (cancelled || runId !== diagnosticsRunIdRef.current) return
-
-          const worker = await workerFactory(diagnosticsModel.uri)
-          if (cancelled || runId !== diagnosticsRunIdRef.current) return
-
-          const hiddenPath = diagnosticsModel.uri.toString()
-          const [syntacticDiagnostics, semanticDiagnostics, suggestionDiagnostics] =
-            await Promise.all([
-              worker.getSyntacticDiagnostics(hiddenPath),
-              worker.getSemanticDiagnostics(hiddenPath),
-              worker.getSuggestionDiagnostics(hiddenPath),
-            ])
-
-          if (cancelled || runId !== diagnosticsRunIdRef.current) return
-
-          const userCodeStartOffset = diagnosticsModel.getOffsetAt({
-            lineNumber: diagnosticSource.userCodeStartLine,
-            column: 1,
-          })
-          const userCodeEndOffset = userCodeStartOffset + diagnosticSource.userCodeLength
-          const visibleLength = visibleModel.getValueLength()
-          const diagnostics = [
-            ...syntacticDiagnostics,
-            ...semanticDiagnostics,
-            ...suggestionDiagnostics,
-          ]
-
-          const severityMap: Record<number, number> = {
-            0: monaco.MarkerSeverity.Warning,
-            1: monaco.MarkerSeverity.Error,
-            2: monaco.MarkerSeverity.Hint,
-            3: monaco.MarkerSeverity.Info,
-          }
-
-          const markers: MonacoEditorTypes.IMarkerData[] = diagnostics.flatMap((diagnostic) => {
-            const diagnosticStart = diagnostic?.start
-            if (typeof diagnosticStart !== 'number') return []
-
-            const diagnosticLength =
-              typeof diagnostic?.length === 'number' ? Math.max(diagnostic.length, 1) : 1
-            const diagnosticEnd = diagnosticStart + diagnosticLength
-            const clampedStart = Math.max(userCodeStartOffset, diagnosticStart)
-            const clampedEnd = Math.min(userCodeEndOffset, diagnosticEnd)
-
-            if (clampedStart >= userCodeEndOffset || clampedEnd <= userCodeStartOffset) {
-              return []
-            }
-
-            const visibleStartOffset = Math.max(0, clampedStart - userCodeStartOffset)
-            const visibleEndOffset = Math.min(
-              visibleLength,
-              Math.max(visibleStartOffset + 1, clampedEnd - userCodeStartOffset)
-            )
-            const startPosition = visibleModel.getPositionAt(visibleStartOffset)
-            const endPosition = visibleModel.getPositionAt(visibleEndOffset)
-
-            const tags: number[] = []
-            if (diagnostic?.reportsUnnecessary) {
-              tags.push(monaco.MarkerTag.Unnecessary)
-            }
-            if (diagnostic?.reportsDeprecated) {
-              tags.push(monaco.MarkerTag.Deprecated)
-            }
-
-            return [
-              {
-                startLineNumber: startPosition.lineNumber,
-                startColumn: startPosition.column,
-                endLineNumber: endPosition.lineNumber,
-                endColumn: endPosition.column,
-                message: flattenDiagnosticMessageText(diagnostic.messageText),
-                severity: severityMap[diagnostic.category] ?? monaco.MarkerSeverity.Error,
-                source: diagnostic.source ?? 'typescript',
-                code:
-                  diagnostic.code === undefined || diagnostic.code === null
-                    ? undefined
-                    : String(diagnostic.code),
-                tags: tags.length > 0 ? tags : undefined,
-              },
-            ]
-          })
-
-          if (cancelled || runId !== diagnosticsRunIdRef.current) return
-
-          clearModelDiagnostics(visibleModel)
-          monaco.editor.setModelMarkers(visibleModel, VIRTUAL_DIAGNOSTICS_OWNER, markers)
-        } catch (error) {
-          if (!cancelled && runId === diagnosticsRunIdRef.current) {
-            console.error('Monaco virtual diagnostics failed', error)
-          }
-        }
+        clearNativeModelDiagnostics(visibleModel)
+        mapDiagnosticMarkers()
       }
 
-      const scheduleVirtualDiagnostics = () => {
-        if (timeoutId !== null) {
-          window.clearTimeout(timeoutId)
-        }
-        timeoutId = window.setTimeout(() => {
-          void runVirtualDiagnostics()
-        }, 120)
-      }
+      const markerSubscription = monaco.editor.onDidChangeMarkers((resources) => {
+        const visibleModel = editor.getModel()
+        const diagnosticsModel = diagnosticsModelRef.current
+        if (!visibleModel) return
 
-      const subscription = editor.onDidChangeModelContent(() => {
-        scheduleVirtualDiagnostics()
+        const changedUris = new Set(resources.map((uri) => uri.toString()))
+
+        if (changedUris.has(visibleModel.uri.toString())) {
+          clearNativeModelDiagnostics(visibleModel)
+        }
+
+        if (diagnosticsModel && changedUris.has(diagnosticsModel.uri.toString())) {
+          mapDiagnosticMarkers()
+        }
       })
 
-      scheduleVirtualDiagnostics()
+      const contentSubscription = editor.onDidChangeModelContent(() => {
+        clearNativeModelDiagnostics(editor.getModel())
+        syncVirtualDiagnosticsModel()
+      })
+
+      syncVirtualDiagnosticsModel()
 
       return () => {
-        cancelled = true
-        diagnosticsRunIdRef.current += 1
-        if (timeoutId !== null) {
-          window.clearTimeout(timeoutId)
-        }
-        subscription.dispose()
+        markerSubscription.dispose()
+        contentSubscription.dispose()
         clearModelDiagnostics(editor.getModel())
         disposeDiagnosticsModel()
       }
@@ -735,6 +719,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const safePlaceholderLeft = Number.isFinite(placeholderOffset.left) ? placeholderOffset.left : 12
     const baseOptions = useMemo<MonacoEditorTypes.IStandaloneEditorConstructionOptions>(
       () => ({
+        allowOverflow: false,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         wordWrap: 'on' as const,
@@ -747,6 +732,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         automaticLayout: true,
         fontSize: 14,
         lineHeight: 21,
+        fixedOverflowWidgets: false,
         readOnly: readOnly || disabled,
         domReadOnly: readOnly || disabled,
         hover: { enabled: true, sticky: true },
@@ -818,7 +804,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       return (
         <div
           ref={containerRef}
-          className={cn('relative', className)}
+          className={cn('relative overflow-hidden', className)}
           style={{ minHeight, height: resolvedHeight }}
         >
           {placeholder && !hasValue && (
@@ -836,7 +822,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     return (
       <div
         ref={containerRef}
-        className={cn('relative', className)}
+        className={cn('relative overflow-hidden', className)}
         style={{ minHeight, height: resolvedHeight }}
       >
         {placeholder && !hasValue && (
