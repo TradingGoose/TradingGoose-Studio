@@ -21,6 +21,8 @@ CREATE TABLE "pending_execution" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "copilot_feedback" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP TABLE "copilot_feedback" CASCADE;--> statement-breakpoint
 ALTER TABLE "system_billing_tier" ADD COLUMN "max_pending_age_seconds" integer;--> statement-breakpoint
 ALTER TABLE "system_billing_tier" ADD COLUMN "max_pending_count" integer;--> statement-breakpoint
 ALTER TABLE "pending_execution" ADD CONSTRAINT "pending_execution_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
