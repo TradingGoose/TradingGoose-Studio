@@ -36,7 +36,6 @@ export interface CopilotMessage {
 export interface CopilotChat {
   reviewSessionId: string
   workspaceId: string | null
-  channelId: string | null
   entityKind: string | null
   entityId: string | null
   draftSessionId: string | null
@@ -67,12 +66,10 @@ export interface SendMessageRequest {
   message: string
   userMessageId?: string // ID from frontend for the user message
   reviewSessionId?: string
-  channelId?: string
   workspaceId?: string
   model?: CopilotRuntimeModel
   provider?: ProviderId
   prefetch?: boolean
-  stream?: boolean
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
   contexts?: ChatContext[]
@@ -125,7 +122,6 @@ export async function sendStreamingMessage(
           }))
         : undefined
       logger.info('Preparing to send streaming message', {
-        channelId: (requestBody as any).channelId,
         hasContexts: Array.isArray((requestBody as any).contexts),
         contextsCount: Array.isArray((requestBody as any).contexts)
           ? (requestBody as any).contexts.length

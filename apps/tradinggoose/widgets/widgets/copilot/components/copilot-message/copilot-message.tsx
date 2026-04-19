@@ -22,7 +22,11 @@ import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type { ChatContext, CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
+import type {
+  ChatContext,
+  CopilotMessage as CopilotMessageType,
+  CopilotSendRuntimeContext,
+} from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
   buildAssistantMessageSegments,
@@ -39,6 +43,7 @@ const logger = createLogger('CopilotMessage')
 
 interface CopilotMessageProps {
   message: CopilotMessageType
+  runtimeContext: CopilotSendRuntimeContext
   isStreaming?: boolean
   panelWidth?: number
   isDimmed?: boolean
@@ -46,7 +51,7 @@ interface CopilotMessageProps {
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({ message, isStreaming, panelWidth = 308, isDimmed = false, onEditModeChange }) => {
+  ({ message, runtimeContext, isStreaming, panelWidth = 308, isDimmed = false, onEditModeChange }) => {
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
     const [showAllContexts, setShowAllContexts] = useState(false)
@@ -242,6 +247,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           fileAttachments: fileAttachments || message.fileAttachments,
           contexts: (contexts || (message as any).contexts) as ChatContext[] | undefined,
           messageId: message.id, // Reuse the original message ID
+          runtimeContext,
         })
       }
     }
@@ -349,9 +355,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        sendMessage(optionText)
+        sendMessage(optionText, { runtimeContext })
       },
-      [sendMessage]
+      [runtimeContext, sendMessage]
     )
 
     const assistantSegments = useMemo(() => {

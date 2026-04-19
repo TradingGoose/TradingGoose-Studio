@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,13 +13,12 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { areCopilotContextsEqual } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type { ChatContext } from '@/stores/copilot/types'
+import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
@@ -47,7 +45,6 @@ export function shouldMarkUserScrolledDuringStream(params: {
 interface CopilotProps {
   workspaceId: string
   panelWidth: number
-  channelId: string
   pairColor?: PairColor
   inputDisabled?: boolean
 }
@@ -58,7 +55,7 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ workspaceId, panelWidth, channelId, pairColor = 'gray', inputDisabled = false }, ref) => {
+  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
@@ -104,6 +101,13 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }),
       [reviewTarget, workflowId, workspaceId]
     )
+    const sendRuntimeContext = useMemo<CopilotSendRuntimeContext>(
+      () => ({
+        liveContext,
+        implicitContexts,
+      }),
+      [implicitContexts, liveContext]
+    )
     // Use the new copilot store
     const {
       messages,
@@ -137,32 +141,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       currentChat?.latestTurnStatus === 'in_progress' ||
       hasActiveToolCalls
 
-    useLayoutEffect(() => {
-      const storeState = copilotStoreApi.getState()
-      const nextState: Record<string, unknown> = {}
-
-      if (!areCopilotContextsEqual(storeState.implicitContexts, implicitContexts)) {
-        nextState.implicitContexts = implicitContexts
-      }
-
-      const currentLiveContext = storeState.liveContext
-      if (
-        currentLiveContext.workflowId !== liveContext.workflowId ||
-        currentLiveContext.workspaceId !== liveContext.workspaceId ||
-        currentLiveContext.reviewTarget?.entityKind !== liveContext.reviewTarget?.entityKind ||
-        currentLiveContext.reviewTarget?.entityId !== liveContext.reviewTarget?.entityId ||
-        currentLiveContext.reviewTarget?.reviewSessionId !==
-          liveContext.reviewTarget?.reviewSessionId ||
-        currentLiveContext.reviewTarget?.draftSessionId !== liveContext.reviewTarget?.draftSessionId
-      ) {
-        nextState.liveContext = liveContext
-      }
-
-      if (Object.keys(nextState).length > 0) {
-        copilotStoreApi.setState(nextState as any)
-      }
-    }, [copilotStoreApi, implicitContexts, liveContext])
-
     useEffect(() => {
       if (!selectedModel) {
         setSelectedModel(DEFAULT_COPILOT_RUNTIME_MODEL)
@@ -182,7 +160,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         lastScopeKeyRef.current = scopeKey
         setIsInitialized(false)
 
-        await loadChats(true, { workspaceId: workspaceId ?? null })
+        await loadChats({ workspaceId: workspaceId ?? null })
         if (!cancelled) {
           setIsInitialized(true)
         }
@@ -204,11 +182,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     useEffect(() => {
       if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
-        fetchContextUsage().catch((err) => {
+        fetchContextUsage({ workflowId: liveContext.workflowId ?? undefined }).catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
+    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized, liveContext.workflowId])
 
     const clearProgrammaticScrollLock = useCallback(() => {
       if (programmaticScrollResetTimerRef.current !== null) {
@@ -440,14 +418,14 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
     // Handle new chat creation
     const handleStartNewChat = useCallback(() => {
-      createNewChat()
+      createNewChat(workspaceId)
       logger.info('Started new chat')
 
       // Focus the input after creating new chat
       setTimeout(() => {
         userInputRef.current?.focus()
       }, 100) // Small delay to ensure DOM updates are complete
-    }, [createNewChat])
+    }, [createNewChat, workspaceId])
 
     const handleSetInputValueAndFocus = useCallback(
       (value: string) => {
@@ -498,6 +476,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             stream: true,
             fileAttachments,
             contexts,
+            runtimeContext: sendRuntimeContext,
           })
           logger.info(
             'Sent message:',
@@ -508,7 +487,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi]
+      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi, sendRuntimeContext]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -561,6 +540,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                           <CopilotMessage
                             key={message.id}
                             message={message}
+                            runtimeContext={sendRuntimeContext}
                             isStreaming={
                               (isSendingMessage || isAwaitingContinuation) &&
                               message.id === messages[messages.length - 1]?.id
@@ -601,7 +581,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                 <UserInput
                   ref={userInputRef}
                   workspaceId={workspaceId}
-                  channelId={channelId}
+                  workflowId={workflowId}
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
                   disabled={inputDisabled}

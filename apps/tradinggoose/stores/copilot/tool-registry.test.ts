@@ -61,7 +61,7 @@ describe('copilotToolHasInterrupt', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'get_workflow_console',
-      provenance: { channelId: 'pair-red', contextWorkflowId: 'wf-current' },
+      provenance: { contextWorkflowId: 'wf-current' },
     })
 
     expect(context.contextWorkflowId).toBe('wf-current')
@@ -74,7 +74,6 @@ describe('copilotToolHasInterrupt', () => {
           toolCallId,
           toolName: 'get_workflow_console',
           provenance: {
-            channelId: 'pair-red',
             workflowId: 'wf-1',
             contextWorkflowId: 'wf-current',
           },
@@ -87,7 +86,7 @@ describe('copilotToolHasInterrupt', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'read_gdrive_file',
-      provenance: { channelId: 'pair-red', workflowId: 'wf-1' },
+      provenance: { workflowId: 'wf-1' },
     })
 
     expect(

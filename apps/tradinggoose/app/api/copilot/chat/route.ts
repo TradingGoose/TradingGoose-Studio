@@ -626,7 +626,6 @@ const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
   reviewSessionId: z.string().optional(),
-  channelId: z.string().min(1).optional(),
   model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   prefetch: z.boolean().optional(),
   stream: z.boolean().optional().default(true),
@@ -706,7 +705,6 @@ export async function POST(req: NextRequest) {
       message,
       userMessageId,
       reviewSessionId: incomingReviewSessionId,
-      channelId,
       model,
       prefetch,
       stream,
@@ -716,9 +714,6 @@ export async function POST(req: NextRequest) {
       workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
-    if (!incomingReviewSessionId && !channelId) {
-      return createBadRequestResponse('channelId or reviewSessionId is required')
-    }
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
       logger.info(`[${tracker.requestId}] Received chat POST`, {
@@ -792,13 +787,10 @@ export async function POST(req: NextRequest) {
         .orderBy(asc(copilotReviewItems.sequence))
 
       conversationHistory = existingMessages.map(mapReviewItemToApi)
-    } else if (channelId) {
+    } else {
       if (!model || typeof model !== 'string') {
         return createBadRequestResponse('model is required when creating a new review session')
       }
-      // Generic copilot supports multiple chats per workspace. When the client
-      // omits reviewSessionId, this route always creates a fresh session in
-      // that workspace's history bucket instead of reusing the latest row.
       const [newSession] = await db
         .insert(copilotReviewSessions)
         .values({
@@ -807,7 +799,6 @@ export async function POST(req: NextRequest) {
           entityId: null,
           workspaceId: incomingWorkspaceId || null,
           draftSessionId: null,
-          channelId,
           title: null,
           model: COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
         })
@@ -1345,12 +1336,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const reviewSessionId = searchParams.get('reviewSessionId')
-    const channelId = searchParams.get('channelId')
     const workspaceId = searchParams.get('workspaceId')
-
-    if (!reviewSessionId && !channelId) {
-      return createBadRequestResponse('channelId or reviewSessionId is required')
-    }
 
     const { userId: authenticatedUserId, isAuthenticated } =
       await authenticateCopilotRequestSessionOnly()

@@ -40,10 +40,6 @@ vi.mock('@/components/ui/scroll-area', async () => {
   return { ScrollArea }
 })
 
-vi.mock('@/lib/copilot/chat-contexts', () => ({
-  areCopilotContextsEqual: () => true,
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -143,7 +139,7 @@ describe('Copilot auto-scroll', () => {
 
   const renderCopilot = async () => {
     await act(async () => {
-      root.render(<Copilot workspaceId='ws-1' panelWidth={360} channelId='copilot' />)
+      root.render(<Copilot workspaceId='ws-1' panelWidth={360} />)
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -192,12 +188,6 @@ describe('Copilot auto-scroll', () => {
       },
       toolCallsById: {},
       fetchContextUsage: vi.fn(async () => {}),
-      implicitContexts: [],
-      liveContext: {
-        workflowId: null,
-        workspaceId: null,
-        reviewTarget: null,
-      },
     }
   })
 

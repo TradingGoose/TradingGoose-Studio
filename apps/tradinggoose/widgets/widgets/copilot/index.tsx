@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
-import { isPairColor } from '@/widgets/pair-colors'
+import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
 import CopilotApp from './components/copilot-app'
@@ -9,29 +9,36 @@ const COPILOT_WIDGET_KEY = 'copilot'
 
 const resolveCopilotWidgetScope = ({
   pairColor,
+  panelId,
   widget,
-}: Pick<WidgetComponentProps, 'pairColor' | 'widget'>) => {
-  const widgetPairColor = isPairColor(widget?.pairColor) ? widget.pairColor : null
-  const resolvedPairColor = widgetPairColor ?? (isPairColor(pairColor) ? pairColor : 'gray')
+}: Pick<WidgetComponentProps, 'pairColor' | 'panelId' | 'widget'>) =>
+  resolveWidgetChannel({
+    pairColor,
+    panelId,
+    widget,
+    fallbackWidgetKey: COPILOT_WIDGET_KEY,
+  })
 
-  return {
-    resolvedPairColor,
-    channelId: COPILOT_WIDGET_KEY,
-  }
-}
-
-const CopilotHeaderActionSlot = ({ channelId }: { channelId: string }) => (
-  <CopilotHeaderActions channelId={channelId} />
+const CopilotHeaderActionSlot = ({
+  channelId,
+  workspaceId,
+}: {
+  channelId: string
+  workspaceId?: string
+}) => (
+  <CopilotHeaderActions channelId={channelId} workspaceId={workspaceId} />
 )
 
 const CopilotWidgetBody = ({
   context,
   pairColor = 'gray',
+  panelId,
   widget,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
   const { channelId, resolvedPairColor } = resolveCopilotWidgetScope({
     pairColor,
+    panelId,
     widget,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -79,16 +86,17 @@ export const copilotWidget: DashboardWidgetDefinition = {
   category: 'utility',
   description: 'AI copilot experience across workflows and workspace tools.',
   component: (props) => <CopilotWidgetBody {...props} />,
-  renderHeader: ({ widget, context }) => {
+  renderHeader: ({ widget, context, panelId }) => {
     const workspaceId = context?.workspaceId
     const { channelId } = resolveCopilotWidgetScope({
       pairColor: widget?.pairColor ?? 'gray',
+      panelId,
       widget,
     })
 
     return {
       left: <CopilotHeader channelId={channelId} workspaceId={workspaceId} />,
-      right: <CopilotHeaderActionSlot channelId={channelId} />,
+      right: <CopilotHeaderActionSlot channelId={channelId} workspaceId={workspaceId} />,
     }
   },
 }

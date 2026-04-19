@@ -32,6 +32,10 @@ import {
   registerCopilotStoreForToolCallResolver,
 } from '@/stores/copilot/store-access'
 import {
+  getCopilotWorkspaceSelection,
+  rememberCopilotWorkspaceSelection,
+} from '@/stores/copilot/workspace-selection'
+import {
   buildPinnedToolCallsById,
   createErrorMessage,
   createStreamingMessage,
@@ -81,6 +85,7 @@ import {
 import type {
   ChatContext,
   CopilotMessage,
+  CopilotSendRuntimeContext,
   CopilotStore,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
@@ -89,10 +94,6 @@ import type {
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('CopilotStore')
-
-function buildWorkspaceScopedGenericCopilotChatKey(workspaceId?: string | null) {
-  return workspaceId ?? 'global'
-}
 
 const pendingChatPersistence = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -295,48 +296,149 @@ function autoExecuteEligibleToolsForAccessLevel(
   }
 }
 
-const sseHandlers = createSSEHandlers({
-  logger,
-  schedulePersistCurrentChatState,
-})
-
 // Initial state (subset required for UI/streaming)
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: DEFAULT_COPILOT_RUNTIME_MODEL,
   agentPrefetch: false,
-  isCollapsed: false,
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotMessage[],
-  liveContext: {
-    workflowId: null,
-    workspaceId: null,
-    reviewTarget: null,
-  },
-  isLoading: false,
   isLoadingChats: false,
   isSendingMessage: false,
   isAwaitingContinuation: false,
-  isSaving: false,
   isAborting: false,
-  error: null as string | null,
-  saveError: null as string | null,
-  implicitContexts: [] as ChatContext[],
   abortController: null as AbortController | null,
-  chatsLastLoadedAt: null as Date | null,
-  chatsLoadedForScope: null as string | null,
-  revertState: null as { messageId: string; messageContent: string } | null,
   inputValue: '',
   planTodos: [] as Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>,
   showPlanTodos: false,
   toolCallsById: {} as Record<string, CopilotToolCall>,
-  suppressAutoSelect: false,
   contextUsage: null,
 }
 
-const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID) =>
-  create<CopilotStore>()(
+const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
+
+function buildSharedSessionState(state: CopilotStore) {
+  const currentChat = state.currentChat?.reviewSessionId
+    ? {
+        ...state.currentChat,
+        messages: state.messages,
+        messageCount: state.messages.length,
+      }
+    : null
+  if (!currentChat) {
+    return null
+  }
+
+  return {
+    currentChat,
+    messages: state.messages,
+    toolCallsById: state.toolCallsById,
+    isSendingMessage: state.isSendingMessage,
+    isAwaitingContinuation: state.isAwaitingContinuation,
+    isAborting: state.isAborting,
+    abortController: state.abortController,
+    inputValue: state.inputValue,
+    planTodos: state.planTodos,
+    showPlanTodos: state.showPlanTodos,
+    contextUsage: state.contextUsage,
+  }
+}
+
+function syncCopilotSessionState(sourceStore: StoreApi<CopilotStore>) {
+  const sharedSessionState = buildSharedSessionState(sourceStore.getState())
+  if (!sharedSessionState) {
+    return
+  }
+
+  for (const store of copilotStoreRegistry.values()) {
+    if (
+      store === sourceStore ||
+      store.getState().currentChat?.reviewSessionId !== sharedSessionState.currentChat.reviewSessionId
+    ) {
+      continue
+    }
+
+    sharedSessionSyncGuards.add(store)
+    try {
+      store.setState((state) => ({
+        currentChat: sharedSessionState.currentChat,
+        chats: state.chats.map((chat) =>
+          chat.reviewSessionId === sharedSessionState.currentChat.reviewSessionId
+            ? {
+                ...chat,
+                title: sharedSessionState.currentChat.title,
+                conversationId: sharedSessionState.currentChat.conversationId,
+                latestTurnStatus: sharedSessionState.currentChat.latestTurnStatus,
+                updatedAt: sharedSessionState.currentChat.updatedAt,
+                messages: sharedSessionState.currentChat.messages,
+                messageCount: sharedSessionState.currentChat.messageCount,
+              }
+            : chat
+        ),
+        messages: sharedSessionState.messages,
+        toolCallsById: sharedSessionState.toolCallsById,
+        isSendingMessage: sharedSessionState.isSendingMessage,
+        isAwaitingContinuation: sharedSessionState.isAwaitingContinuation,
+        isAborting: sharedSessionState.isAborting,
+        abortController: sharedSessionState.abortController,
+        inputValue: sharedSessionState.inputValue,
+        planTodos: sharedSessionState.planTodos,
+        showPlanTodos: sharedSessionState.showPlanTodos,
+        contextUsage: sharedSessionState.contextUsage,
+      }))
+    } finally {
+      sharedSessionSyncGuards.delete(store)
+    }
+  }
+}
+
+function installSharedSessionSync(store: StoreApi<CopilotStore>) {
+  store.subscribe((state) => {
+    if (!sharedSessionSyncGuards.has(store) && state.currentChat?.reviewSessionId) {
+      syncCopilotSessionState(store)
+    }
+  })
+}
+
+function removeCopilotChatFromStores(reviewSessionId: string) {
+  let clearedWorkspaceId: string | null | undefined
+
+  for (const store of copilotStoreRegistry.values()) {
+    store.setState((state) => {
+      const chats = state.chats.filter((chat) => chat.reviewSessionId !== reviewSessionId)
+      if (state.currentChat?.reviewSessionId !== reviewSessionId) {
+        return { chats }
+      }
+
+      clearedWorkspaceId ??= state.currentChat.workspaceId ?? null
+      return {
+        chats,
+        currentChat: null,
+        messages: [],
+        toolCallsById: {},
+        isSendingMessage: false,
+        isAwaitingContinuation: false,
+        isAborting: false,
+        abortController: null,
+        inputValue: '',
+        planTodos: [],
+        showPlanTodos: false,
+        contextUsage: null,
+      }
+    })
+  }
+
+  return clearedWorkspaceId
+}
+
+const sseHandlers = createSSEHandlers({
+  logger,
+  schedulePersistCurrentChatState,
+})
+
+const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID) => {
+  const store = create<CopilotStore>()(
     devtools((set, get) => ({
       ...initialState,
 
@@ -347,29 +449,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (previousAccessLevel !== accessLevel) {
           autoExecuteEligibleToolsForAccessLevel(accessLevel, get)
         }
-      },
-
-      // Clear messages
-      clearMessages: () => set({ messages: [], contextUsage: null, isAwaitingContinuation: false }),
-
-      setLiveContext: (context) =>
-        set((state) => ({
-          liveContext: {
-            ...state.liveContext,
-            ...context,
-          },
-        })),
-
-      // Chats (minimal implementation for visibility)
-      validateCurrentChat: () => {
-        const { currentChat, chats } = get()
-        if (!currentChat) return false
-        const chatExists = chats.some((c) => c.reviewSessionId === currentChat.reviewSessionId)
-        if (!chatExists) {
-          set({ currentChat: null, messages: [], toolCallsById: {} })
-          return false
-        }
-        return true
       },
 
       selectChat: async (chat: CopilotChat) => {
@@ -394,9 +473,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           get().accessLevel
         )
         const optimisticToolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-          channelId: storeChannelId,
           workspaceId: chat.workspaceId,
         })
+
+        rememberCopilotWorkspaceSelection(chat.workspaceId, chat.reviewSessionId)
 
         // Optimistically set selected chat and normalize messages for UI
         set({
@@ -405,7 +485,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           toolCallsById: optimisticToolCallsById,
           planTodos: [],
           showPlanTodos: false,
-          suppressAutoSelect: false,
           contextUsage: null,
           isSendingMessage: isChatTurnInProgress(chat),
           isAwaitingContinuation: isChatTurnInProgress(chat),
@@ -448,9 +527,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 get().accessLevel
               )
               const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                channelId: storeChannelId,
                 workspaceId: latestChat.workspaceId,
               })
+
+              rememberCopilotWorkspaceSelection(latestChat.workspaceId, latestChat.reviewSessionId)
 
               set({
                 currentChat: latestChat,
@@ -471,7 +551,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         } catch {}
       },
 
-      createNewChat: async () => {
+      createNewChat: async (workspaceId) => {
         const { isSendingMessage, isAwaitingContinuation, currentChat: activeChat } = get()
         if (isSendingMessage || isAwaitingContinuation || isChatTurnInProgress(activeChat)) {
           get().abortMessage()
@@ -500,6 +580,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Generic copilot keeps prior chats in workspace history. "New chat"
         // only clears the active selection so the next send creates a fresh
         // session in the same workspace bucket.
+        const selectionWorkspaceId = currentChat?.workspaceId ?? workspaceId ?? null
+        rememberCopilotWorkspaceSelection(selectionWorkspaceId, null)
+
         logger.info('[Context Usage] New chat created, clearing context usage')
         set(() => ({
           currentChat: null,
@@ -510,7 +593,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           abortController: null,
           planTodos: [],
           showPlanTodos: false,
-          suppressAutoSelect: true,
           contextUsage: null,
         }))
       },
@@ -528,26 +610,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             throw new Error(`Failed to delete chat: ${response.status}`)
           }
 
-          // Remove from local state
-          set((state) => ({
-            chats: state.chats.filter((c) => c.reviewSessionId !== reviewSessionId),
-            // If deleted chat was current, clear it
-            currentChat:
-              state.currentChat?.reviewSessionId === reviewSessionId ? null : state.currentChat,
-            messages: state.currentChat?.reviewSessionId === reviewSessionId ? [] : state.messages,
-            toolCallsById:
-              state.currentChat?.reviewSessionId === reviewSessionId ? {} : state.toolCallsById,
-            isSendingMessage:
-              state.currentChat?.reviewSessionId === reviewSessionId
-                ? false
-                : state.isSendingMessage,
-            isAwaitingContinuation:
-              state.currentChat?.reviewSessionId === reviewSessionId
-                ? false
-                : state.isAwaitingContinuation,
-            abortController:
-              state.currentChat?.reviewSessionId === reviewSessionId ? null : state.abortController,
-          }))
+          const selectionWorkspaceId = removeCopilotChatFromStores(reviewSessionId)
+          if (selectionWorkspaceId !== undefined) {
+            rememberCopilotWorkspaceSelection(selectionWorkspaceId, null)
+          }
 
           logger.info('Chat deleted', { reviewSessionId })
         } catch (error) {
@@ -556,45 +622,32 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
       },
 
-      areChatsFresh: () => false,
-
-      loadChats: async (_forceRefresh, options) => {
-        const { liveContext, currentChat } = get()
-        const resolvedWorkspaceId = options?.workspaceId ?? liveContext.workspaceId
-        const channelScopeKey = buildWorkspaceScopedGenericCopilotChatKey(resolvedWorkspaceId)
-
-        if (!channelScopeKey) {
-          set({
-            chats: currentChat ? [currentChat] : [],
-            isLoadingChats: false,
-            chatsLoadedForScope: null,
-          })
-          return
-        }
+      loadChats: async (options) => {
+        const { currentChat } = get()
+        const resolvedWorkspaceId = options?.workspaceId ?? currentChat?.workspaceId ?? null
 
         // For now always fetch fresh
         set({ isLoadingChats: true })
         try {
-          const params = new URLSearchParams({ channelId: storeChannelId })
+          const params = new URLSearchParams()
           if (resolvedWorkspaceId) {
             params.set('workspaceId', resolvedWorkspaceId)
           }
-          const response = await fetch(`/api/copilot/chat?${params.toString()}`)
+          const query = params.toString()
+          const response = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
           if (!response.ok) {
             throw new Error(`Failed to fetch chats: ${response.status}`)
           }
           const data = await response.json()
           if (data.success && Array.isArray(data.chats)) {
-            const now = new Date()
             set({
               chats: data.chats,
               isLoadingChats: false,
-              chatsLastLoadedAt: now,
-              chatsLoadedForScope: channelScopeKey,
             })
 
             if (data.chats.length > 0) {
-              const { currentChat, isSendingMessage, suppressAutoSelect } = get()
+              const { currentChat, isSendingMessage } = get()
+              const preferredWorkspaceSelection = getCopilotWorkspaceSelection(resolvedWorkspaceId)
               const currentChatStillExists =
                 currentChat &&
                 data.chats.some(
@@ -625,7 +678,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     get().accessLevel
                   )
                   const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                    channelId: storeChannelId,
                     workspaceId: updatedCurrentChat.workspaceId,
                   })
 
@@ -638,26 +690,47 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     abortController: null,
                   })
                 }
-              } else if (!isSendingMessage && !suppressAutoSelect) {
-                const mostRecentChat: CopilotChat = data.chats[0]
-                const normalizedMessages = normalizeMessagesForUI(
-                  mostRecentChat.messages || [],
-                  mostRecentChat.latestTurnStatus,
-                  get().accessLevel
-                )
-                const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                  channelId: storeChannelId,
-                  workspaceId: mostRecentChat.workspaceId,
-                })
+              } else if (!isSendingMessage) {
+                const preferredChat =
+                  typeof preferredWorkspaceSelection === 'string'
+                    ? (data.chats.find(
+                        (chat: CopilotChat) =>
+                          chat.reviewSessionId === preferredWorkspaceSelection
+                      ) ?? null)
+                    : null
+                const availableChat =
+                  preferredChat ?? (preferredWorkspaceSelection === null ? null : (data.chats[0] ?? null))
 
-                set({
-                  currentChat: mostRecentChat,
-                  messages: normalizedMessages,
-                  toolCallsById,
-                  isSendingMessage: isChatTurnInProgress(mostRecentChat),
-                  isAwaitingContinuation: isChatTurnInProgress(mostRecentChat),
-                  abortController: null,
-                })
+                if (availableChat) {
+                  const normalizedMessages = normalizeMessagesForUI(
+                    availableChat.messages || [],
+                    availableChat.latestTurnStatus,
+                    get().accessLevel
+                  )
+                  const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
+                    workspaceId: availableChat.workspaceId,
+                  })
+
+                  rememberCopilotWorkspaceSelection(availableChat.workspaceId, availableChat.reviewSessionId)
+
+                  set({
+                    currentChat: availableChat,
+                    messages: normalizedMessages,
+                    toolCallsById,
+                    isSendingMessage: isChatTurnInProgress(availableChat),
+                    isAwaitingContinuation: isChatTurnInProgress(availableChat),
+                    abortController: null,
+                  })
+                } else {
+                  set({
+                    currentChat: null,
+                    messages: [],
+                    toolCallsById: {},
+                    isSendingMessage: false,
+                    isAwaitingContinuation: false,
+                    abortController: null,
+                  })
+                }
               }
             } else {
               set({
@@ -676,36 +749,41 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           set({
             chats: [],
             isLoadingChats: false,
-            error: error instanceof Error ? error.message : 'Failed to load chats',
+          })
+          logger.warn('Failed to load copilot chats', {
+            workspaceId: resolvedWorkspaceId,
+            error: error instanceof Error ? error.message : String(error),
           })
         }
       },
 
       // Send a message (streaming only)
       sendMessage: async (message: string, options = {}) => {
-        const { liveContext, currentChat, revertState, implicitContexts } = get()
+        const { currentChat } = get()
         const {
-          stream = true,
           fileAttachments,
           contexts,
           messageId,
+          runtimeContext,
         } = options as {
-          stream?: boolean
           fileAttachments?: MessageFileAttachment[]
           contexts?: ChatContext[]
           messageId?: string
+          runtimeContext?: CopilotSendRuntimeContext
         }
 
-        // Generic copilot chat persistence is workspace-scoped. The user's
-        // currently viewed workflow/entity is attached here as live per-turn
-        // context instead of changing the underlying chat thread when the
-        // current UI target changes.
+        if (!runtimeContext) {
+          logger.warn('Skipping copilot send without runtime context')
+          return
+        }
+
+        const { liveContext, implicitContexts } = runtimeContext
+
         const resolvedContexts = mergeCopilotContexts({
           explicitContexts: contexts,
           implicitContexts,
         })
         const turnProvenance = buildTurnProvenanceFromContexts(
-          storeChannelId,
           resolvedContexts,
           liveContext.workspaceId,
           liveContext.reviewTarget,
@@ -714,39 +792,23 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
         const abortController = new AbortController()
-        set({ isSendingMessage: true, isAwaitingContinuation: false, error: null, abortController })
+        set({ isSendingMessage: true, isAwaitingContinuation: false, abortController })
 
         const userMessage = createUserMessage(message, fileAttachments, contextsToSend, messageId)
         const streamingMessage = createStreamingMessage()
 
-        let newMessages: CopilotMessage[]
-        if (revertState) {
-          const currentMessages = get().messages
-          newMessages = [...currentMessages, userMessage, streamingMessage]
-          set({ revertState: null, inputValue: '' })
-        } else {
-          const currentMessages = get().messages
-          // If messageId is provided, check if it already exists (e.g., from edit flow)
-          const existingIndex = messageId
-            ? currentMessages.findIndex((m) => m.id === messageId)
-            : -1
-          if (existingIndex !== -1) {
-            // Replace existing message instead of adding new one
-            newMessages = [
-              ...currentMessages.slice(0, existingIndex),
-              userMessage,
-              streamingMessage,
-            ]
-          } else {
-            // Add new messages normally
-            newMessages = [...currentMessages, userMessage, streamingMessage]
-          }
-        }
+        const currentMessages = get().messages
+        const existingIndex = messageId
+          ? currentMessages.findIndex((existingMessage) => existingMessage.id === messageId)
+          : -1
+        const newMessages =
+          existingIndex !== -1
+            ? [...currentMessages.slice(0, existingIndex), userMessage, streamingMessage]
+            : [...currentMessages, userMessage, streamingMessage]
 
         const isFirstMessage = get().messages.length === 0 && !currentChat?.title
         set((state) => ({
           messages: newMessages,
-          currentUserMessageId: userMessage.id,
           ...buildChatTurnStatusState(state, ACTIVE_TURN_STATUS),
         }))
 
@@ -768,32 +830,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           const requestModel = get().selectedModel as CopilotStore['selectedModel']
           const requestProvider = resolveCopilotRuntimeProvider(requestModel)
 
-          // Debug: log contexts presence before sending
-          try {
-            logger.info('sendMessage: preparing request', {
-              hasContexts: Array.isArray(contextsToSend),
-              contextsCount: Array.isArray(contextsToSend) ? contextsToSend.length : 0,
-              contextsPreview: Array.isArray(contextsToSend)
-                ? contextsToSend.map((c: any) => ({
-                    kind: c?.kind,
-                    reviewSessionId: (c as any)?.reviewSessionId,
-                    workflowId: (c as any)?.workflowId,
-                    label: (c as any)?.label,
-                  }))
-                : undefined,
-            })
-          } catch {}
-
           const result = await sendStreamingMessage({
             message,
             userMessageId: userMessage.id,
             reviewSessionId: requestReviewSessionId,
-            channelId: storeChannelId,
             workspaceId: liveContext.workspaceId ?? undefined,
             model: requestModel,
             provider: requestProvider,
             prefetch: get().agentPrefetch,
-            stream,
             fileAttachments,
             contexts: contextsToSend,
             abortSignal: abortController.signal,
@@ -804,10 +848,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               result.stream,
               streamingMessage.id,
               false,
-              userMessage.id,
               turnProvenance
             )
-            set({ chatsLastLoadedAt: null, chatsLoadedForScope: null })
           } else {
             if (result.error === 'Request was aborted') {
               return
@@ -837,7 +879,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 m.id === streamingMessage.id ? errorMessage : m
               ),
               ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-              error: errorContent,
               isSendingMessage: false,
               isAwaitingContinuation: false,
               abortController: null,
@@ -852,7 +893,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           set((state) => ({
             messages: state.messages.map((m) => (m.id === streamingMessage.id ? errorMessage : m)),
             ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-            error: error instanceof Error ? error.message : 'Failed to send message',
             isSendingMessage: false,
             isAwaitingContinuation: false,
             abortController: null,
@@ -1085,10 +1125,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         } catch {}
       },
 
-      sendDocsMessage: async (query: string) => {
-        await get().sendMessage(query)
-      },
-
       saveChatMessages: async (chatId: string, options) => {
         const { currentChat, messages } = get()
         const targetChatId = chatId || currentChat?.reviewSessionId
@@ -1124,7 +1160,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         stream: ReadableStream,
         assistantMessageId: string,
         isContinuation = false,
-        triggerUserMessageId?: string,
         turnProvenance?: CopilotToolExecutionProvenance
       ) => {
         const reader = stream.getReader()
@@ -1138,7 +1173,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         try {
           const context: StreamingContext = {
             messageId: assistantMessageId,
-            provenance: turnProvenance ?? { channelId: storeChannelId },
+            provenance: turnProvenance,
             contentBlocks: [],
             textBlocksByItemId: new Map(),
             thinkingBlocksByItemId: new Map(),
@@ -1185,11 +1220,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             isSendingMessage: context.awaitingTools === true,
             isAwaitingContinuation: context.awaitingTools === true,
             abortController: null,
-            currentUserMessageId: null,
           }))
 
           if (context.newReviewSessionId && !get().currentChat) {
-            await get().handleNewReviewSessionCreation(context.newReviewSessionId)
+            await get().handleNewReviewSessionCreation(
+              context.newReviewSessionId,
+              context.provenance?.workspaceId ?? null
+            )
           }
 
           await flushPendingAutoExecutionToolCalls(context, get, logger)
@@ -1237,11 +1274,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       // Handle new chat creation from stream
-      handleNewReviewSessionCreation: async (newReviewSessionId: string) => {
+      handleNewReviewSessionCreation: async (
+        newReviewSessionId: string,
+        workspaceId?: string | null
+      ) => {
         const newChat: CopilotChat = {
           reviewSessionId: newReviewSessionId,
-          workspaceId: get().liveContext.workspaceId,
-          channelId: storeChannelId,
+          workspaceId: workspaceId ?? null,
           entityKind: COPILOT_SESSION_KIND,
           entityId: null,
           draftSessionId: null,
@@ -1256,23 +1295,17 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Abort any in-progress tools and clear diff on new chat creation
         abortAllInProgressTools(set, get)
 
+        rememberCopilotWorkspaceSelection(newChat.workspaceId, newReviewSessionId)
+
         set({
           currentChat: newChat,
           chats: [newChat, ...(get().chats || [])],
-          chatsLastLoadedAt: null,
-          chatsLoadedForScope: null,
           planTodos: [],
           showPlanTodos: false,
-          suppressAutoSelect: false,
         })
 
         schedulePersistCurrentChatState(get, newReviewSessionId, ACTIVE_TURN_STATUS)
       },
-
-      // Utilities
-      clearError: () => set({ error: null }),
-      clearSaveError: () => set({ saveError: null }),
-      retrySave: async (_chatId: string) => {},
 
       cleanup: () => {
         const { isSendingMessage, isAwaitingContinuation, currentChat } = get()
@@ -1292,7 +1325,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
       // Input controls
       setInputValue: (value: string) => set({ inputValue: value }),
-      clearRevertState: () => set({ revertState: null }),
 
       // Todo list (UI only)
       setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: true }),
@@ -1307,10 +1339,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         })
       },
       closePlanTodos: () => set({ showPlanTodos: false }),
-
-      // Diff updates are out of scope for minimal store
-      updateDiffStore: async (_yamlContent: string) => {},
-      updateDiffStoreWithWorkflowState: async (_workflowState: any) => {},
 
       setSelectedModel: async (model) => {
         logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
@@ -1328,8 +1356,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       }) => {
         try {
           const { bill = false, assistantMessageId, workflowId } = options ?? {}
-          const { currentChat, selectedModel, liveContext } = get()
-          const activeWorkflowId = workflowId ?? (bill ? undefined : liveContext.workflowId)
+          const { currentChat, selectedModel } = get()
+          const activeWorkflowId = workflowId
           const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
             hasConversationId: !!currentChat?.conversationId,
@@ -1421,16 +1449,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
         const provenance = toolCall?.provenance
-        if (!toolCall || !provenance) return
+        if (!toolCall) return
 
         const { id, name, params } = toolCall
         const executionContext = createExecutionContext({
           toolCallId: id,
           toolName: name,
-          provenance: {
-            ...provenance,
-            channelId: provenance.channelId || DEFAULT_COPILOT_CHANNEL_ID,
-          },
+          provenance: provenance ?? {},
         })
         const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
         const targetStore = getCopilotStore(storeChannelId)
@@ -1441,7 +1466,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (isServerManagedCopilotTool(name)) {
           try {
             const serverContext = {
-              ...(provenance.contextWorkflowId
+              ...(provenance?.contextWorkflowId
                 ? { contextWorkflowId: provenance.contextWorkflowId }
                 : {}),
             }
@@ -1707,6 +1732,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
     }))
   )
 
+  installSharedSessionSync(store)
+  return store
+}
+
 export const DEFAULT_COPILOT_CHANNEL_ID = 'default'
 
 const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()
@@ -1722,18 +1751,12 @@ export const getCopilotStore = (channelId = DEFAULT_COPILOT_CHANNEL_ID) => {
 }
 
 const findStoreForToolCall = (toolCallId: string) => {
-  let fallbackStore: StoreApi<CopilotStore> | undefined
-  for (const [channelId, store] of copilotStoreRegistry.entries()) {
-    const toolCall = store.getState().toolCallsById[toolCallId]
-    if (!toolCall) continue
-    if (toolCall.provenance?.channelId === channelId) {
+  for (const store of copilotStoreRegistry.values()) {
+    if (store.getState().toolCallsById[toolCallId]) {
       return store
     }
-    if (!fallbackStore) {
-      fallbackStore = store
-    }
   }
-  return fallbackStore
+  return undefined
 }
 
 registerCopilotStoreForToolCallResolver(
@@ -1758,7 +1781,7 @@ registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) 
 
   await targetStore
     .getState()
-    .handleStreamingResponse(response.body, assistantMessageId, true, undefined, turnProvenance)
+    .handleStreamingResponse(response.body, assistantMessageId, true, turnProvenance)
 })
 
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)

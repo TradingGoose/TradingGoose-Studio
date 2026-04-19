@@ -113,7 +113,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
         const result = await executeWorkflowWithFullLogging({
           workflowInput,
           executionId: this.toolCallId,
-          channelId: executionContext.channelId,
           workflowId: activeWorkflowId,
         })
 

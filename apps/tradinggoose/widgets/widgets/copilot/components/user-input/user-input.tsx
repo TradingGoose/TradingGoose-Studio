@@ -91,7 +91,7 @@ interface AttachedFile {
 
 interface UserInputProps {
   workspaceId: string
-  channelId?: string
+  workflowId?: string | null
   onSubmit: (
     message: string,
     fileAttachments?: MessageFileAttachment[],
@@ -120,7 +120,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
   (
     {
       workspaceId,
-      channelId,
+      workflowId = null,
       onSubmit,
       onAbort,
       disabled = false,
@@ -218,8 +218,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const [isLoadingLogs, setIsLoadingLogs] = useState(false)
 
     const { data: session } = useSession()
-    const { liveContext, contextUsage, createNewChat } = useCopilotStore()
-    const workflowId = liveContext.workflowId
+    const { contextUsage, createNewChat } = useCopilotStore()
 
     // Determine placeholder based on access level
     const effectivePlaceholder =
@@ -267,7 +266,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     useEffect(() => {
       setPastChats([])
       setIsLoadingPastChats(false)
-    }, [channelId, workspaceId])
+    }, [workspaceId])
 
     // Auto-resize textarea and toggle vertical scroll when exceeding max height
     useEffect(() => {
@@ -368,9 +367,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         setIsLoadingPastChats(true)
 
         const params = new URLSearchParams()
-        if (channelId) {
-          params.set('channelId', channelId)
-        }
         if (workspaceId) {
           params.set('workspaceId', workspaceId)
         }
@@ -2115,7 +2111,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             <div className='absolute top-2 right-2 z-10'>
               <ContextUsagePill
                 percentage={contextUsage.percentage}
-                onCreateNewChat={createNewChat}
+                onCreateNewChat={() => createNewChat(workspaceId)}
               />
             </div>
           )}

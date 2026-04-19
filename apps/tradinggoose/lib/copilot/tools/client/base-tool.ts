@@ -59,7 +59,6 @@ export interface BaseClientToolMetadata {
 export interface ClientToolExecutionContext {
   toolCallId: string
   toolName: string
-  channelId: string
   workflowId?: string
   contextWorkflowId?: string
   workspaceId?: string

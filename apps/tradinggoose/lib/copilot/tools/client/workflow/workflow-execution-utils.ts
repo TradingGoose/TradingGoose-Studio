@@ -16,7 +16,6 @@ import {
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowExecutionUtils')
@@ -41,7 +40,6 @@ export interface WorkflowExecutionOptions {
   workflowInput?: any
   executionId?: string
   onStream?: (se: StreamingExecution) => Promise<void>
-  channelId?: string
   workflowId?: string
 }
 
@@ -58,7 +56,6 @@ export interface WorkflowExecutionContext {
  * Get the current workflow execution context from stores
  */
 export async function getWorkflowExecutionContext(
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   workflowId?: string
 ): Promise<WorkflowExecutionContext> {
   const activeWorkflowId = workflowId
@@ -75,7 +72,6 @@ export async function getWorkflowExecutionContext(
       {
         toolCallId: 'workflow-execution-context',
         toolName: 'run_workflow',
-        channelId,
         workflowId: activeWorkflowId,
       },
       activeWorkflowId
@@ -286,7 +282,7 @@ export async function persistExecutionLogs(
 export async function executeWorkflowWithFullLogging(
   options: WorkflowExecutionOptions = {}
 ): Promise<ExecutionResult | StreamingExecution> {
-  const context = await getWorkflowExecutionContext(options.channelId, options.workflowId)
+  const context = await getWorkflowExecutionContext(options.workflowId)
   const executionId = options.executionId || uuidv4()
 
   try {

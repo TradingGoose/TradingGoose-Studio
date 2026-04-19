@@ -57,7 +57,6 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'run_workflow',
-      channelId: 'pair-green',
       workflowId: 'wf-context',
       log: vi.fn(),
     })
@@ -97,7 +96,6 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'run_workflow',
-      channelId: 'pair-green',
       workflowId: 'wf-live-context',
       log: vi.fn(),
     })
@@ -110,7 +108,6 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockExecuteWorkflowWithFullLogging).toHaveBeenCalledWith({
       workflowInput: { symbol: 'AAPL' },
       executionId: toolCallId,
-      channelId: 'pair-green',
       workflowId: 'wf-explicit-target',
     })
     expect(tool.getState()).toBe(ClientToolCallState.success)

@@ -730,14 +730,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
-  it('creates a fresh generic copilot session for the current panel channel', async () => {
+  it('creates a fresh generic copilot session in the workspace history bucket', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-1',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -751,7 +750,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
 
     const request = createMockRequest('POST', {
       message: 'Start a fresh generic copilot chat',
-      channelId: 'copilot-panel-1',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: false,
@@ -771,7 +769,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
         userId: 'collaborator-user',
         entityKind: 'copilot',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
       })
     )
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
@@ -791,14 +788,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
     )
   })
 
-  it('creates a new generic copilot session even when older chats already exist for the same panel channel', async () => {
+  it('creates a new generic copilot session even when older chats exist in the same workspace', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-newer',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -811,8 +807,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     ])
 
     const request = createMockRequest('POST', {
-      message: 'Create another chat in the same panel',
-      channelId: 'copilot-panel-1',
+      message: 'Create another chat in the same workspace',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: false,
@@ -832,14 +827,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
         userId: 'collaborator-user',
         entityKind: 'copilot',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
       })
     )
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         endpoint: '/api/copilot',
         body: expect.objectContaining({
-          message: 'Create another chat in the same panel',
+          message: 'Create another chat in the same workspace',
           chatId: 'review-session-channel-newer',
         }),
         signal: expect.any(AbortSignal),
@@ -853,7 +847,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
       id: 'review-session-finalized-stream',
       userId: 'collaborator-user',
       workspaceId: 'workspace-1',
-      channelId: 'copilot-panel-finalized',
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -922,7 +915,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
       id: 'review-session-reasoning-stream',
       userId: 'collaborator-user',
       workspaceId: 'workspace-1',
-      channelId: 'copilot-panel-reasoning',
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1031,7 +1023,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
       id: 'review-session-stringified-tool-args',
       userId: 'collaborator-user',
       workspaceId: 'workspace-1',
-      channelId: 'copilot-panel-stringified-tool-args',
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1086,14 +1077,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
     )
   })
 
-  it('keeps a newly created panel-scoped generic copilot chat when a streamed reply ends without assistant content', async () => {
+  it('keeps a newly created workspace copilot chat when a streamed reply ends without assistant content', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-empty',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-empty',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -1111,7 +1101,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
 
     const request = createMockRequest('POST', {
       message: 'Keep my user message even if the assistant is empty',
-      channelId: 'copilot-panel-empty',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: true,
@@ -1134,11 +1123,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
       id: 'review-session-existing-scope',
       userId: 'collaborator-user',
       workspaceId: 'workspace-1',
-      channelId: 'copilot-panel-existing',
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
-      title: 'Existing panel-scoped generic copilot chat',
+      title: 'Existing workspace copilot chat',
       model: 'claude-sonnet-4.6',
       conversationId: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),

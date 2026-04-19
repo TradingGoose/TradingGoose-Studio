@@ -230,16 +230,10 @@ function applyStreamedFunctionCallItem(
   }
   updateStreamingMessage(set, context)
 
-  const provenance = next.provenance
-  if (!provenance) {
-    logger.warn('Skipping unpinned tool call execution', { id, name })
-    return
-  }
-
   const executionContext = createExecutionContext({
     toolCallId: id,
     toolName: name,
-    provenance,
+    provenance: next.provenance ?? {},
   })
 
   try {
@@ -400,7 +394,10 @@ export function createSSEHandlers(params: {
       context.newReviewSessionId = data.reviewSessionId
       const { currentChat } = get()
       if (!currentChat && context.newReviewSessionId) {
-        await get().handleNewReviewSessionCreation(context.newReviewSessionId)
+        await get().handleNewReviewSessionCreation(
+          context.newReviewSessionId,
+          context.provenance?.workspaceId ?? null
+        )
       }
     },
     title_updated: (data, _context, get, set) => {

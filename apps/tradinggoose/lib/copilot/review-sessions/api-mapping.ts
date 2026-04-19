@@ -10,7 +10,6 @@ export const SESSION_SELECT_COLUMNS = {
   title: copilotReviewSessions.title,
   conversationId: copilotReviewSessions.conversationId,
   workspaceId: copilotReviewSessions.workspaceId,
-  channelId: copilotReviewSessions.channelId,
   entityKind: copilotReviewSessions.entityKind,
   entityId: copilotReviewSessions.entityId,
   draftSessionId: copilotReviewSessions.draftSessionId,
@@ -22,7 +21,6 @@ type SessionRow = Pick<
   typeof copilotReviewSessions.$inferSelect,
   | 'id'
   | 'workspaceId'
-  | 'channelId'
   | 'entityKind'
   | 'entityId'
   | 'draftSessionId'
@@ -45,7 +43,6 @@ export function mapSessionToApiResponse(
   return {
     reviewSessionId: session.id,
     workspaceId: session.workspaceId,
-    channelId: session.channelId,
     entityKind: session.entityKind,
     entityId: session.entityId,
     draftSessionId: session.draftSessionId,

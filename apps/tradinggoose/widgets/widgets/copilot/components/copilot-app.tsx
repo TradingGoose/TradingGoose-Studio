@@ -5,9 +5,12 @@ import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useSession } from '@/lib/auth-client'
 import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
-import { CopilotStoreProvider, useCopilotStoreApi } from '@/stores/copilot/store'
+import {
+  CopilotStoreProvider,
+  DEFAULT_COPILOT_CHANNEL_ID,
+  useCopilotStoreApi,
+} from '@/stores/copilot/store'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useRegisteredEntitySession } from '@/lib/yjs/entity-session-registry'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
@@ -100,9 +103,8 @@ const CopilotAppContent = ({
   } | null>(null)
   const lastRejectedResolutionKeyRef = useRef<string | null>(null)
   const pairContextRef = useRef(pairContext)
-  // Copilot history stays in the workspace-scoped generic channel. Editable
-  // entity sessions are mounted only from explicit review targets; ambient
-  // current_* context is read-only.
+  // Copilot history is workspace-scoped, while runtime edits still follow the
+  // active widget channel through pair/panel context.
   const entityTargetResolution = useMemo(() => {
     const immediate: ReviewTargetDescriptor[] = []
     const unresolved: CopilotEditableReviewTarget[] = []
@@ -272,7 +274,6 @@ const CopilotAppContent = ({
       <Copilot
         key={channelId}
         workspaceId={workspaceId}
-        channelId={channelId}
         panelWidth={panelWidth}
         pairColor={pairColor}
         inputDisabled={isResolvingReviewTarget || isWaitingForEntitySessions}
@@ -297,7 +298,7 @@ const CopilotAppContent = ({
 const CopilotApp = ({
   workspaceId,
   panelWidth,
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  channelId = DEFAULT_COPILOT_CHANNEL_ID,
   pairColor,
 }: CopilotAppProps) => {
   const session = useSession()

@@ -86,6 +86,7 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
+  DEFAULT_COPILOT_CHANNEL_ID: 'default',
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useCopilotStoreApi: () => mockCopilotStoreApi,
 }))

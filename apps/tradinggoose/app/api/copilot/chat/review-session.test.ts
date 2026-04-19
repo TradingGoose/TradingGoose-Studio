@@ -38,7 +38,6 @@ describe('Copilot Chat Review Session GET', () => {
       id: 'review-session-1',
       userId: 'creator-user',
       workspaceId: 'workspace-1',
-      channelId: null,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -85,7 +84,6 @@ describe('Copilot Chat Review Session GET', () => {
         id: 'review-session-2',
         userId: 'creator-user',
         workspaceId: 'workspace-1',
-        channelId: 'workflow-review',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -204,7 +202,6 @@ describe('Copilot Chat Review Session GET', () => {
         model: 'model',
         conversationId: 'conversationId',
         workspaceId: 'workspaceId',
-        channelId: 'channelId',
         entityKind: 'entityKind',
         entityId: 'entityId',
         draftSessionId: 'draftSessionId',
@@ -214,7 +211,6 @@ describe('Copilot Chat Review Session GET', () => {
       mapSessionToApiResponse: vi.fn((session: any, opts: { messageCount: number; messages?: any[] }) => ({
         reviewSessionId: session.id,
         workspaceId: session.workspaceId,
-        channelId: session.channelId,
         entityKind: session.entityKind,
         entityId: session.entityId,
         draftSessionId: session.draftSessionId,
@@ -278,7 +274,6 @@ describe('Copilot Chat Review Session GET', () => {
         {
           reviewSessionId: 'review-session-1',
           workspaceId: 'workspace-1',
-          channelId: null,
           entityKind: 'copilot',
           entityId: null,
           draftSessionId: null,
@@ -316,7 +311,6 @@ describe('Copilot Chat Review Session GET', () => {
       id: 'entity-review-session-1',
       userId: 'creator-user',
       workspaceId: 'workspace-1',
-      channelId: null,
       entityKind: 'skill',
       entityId: 'skill-1',
       draftSessionId: null,
@@ -349,7 +343,7 @@ describe('Copilot Chat Review Session GET', () => {
       .mockReturnValueOnce({ from: mockFromTurns })
 
     const request = new NextRequest(
-      'http://localhost:3000/api/copilot/chat?channelId=workflow-review&workspaceId=workspace-1'
+      'http://localhost:3000/api/copilot/chat?workspaceId=workspace-1'
     )
 
     const { GET } = await import('@/app/api/copilot/chat/route')
@@ -363,7 +357,6 @@ describe('Copilot Chat Review Session GET', () => {
         {
           reviewSessionId: 'review-session-2',
           workspaceId: 'workspace-1',
-          channelId: 'workflow-review',
           entityKind: 'copilot',
           entityId: null,
           draftSessionId: null,

@@ -152,7 +152,6 @@ export function createExecutionContext(params: {
 }): ClientToolExecutionContext {
   const { toolCallId, toolName, provenance } = params
   const {
-    channelId = '',
     workflowId,
     contextWorkflowId,
     workspaceId,
@@ -165,7 +164,6 @@ export function createExecutionContext(params: {
   return {
     toolCallId,
     toolName,
-    channelId,
     ...(workflowId ? { workflowId } : {}),
     ...(contextWorkflowId ? { contextWorkflowId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
@@ -178,7 +176,6 @@ export function createExecutionContext(params: {
         logger[level](message, {
           toolCallId,
           toolName,
-          channelId,
           workflowId,
           contextWorkflowId,
           workspaceId,

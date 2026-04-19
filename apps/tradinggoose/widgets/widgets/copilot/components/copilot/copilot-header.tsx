@@ -217,7 +217,7 @@ export function CopilotHeader({
   }
 
   const handleRefresh = async () => {
-    await store.getState().loadChats(true, { workspaceId: workspaceId ?? null })
+    await store.getState().loadChats({ workspaceId: workspaceId ?? null })
   }
 
   const title = scopedCurrentChat?.title || 'New Chat'
@@ -326,8 +326,10 @@ export function CopilotHeader({
 
 export function CopilotHeaderActions({
   channelId,
+  workspaceId,
 }: {
   channelId: string
+  workspaceId?: string
 }) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
 
@@ -336,7 +338,7 @@ export function CopilotHeaderActions({
   const { isSendingMessage } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const handleNewChat = async () => {
-    await store.getState().createNewChat()
+    await store.getState().createNewChat(workspaceId ?? null)
   }
 
   return (

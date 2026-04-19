@@ -79,7 +79,6 @@ function applyLiveReviewTargetProvenance(
 }
 
 export function buildTurnProvenanceFromContexts(
-  channelId: string,
   contexts: ChatContext[] | undefined,
   workspaceId?: string | null,
   reviewTarget?: CopilotLiveReviewTarget | null,
@@ -88,7 +87,6 @@ export function buildTurnProvenanceFromContexts(
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedContextWorkflowId = normalizeOptionalString(contextWorkflowId)
   const provenance: CopilotToolExecutionProvenance = {
-    channelId,
     ...(normalizedContextWorkflowId ? { contextWorkflowId: normalizedContextWorkflowId } : {}),
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
   }
@@ -115,14 +113,8 @@ export function withPinnedToolExecutionProvenance(
       ? toolCall.params.workflowId.trim()
       : undefined
   const explicitEntityId = normalizeOptionalString(toolCall.params?.entityId)
-  const channelId = toolCall.provenance?.channelId ?? baseProvenance?.channelId
-
-  if (!channelId) {
-    return toolCall
-  }
 
   const mergedProvenance = {
-    channelId,
     ...(baseProvenance ?? {}),
     ...(toolCall.provenance ?? {}),
     ...(explicitWorkflowId ? { workflowId: explicitWorkflowId } : {}),

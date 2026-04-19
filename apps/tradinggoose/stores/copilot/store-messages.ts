@@ -125,7 +125,6 @@ export function normalizeMessagesForUI(
 export function buildPinnedToolCallsById(
   messages: CopilotMessage[],
   opts: {
-    channelId: string
     workspaceId?: string | null
   }
 ): Record<string, CopilotToolCall> {
@@ -136,15 +135,15 @@ export function buildPinnedToolCallsById(
       return
     }
 
-    toolCallsById[toolCall.id] = withPinnedToolExecutionProvenance(toolCall, turnProvenance ?? {
-      channelId: opts.channelId,
-    })
+    const baseProvenance =
+      turnProvenance ?? (opts.workspaceId ? { workspaceId: opts.workspaceId } : undefined)
+
+    toolCallsById[toolCall.id] = withPinnedToolExecutionProvenance(toolCall, baseProvenance)
   }
 
   for (const message of messages) {
     if (message.role === 'user') {
       turnProvenance = buildTurnProvenanceFromContexts(
-        opts.channelId,
         Array.isArray((message as any).contexts)
           ? ((message as any).contexts as ChatContext[])
           : undefined,
