@@ -5,12 +5,41 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+  CopilotMessage as CopilotMessageType,
+  CopilotSendRuntimeContext,
+} from '@/stores/copilot/types'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
 let mockStoreState: any
+
+const runtimeContext: CopilotSendRuntimeContext = {
+  liveContext: {
+    workflowId: null,
+    workspaceId: 'ws-1',
+    reviewTarget: null,
+  },
+  implicitContexts: [],
+}
+
+const assistantMessage: CopilotMessageType = {
+  id: 'assistant-1',
+  role: 'assistant',
+  content: 'Plan is ready.',
+  timestamp: '2026-04-17T00:00:00.000Z',
+  contentBlocks: [
+    {
+      type: 'text' as const,
+      content: 'Plan is ready.',
+      timestamp: 1,
+      itemId: 'text-1',
+    },
+  ],
+  citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
+}
 
 vi.mock('@/lib/copilot/chat-replay-safety', () => ({
   EDIT_REPLAY_BLOCKED_MESSAGE: 'blocked',
@@ -70,22 +99,6 @@ describe('CopilotMessage', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    const assistantMessage = {
-      id: 'assistant-1',
-      role: 'assistant',
-      content: 'Plan is ready.',
-      timestamp: '2026-04-17T00:00:00.000Z',
-      contentBlocks: [
-        {
-          type: 'text' as const,
-          content: 'Plan is ready.',
-          timestamp: 1,
-          itemId: 'text-1',
-        },
-      ],
-      citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
-    }
-
     mockStoreState = {
       currentChat: {
         workspaceId: 'ws-1',
@@ -112,7 +125,7 @@ describe('CopilotMessage', () => {
 
   it('renders assistant content without copy or feedback action buttons', async () => {
     await act(async () => {
-      root.render(<CopilotMessage message={mockStoreState.messages[0]} />)
+      root.render(<CopilotMessage message={assistantMessage} runtimeContext={runtimeContext} />)
     })
 
     expect(container.textContent).toContain('Plan is ready.')

@@ -97,15 +97,22 @@ const logger = createLogger('CopilotStore')
 
 const pendingChatPersistence = new Map<string, ReturnType<typeof setTimeout>>()
 
+function clearPendingChatPersistence(reviewSessionId: string) {
+  const existing = pendingChatPersistence.get(reviewSessionId)
+  if (!existing) {
+    return
+  }
+
+  clearTimeout(existing)
+  pendingChatPersistence.delete(reviewSessionId)
+}
+
 function schedulePersistCurrentChatState(
   get: () => CopilotStore,
   reviewSessionId: string,
   latestTurnStatus: string
 ) {
-  const existing = pendingChatPersistence.get(reviewSessionId)
-  if (existing) {
-    clearTimeout(existing)
-  }
+  clearPendingChatPersistence(reviewSessionId)
 
   pendingChatPersistence.set(
     reviewSessionId,
@@ -883,6 +890,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               isAwaitingContinuation: false,
               abortController: null,
             }))
+
+            const failedChat = get().currentChat
+            if (failedChat?.reviewSessionId) {
+              await get().saveChatMessages(failedChat.reviewSessionId, {
+                latestTurnStatus: COMPLETED_TURN_STATUS,
+              })
+            }
           }
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') return
@@ -897,6 +911,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             isAwaitingContinuation: false,
             abortController: null,
           }))
+
+          const failedChat = get().currentChat
+          if (failedChat?.reviewSessionId) {
+            await get().saveChatMessages(failedChat.reviewSessionId, {
+              latestTurnStatus: COMPLETED_TURN_STATUS,
+            })
+          }
         }
       },
 
@@ -1137,6 +1158,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             options?.latestTurnStatus ??
             currentChat?.latestTurnStatus ??
             (get().isSendingMessage ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS)
+          if (latestTurnStatus !== ACTIVE_TURN_STATUS) {
+            clearPendingChatPersistence(targetChatId)
+          }
           await fetch('/api/copilot/chat/update-messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

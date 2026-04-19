@@ -83,7 +83,7 @@ vi.mock('..', async () => {
   UserInput.displayName = 'UserInput'
 
   return {
-    CopilotMessage: ({ message }: any) => (
+    CopilotMessage: ({ message, runtimeContext: _runtimeContext }: any) => (
       <div data-testid={`message-${message.id}`}>{message.id}</div>
     ),
     CopilotWelcome: () => <div data-testid='copilot-welcome'>welcome</div>,
@@ -156,7 +156,7 @@ describe('Copilot auto-scroll', () => {
     reactActEnvironment.ResizeObserver = class {
       observe() {}
       disconnect() {}
-    } as typeof ResizeObserver
+    } as unknown as typeof ResizeObserver
 
     container = document.createElement('div')
     document.body.appendChild(container)

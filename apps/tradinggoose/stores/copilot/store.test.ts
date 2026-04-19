@@ -5,6 +5,11 @@ import { encodeSSE } from '@/lib/utils'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
+import type {
+  ChatContext,
+  CopilotLiveReviewTarget,
+  CopilotSendRuntimeContext,
+} from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
@@ -79,9 +84,9 @@ function createRuntimeContext({
 }: {
   workspaceId?: string | null
   workflowId?: string | null
-  implicitContexts?: any[]
-  reviewTarget?: any
-} = {}) {
+  implicitContexts?: ChatContext[]
+  reviewTarget?: CopilotLiveReviewTarget | null
+} = {}): CopilotSendRuntimeContext {
   return {
     liveContext: {
       workflowId,
@@ -145,10 +150,6 @@ describe('copilot tool execution provenance', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-current-e',
-        workspaceId: 'workspace-1',
-      },
       toolCallsById: {
         [toolCallId]: {
           id: toolCallId,
@@ -156,7 +157,6 @@ describe('copilot tool execution provenance', () => {
           state: ClientToolCallState.pending,
           params: { foo: 'bar' },
           provenance: {
-            channelId,
             workflowId: 'wf-origin-b',
           },
         },
@@ -213,10 +213,6 @@ describe('copilot tool execution provenance', () => {
     const store = getCopilotStore(channelId)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-stringified-live',
-        workspaceId: 'workspace-1',
-      },
       currentChat: null,
       chats: [],
       messages: [
@@ -291,14 +287,9 @@ describe('copilot tool execution provenance', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-live-at-send',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId: 'review-panel-chat-mid-stream',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -310,13 +301,6 @@ describe('copilot tool execution provenance', () => {
         updatedAt: new Date('2026-04-13T00:00:00.000Z'),
       },
       chats: [],
-      implicitContexts: [
-        {
-          kind: 'current_workflow',
-          workflowId: 'wf-live-at-send',
-          label: 'Current Workflow',
-        },
-      ],
     })
 
     const sendPromise = store.getState().sendMessage('Inspect the attached workflow', {
@@ -343,13 +327,6 @@ describe('copilot tool execution provenance', () => {
     })
     const requestBody = parseJsonRequestBody(sendRequest)
     expect(requestBody.workflowId).toBeUndefined()
-
-    store.setState({
-      liveContext: {
-        workflowId: 'wf-message-b',
-        workspaceId: 'workspace-1',
-      },
-    })
 
     deferredStream.push({
       type: 'response.output_item.done',
@@ -409,14 +386,9 @@ describe('copilot tool execution provenance', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-current',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId: 'review-panel-chat-draft-entity',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -428,19 +400,6 @@ describe('copilot tool execution provenance', () => {
         updatedAt: new Date('2026-04-13T00:00:00.000Z'),
       },
       chats: [],
-      implicitContexts: [
-        {
-          kind: 'current_workflow',
-          workflowId: 'wf-current',
-          label: 'Current Workflow',
-        },
-        {
-          kind: 'current_skill',
-          skillId: 'skill-draft',
-          workspaceId: 'workspace-1',
-          label: 'Current Skill',
-        },
-      ],
     })
 
     const sendPromise = store.getState().sendMessage('Edit the draft skill using this workflow', {
@@ -517,20 +476,9 @@ describe('copilot tool execution provenance', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-current',
-        workspaceId: 'workspace-1',
-        reviewTarget: {
-          entityKind: 'skill',
-          entityId: null,
-          reviewSessionId: 'review-draft',
-          draftSessionId: 'draft-1',
-        },
-      },
       currentChat: {
         reviewSessionId: 'review-panel-chat-draft-entity',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -542,14 +490,6 @@ describe('copilot tool execution provenance', () => {
         updatedAt: new Date('2026-04-13T00:00:00.000Z'),
       },
       chats: [],
-      implicitContexts: [
-        {
-          kind: 'current_skill',
-          skillId: 'skill-viewing',
-          workspaceId: 'workspace-1',
-          label: 'Current Skill',
-        },
-      ],
     })
 
     const sendPromise = store.getState().sendMessage('Fix this draft skill', {
@@ -617,10 +557,6 @@ describe('copilot streaming regressions', () => {
     const store = getCopilotStore(channelId)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-stream-order',
-        workspaceId: 'workspace-1',
-      },
       currentChat: null,
       chats: [],
       messages: [
@@ -756,10 +692,6 @@ describe('copilot streaming regressions', () => {
     const store = getCopilotStore(channelId)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-final-authority',
-        workspaceId: 'workspace-1',
-      },
       currentChat: null,
       chats: [],
       messages: [
@@ -838,14 +770,9 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-awaiting-tools',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId: 'review-awaiting-tools',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -932,14 +859,9 @@ describe('copilot streaming regressions', () => {
 
     store.setState({
       accessLevel: 'limited',
-      liveContext: {
-        workflowId: 'wf-awaiting-pending',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId,
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -998,6 +920,88 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isAwaitingContinuation).toBe(true)
   })
 
+  it('cancels queued in-progress persistence after a send failure persists completed state', async () => {
+    vi.useFakeTimers()
+    const channelId = 'copilot-send-failure-persistence'
+    const reviewSessionId = 'review-send-failure-persistence'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'backend unavailable' }),
+        }
+      }
+
+      if (url === '/api/copilot/chat/update-messages') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      store.setState({
+        currentChat: {
+          reviewSessionId,
+          workspaceId: 'workspace-1',
+          entityKind: 'copilot',
+          entityId: null,
+          draftSessionId: null,
+          latestTurnStatus: 'completed',
+          title: 'Failed send persistence',
+          messages: [],
+          messageCount: 0,
+          conversationId: 'conversation-send-failure-persistence',
+          createdAt: new Date('2026-04-18T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-18T00:00:00.000Z'),
+        },
+        chats: [],
+        messages: [],
+      })
+
+      await store.getState().sendMessage('Trigger a failed send', {
+        runtimeContext: createRuntimeContext({
+          workspaceId: 'workspace-1',
+          workflowId: 'wf-send-failure',
+        }),
+      })
+
+      const updateBodiesBeforeDelay = fetchMock.mock.calls
+        .filter(([input]) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          return url === '/api/copilot/chat/update-messages'
+        })
+        .map((call) => parseJsonRequestBody(call))
+
+      expect(updateBodiesBeforeDelay).toHaveLength(1)
+      expect(updateBodiesBeforeDelay[0]?.latestTurnStatus).toBe('completed')
+
+      await vi.advanceTimersByTimeAsync(60)
+
+      const updateBodiesAfterDelay = fetchMock.mock.calls
+        .filter(([input]) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          return url === '/api/copilot/chat/update-messages'
+        })
+        .map((call) => parseJsonRequestBody(call))
+
+      expect(updateBodiesAfterDelay).toHaveLength(1)
+      expect(updateBodiesAfterDelay[0]?.latestTurnStatus).toBe('completed')
+      expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('starts queued tool execution before chat persistence finishes', async () => {
     vi.useFakeTimers()
     const channelId = 'copilot-deferred-tool-auto-exec'
@@ -1007,17 +1011,13 @@ describe('copilot streaming regressions', () => {
     const fakeTool = {
       execute: vi.fn(async () => {}),
     }
-    let resolveSaveMessages: ((value: { ok: boolean; status: number }) => void) | null = null
+    let resolveSaveMessages!: (value: { ok: boolean; status: number }) => void
 
     registerClientTool(toolCallId, fakeTool)
 
     try {
       store.setState({
         accessLevel: 'full',
-        liveContext: {
-          workflowId: null,
-          workspaceId: 'workspace-1',
-        },
         currentChat: null,
         chats: [],
         messages: [
@@ -1093,7 +1093,7 @@ describe('copilot streaming regressions', () => {
       await vi.advanceTimersByTimeAsync(0)
 
       expect(fakeTool.execute).toHaveBeenCalledTimes(1)
-      resolveSaveMessages?.({ ok: true, status: 200 })
+      resolveSaveMessages({ ok: true, status: 200 })
       await responsePromise
     } finally {
       unregisterClientTool(toolCallId)
@@ -1183,14 +1183,9 @@ describe('copilot streaming regressions', () => {
 
     store.setState({
       accessLevel: 'limited',
-      liveContext: {
-        workflowId: 'wf-limited-edit',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId,
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'workflow',
         entityId: 'wf-limited-edit',
         draftSessionId: null,
@@ -1277,7 +1272,6 @@ describe('copilot streaming regressions', () => {
     const scopedChat = {
       reviewSessionId: 'review-scoped-chat',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1290,10 +1284,6 @@ describe('copilot streaming regressions', () => {
     }
 
     store.setState({
-      liveContext: {
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-      },
       currentChat: scopedChat,
       chats: [scopedChat],
       messages: [
@@ -1338,7 +1328,6 @@ describe('copilot streaming regressions', () => {
     const nextChat = {
       reviewSessionId: 'review-next-chat',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1386,7 +1375,6 @@ describe('copilot streaming regressions', () => {
     const currentChat = {
       reviewSessionId: 'review-active-chat',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1400,10 +1388,6 @@ describe('copilot streaming regressions', () => {
     }
 
     store.setState({
-      liveContext: {
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-      },
       currentChat,
       chats: [currentChat, nextChat],
       messages: [
@@ -1474,7 +1458,6 @@ describe('copilot streaming regressions', () => {
     const nextChat = {
       reviewSessionId: 'review-next-chat-review-tools',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1522,7 +1505,6 @@ describe('copilot streaming regressions', () => {
     const currentChat = {
       reviewSessionId: 'review-active-chat-review-tools',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'workflow',
       entityId: 'wf-active-chat-review-tools',
       draftSessionId: null,
@@ -1537,10 +1519,6 @@ describe('copilot streaming regressions', () => {
 
     store.setState({
       accessLevel: 'limited',
-      liveContext: {
-        workflowId: 'wf-active-chat-review-tools',
-        workspaceId: 'workspace-1',
-      },
       currentChat,
       chats: [currentChat, nextChat],
       messages: [
@@ -1637,7 +1615,6 @@ describe('copilot streaming regressions', () => {
     const currentChat = {
       reviewSessionId: 'review-new-chat-abort',
       workspaceId: 'workspace-1',
-      channelId,
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
@@ -1651,10 +1628,6 @@ describe('copilot streaming regressions', () => {
     }
 
     store.setState({
-      liveContext: {
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-      },
       currentChat,
       chats: [currentChat],
       messages: [
@@ -1741,26 +1714,6 @@ describe('copilot streaming regressions', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    store.setState({
-      liveContext: {
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-      },
-      implicitContexts: [
-        {
-          kind: 'current_workflow',
-          workflowId: 'workflow-1',
-          label: 'Current Workflow',
-        },
-        {
-          kind: 'current_skill',
-          skillId: 'skill-1',
-          workspaceId: 'workspace-1',
-          label: 'Current Skill',
-        },
-      ],
-    })
-
     await store.getState().sendMessage('Update the current setup', {
       contexts: [
         {
@@ -1833,21 +1786,9 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: 'workflow-b',
-        workspaceId: 'workspace-1',
-      },
-      implicitContexts: [
-        {
-          kind: 'current_workflow',
-          workflowId: 'workflow-b',
-          label: 'Current Workflow',
-        },
-      ],
       currentChat: {
         reviewSessionId: 'review-panel-chat-1',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -1915,22 +1856,9 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: null,
-        workspaceId: 'workspace-1',
-      },
-      implicitContexts: [
-        {
-          kind: 'current_indicator',
-          indicatorId: 'indicator-1',
-          workspaceId: 'workspace-1',
-          label: 'Current Indicator',
-        },
-      ],
       currentChat: {
         reviewSessionId: 'review-panel-chat-2',
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -2008,11 +1936,6 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
-      liveContext: {
-        workflowId: null,
-        workspaceId: 'workspace-1',
-      },
-      implicitContexts: [],
       currentChat: {
         reviewSessionId: 'review-workspace-only-chat',
         workspaceId: 'workspace-1',
@@ -2078,10 +2001,6 @@ describe('copilot streaming regressions', () => {
     vi.stubGlobal('fetch', updateMessages)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-stream-title',
-        workspaceId: 'workspace-1',
-      },
       currentChat: null,
       chats: [],
       messages: [
@@ -2257,7 +2176,6 @@ describe('copilot streaming regressions', () => {
               {
                 reviewSessionId: 'review-reload-active',
                 workspaceId: 'workspace-1',
-                channelId,
                 entityKind: 'copilot',
                 entityId: null,
                 draftSessionId: null,
@@ -2295,10 +2213,6 @@ describe('copilot streaming regressions', () => {
     )
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-reload',
-        workspaceId: 'workspace-1',
-      },
       currentChat: null,
       chats: [],
       messages: [],
@@ -2344,7 +2258,6 @@ describe('copilot streaming regressions', () => {
               {
                 reviewSessionId: 'review-reload-edit-workflow',
                 workspaceId: 'workspace-1',
-                channelId,
                 entityKind: 'workflow',
                 entityId: 'wf-reload-edit-workflow',
                 draftSessionId: null,
@@ -2448,7 +2361,6 @@ describe('copilot streaming regressions', () => {
           state: ClientToolCallState.review,
           params: { workflowDocument: 'flowchart TD' },
           provenance: {
-            channelId,
             workflowId: 'wf-review-abort',
           },
         } as any,
@@ -2743,7 +2655,6 @@ describe('copilot context usage', () => {
       currentChat: {
         reviewSessionId: 'review-context-usage-generic',
         workspaceId: null,
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -2753,10 +2664,6 @@ describe('copilot context usage', () => {
         conversationId: 'conversation-context-usage-generic',
         createdAt: new Date('2026-04-05T00:00:00.000Z'),
         updatedAt: new Date('2026-04-05T00:00:00.000Z'),
-      },
-      liveContext: {
-        workflowId: null,
-        workspaceId: null,
       },
       selectedModel: 'claude-sonnet-4.6',
       contextUsage: null,
@@ -2821,10 +2728,6 @@ describe('copilot tool user action delegation', () => {
     registerClientTool(toolCallId, fakeTool)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-edit-workflow-order',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId: 'review-edit-workflow-order',
         workspaceId: null,
@@ -2849,7 +2752,6 @@ describe('copilot tool user action delegation', () => {
             workflowId: 'wf-edit-workflow-order',
           },
           provenance: {
-            channelId,
             workflowId: 'wf-edit-workflow-order',
             reviewSessionId: 'review-edit-workflow-order',
             entityKind: 'workflow',
@@ -2892,10 +2794,6 @@ describe('copilot tool user action delegation', () => {
     registerClientTool(toolCallId, fakeTool)
 
     store.setState({
-      liveContext: {
-        workflowId: 'wf-edit-workflow-review',
-        workspaceId: 'workspace-1',
-      },
       currentChat: {
         reviewSessionId: 'review-edit-workflow-review',
         workspaceId: null,
@@ -2928,7 +2826,6 @@ describe('copilot tool user action delegation', () => {
             },
           },
           provenance: {
-            channelId,
             workflowId: 'wf-edit-workflow-review',
             reviewSessionId: 'review-edit-workflow-review',
             entityKind: 'workflow',
@@ -2984,10 +2881,6 @@ describe('copilot tool user action delegation', () => {
 
       store.setState({
         accessLevel: 'limited',
-        liveContext: {
-          workflowId: 'wf-api-request-access-switch',
-          workspaceId: 'workspace-1',
-        },
         toolCallsById: {
           [toolCallId]: {
             id: toolCallId,
@@ -2998,7 +2891,6 @@ describe('copilot tool user action delegation', () => {
               method: 'GET',
             },
             provenance: {
-              channelId,
               contextWorkflowId: 'wf-api-request-access-switch',
               workspaceId: 'workspace-1',
             },
@@ -3072,7 +2964,6 @@ describe('copilot tool user action delegation', () => {
             state: ClientToolCallState.pending,
             params: { variables: { API_KEY: 'secret' } },
             provenance: {
-              channelId,
               workflowId: 'workflow-1',
               workspaceId: 'workspace-1',
             },
@@ -3156,7 +3047,6 @@ describe('copilot tool user action delegation', () => {
       currentChat: {
         reviewSessionId,
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -3178,7 +3068,6 @@ describe('copilot tool user action delegation', () => {
             method: 'GET',
           },
           provenance: {
-            channelId,
             contextWorkflowId: 'wf-server-managed-state-persist',
             workspaceId: 'workspace-1',
           },
@@ -3271,7 +3160,6 @@ describe('copilot tool user action delegation', () => {
       currentChat: {
         reviewSessionId,
         workspaceId: 'workspace-1',
-        channelId,
         entityKind: 'workflow',
         entityId: 'wf-integration-state-persist',
         draftSessionId: null,
@@ -3290,7 +3178,6 @@ describe('copilot tool user action delegation', () => {
           state: ClientToolCallState.pending,
           params: { query: 'BTC-USD' },
           provenance: {
-            channelId,
             workflowId: 'wf-integration-state-persist',
             workspaceId: 'workspace-1',
           },
@@ -3343,10 +3230,6 @@ describe('copilot tool user action delegation', () => {
 
       store.setState({
         accessLevel: 'limited',
-        liveContext: {
-          workflowId: 'wf-review-access-switch',
-          workspaceId: 'workspace-1',
-        },
         currentChat: {
           reviewSessionId: 'review-access-switch',
           workspaceId: null,
@@ -3371,7 +3254,6 @@ describe('copilot tool user action delegation', () => {
               workflowId: 'wf-review-access-switch',
             },
             provenance: {
-              channelId,
               workflowId: 'wf-review-access-switch',
               reviewSessionId: 'review-access-switch',
               entityKind: 'workflow',

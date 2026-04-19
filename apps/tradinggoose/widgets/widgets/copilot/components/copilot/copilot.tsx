@@ -473,7 +473,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
         try {
           await sendMessage(query, {
-            stream: true,
             fileAttachments,
             contexts,
             runtimeContext: sendRuntimeContext,
