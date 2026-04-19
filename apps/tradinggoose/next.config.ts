@@ -74,7 +74,7 @@ const nextConfig: NextConfig = {
       'lucide-react',
       'lodash',
       'framer-motion',
-      'reactflow',
+      '@xyflow/react',
       '@radix-ui/react-dialog',
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-popover',

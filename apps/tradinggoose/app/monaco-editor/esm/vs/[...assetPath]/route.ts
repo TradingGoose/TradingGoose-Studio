@@ -42,7 +42,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(file), {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': relativePath.endsWith('.js.map') ? 'no-store' : 'public, max-age=3600',
       },
     })
   } catch {
