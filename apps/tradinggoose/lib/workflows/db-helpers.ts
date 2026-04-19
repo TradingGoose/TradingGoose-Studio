@@ -9,7 +9,7 @@ import {
 } from '@tradinggoose/db'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'

@@ -11,7 +11,7 @@
  *   - "metadata"  (Y.Map) — session-level workflow metadata (e.g. reseed markers)
  */
 
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'

@@ -1,14 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
   ReactFlowProvider,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import type { PreviewDiffOperation } from './preview-diff'

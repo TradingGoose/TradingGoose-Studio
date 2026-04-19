@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import { ReactFlowProvider } from 'reactflow'
+import { ReactFlowProvider } from '@xyflow/react'
 import { ErrorBoundary } from '@/widgets/widgets/editor_workflow/components/error'
 import WorkflowCanvas, {
   type WorkflowCanvasUIConfig,

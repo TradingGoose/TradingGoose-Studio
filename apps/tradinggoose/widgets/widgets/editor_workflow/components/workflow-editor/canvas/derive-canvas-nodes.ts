@@ -1,5 +1,5 @@
 import type { MutableRefObject } from 'react'
-import type { Node } from 'reactflow'
+import type { Node } from '@xyflow/react'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'

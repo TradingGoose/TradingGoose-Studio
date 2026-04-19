@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { getBlock } from '@/blocks'
 import { resolveOutputType } from '@/blocks/utils'

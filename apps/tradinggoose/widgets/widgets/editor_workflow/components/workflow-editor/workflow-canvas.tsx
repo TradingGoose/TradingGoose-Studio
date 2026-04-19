@@ -2,15 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type Edge,
   type Node,
   useOnSelectionChange,
   useReactFlow,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
@@ -223,7 +224,7 @@ const WorkflowCanvas = React.memo(
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
-    const { project, getNodes, screenToFlowPosition } = useReactFlow()
+    const { getNodes, screenToFlowPosition } = useReactFlow()
     const previousViewIdentityRef = useRef<string | null>(null)
     const previousViewNodeCountRef = useRef(0)
 
@@ -244,10 +245,8 @@ const WorkflowCanvas = React.memo(
 
     const projectViewportCenter = useCallback(() => {
       const center = getViewportCenterCoordinates()
-      return typeof screenToFlowPosition === 'function'
-        ? screenToFlowPosition(center)
-        : project(center)
-    }, [project, screenToFlowPosition, getViewportCenterCoordinates])
+      return screenToFlowPosition(center)
+    }, [screenToFlowPosition, getViewportCenterCoordinates])
 
     const containerHeightClass = viewportBounds ? 'h-full' : 'h-screen'
 
@@ -823,10 +822,9 @@ const WorkflowCanvas = React.memo(
           const data = JSON.parse(event.dataTransfer.getData('application/json'))
           if (data.type === 'connectionBlock') return
 
-          const reactFlowBounds = event.currentTarget.getBoundingClientRect()
-          const position = project({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
+          const position = screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
           })
 
           // Check if dropping inside a container node (loop or parallel)
@@ -1051,7 +1049,7 @@ const WorkflowCanvas = React.memo(
         }
       },
       [
-        project,
+        screenToFlowPosition,
         blocks,
         addBlock,
         findClosestOutput,
@@ -1071,10 +1069,9 @@ const WorkflowCanvas = React.memo(
         if (!event.dataTransfer?.types.includes('application/json')) return
 
         try {
-          const reactFlowBounds = event.currentTarget.getBoundingClientRect()
-          const position = project({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
+          const position = screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
           })
 
           // Check if hovering over a container node
@@ -1092,7 +1089,7 @@ const WorkflowCanvas = React.memo(
           logger.error('Error in onDragOver', { err })
         }
       },
-      [project, isPointInLoopNodeWrapper, getNodes, blocks]
+      [screenToFlowPosition, isPointInLoopNodeWrapper, getNodes, blocks]
     )
 
     // Initialize workflow when it exists in registry and isn't active
@@ -1729,7 +1726,7 @@ const WorkflowCanvas = React.memo(
             draggable={false}
             noWheelClassName='allow-scroll'
             edgesFocusable={true}
-            edgesUpdatable={effectivePermissions.canEdit}
+            edgesReconnectable={effectivePermissions.canEdit}
             className='workflow-container h-full'
             onNodeDrag={effectivePermissions.canEdit ? onNodeDrag : undefined}
             onNodeDragStop={effectivePermissions.canEdit ? onNodeDragStop : undefined}

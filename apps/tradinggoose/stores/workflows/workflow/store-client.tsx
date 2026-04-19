@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useMemo } from 'react'
 import { useStore } from 'zustand'
+import { useStoreWithEqualityFn } from 'zustand/traditional'
 import type { StoreApi } from 'zustand/vanilla'
 import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
@@ -45,7 +46,9 @@ function useWorkflowStoreBase<T>(selector?: Selector<T>, equalityFn?: EqualityFn
     return useStore(store)
   }
 
-  return useStore(store, selector, equalityFn)
+  return equalityFn
+    ? useStoreWithEqualityFn(store, selector, equalityFn)
+    : useStore(store, selector)
 }
 
 type UseWorkflowStoreHook = typeof useWorkflowStoreBase & {

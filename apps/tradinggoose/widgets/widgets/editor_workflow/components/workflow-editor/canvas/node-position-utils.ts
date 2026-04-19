@@ -1,6 +1,7 @@
-import type { Node } from 'reactflow'
+import type { Node } from '@xyflow/react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockState } from '@/stores/workflows/workflow/types'
+import type { WorkflowCanvasNodeData } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
 
 const logger = createLogger('WorkflowCanvasNodePositionUtils')
 
@@ -8,7 +9,8 @@ const DEFAULT_CONTAINER_WIDTH = 500
 const DEFAULT_CONTAINER_HEIGHT = 300
 
 type BlocksById = Record<string, BlockState>
-type GetNodes = () => Node[]
+type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
+type GetNodes = () => WorkflowCanvasNode[]
 
 function isContainerType(type?: string): boolean {
   return (

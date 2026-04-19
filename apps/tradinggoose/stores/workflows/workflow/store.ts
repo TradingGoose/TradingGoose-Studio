@@ -1,4 +1,4 @@
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import type { StateCreator } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createStore, type StoreApi } from 'zustand/vanilla'

@@ -1,4 +1,4 @@
-import type { Edge, Node } from 'reactflow'
+import type { Edge, Node } from '@xyflow/react'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -8,7 +8,7 @@ import {
   type PreviewDiffStatus,
 } from './preview-diff'
 
-export type PreviewNodeData = {
+export interface PreviewNodeData extends Record<string, unknown> {
   type: string
   name: string
   config: BlockConfig
@@ -23,7 +23,7 @@ export type PreviewNodeData = {
   diffStatus?: PreviewDiffStatus
 }
 
-export type PreviewSubflowData = {
+export interface PreviewSubflowData extends Record<string, unknown> {
   name: string
   width: number
   height: number
@@ -33,8 +33,11 @@ export type PreviewSubflowData = {
   diffStatus?: PreviewDiffStatus
 }
 
+export type PreviewCanvasNode = Node<PreviewNodeData, 'previewNode'>
+export type PreviewCanvasSubflowNode = Node<PreviewSubflowData, 'subflowNode'>
+
 export type PreviewPayloadAdapterResult = {
-  nodes: Node[]
+  nodes: Array<PreviewCanvasNode | PreviewCanvasSubflowNode>
   edges: Edge[]
 }
 
@@ -80,7 +83,7 @@ export function adaptPreviewPayloadToCanvas(
   workflowState: WorkflowState,
   options?: PreviewPayloadAdapterOptions
 ): PreviewPayloadAdapterResult {
-  const nodes: Node[] = []
+  const nodes: Array<PreviewCanvasNode | PreviewCanvasSubflowNode> = []
   const diffStatuses = buildPreviewDiffStatusMap(options?.operations)
 
   Object.values(workflowState.blocks).forEach((block) => {

@@ -1,7 +1,7 @@
 import type React from 'react'
 import { type CSSProperties, memo, useEffect } from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
-import { Handle, type NodeProps, Position, useReactFlow, useUpdateNodeInternals } from 'reactflow'
+import { Handle, type Node, type NodeProps, Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -62,7 +62,7 @@ const SubflowNodeStyles: React.FC = () => {
   )
 }
 
-export interface SubflowNodeData {
+export interface SubflowNodeData extends Record<string, unknown> {
   width?: number
   height?: number
   parentId?: string
@@ -73,7 +73,9 @@ export interface SubflowNodeData {
   name?: string
 }
 
-export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<SubflowNodeData>) => {
+type SubflowNode = Node<SubflowNodeData, 'subflowNode'>
+
+export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<SubflowNode>) => {
   const { getNodes } = useReactFlow()
   const updateNodeInternals = useUpdateNodeInternals()
   const userPermissions = useUserPermissionsContext()

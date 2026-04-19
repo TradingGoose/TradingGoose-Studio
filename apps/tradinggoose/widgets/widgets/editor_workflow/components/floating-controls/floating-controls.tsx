@@ -1,7 +1,7 @@
 'use client'
 
 import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
-import { useReactFlow, useStore } from 'reactflow'
+import { useReactFlow, useStore } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
