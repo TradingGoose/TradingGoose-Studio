@@ -2,12 +2,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getBaseProviderForService,
   isSystemIntegrationManagedOAuthServiceProviderId,
+  isSignInOAuthProviderId,
   type OAuthProviderAvailability,
 } from '@/lib/oauth/oauth'
 import {
   loadSystemOAuthClientCredentials,
   loadSystemOAuthClientCredentialsForProvider,
 } from '@/lib/oauth/system-managed-config'
+import { getEnv } from '@/lib/env'
 
 const logger = createLogger('OAuth')
 
@@ -25,6 +27,17 @@ interface ProviderAuthConfig {
 interface ProviderAuthCredentials {
   clientId: string
   clientSecret: string
+}
+
+function getSignInProviderEnvironmentCredentials(providerId: string): ProviderAuthCredentials | null {
+  switch (providerId.trim()) {
+    case 'github':
+      return pickCredentials(getEnv('GITHUB_CLIENT_ID'), getEnv('GITHUB_CLIENT_SECRET'))
+    case 'google':
+      return pickCredentials(getEnv('GOOGLE_CLIENT_ID'), getEnv('GOOGLE_CLIENT_SECRET'))
+    default:
+      return null
+  }
 }
 
 function getProviderAuthTemplate(providerId: string): Omit<ProviderAuthConfig, 'clientId' | 'clientSecret'> {
@@ -210,9 +223,15 @@ export const getOAuthProviderAvailability = async (
   const uniqueProviders = Array.from(
     new Set(providers.map((provider) => provider.trim()).filter((provider) => provider.length > 0))
   )
-  const credentials = await loadSystemOAuthClientCredentials(uniqueProviders)
+  const systemManagedProviders = uniqueProviders.filter((providerId) => !isSignInOAuthProviderId(providerId))
+  const credentials = await loadSystemOAuthClientCredentials(systemManagedProviders)
 
   for (const providerId of uniqueProviders) {
+    if (isSignInOAuthProviderId(providerId)) {
+      availability[providerId] = Boolean(getSignInProviderEnvironmentCredentials(providerId))
+      continue
+    }
+
     availability[providerId] = Boolean(credentials[providerId])
   }
 

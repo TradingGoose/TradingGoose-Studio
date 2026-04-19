@@ -92,25 +92,6 @@ if is_ready:
 
 **Returns:** `bool`
 
-##### execute_workflow_sync(workflow_id, input_data=None, timeout=30.0)
-
-Execute a workflow and poll for completion (useful for long-running workflows).
-
-```python
-result = client.execute_workflow_sync(
-    "workflow-id",
-    input_data={"data": "some input"},
-    timeout=60.0
-)
-```
-
-**Parameters:**
-- `workflow_id` (str): The ID of the workflow to execute
-- `input_data` (dict, optional): Input data to pass to the workflow
-- `timeout` (float): Timeout for the initial request in seconds
-
-**Returns:** `WorkflowExecutionResult`
-
 ##### set_api_key(api_key)
 
 Update the API key.

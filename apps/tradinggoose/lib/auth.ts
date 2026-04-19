@@ -4,7 +4,7 @@ import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -18,7 +18,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -29,19 +29,20 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
-import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
+import {
+  ensureDefaultUserSubscription,
+  getEffectiveSubscription,
+} from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
 } from '@/lib/billing/organization'
 import { getPlans } from '@/lib/billing/plans'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import { getBillingGateState } from '@/lib/billing/settings'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import {
   hydrateSubscriptionsWithTiers,
-  isOrganizationSubscription,
-  isPaidBillingTier,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
@@ -56,11 +57,11 @@ import {
   handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env } from '@/lib/env'
+import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import {
   getCanonicalScopesForProvider,
   getMicrosoftRefreshTokenExpiry,
@@ -74,12 +75,12 @@ import {
   REGISTRATION_DISABLED_MESSAGE,
   REGISTRATION_WAITLIST_MESSAGE,
 } from '@/lib/registration/shared'
-import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import {
   createStripeClientProxy,
-  getCachedStripeSettings,
-  hasCachedStripeSecretKey,
-} from '@/lib/system-settings/stripe-runtime'
+  getStripeServiceConfig,
+  hasStripeSecretKey,
+} from '@/lib/system-services/stripe-runtime'
+import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
@@ -122,7 +123,7 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
 }
 
 type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
-type SystemManagedSocialProviderConfig = {
+type EnvBackedSocialProviderConfig = {
   clientId: string
   clientSecret: string
 }
@@ -160,15 +161,27 @@ function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthCo
   return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
 }
 
-function toSystemManagedSocialProviderConfig<T extends SystemManagedSocialProviderConfig>(
-  providerId: string,
+function toEnvBackedSocialProviderConfig<T extends EnvBackedSocialProviderConfig>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
   config: Omit<T, 'clientId' | 'clientSecret'>
 ): T
-function toSystemManagedSocialProviderConfig<T extends Record<string, unknown>>(
-  providerId: string,
+function toEnvBackedSocialProviderConfig<T extends Record<string, unknown>>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
   config: T
-): T & SystemManagedSocialProviderConfig
-function toSystemManagedSocialProviderConfig(providerId: string, config: Record<string, unknown>) {
+): T & EnvBackedSocialProviderConfig
+function toEnvBackedSocialProviderConfig(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
+  config: Record<string, unknown>
+) {
   const providerConfig = {
     ...config,
     clientId: '',
@@ -180,19 +193,69 @@ function toSystemManagedSocialProviderConfig(providerId: string, config: Record<
       enumerable: true,
       configurable: true,
       get() {
-        return getSystemOAuthClientCredentialsForRequest(providerId).clientId
+        return getEnv(envKeys.clientId)?.trim() ?? ''
       },
     },
     clientSecret: {
       enumerable: true,
       configurable: true,
       get() {
-        return getSystemOAuthClientCredentialsForRequest(providerId).clientSecret
+        return getEnv(envKeys.clientSecret)?.trim() ?? ''
       },
     },
   })
 
   return providerConfig
+}
+
+function hasEnvBackedSocialProviderCredentials(envKeys: {
+  clientId: string
+  clientSecret: string
+}) {
+  return Boolean(getEnv(envKeys.clientId)?.trim() && getEnv(envKeys.clientSecret)?.trim())
+}
+
+function buildSocialProviders() {
+  const socialProviders: Record<string, Record<string, unknown>> = {}
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GITHUB_CLIENT_ID',
+      clientSecret: 'GITHUB_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.github = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GITHUB_CLIENT_ID',
+        clientSecret: 'GITHUB_CLIENT_SECRET',
+      },
+      {
+        scopes: ['user:email', 'repo'],
+      }
+    )
+  }
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GOOGLE_CLIENT_ID',
+      clientSecret: 'GOOGLE_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.google = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GOOGLE_CLIENT_ID',
+        clientSecret: 'GOOGLE_CLIENT_SECRET',
+      },
+      {
+        scopes: [
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile',
+        ],
+      }
+    )
+  }
+
+  return socialProviders
 }
 
 const MICROSOFT_OAUTH_BASE_CONFIG = {
@@ -283,11 +346,12 @@ export const auth = betterAuth({
             return
           }
 
-          if (eligibility.reason === 'disabled') {
-            throw new Error(REGISTRATION_DISABLED_MESSAGE)
-          }
-
-          throw new Error(REGISTRATION_WAITLIST_MESSAGE)
+          throw new APIError('BAD_REQUEST', {
+            message:
+              eligibility.reason === 'disabled'
+                ? REGISTRATION_DISABLED_MESSAGE
+                : REGISTRATION_WAITLIST_MESSAGE,
+          })
         },
         after: async (user) => {
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
@@ -307,7 +371,7 @@ export const auth = betterAuth({
           try {
             await handleNewUser(user.id)
 
-            const { billingEnabled } = await getResolvedBillingSettings()
+            const { billingEnabled } = await getBillingGateState()
             if (billingEnabled) {
               await ensureDefaultUserSubscription(user.id)
             }
@@ -397,17 +461,7 @@ export const auth = betterAuth({
       ],
     },
   },
-  socialProviders: {
-    github: toSystemManagedSocialProviderConfig('github', {
-      scopes: ['user:email', 'repo'],
-    }),
-    google: toSystemManagedSocialProviderConfig('google', {
-      scopes: [
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ],
-    }),
-  },
+  socialProviders: buildSocialProviders(),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
@@ -423,7 +477,6 @@ export const auth = betterAuth({
         to: user.email,
         subject: getEmailSubject('reset-password'),
         html,
-        from: getFromEmailAddress(),
         emailType: 'transactional',
       })
 
@@ -510,7 +563,6 @@ export const auth = betterAuth({
             to: data.email,
             subject: getEmailSubject(data.type),
             html,
-            from: getFromEmailAddress(),
             emailType: 'transactional',
           })
 
@@ -1361,13 +1413,14 @@ export const auth = betterAuth({
     }),
     // Include SSO plugin when enabled
     ...(env.SSO_ENABLED ? [sso()] : []),
+    // Stripe is deployment-owned and env-backed; update it through deployment secrets.
     stripe({
       stripeClient,
       get stripeWebhookSecret() {
-        return getCachedStripeSettings().stripeWebhookSecret ?? ''
+        return getStripeServiceConfig().webhookSecret ?? ''
       },
       get createCustomerOnSignUp() {
-        return hasCachedStripeSecretKey()
+        return hasStripeSecretKey()
       },
       onCustomerCreate: async ({ stripeCustomer, user }) => {
         logger.info('[onCustomerCreate] Stripe customer created', {
@@ -1513,7 +1566,7 @@ export const auth = betterAuth({
 
             await handleSubscriptionDeleted(subscriptionRecord)
 
-            const { billingEnabled } = await getResolvedBillingSettings()
+            const { billingEnabled } = await getBillingGateState()
             const nextSubscriptionRecord =
               billingEnabled && subscriptionRecord.referenceType === 'user'
                 ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
@@ -1585,82 +1638,31 @@ export const auth = betterAuth({
     }),
     organization({
       allowUserToCreateOrganization: async (user) => {
-        const { billingEnabled } = await getResolvedBillingSettings()
-        if (!billingEnabled) {
-          return true
-        }
+        const [{ billingEnabled }, personalSubscription, memberships] = await Promise.all([
+          getBillingGateState(),
+          getEffectiveSubscription(user.id),
+          db
+            .select({ id: schema.member.id })
+            .from(schema.member)
+            .where(eq(schema.member.userId, user.id))
+            .limit(1),
+        ])
 
-        const subscriptions = await db
-          .select()
-          .from(schema.subscription)
-          .where(
-            and(
-              eq(schema.subscription.referenceId, user.id),
-              inArray(schema.subscription.status, [
-                ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
-                'past_due',
-              ])
-            )
-          )
-
-        const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(subscriptions)
-
-        return hydratedSubscriptions.some(
-          (subscription) =>
-            subscription.tier?.ownerType === 'organization' && isPaidBillingTier(subscription.tier)
-        )
+        return getOrganizationAccessState({
+          billingEnabled,
+          hasOrganization: memberships.length > 0,
+          isOrganizationAdmin: false,
+          userTier: personalSubscription?.tier,
+        }).canCreateOrganization
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
       membershipLimit: 50,
       // Validate seat limits before sending invitations
       beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-        const subscriptions = await db
-          .select()
-          .from(schema.subscription)
-          .where(
-            and(
-              eq(schema.subscription.referenceType, 'organization'),
-              eq(schema.subscription.referenceId, organization.id),
-              eq(schema.subscription.status, 'active')
-            )
-          )
+        const seatValidation = await validateSeatAvailability(organization.id)
 
-        const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(subscriptions)
-        const organizationSubscription = hydratedSubscriptions.find((sub) =>
-          isOrganizationSubscription(sub)
-        )
-
-        if (!organizationSubscription) {
-          throw new Error('No active organization subscription for this organization')
-        }
-
-        if (organizationSubscription.tier.ownerType !== 'organization') {
-          return
-        }
-
-        const members = await db
-          .select()
-          .from(schema.member)
-          .where(eq(schema.member.organizationId, organization.id))
-
-        const pendingInvites = await db
-          .select()
-          .from(schema.invitation)
-          .where(
-            and(
-              eq(schema.invitation.organizationId, organization.id),
-              eq(schema.invitation.status, 'pending')
-            )
-          )
-
-        const totalCount = members.length + pendingInvites.length
-        const seatLimit = Math.max(
-          organizationSubscription.seats || organizationSubscription.tier.seatCount || 1,
-          1
-        )
-
-        if (totalCount >= seatLimit) {
-          throw new Error(`Organization has reached its seat limit of ${seatLimit}`)
+        if (!seatValidation.canInvite) {
+          throw new Error(seatValidation.reason ?? 'Unable to invite member')
         }
       },
       sendInvitationEmail: async (data: any) => {
@@ -1681,7 +1683,6 @@ export const auth = betterAuth({
             to: invitation.email,
             subject: `${inviterName} has invited you to join ${organization.name} on TradingGoose`,
             html,
-            from: getFromEmailAddress(),
             emailType: 'transactional',
           })
 
@@ -1708,6 +1709,9 @@ export const auth = betterAuth({
       },
     }),
   ],
+  onAPIError: {
+    errorURL: '/error',
+  },
   pages: {
     signIn: '/login',
     signUp: '/signup',
@@ -1733,11 +1737,12 @@ function isUnauthorizedSessionError(error: unknown) {
   )
 }
 
-export async function getSession(headersOverride?: Headers) {
+export async function getSession(headersOverride?: Headers, options?: { disableCookieCache?: boolean }) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
+      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })

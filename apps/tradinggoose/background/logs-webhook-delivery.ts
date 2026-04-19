@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowExecutionLog } from '@/lib/logs/types'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('LogsWebhookDelivery')
 
@@ -192,7 +192,7 @@ export const logsWebhookDelivery = task({
             try {
               const limits = await getUserLimits(workflow[0].userId)
               if (needsRateLimits) {
-                payload.data.rateLimits = limits.workflowExecutionRateLimit
+                payload.data.rateLimits = limits.executionRateLimit
               }
               if (needsUsage) {
                 payload.data.usage = limits.usage

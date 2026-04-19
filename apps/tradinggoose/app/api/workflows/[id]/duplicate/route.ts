@@ -149,14 +149,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     try {
       const lastSaved = now.toISOString()
-      const duplicatedSnapshot = createWorkflowSnapshot({
-        blocks: duplicatedWorkflowState.blocks,
-        edges: duplicatedWorkflowState.edges,
-        loops: duplicatedWorkflowState.loops,
-        parallels: duplicatedWorkflowState.parallels,
-        lastSaved,
-        isDeployed: false,
-      })
 
       // Persist canonical workflow state before best-effort Yjs sync so the duplicate
       // survives bridge outages and never depends on socket-server availability.
@@ -164,6 +156,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save duplicated workflow state')
       }
+
+      const persistedDuplicatedState = saveResult.normalizedState ?? duplicatedWorkflowState
+      const duplicatedSnapshot = createWorkflowSnapshot({
+        blocks: persistedDuplicatedState.blocks,
+        edges: persistedDuplicatedState.edges,
+        loops: persistedDuplicatedState.loops,
+        parallels: persistedDuplicatedState.parallels,
+        lastSaved,
+        isDeployed: false,
+      })
 
       const yjsApplyResult = await tryApplyWorkflowState(
         newWorkflowId,

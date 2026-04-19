@@ -6,10 +6,13 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  ExecuteResponseSuccessSchema,
   type KnowledgeBaseArgs,
 } from '@/lib/copilot/tools/shared/schemas'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 /**
  * Client tool for knowledge base operations
@@ -103,28 +106,19 @@ export class KnowledgeBaseClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
       const payload: KnowledgeBaseArgs = { ...(args || { operation: 'list' }) }
-
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'knowledge_base', payload }),
+      const result = await executeCopilotServerTool({
+        toolName: 'knowledge_base',
+        payload,
       })
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        throw new Error(txt || `Server error (${res.status})`)
-      }
-
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Knowledge base operation completed', parsed.result)
+      await this.markToolComplete(200, 'Knowledge base operation completed', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to access knowledge base')
+      await this.markToolComplete(
+        getCopilotServerToolErrorStatus(e) ?? 500,
+        e?.message || 'Failed to access knowledge base'
+      )
     }
   }
 }

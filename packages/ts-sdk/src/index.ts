@@ -31,17 +31,6 @@ export interface ExecutionOptions {
   timeout?: number
   stream?: boolean
   selectedOutputs?: string[]
-  async?: boolean
-}
-
-export interface AsyncExecutionResult {
-  success: boolean
-  taskId: string
-  status: 'queued'
-  createdAt: string
-  links: {
-    status: string
-  }
 }
 
 export interface RateLimitInfo {
@@ -119,10 +108,6 @@ export class TradingGooseClient {
   }
 
   /**
-   * Execute a workflow with optional input data
-   * If async is true, returns immediately with a task ID
-   */
-  /**
    * Convert File objects in input to API format (base64)
    * Recursively processes nested objects and arrays
    */
@@ -174,9 +159,9 @@ export class TradingGooseClient {
   async executeWorkflow(
     workflowId: string,
     options: ExecutionOptions = {}
-  ): Promise<WorkflowExecutionResult | AsyncExecutionResult> {
+  ): Promise<WorkflowExecutionResult> {
     const url = `${this.baseUrl}/api/workflows/${workflowId}/execute`
-    const { input, timeout = 30000, stream, selectedOutputs, async } = options
+    const { input, timeout = 30000, stream, selectedOutputs } = options
 
     try {
       // Create a timeout promise
@@ -184,13 +169,9 @@ export class TradingGooseClient {
         setTimeout(() => reject(new Error('TIMEOUT')), timeout)
       })
 
-      // Build headers - async execution uses X-Execution-Mode header
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-API-Key': this.apiKey,
-      }
-      if (async) {
-        headers['X-Execution-Mode'] = 'async'
       }
 
       // Build JSON body - spread input at root level, then add API control parameters
@@ -237,7 +218,7 @@ export class TradingGooseClient {
       }
 
       const result = await response.json()
-      return result as WorkflowExecutionResult | AsyncExecutionResult
+      return result as WorkflowExecutionResult
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error
@@ -286,18 +267,6 @@ export class TradingGooseClient {
   }
 
   /**
-   * Execute a workflow and poll for completion (useful for long-running workflows)
-   */
-  async executeWorkflowSync(
-    workflowId: string,
-    options: ExecutionOptions = {}
-  ): Promise<WorkflowExecutionResult> {
-    // Ensure sync mode by explicitly setting async to false
-    const syncOptions = { ...options, async: false }
-    return this.executeWorkflow(workflowId, syncOptions) as Promise<WorkflowExecutionResult>
-  }
-
-  /**
    * Validate that a workflow is ready for execution
    */
   async validateWorkflow(workflowId: string): Promise<boolean> {
@@ -324,50 +293,13 @@ export class TradingGooseClient {
   }
 
   /**
-   * Get the status of an async job
-   * @param taskId The task ID returned from async execution
-   */
-  async getJobStatus(taskId: string): Promise<any> {
-    const url = `${this.baseUrl}/api/jobs/${taskId}`
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': this.apiKey,
-        },
-      })
-
-      this.updateRateLimitInfo(response)
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result
-    } catch (error: any) {
-      if (error instanceof TradingGooseError) {
-        throw error
-      }
-
-      throw new TradingGooseError(error?.message || 'Failed to get job status', 'STATUS_ERROR')
-    }
-  }
-
-  /**
    * Execute workflow with automatic retry on rate limit
    */
   async executeWithRetry(
     workflowId: string,
     options: ExecutionOptions = {},
     retryOptions: RetryOptions = {}
-  ): Promise<WorkflowExecutionResult | AsyncExecutionResult> {
+  ): Promise<WorkflowExecutionResult> {
     const {
       maxRetries = 3,
       initialDelay = 1000,

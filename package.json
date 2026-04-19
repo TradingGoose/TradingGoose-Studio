@@ -33,11 +33,12 @@
     "docs:audit:json": "bun run scripts/audit-docs.ts --json",
     "docs:generate": "bun run scripts/doc-gen/index.ts",
     "docs:generate:tools": "bun run scripts/doc-gen/index.ts tools",
-    "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers"
+    "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers",
+    "script:indicator": "bun run scripts/indicators/index.ts"
   },
   "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "drizzle-orm": "^0.44.5",
     "postgres": "^3.4.5"
   },

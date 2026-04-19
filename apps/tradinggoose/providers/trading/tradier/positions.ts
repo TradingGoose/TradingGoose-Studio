@@ -1,4 +1,5 @@
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingHoldingsInput,
   TradingHoldingsNormalizationContext,
@@ -6,8 +7,8 @@ import type {
   UnifiedTradingAccountSnapshot,
   UnifiedTradingAccountType,
   UnifiedTradingPosition,
-  UnifiedTradingSymbol,
 } from '@/providers/trading/types'
+import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
 const DEFAULT_BASE_CURRENCY = 'USD'
 
@@ -33,15 +34,6 @@ const getCurrencySymbol = (currency?: string) => {
       return undefined
   }
 }
-
-const buildSymbol = (symbol?: string): UnifiedTradingSymbol => ({
-  base: symbol || 'UNKNOWN',
-  quote: DEFAULT_BASE_CURRENCY,
-  name: null,
-  assetClass: 'stock',
-  active: true,
-  rank: 0,
-})
 
 const mapAccountType = (value: unknown): UnifiedTradingAccountType => {
   if (typeof value !== 'string') return 'unknown'
@@ -118,6 +110,11 @@ export const normalizeTradierHoldings = (
   const cash = balancePayload?.cash
 
   const normalizedPositions: UnifiedTradingPosition[] = list.map((position: any) => {
+    const resolvedSymbol = tradingSymbolToListingIdentity(tradierTradingProviderConfig, {
+      symbol: typeof position?.symbol === 'string' ? position.symbol : undefined,
+      assetClass: 'stock',
+      defaultQuote: DEFAULT_BASE_CURRENCY,
+    })
     const quantity = toNumber(position?.quantity) ?? 0
     const marketValue = toNumber(position?.market_value)
     const costBasis = toNumber(position?.cost_basis)
@@ -128,7 +125,15 @@ export const normalizeTradierHoldings = (
       typeof position?.date_acquired === 'string' ? position.date_acquired : undefined
 
     return {
-      symbol: buildSymbol(position?.symbol),
+      symbol: {
+        base: resolvedSymbol?.base ?? 'UNKNOWN',
+        quote: resolvedSymbol?.quote ?? DEFAULT_BASE_CURRENCY,
+        listing: resolvedSymbol?.listing,
+        name: null,
+        assetClass: resolvedSymbol?.assetClass ?? 'stock',
+        active: true,
+        rank: 0,
+      },
       quantity,
       side,
       averagePrice,

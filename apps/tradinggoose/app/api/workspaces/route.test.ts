@@ -39,6 +39,24 @@ describe('Workspaces API Route', () => {
       },
     }))
 
+    vi.doMock('@tradinggoose/db/schema', () => ({
+      permissions: {
+        permissionType: 'permissions.permissionType',
+        userId: 'permissions.userId',
+        entityType: 'permissions.entityType',
+        entityId: 'permissions.entityId',
+      },
+      workflow: {
+        id: 'workflow.id',
+        userId: 'workflow.userId',
+        workspaceId: 'workflow.workspaceId',
+      },
+      workspace: {
+        id: 'workspace.id',
+        createdAt: 'workspace.createdAt',
+      },
+    }))
+
     vi.doMock('@/lib/auth', () => ({
       getSession: vi.fn().mockResolvedValue({
         user: {
@@ -76,6 +94,18 @@ describe('Workspaces API Route', () => {
 
     vi.doMock('@/lib/yjs/workflow-session', () => ({
       createWorkflowSnapshot: vi.fn(() => ({})),
+    }))
+
+    vi.doMock('@/lib/workspaces/billing-owner', () => ({
+      toWorkspaceApiRecord: vi.fn((workspace) => ({
+        ...workspace,
+        billingOwner: {
+          type: workspace.billingOwnerType,
+          ...(workspace.billingOwnerType === 'organization'
+            ? { organizationId: workspace.billingOwnerOrganizationId }
+            : { userId: workspace.billingOwnerUserId }),
+        },
+      })),
     }))
   })
 

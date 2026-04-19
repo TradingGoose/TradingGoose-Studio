@@ -1,20 +1,17 @@
 import { db } from '@tradinggoose/db'
 import { systemSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { createLogger } from '@/lib/logs/console/logger'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode } from '@/lib/registration/shared'
-import { decryptSecret, encryptSecret } from '@/lib/utils'
-
-const logger = createLogger('SystemSettingsService')
 
 export const GLOBAL_SYSTEM_SETTINGS_ID = 'global'
 
 export const DEFAULT_SYSTEM_SETTINGS = {
   registrationMode: DEFAULT_REGISTRATION_MODE,
   billingEnabled: false,
+  triggerDevEnabled: false,
   allowPromotionCodes: true,
-  stripeSecretKey: null,
-  stripeWebhookSecret: null,
+  emailDomain: 'tradinggoose.ai',
+  fromEmailAddress: null,
 } as const
 
 type SystemSettingsRecord = typeof systemSettings.$inferSelect
@@ -22,24 +19,29 @@ type SystemSettingsRecord = typeof systemSettings.$inferSelect
 export type UpsertSystemSettingsInput = {
   registrationMode?: RegistrationMode
   billingEnabled?: boolean
+  triggerDevEnabled?: boolean
   allowPromotionCodes?: boolean
-  stripeSecretKey?: string | null
-  stripeWebhookSecret?: string | null
+  emailDomain?: string
+  fromEmailAddress?: string | null
 }
 
 type ResolvedSystemSettingsFlags = {
   registrationMode: RegistrationMode
   billingEnabled: boolean
+  triggerDevEnabled: boolean
   allowPromotionCodes: boolean
+  emailDomain: string
+  fromEmailAddress: string | null
 }
 
 export type ResolvedSystemSettings = {
   settings: SystemSettingsRecord | null
   registrationMode: RegistrationMode
   billingEnabled: boolean
+  triggerDevEnabled: boolean
   allowPromotionCodes: boolean
-  stripeSecretKey: string | null
-  stripeWebhookSecret: string | null
+  emailDomain: string
+  fromEmailAddress: string | null
 }
 
 export async function getSystemSettingsRecord(): Promise<SystemSettingsRecord | null> {
@@ -55,30 +57,38 @@ export async function getSystemSettingsRecord(): Promise<SystemSettingsRecord | 
 export function resolveSystemSettingsFlags(
   settings: Pick<
     SystemSettingsRecord,
-    'registrationMode' | 'billingEnabled' | 'allowPromotionCodes'
+    | 'registrationMode'
+    | 'billingEnabled'
+    | 'triggerDevEnabled'
+    | 'allowPromotionCodes'
+    | 'emailDomain'
+    | 'fromEmailAddress'
   > | null
 ): ResolvedSystemSettingsFlags {
   return {
     registrationMode: settings?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode,
     billingEnabled: settings?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled,
+    triggerDevEnabled: settings?.triggerDevEnabled ?? DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled,
     allowPromotionCodes:
       settings?.allowPromotionCodes ?? DEFAULT_SYSTEM_SETTINGS.allowPromotionCodes,
+    emailDomain: normalizeRequiredSystemSetting(
+      settings?.emailDomain,
+      DEFAULT_SYSTEM_SETTINGS.emailDomain
+    ),
+    fromEmailAddress: normalizeNullableSystemSetting(
+      settings?.fromEmailAddress,
+      DEFAULT_SYSTEM_SETTINGS.fromEmailAddress
+    ),
   }
 }
 
 export async function getResolvedSystemSettings(): Promise<ResolvedSystemSettings> {
   const settings = await getSystemSettingsRecord()
   const flags = resolveSystemSettingsFlags(settings)
-  const [stripeSecretKey, stripeWebhookSecret] = await Promise.all([
-    decryptStoredSystemSecret('STRIPE_SECRET_KEY', settings?.stripeSecretKey ?? null),
-    decryptStoredSystemSecret('STRIPE_WEBHOOK_SECRET', settings?.stripeWebhookSecret ?? null),
-  ])
 
   return {
     settings,
     ...flags,
-    stripeSecretKey,
-    stripeWebhookSecret,
   }
 }
 
@@ -87,23 +97,31 @@ export async function upsertSystemSettings(
 ): Promise<ResolvedSystemSettings> {
   const existing = await getSystemSettingsRecord()
   const now = new Date()
-  const hasStripeSecretKey = hasInputKey(input, 'stripeSecretKey')
-  const hasStripeWebhookSecret = hasInputKey(input, 'stripeWebhookSecret')
 
   const nextRegistrationMode =
     input.registrationMode ?? existing?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode
   const nextBillingEnabled =
     input.billingEnabled ?? existing?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled
+  const nextTriggerDevEnabled =
+    input.triggerDevEnabled ??
+    existing?.triggerDevEnabled ??
+    DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled
   const nextAllowPromotionCodes =
     input.allowPromotionCodes ??
     existing?.allowPromotionCodes ??
     DEFAULT_SYSTEM_SETTINGS.allowPromotionCodes
-  const nextStripeSecretKey = hasStripeSecretKey
-    ? await encryptNullableSystemSecret(input.stripeSecretKey ?? null)
-    : (existing?.stripeSecretKey ?? null)
-  const nextStripeWebhookSecret = hasStripeWebhookSecret
-    ? await encryptNullableSystemSecret(input.stripeWebhookSecret ?? null)
-    : (existing?.stripeWebhookSecret ?? null)
+  const nextEmailDomain = hasInputKey(input, 'emailDomain')
+    ? normalizeRequiredSystemSetting(input.emailDomain, DEFAULT_SYSTEM_SETTINGS.emailDomain)
+    : normalizeRequiredSystemSetting(
+        existing?.emailDomain,
+        DEFAULT_SYSTEM_SETTINGS.emailDomain
+      )
+  const nextFromEmailAddress = hasInputKey(input, 'fromEmailAddress')
+    ? normalizeNullableSystemSetting(input.fromEmailAddress, DEFAULT_SYSTEM_SETTINGS.fromEmailAddress)
+    : normalizeNullableSystemSetting(
+        existing?.fromEmailAddress,
+        DEFAULT_SYSTEM_SETTINGS.fromEmailAddress
+      )
 
   await db
     .insert(systemSettings)
@@ -111,9 +129,10 @@ export async function upsertSystemSettings(
       id: GLOBAL_SYSTEM_SETTINGS_ID,
       registrationMode: nextRegistrationMode,
       billingEnabled: nextBillingEnabled,
+      triggerDevEnabled: nextTriggerDevEnabled,
       allowPromotionCodes: nextAllowPromotionCodes,
-      stripeSecretKey: nextStripeSecretKey,
-      stripeWebhookSecret: nextStripeWebhookSecret,
+      emailDomain: nextEmailDomain,
+      fromEmailAddress: nextFromEmailAddress,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     })
@@ -122,9 +141,10 @@ export async function upsertSystemSettings(
       set: {
         registrationMode: nextRegistrationMode,
         billingEnabled: nextBillingEnabled,
+        triggerDevEnabled: nextTriggerDevEnabled,
         allowPromotionCodes: nextAllowPromotionCodes,
-        stripeSecretKey: nextStripeSecretKey,
-        stripeWebhookSecret: nextStripeWebhookSecret,
+        emailDomain: nextEmailDomain,
+        fromEmailAddress: nextFromEmailAddress,
         updatedAt: now,
       },
     })
@@ -132,34 +152,19 @@ export async function upsertSystemSettings(
   return getResolvedSystemSettings()
 }
 
-async function decryptStoredSystemSecret(key: string, encryptedValue: string | null) {
-  if (!encryptedValue?.trim()) {
-    return null
-  }
-
-  try {
-    const { decrypted } = await decryptSecret(encryptedValue)
-    const trimmed = decrypted.trim()
-    return trimmed.length > 0 ? trimmed : null
-  } catch (error) {
-    logger.error('Failed to decrypt system setting secret', { key, error })
-    return null
-  }
-}
-
-async function encryptNullableSystemSecret(value: string | null) {
-  const normalizedValue = value?.trim() ?? ''
-  if (!normalizedValue) {
-    return null
-  }
-
-  const { encrypted } = await encryptSecret(normalizedValue)
-  return encrypted
-}
-
 function hasInputKey<T extends object, K extends string>(
   value: T,
   key: K
 ): value is T & Record<K, unknown> {
   return Object.hasOwn(value, key)
+}
+
+function normalizeRequiredSystemSetting(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim()
+  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : fallback
+}
+
+function normalizeNullableSystemSetting(value: string | null | undefined, fallback: string | null) {
+  const normalizedValue = value?.trim()
+  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : fallback
 }

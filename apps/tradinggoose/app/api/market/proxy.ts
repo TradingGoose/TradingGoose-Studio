@@ -1,11 +1,20 @@
+import { createHash } from 'crypto'
 import { type NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import { createLogger } from '@/lib/logs/console/logger'
 import { MARKET_API_URL_DEFAULT, MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketProxyAPI')
-const MARKET_API_URL = env.MARKET_API_URL || MARKET_API_URL_DEFAULT
+const MARKET_SEARCH_CACHE_PREFIX = 'market:search:'
+const MARKET_SEARCH_CACHE_TTL_SECONDS = 60 * 5
+
+type CachedSearchResponse = {
+  body: string
+  contentType: string | null
+  status: number
+}
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -40,13 +49,26 @@ const resolveVersion = (body: unknown, params?: URLSearchParams | null) => {
   return normalizeVersion(raw || MARKET_API_VERSION)
 }
 
+const buildSearchCacheKey = (targetUrl: string) =>
+  `${MARKET_SEARCH_CACHE_PREFIX}${createHash('sha256').update(targetUrl).digest('hex')}`
+
+const buildSearchCacheTarget = (
+  pathSegments: string[] | undefined,
+  params: URLSearchParams
+) => {
+  const path = pathSegments?.length ? `/${pathSegments.join('/')}` : ''
+  const search = params.toString()
+  return `/api${path}${search ? `?${search}` : ''}`
+}
+
 const buildTargetUrl = (
+  marketApiUrl: string,
   request: NextRequest,
   pathSegments?: string[],
   overrideSearchParams?: URLSearchParams
 ) => {
   const path = pathSegments?.length ? `/${pathSegments.join('/')}` : ''
-  const target = new URL(`/api${path}`, MARKET_API_URL)
+  const target = new URL(`/api${path}`, marketApiUrl)
   if (overrideSearchParams) {
     const search = overrideSearchParams.toString()
     target.search = search ? `?${search}` : ''
@@ -56,14 +78,13 @@ const buildTargetUrl = (
   return target.toString()
 }
 
-const buildForwardHeaders = (request: NextRequest) => {
+const buildForwardHeaders = (request: NextRequest, apiKey: string | null) => {
   const headers = new Headers()
   request.headers.forEach((value, key) => {
     if (!hopByHopHeaders.has(key.toLowerCase())) {
       headers.set(key, value)
     }
   })
-  const apiKey = env.MARKET_API_KEY
   if (apiKey) {
     headers.set('x-api-key', apiKey)
   }
@@ -92,7 +113,6 @@ export const proxyMarketRequest = async (
   if (!version) {
     return NextResponse.json({ error: 'Invalid API version' }, { status: 400 })
   }
-  const targetUrl = buildTargetUrl(request, pathSegments, overrideSearchParams)
 
   try {
     const method = request.method.toUpperCase()
@@ -117,15 +137,35 @@ export const proxyMarketRequest = async (
         { status: 405, headers: { Allow: allowHeader } }
       )
     }
-    const headers = buildForwardHeaders(request)
-    const forwardBody = JSON.stringify({ ...bodyPayload, version })
 
     if (method === 'GET') {
-      const target = new URL(targetUrl)
-      if (!target.searchParams.get('version')) {
-        target.searchParams.set('version', version)
+      const targetSearchParams = new URLSearchParams(
+        (overrideSearchParams ?? request.nextUrl.searchParams).toString()
+      )
+      if (!targetSearchParams.get('version')) {
+        targetSearchParams.set('version', version)
       }
-      const response = await fetch(target.toString(), {
+      if (isSearch) {
+        const cacheKey = buildSearchCacheKey(buildSearchCacheTarget(pathSegments, targetSearchParams))
+        const cached = await readServerJsonCache<CachedSearchResponse>(cacheKey)
+        if (cached) {
+          return new NextResponse(cached.body, {
+            status: cached.status,
+            headers: cached.contentType
+              ? { 'content-type': cached.contentType }
+              : undefined,
+          })
+        }
+      }
+      const marketApi = await resolveMarketApiServiceConfig()
+      const targetUrl = buildTargetUrl(
+        marketApi.baseUrl || MARKET_API_URL_DEFAULT,
+        request,
+        pathSegments,
+        targetSearchParams
+      )
+      const headers = buildForwardHeaders(request, marketApi.apiKey)
+      const response = await fetch(targetUrl, {
         method,
         headers,
       })
@@ -140,12 +180,31 @@ export const proxyMarketRequest = async (
       responseHeaders.delete('content-encoding')
       responseHeaders.delete('content-length')
 
-      return new NextResponse(response.body, {
+      const responseBody = await response.text()
+
+      if (isSearch && response.ok) {
+        await writeServerJsonCache(buildSearchCacheKey(buildSearchCacheTarget(pathSegments, targetSearchParams)), {
+          body: responseBody,
+          status: response.status,
+          contentType: responseHeaders.get('content-type'),
+        }, MARKET_SEARCH_CACHE_TTL_SECONDS)
+      }
+
+      return new NextResponse(responseBody, {
         status: response.status,
         headers: responseHeaders,
       })
     }
 
+    const marketApi = await resolveMarketApiServiceConfig()
+    const targetUrl = buildTargetUrl(
+      marketApi.baseUrl || MARKET_API_URL_DEFAULT,
+      request,
+      pathSegments,
+      overrideSearchParams
+    )
+    const headers = buildForwardHeaders(request, marketApi.apiKey)
+    const forwardBody = JSON.stringify({ ...bodyPayload, version })
     const response = await fetch(targetUrl, {
       method,
       headers,

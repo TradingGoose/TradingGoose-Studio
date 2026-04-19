@@ -1,5 +1,6 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth } from '@/lib/auth'
+import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
@@ -56,6 +57,10 @@ export const handleAuthRequest = async (request: Request) => {
   const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
   if (!providerId) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+  }
+
+  if (isSignInOAuthProviderId(providerId)) {
+    return auth.handler(request)
   }
 
   const credentials = await loadSystemOAuthClientCredentials([providerId])

@@ -1,12 +1,22 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
-import { adminSystemSettingsMutationSchema } from '@/lib/admin/system-settings/mutations'
+import {
+  adminSystemSettingsMutationSchema,
+  type AdminSystemSettingsMutationInput,
+} from '@/lib/admin/system-settings/mutations'
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
-import { isBillingConfigurationReady } from '@/lib/billing/settings'
+import {
+  getBillingGateState,
+  isBillingConfigurationReady,
+} from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getResolvedSystemSettings, upsertSystemSettings } from '@/lib/system-settings/service'
-import { setCachedStripeSettings } from '@/lib/system-settings/stripe-runtime'
+import {
+  getResolvedSystemSettings,
+  upsertSystemSettings,
+  type ResolvedSystemSettings,
+} from '@/lib/system-settings/service'
+import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('AdminSystemSettingsAPI')
@@ -51,14 +61,19 @@ export async function GET() {
       }
     }
 
-    const [snapshot, billingReady] = await Promise.all([
+    const [snapshot, billingGate, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
+      getBillingGateState(),
       isBillingConfigurationReady(),
+      isTriggerConfigurationReady(),
     ])
-    return NextResponse.json(serializeSnapshot(snapshot, billingReady), {
-      status: 200,
-      headers: NO_STORE_HEADERS,
-    })
+    return NextResponse.json(
+      serializeSnapshot(snapshot, billingGate.stripeConfigured, billingReady, triggerReady),
+      {
+        status: 200,
+        headers: NO_STORE_HEADERS,
+      }
+    )
   } catch (error) {
     logger.error(`[${requestId}] Failed to load admin system settings`, error)
     return NextResponse.json(
@@ -104,16 +119,45 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
-    const [currentSettings, billingReady] = await Promise.all([
+    const [currentSettings, billingGate, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
+      getBillingGateState(),
       isBillingConfigurationReady(),
+      isTriggerConfigurationReady(),
     ])
-    const isEnablingBilling = payload.billingEnabled === true && !currentSettings.billingEnabled
-    if (payload.billingEnabled && !billingReady) {
+    const isEnablingBilling =
+      hasPayloadField(payload, 'billingEnabled') &&
+      payload.billingEnabled &&
+      !currentSettings.billingEnabled
+
+    if (isEnablingBilling && !billingGate.stripeConfigured) {
+      return NextResponse.json(
+        {
+          error: 'Billing cannot be enabled until STRIPE_SECRET_KEY is configured.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
+    if (isEnablingBilling && !billingReady) {
       return NextResponse.json(
         {
           error:
             'Billing cannot be enabled until an active public default user tier is configured.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
+
+    const isEnablingTriggerDev =
+      hasPayloadField(payload, 'triggerDevEnabled') &&
+      payload.triggerDevEnabled &&
+      !currentSettings.triggerDevEnabled
+
+    if (isEnablingTriggerDev && !triggerReady) {
+      return NextResponse.json(
+        {
+          error:
+            'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
         },
         { status: 409, headers: NO_STORE_HEADERS }
       )
@@ -125,15 +169,13 @@ export async function PATCH(request: NextRequest) {
       await backfillDefaultUserSubscriptions()
     }
 
-    setCachedStripeSettings({
-      stripeSecretKey: snapshot.stripeSecretKey,
-      stripeWebhookSecret: snapshot.stripeWebhookSecret,
-    })
-
-    return NextResponse.json(serializeSnapshot(snapshot, billingReady), {
-      status: 200,
-      headers: NO_STORE_HEADERS,
-    })
+    return NextResponse.json(
+      serializeSnapshot(snapshot, billingGate.stripeConfigured, billingReady, triggerReady),
+      {
+        status: 200,
+        headers: NO_STORE_HEADERS,
+      }
+    )
   } catch (error) {
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin system settings payload`, {
@@ -153,16 +195,28 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+function hasPayloadField<Key extends keyof AdminSystemSettingsMutationInput>(
+  payload: AdminSystemSettingsMutationInput,
+  key: Key
+): payload is AdminSystemSettingsMutationInput & Required<Pick<AdminSystemSettingsMutationInput, Key>> {
+  return Object.hasOwn(payload, key)
+}
+
 function serializeSnapshot(
-  snapshot: Awaited<ReturnType<typeof getResolvedSystemSettings>>,
-  billingReady: boolean
+  snapshot: ResolvedSystemSettings,
+  stripeConfigured: boolean,
+  billingReady: boolean,
+  triggerReady: boolean
 ) {
   return {
     registrationMode: snapshot.registrationMode,
-    billingEnabled: snapshot.billingEnabled,
+    billingEnabled: stripeConfigured ? snapshot.billingEnabled : false,
+    stripeConfigured,
     billingReady,
+    triggerDevEnabled: snapshot.triggerDevEnabled,
+    triggerReady,
     allowPromotionCodes: snapshot.allowPromotionCodes,
-    hasStripeSecretKey: Boolean(snapshot.stripeSecretKey?.trim()),
-    hasStripeWebhookSecret: Boolean(snapshot.stripeWebhookSecret?.trim()),
+    emailDomain: snapshot.emailDomain,
+    fromEmailAddress: snapshot.fromEmailAddress ?? '',
   }
 }

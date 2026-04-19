@@ -3,8 +3,12 @@ import { account, user } from '@tradinggoose/db/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/base-tool'
 import { generateRequestId } from '@/lib/utils'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
@@ -16,7 +20,7 @@ interface GetCredentialsParams {
 
 export const getCredentialsServerTool: BaseServerTool<GetCredentialsParams, any> = {
   name: 'get_credentials',
-  async execute(params: GetCredentialsParams, context?: { userId: string }): Promise<any> {
+  async execute(params: GetCredentialsParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('GetCredentialsServerTool')
 
     if (!context?.userId) {
@@ -26,31 +30,23 @@ export const getCredentialsServerTool: BaseServerTool<GetCredentialsParams, any>
 
     const authenticatedUserId = context.userId
 
-    let workspaceId: string | undefined
-
-    if (params?.workflowId) {
-      const { hasAccess, workspaceId: wId } = await verifyWorkflowAccess(
+    const workflowScope = await resolveServerWorkflowScope(params, context)
+    if (workflowScope && !workflowScope.hasAccess) {
+      const errorMessage = createPermissionError('access credentials in')
+      logger.error('Unauthorized attempt to access credentials', {
+        workflowId: workflowScope.workflowId,
         authenticatedUserId,
-        params.workflowId
-      )
-
-      if (!hasAccess) {
-        const errorMessage = createPermissionError('access credentials in')
-        logger.error('Unauthorized attempt to access credentials', {
-          workflowId: params.workflowId,
-          authenticatedUserId,
-        })
-        throw new Error(errorMessage)
-      }
-
-      workspaceId = wId ?? undefined
+      })
+      throw new Error(errorMessage)
     }
+    const workspaceId = workflowScope?.workspaceId
 
     const userId = authenticatedUserId
 
     logger.info('Fetching credentials for authenticated user', {
       userId,
-      hasWorkflowId: !!params?.workflowId,
+      workflowId: workflowScope?.workflowId,
+      workspaceId,
     })
 
     // Fetch OAuth credentials

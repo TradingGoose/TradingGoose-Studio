@@ -2,9 +2,10 @@ export type CopilotAccessLevel = 'limited' | 'full'
 
 export function shouldAutoExecuteCopilotTool(
   accessLevel: CopilotAccessLevel,
-  hasInterrupt: boolean
+  hasInterrupt: boolean,
+  entersReviewState = false
 ): boolean {
-  return accessLevel === 'full' || !hasInterrupt
+  return accessLevel === 'full' || entersReviewState || !hasInterrupt
 }
 
 export function shouldAutoExecuteIntegrationTool(accessLevel: CopilotAccessLevel): boolean {

@@ -27,7 +27,7 @@ import {
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
-import { buildSubBlockRows } from './components/sub-block/sub-block-layout'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 
 const WORKFLOW_POPOVER_PORTAL_KEY = '__workflowPopoverPortal'
 
@@ -354,7 +354,7 @@ export const WorkflowBlock = memo(
           createdPortal.remove()
         }
 
-        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+          ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
       if (!portal) return
@@ -736,6 +736,7 @@ export const WorkflowBlock = memo(
         isPureTriggerBlock,
         availableTriggerIds: config.triggers?.available,
         hideFromPreview: true,
+        triggerSubBlockOwner: 'all',
       })
 
       // Return both rows and state for stable key generation
@@ -930,7 +931,7 @@ export const WorkflowBlock = memo(
       }
     }, [childWorkflowId])
 
-    const blockAccentColor = config.bgColor || 'hsl(var(--foreground))'
+    const blockAccentColor = config.bgColor || 'hsl(var(--muted-foreground))'
     const hasPriorityRing = isActive || isPending
 
     return (
@@ -1061,7 +1062,7 @@ export const WorkflowBlock = memo(
                           'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
                           !isEnabled && 'text-muted-foreground',
                           (disableInNodeEditing || isReadOnlyBlock) &&
-                            'cursor-default hover:text-foreground'
+                          'cursor-default hover:text-foreground'
                         )}
                         onClick={handleNameClick}
                         title={name}
@@ -1133,98 +1134,98 @@ export const WorkflowBlock = memo(
                   <div className='flex flex-col gap-2'>
                     {type === 'condition'
                       ? conditionRows.map((conditionRow) => (
-                          <div key={conditionRow.id} className='flex items-center gap-2'>
+                        <div key={conditionRow.id} className='flex items-center gap-2'>
+                          <p
+                            className='min-w-0 truncate text-muted-foreground capitalize'
+                            title={conditionRow.title}
+                          >
+                            {conditionRow.title}
+                          </p>
+                          <p
+                            className='min-w-0 flex-1 truncate text-right'
+                            title={conditionRow.value}
+                          >
+                            {formatSubBlockValue(conditionRow.value)}
+                          </p>
+                        </div>
+                      ))
+                      : flattenedSubBlocks.map((subBlock, index) => {
+                        const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
+                        const rawValue = resolveDisplayedSubBlockValue(
+                          {
+                            readOnly: subBlock.readOnly,
+                            defaultValue: subBlock.defaultValue,
+                          },
+                          subBlockState[subBlock.id]?.value
+                        )
+                        const isJsonCodeSubBlock =
+                          subBlock.type === 'code' && subBlock.language === 'json'
+                        const jsonPreviewRows = isJsonCodeSubBlock
+                          ? buildJsonPreviewFieldRows(rawValue)
+                          : null
+                        const displayValue = subBlock.password
+                          ? rawValue === null || rawValue === undefined || rawValue === ''
+                            ? '-'
+                            : 'Configured'
+                          : subBlock.type === 'skill-input'
+                            ? formatSkillInputValue(rawValue)
+                            : formatSubBlockValue(rawValue)
+
+                        if (isJsonCodeSubBlock) {
+                          const jsonTitle = subBlock.title ?? subBlock.id
+                          return (
+                            <div key={stableKey} className='flex flex-col gap-1'>
+                              <p
+                                className='min-w-0 truncate text-muted-foreground capitalize'
+                                title={jsonTitle}
+                              >
+                                {jsonTitle}:
+                              </p>
+                              <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
+                                {(jsonPreviewRows ?? []).map((jsonRow, jsonRowIndex) => (
+                                  <div
+                                    key={`${stableKey}-json-row-${jsonRowIndex}`}
+                                    className={cn(
+                                      'flex items-center gap-2 px-3 py-1.5',
+                                      jsonRowIndex > 0 && 'border-border border-t'
+                                    )}
+                                  >
+                                    <p
+                                      className='min-w-0 truncate text-muted-foreground'
+                                      title={jsonRow.title}
+                                    >
+                                      {jsonRow.title}
+                                    </p>
+                                    <p
+                                      className='min-w-0 flex-1 truncate text-right'
+                                      title={jsonRow.value}
+                                    >
+                                      {jsonRow.value}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div key={stableKey} className='flex items-center gap-2'>
                             <p
                               className='min-w-0 truncate text-muted-foreground capitalize'
-                              title={conditionRow.title}
+                              title={subBlock.title ?? subBlock.id}
                             >
-                              {conditionRow.title}
+                              {subBlock.title ?? subBlock.id}
                             </p>
                             <p
                               className='min-w-0 flex-1 truncate text-right'
-                              title={conditionRow.value}
+                              title={displayValue}
                             >
-                              {formatSubBlockValue(conditionRow.value)}
+                              {displayValue}
                             </p>
                           </div>
-                        ))
-                      : flattenedSubBlocks.map((subBlock, index) => {
-                          const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
-                          const rawValue = resolveDisplayedSubBlockValue(
-                            {
-                              readOnly: subBlock.readOnly,
-                              defaultValue: subBlock.defaultValue,
-                            },
-                            subBlockState[subBlock.id]?.value
-                          )
-                          const isJsonCodeSubBlock =
-                            subBlock.type === 'code' && subBlock.language === 'json'
-                          const jsonPreviewRows = isJsonCodeSubBlock
-                            ? buildJsonPreviewFieldRows(rawValue)
-                            : null
-                          const displayValue = subBlock.password
-                            ? rawValue === null || rawValue === undefined || rawValue === ''
-                              ? '-'
-                              : 'Configured'
-                            : subBlock.type === 'skill-input'
-                              ? formatSkillInputValue(rawValue)
-                              : formatSubBlockValue(rawValue)
-
-                          if (isJsonCodeSubBlock) {
-                            const jsonTitle = subBlock.title ?? subBlock.id
-                            return (
-                              <div key={stableKey} className='flex flex-col gap-1'>
-                                <p
-                                  className='min-w-0 truncate text-muted-foreground capitalize'
-                                  title={jsonTitle}
-                                >
-                                  {jsonTitle}:
-                                </p>
-                                <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
-                                  {(jsonPreviewRows ?? []).map((jsonRow, jsonRowIndex) => (
-                                    <div
-                                      key={`${stableKey}-json-row-${jsonRowIndex}`}
-                                      className={cn(
-                                        'flex items-center gap-2 px-3 py-1.5',
-                                        jsonRowIndex > 0 && 'border-border border-t'
-                                      )}
-                                    >
-                                      <p
-                                        className='min-w-0 truncate text-muted-foreground'
-                                        title={jsonRow.title}
-                                      >
-                                        {jsonRow.title}
-                                      </p>
-                                      <p
-                                        className='min-w-0 flex-1 truncate text-right'
-                                        title={jsonRow.value}
-                                      >
-                                        {jsonRow.value}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <div key={stableKey} className='flex items-center gap-2'>
-                              <p
-                                className='min-w-0 truncate text-muted-foreground capitalize'
-                                title={subBlock.title ?? subBlock.id}
-                              >
-                                {subBlock.title ?? subBlock.id}
-                              </p>
-                              <p
-                                className='min-w-0 flex-1 truncate text-right'
-                                title={displayValue}
-                              >
-                                {displayValue}
-                              </p>
-                            </div>
-                          )
-                        })}
+                        )
+                      })}
                     {type === 'condition' && shouldShowErrorHandle && (
                       <div className='flex items-center gap-2'>
                         <p
@@ -1327,24 +1328,24 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(type === 'condition'
                       ? {
-                          right: '-8px',
-                          top: `${60 + conditionRows.length * 29}px`,
-                          bottom: 'auto',
-                          transform: 'translateY(-50%)',
-                        }
+                        right: '-8px',
+                        top: `${60 + conditionRows.length * 29}px`,
+                        bottom: 'auto',
+                        transform: 'translateY(-50%)',
+                      }
                       : useHorizontalErrorHandle
                         ? {
-                            right: '-8px',
-                            top: 'auto',
-                            bottom: '30px',
-                            transform: 'translateY(0)',
-                          }
+                          right: '-8px',
+                          top: 'auto',
+                          bottom: '30px',
+                          transform: 'translateY(0)',
+                        }
                         : {
-                            bottom: '-8px',
-                            left: 'auto',
-                            right: '30px',
-                            transform: 'translateX(0)',
-                          }),
+                          bottom: '-8px',
+                          left: 'auto',
+                          right: '30px',
+                          transform: 'translateX(0)',
+                        }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

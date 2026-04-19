@@ -10,18 +10,19 @@ import {
   formatOutputsWithPrefix,
   getSubflowInsidePaths,
   getWorkflowSubBlockValues,
-  getWorkflowVariables,
+  getWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
+import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import {
   GetBlockOutputsResult,
   type GetBlockOutputsResultType,
 } from '@/lib/copilot/tools/shared/schemas'
-import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 
 const logger = createLogger('GetBlockOutputsClientTool')
 
 interface GetBlockOutputsArgs {
   blockIds?: string[]
+  workflowId: string
 }
 
 export class GetBlockOutputsClientTool extends BaseClientTool {
@@ -65,23 +66,12 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
 
-      const activeWorkflowId = executionContext.workflowId
-      if (!activeWorkflowId) {
-        await this.markToolComplete(400, 'No active workflow found')
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      const snapshot = getSnapshotForWorkflow(activeWorkflowId)
-      if (!snapshot) {
-        await this.markToolComplete(400, 'No active Yjs session found')
-        this.setState(ClientToolCallState.error)
-        return
-      }
+      const { workflowId: activeWorkflowId, workflowState: snapshot, variables } =
+        await getReadableWorkflowState(executionContext, args?.workflowId)
       const blocks = snapshot.blocks || {}
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
-      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId)
+      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
 
       const ctx = { workflowId: activeWorkflowId, blocks, loops, parallels, subBlockValues }
       const targetBlockIds =
@@ -117,12 +107,12 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
       const includeVariables = !args?.blockIds || args.blockIds.length === 0
       const resultData: {
         blocks: typeof blockOutputs
-        variables?: ReturnType<typeof getWorkflowVariables>
+        variables?: ReturnType<typeof getWorkflowVariableOutputs>
       } = {
         blocks: blockOutputs,
       }
       if (includeVariables) {
-        resultData.variables = getWorkflowVariables(activeWorkflowId)
+        resultData.variables = getWorkflowVariableOutputs(variables)
       }
 
       const result = GetBlockOutputsResult.parse(resultData)

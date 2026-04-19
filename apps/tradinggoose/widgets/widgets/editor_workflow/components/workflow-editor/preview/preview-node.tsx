@@ -4,7 +4,7 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
-import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewNodeData } from './preview-payload-adapter'
 
@@ -85,6 +85,7 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
       isPureTriggerBlock,
       availableTriggerIds: blockConfig.triggers?.available,
       hideFromPreview: true,
+      triggerSubBlockOwner: 'all',
     }).flat()
   }, [
     blockConfig.subBlocks,

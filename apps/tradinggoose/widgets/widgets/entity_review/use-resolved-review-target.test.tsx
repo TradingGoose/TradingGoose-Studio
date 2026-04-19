@@ -36,10 +36,12 @@ function flushPromises() {
   })
 }
 
-function HookHarness() {
-  const [pairContext, setPairContext] = useState<PairColorContext | null>({
-    skillId: 'skill-1',
-  })
+function HookHarness({ initialPairContext }: { initialPairContext?: PairColorContext | null }) {
+  const [pairContext, setPairContext] = useState<PairColorContext | null>(
+    initialPairContext ?? {
+      skillId: 'skill-1',
+    }
+  )
 
   const selectionState = readEntitySelectionState({
     pairContext,
@@ -69,6 +71,7 @@ function HookHarness() {
       <div
         data-testid='state'
         data-review-session-id={descriptor?.reviewSessionId ?? ''}
+        data-entity-id={descriptor?.entityId ?? ''}
         data-is-resolving={isResolving ? 'true' : 'false'}
         data-error={error ?? ''}
       />
@@ -154,5 +157,58 @@ describe('useResolvedReviewTarget', () => {
     expect(stateNode?.getAttribute('data-review-session-id')).toBe('review-1')
     expect(stateNode?.getAttribute('data-is-resolving')).toBe('false')
     expect(stateNode?.getAttribute('data-error')).toBe('')
+  })
+
+  it('resolves the current entity id instead of a stale review target entity id', async () => {
+    mockResolveEntityReviewTarget.mockResolvedValueOnce({
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'skill',
+        entityId: 'skill-2',
+        draftSessionId: null,
+        reviewSessionId: 'review-2',
+        yjsSessionId: 'review-2',
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: false,
+      },
+    })
+
+    await act(async () => {
+      root.render(
+        <HookHarness
+          initialPairContext={{
+            skillId: 'skill-2',
+            reviewTarget: {
+              reviewSessionId: 'review-1',
+              reviewEntityKind: 'skill',
+              reviewEntityId: 'skill-1',
+              reviewDraftSessionId: null,
+            },
+          }}
+        />
+      )
+      await flushPromises()
+      await flushPromises()
+      await flushPromises()
+    })
+
+    expect(mockResolveEntityReviewTarget).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'skill',
+      entityId: 'skill-2',
+      draftSessionId: null,
+      reviewSessionId: null,
+    })
+    expect(container.querySelector('[data-testid="state"]')).toHaveAttribute(
+      'data-entity-id',
+      'skill-2'
+    )
+    expect(container.querySelector('[data-testid="state"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-2'
+    )
   })
 })

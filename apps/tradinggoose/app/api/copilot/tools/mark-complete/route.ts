@@ -64,13 +64,29 @@ export async function POST(req: NextRequest) {
       hasMessage: parsed.message !== undefined,
       hasData: parsed.data !== undefined,
       messagePreview,
-      agentUrl: getCopilotApiUrl('/api/tools/mark-complete'),
+      agentUrl: await getCopilotApiUrl('/api/tools/mark-complete'),
     })
 
     const agentRes = await proxyCopilotRequest({
       endpoint: '/api/tools/mark-complete',
       body: parsed,
     })
+
+    const contentType = agentRes.headers.get('content-type') || ''
+    if (agentRes.ok && contentType.includes('text/event-stream') && agentRes.body) {
+      logger.info(`[${tracker.requestId}] Agent returned continuation stream`, {
+        toolCallId: parsed.id,
+        toolName: parsed.name,
+      })
+      return new NextResponse(agentRes.body, {
+        status: agentRes.status,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
+      })
+    }
 
     // Attempt to parse agent response JSON
     let agentJson: any = null

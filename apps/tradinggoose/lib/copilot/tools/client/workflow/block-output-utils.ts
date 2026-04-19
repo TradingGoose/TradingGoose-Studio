@@ -3,10 +3,7 @@ import { getBlock } from '@/blocks'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 import type { Variable } from '@/stores/variables/types'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
-import {
-  getRegisteredWorkflowSession,
-  getVariablesForWorkflow,
-} from '@/lib/yjs/workflow-session-registry'
+import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
 import { getWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface WorkflowContext {
@@ -99,8 +96,10 @@ export function getSubBlockValue(
   return blocks[targetBlockId]?.subBlocks?.[subBlockId]?.value
 }
 
-export function getWorkflowVariables(workflowId: string): VariableOutput[] {
-  const varsSnapshot = getVariablesForWorkflow(workflowId)
+export function getWorkflowVariableOutputs(
+  variablesRecord: Record<string, any> | null | undefined
+): VariableOutput[] {
+  const varsSnapshot = variablesRecord
   if (!varsSnapshot) return []
   const workflowVariables = Object.values(varsSnapshot) as Variable[]
   const validVariables = workflowVariables.filter(

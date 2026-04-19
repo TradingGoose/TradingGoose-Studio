@@ -1,18 +1,4 @@
-import { env } from '@/lib/env'
-
-const DEFAULT_LOCAL_VM_MAX_CONCURRENT_EXECUTIONS = 200
-
-const coercePositiveInt = (value: string | undefined): number | undefined => {
-  if (!value) return undefined
-  const parsed = Number.parseInt(value, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined
-  return parsed
-}
-
-const MAX_LOCAL_VM_CONCURRENT_EXECUTIONS =
-  coercePositiveInt(env.LOCAL_VM_MAX_CONCURRENT_EXECUTIONS) ??
-  DEFAULT_LOCAL_VM_MAX_CONCURRENT_EXECUTIONS
-const MAX_LOCAL_VM_ACTIVE_PER_OWNER = coercePositiveInt(env.LOCAL_VM_MAX_ACTIVE_PER_OWNER)
+import { resolveLocalExecutionServiceConfig } from '@/lib/system-services/runtime'
 
 type LocalVmSaturationLimitErrorDetails = {
   ownerKey?: string
@@ -76,29 +62,33 @@ export const withLocalVmSaturationLimit = async <T>({
   ownerKey?: string
   task: () => Promise<T>
 }): Promise<T> => {
-  if (activeExecutions >= MAX_LOCAL_VM_CONCURRENT_EXECUTIONS) {
+  const limits = await resolveLocalExecutionServiceConfig()
+  const maxConcurrentExecutions = limits.maxConcurrentExecutions
+  const maxActivePerOwner = limits.maxActivePerOwner
+
+  if (activeExecutions >= maxConcurrentExecutions) {
     throw buildLimitError('Local execution engine is at capacity', {
       ownerKey,
       activeExecutions,
-      maxConcurrentExecutions: MAX_LOCAL_VM_CONCURRENT_EXECUTIONS,
+      maxConcurrentExecutions,
       ...(ownerKey
         ? {
             activeExecutionsForOwner: activeExecutionsByOwner.get(ownerKey) ?? 0,
-            maxConcurrentExecutionsPerOwner: MAX_LOCAL_VM_ACTIVE_PER_OWNER,
+            maxConcurrentExecutionsPerOwner: maxActivePerOwner,
           }
         : null),
     })
   }
 
-  if (ownerKey && MAX_LOCAL_VM_ACTIVE_PER_OWNER) {
+  if (ownerKey && maxActivePerOwner) {
     const ownerActiveExecutions = activeExecutionsByOwner.get(ownerKey) ?? 0
-    if (ownerActiveExecutions >= MAX_LOCAL_VM_ACTIVE_PER_OWNER) {
+    if (ownerActiveExecutions >= maxActivePerOwner) {
       throw buildLimitError('Local execution engine per-owner capacity reached', {
         ownerKey,
         activeExecutions,
-        maxConcurrentExecutions: MAX_LOCAL_VM_CONCURRENT_EXECUTIONS,
+        maxConcurrentExecutions,
         activeExecutionsForOwner: ownerActiveExecutions,
-        maxConcurrentExecutionsPerOwner: MAX_LOCAL_VM_ACTIVE_PER_OWNER,
+        maxConcurrentExecutionsPerOwner: maxActivePerOwner,
       })
     }
   }

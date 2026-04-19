@@ -8,6 +8,9 @@ import {
   loadWorkflowFromNormalizedTables,
   type NormalizedWorkflowData,
 } from '@/lib/workflows/db-helpers'
+import {
+  resolveAutoLayoutDirection,
+} from '@/lib/workflows/workflow-direction'
 import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 
 export const dynamic = 'force-dynamic'
@@ -121,6 +124,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const autoLayoutOptions = {
+      direction: resolveAutoLayoutDirection(
+        {
+          blocks: currentWorkflowData.blocks,
+          edges: currentWorkflowData.edges,
+        },
+        layoutOptions.direction
+      ),
       horizontalSpacing: layoutOptions.spacing?.horizontal || 550,
       verticalSpacing: layoutOptions.spacing?.vertical || 200,
       padding: {
@@ -165,7 +175,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       message: `Autolayout applied successfully to ${blockCount} blocks`,
       data: {
         strategy: layoutOptions.strategy,
-        direction: layoutOptions.direction,
+        direction: autoLayoutOptions.direction,
         blockCount,
         elapsed: `${elapsed}ms`,
         layoutedBlocks: layoutResult.blocks,

@@ -79,28 +79,20 @@ export async function calculateOrganizationIndividualOverage(params: {
  * Get organization subscription directly by organization ID
  */
 export async function getOrganizationSubscription(organizationId: string) {
-  try {
-    const orgSubs = await db
-      .select()
-      .from(subscription)
-      .where(
-        and(
-          eq(subscription.referenceType, 'organization'),
-          eq(subscription.referenceId, organizationId),
-          inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
-        )
+  const orgSubs = await db
+    .select()
+    .from(subscription)
+    .where(
+      and(
+        eq(subscription.referenceType, 'organization'),
+        eq(subscription.referenceId, organizationId),
+        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
       )
-      .limit(1)
+    )
+    .limit(1)
 
-    const hydrated = await hydrateSubscriptionsWithTiers(orgSubs)
-    return hydrated[0] ?? null
-  } catch (error) {
-    logger.error('Error getting organization subscription', {
-      error,
-      organizationId,
-    })
-    return null
-  }
+  const hydrated = await hydrateSubscriptionsWithTiers(orgSubs)
+  return hydrated[0] ?? null
 }
 
 /**
@@ -224,17 +216,7 @@ export async function calculateSubscriptionOverage(sub: {
       totalOverage,
     })
   } else {
-    const usage = await getUserUsageData(sub.referenceId)
-    const { usageAllowance } = getBillingTierPricing(sub.tier)
-    totalOverage = Math.max(0, usage.currentUsage - usageAllowance)
-
-    logger.info('Calculated overage for subscription without a hydrated tier', {
-      subscriptionId: sub.id,
-      billingTier: 'default',
-      usage: usage.currentUsage,
-      usageAllowance,
-      totalOverage,
-    })
+    throw new Error(`Cannot calculate overage for subscription ${sub.id} without a hydrated tier`)
   }
 
   return totalOverage
@@ -297,17 +279,24 @@ export async function getSimplifiedBillingSummary(
         ? getOrganizationSubscription(organizationId)
         : getEffectiveSubscription(userId),
     ])
+    const exposedSubscription = billingEnabled ? subscription : null
 
     // Build a canonical tier-backed summary once and share it across the response.
     const isPaid = Boolean(
-      billingEnabled && subscription?.tier && !isFreeBillingTier(subscription.tier)
+      exposedSubscription?.tier && !isFreeBillingTier(exposedSubscription.tier)
     )
-    const tier = toBillingTierSummary(subscription?.tier)
+    const tier = toBillingTierSummary(exposedSubscription?.tier)
 
     if (organizationId) {
       // Organization billing summary
       if (!subscription) {
-        return getDefaultBillingSummary('organization', billingEnabled)
+        if (!billingEnabled) {
+          return getDisabledBillingSummary('organization')
+        }
+
+        throw new Error(
+          `No active organization subscription found for billed organization ${organizationId}`
+        )
       }
 
       const [members, billingLedger, orgRows] = await Promise.all([
@@ -324,7 +313,11 @@ export async function getSimplifiedBillingSummary(
       ])
 
       if (!billingLedger) {
-        return getDefaultBillingSummary('organization', billingEnabled)
+        if (!billingEnabled) {
+          return getDisabledBillingSummary('organization')
+        }
+
+        throw new Error(`No billing ledger found for billed organization ${organizationId}`)
       }
 
       const { basePrice: basePricePerSeat, usageAllowance } = getBillingTierPricing(subscription)
@@ -374,7 +367,7 @@ export async function getSimplifiedBillingSummary(
 
       return {
         type: 'organization',
-        id: subscription.id,
+        id: exposedSubscription?.id ?? null,
         basePrice: totalBasePrice,
         currentUsage: totalCurrentUsage,
         overageAmount: totalOverage,
@@ -386,12 +379,12 @@ export async function getSimplifiedBillingSummary(
         daysRemaining,
         // Subscription details
         isPaid,
-        status: subscription.status || null,
-        seats: licensedSeats,
-        metadata: subscription.metadata || null,
-        stripeSubscriptionId: subscription.stripeSubscriptionId || null,
-        periodEnd: subscription.periodEnd || null,
-        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd || undefined,
+        status: exposedSubscription?.status || null,
+        seats: exposedSubscription ? licensedSeats : null,
+        metadata: exposedSubscription?.metadata || null,
+        stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
+        periodEnd: exposedSubscription?.periodEnd || null,
+        cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
         tier,
         // Usage details
         usage: {
@@ -418,6 +411,10 @@ export async function getSimplifiedBillingSummary(
     }
 
     // Individual billing summary
+    if (billingEnabled && !subscription) {
+      throw new Error(`No active personal subscription found for billed user ${userId}`)
+    }
+
     const usageData = await getUserUsageData(userId)
     const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
 
@@ -462,7 +459,7 @@ export async function getSimplifiedBillingSummary(
 
     return {
       type: 'individual',
-      id: subscription?.id ?? null,
+      id: exposedSubscription?.id ?? null,
       basePrice: effectiveBasePrice,
       currentUsage: currentUsage,
       overageAmount,
@@ -474,12 +471,12 @@ export async function getSimplifiedBillingSummary(
       daysRemaining,
       // Subscription details
       isPaid,
-      status: subscription?.status || null,
-      seats: subscription?.seats || null,
-      metadata: subscription?.metadata || null,
-      stripeSubscriptionId: subscription?.stripeSubscriptionId || null,
-      periodEnd: subscription?.periodEnd || null,
-      cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd || undefined,
+      status: exposedSubscription?.status || null,
+      seats: exposedSubscription?.seats || null,
+      metadata: exposedSubscription?.metadata || null,
+      stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
+      periodEnd: exposedSubscription?.periodEnd || null,
+      cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
       tier,
       // Usage details
       usage: {
@@ -504,74 +501,14 @@ export async function getSimplifiedBillingSummary(
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     })
-    try {
-      const { billingEnabled } = await getResolvedBillingSettings().catch(() => ({
-        billingEnabled: true,
-      }))
-      return getDefaultBillingSummary(
-        organizationId ? 'organization' : 'individual',
-        billingEnabled
-      )
-    } catch (fallbackError) {
-      logger.error('Failed to build default billing summary', {
-        userId,
-        organizationId,
-        error: fallbackError,
-      })
-
-      return {
-        type: organizationId ? 'organization' : 'individual',
-        id: null,
-        basePrice: 0,
-        currentUsage: 0,
-        overageAmount: 0,
-        totalProjected: 0,
-        usageLimit: 0,
-        percentUsed: 0,
-        isWarning: false,
-        isExceeded: false,
-        daysRemaining: 0,
-        isPaid: false,
-        status: null,
-        seats: null,
-        metadata: null,
-        stripeSubscriptionId: null,
-        periodEnd: null,
-        tier: toBillingTierSummary(null),
-        usage: {
-          current: 0,
-          limit: 0,
-          percentUsed: 0,
-          isWarning: false,
-          isExceeded: false,
-          billingPeriodStart: null,
-          billingPeriodEnd: null,
-          lastPeriodCost: 0,
-          lastPeriodCopilotCost: 0,
-          daysRemaining: 0,
-          copilotCost: 0,
-        },
-        ...(organizationId && {
-          organizationData: {
-            seatCount: 0,
-            memberCount: 0,
-            totalBasePrice: 0,
-            totalCurrentUsage: 0,
-            totalOverage: 0,
-          },
-        }),
-      }
-    }
+    throw error
   }
 }
 
 /**
- * Get default billing summary for error cases
+ * Build the permissive summary used only when billing is globally disabled.
  */
-function getDefaultBillingSummary(type: 'individual' | 'organization', billingEnabled: boolean) {
-  const usageLimit = billingEnabled ? 0 : Number.MAX_SAFE_INTEGER
-  const isExceeded = billingEnabled
-
+function getDisabledBillingSummary(type: 'individual' | 'organization') {
   return {
     type,
     id: null,
@@ -580,10 +517,10 @@ function getDefaultBillingSummary(type: 'individual' | 'organization', billingEn
     currentUsage: 0,
     overageAmount: 0,
     totalProjected: 0,
-    usageLimit,
-    percentUsed: isExceeded ? 100 : 0,
+    usageLimit: Number.MAX_SAFE_INTEGER,
+    percentUsed: 0,
     isWarning: false,
-    isExceeded,
+    isExceeded: false,
     daysRemaining: 0,
     // Subscription details
     isPaid: false,
@@ -595,10 +532,10 @@ function getDefaultBillingSummary(type: 'individual' | 'organization', billingEn
     // Usage details
     usage: {
       current: 0,
-      limit: usageLimit,
-      percentUsed: isExceeded ? 100 : 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      percentUsed: 0,
       isWarning: false,
-      isExceeded,
+      isExceeded: false,
       billingPeriodStart: null,
       billingPeriodEnd: null,
       lastPeriodCost: 0,

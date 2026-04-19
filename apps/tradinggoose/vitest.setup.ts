@@ -64,8 +64,48 @@ vi.mock('@/blocks/registry', () => {
   }
 
   const registry = {
-    agent: { ...fallbackBlock, name: 'Mock Agent' },
-    condition: { ...fallbackBlock, name: 'Mock Condition' },
+    agent: {
+      ...fallbackBlock,
+      name: 'Mock Agent',
+      subBlocks: [
+        {
+          id: 'responseFormat',
+          type: 'code',
+          language: 'json',
+          generationType: 'json-schema',
+        },
+      ],
+    },
+    condition: {
+      ...fallbackBlock,
+      name: 'Mock Condition',
+      subBlocks: [
+        {
+          id: 'conditions',
+          type: 'condition-input',
+        },
+      ],
+    },
+    function: {
+      ...fallbackBlock,
+      name: 'Mock Function',
+      longDescription:
+        'Execute custom TypeScript code. Indicator execution is available through indicator.<ID>(marketSeries) using Historical Data block output.',
+      subBlocks: [
+        {
+          id: 'code',
+          type: 'code',
+          language: 'typescript',
+          generationType: 'typescript-function-body',
+        },
+      ],
+    },
+    historical_data: {
+      ...fallbackBlock,
+      name: 'Mock Historical Data',
+      longDescription:
+        'Fetch series bars that include open, high, low, close, volume, and timestamps.',
+    },
     generic_webhook: { ...fallbackBlock, name: 'Mock Webhook', category: 'triggers' },
   }
 

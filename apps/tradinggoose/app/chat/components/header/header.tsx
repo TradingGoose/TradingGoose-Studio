@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { GithubIcon } from '@/components/icons/icons'
-import { useBrandConfig } from '@/lib/branding/branding'
 import { inter } from '@/app/fonts/inter'
 
 interface ChatHeaderProps {
@@ -20,8 +19,6 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
-  const brand = useBrandConfig()
-  const primaryColor = chatConfig?.customizations?.primaryColor || 'var(--primary)'
   const customImage = chatConfig?.customizations?.imageUrl || chatConfig?.customizations?.logoUrl
 
   return (
@@ -46,41 +43,37 @@ export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
         </div>
       </div>
 
-      {!brand.logoUrl && (
-        <div className='flex items-center gap-[16px]'>
-          <a
-            href='https://github.com/TradingGoose/TradingGoose-Studio'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='flex items-center gap-2 text-[16px] text-muted-foreground transition-colors hover:text-foreground'
-            aria-label={`GitHub repository - ${starCount} stars`}
-          >
-            <GithubIcon className='h-[16px] w-[16px]' aria-hidden='true' />
-            <span className={`${inter.className}`} aria-live='polite'>
-              {starCount}
-            </span>
-          </a>
-          {/* Only show TradingGoose logo if no custom branding is set */}
-
-          <Link
-            href='https://tradinggoose.ai'
-            target='_blank'
-            rel='noopener noreferrer'
-            aria-label='TradingGoose home'
-          >
-            <Image
-              src='/favicon/goose.png'
-              alt='TradingGoose'
-              width={24}
-              height={24}
-              className='h-6 w-6'
-              priority
-              loading='eager'
-              quality={100}
-            />
-          </Link>
-        </div>
-      )}
+      <div className='flex items-center gap-[16px]'>
+        <a
+          href='https://github.com/TradingGoose/TradingGoose-Studio'
+          target='_blank'
+          rel='noopener noreferrer'
+          className='flex items-center gap-2 text-[16px] text-muted-foreground transition-colors hover:text-foreground'
+          aria-label={`GitHub repository - ${starCount} stars`}
+        >
+          <GithubIcon className='h-[16px] w-[16px]' aria-hidden='true' />
+          <span className={`${inter.className}`} aria-live='polite'>
+            {starCount}
+          </span>
+        </a>
+        <Link
+          href='https://tradinggoose.ai'
+          target='_blank'
+          rel='noopener noreferrer'
+          aria-label='TradingGoose home'
+        >
+          <Image
+            src='/favicon/goose.png'
+            alt='TradingGoose'
+            width={24}
+            height={24}
+            className='h-6 w-6'
+            priority
+            loading='eager'
+            quality={100}
+          />
+        </Link>
+      </div>
     </nav>
   )
 }

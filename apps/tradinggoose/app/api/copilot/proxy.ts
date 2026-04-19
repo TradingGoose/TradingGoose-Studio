@@ -1,33 +1,37 @@
 import { COPILOT_API_URL_DEFAULT, COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
-import { env } from '@/lib/env'
+import { resolveCopilotApiServiceConfig } from '@/lib/system-services/runtime'
 
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 const COMPLETION_API_VERSION = 'v1'
 
 export type CopilotProxyRequest = {
   endpoint: string
   body?: Record<string, unknown>
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
 export type CopilotCompletionRequest = {
   body?: Record<string, unknown>
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
 type CopilotQuery = Record<string, string | number | boolean | null | undefined>
 
-function createRequestInit(
+async function createRequestInit(
   body: Record<string, unknown> | undefined,
-  signal?: AbortSignal
-): RequestInit {
+  signal?: AbortSignal,
+  extraHeaders?: Record<string, string>
+): Promise<RequestInit> {
+  const copilotApi = await resolveCopilotApiServiceConfig()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  const apiKey = env.COPILOT_API_KEY || env.INTERNAL_API_SECRET
+  const apiKey = copilotApi.apiKey
   if (apiKey) {
     headers['x-api-key'] = apiKey
   }
+  Object.assign(headers, extraHeaders)
 
   return {
     method: 'POST',
@@ -37,8 +41,9 @@ function createRequestInit(
   }
 }
 
-export function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
-  const url = new URL(endpoint, COPILOT_API_URL)
+export async function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
+  const copilotApi = await resolveCopilotApiServiceConfig()
+  const url = new URL(endpoint, copilotApi.baseUrl || COPILOT_API_URL_DEFAULT)
   for (const [key, value] of Object.entries(query || {})) {
     if (value === undefined || value === null || value === '') continue
     url.searchParams.set(key, String(value))
@@ -46,16 +51,24 @@ export function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
   return url.toString()
 }
 
-export function proxyCopilotRequest({ endpoint, body, signal }: CopilotProxyRequest) {
+export async function proxyCopilotRequest({ endpoint, body, signal, headers }: CopilotProxyRequest) {
   return fetch(
-    getCopilotApiUrl(endpoint),
-    createRequestInit(body ? { ...body, version: COPILOT_API_VERSION } : undefined, signal)
+    await getCopilotApiUrl(endpoint),
+    await createRequestInit(
+      body ? { ...body, version: COPILOT_API_VERSION } : undefined,
+      signal,
+      headers
+    )
   )
 }
 
-export function proxyCopilotCompletionRequest({ body, signal }: CopilotCompletionRequest) {
+export async function proxyCopilotCompletionRequest({
+  body,
+  signal,
+  headers,
+}: CopilotCompletionRequest) {
   return fetch(
-    getCopilotApiUrl('/api/completion', { version: COMPLETION_API_VERSION }),
-    createRequestInit(body, signal)
+    await getCopilotApiUrl('/api/completion', { version: COMPLETION_API_VERSION }),
+    await createRequestInit(body, signal, headers)
   )
 }

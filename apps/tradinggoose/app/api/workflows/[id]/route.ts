@@ -12,6 +12,7 @@ import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
 
@@ -134,12 +135,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
     }
 
-    const resolvedState = workflowState ?? {
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-    }
+    const resolvedState = workflowState
+      ? createWorkflowSnapshot({
+          direction: workflowState.direction,
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+        })
+      : createWorkflowSnapshot()
 
     let resolvedBlocks = resolvedState.blocks
     if (!isInternalCall && resolvedState.blocks) {
@@ -156,6 +160,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...workflowData,
       state: {
         deploymentStatuses: {},
+        ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
         blocks: resolvedBlocks,
         edges: resolvedState.edges,
         loops: resolvedState.loops,
@@ -163,6 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
+        variables: workflowState?.variables ?? {},
       },
     }
 

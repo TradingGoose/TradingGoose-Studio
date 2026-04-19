@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import Footer from '@/app/(landing)/components/footer/footer'
 import MonitorSection from '@/app/(landing)/components/monitor-preview/monitor-section'
-import Nav from '@/app/(landing)/components/nav/nav'
+import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import StructuredData from '@/app/(landing)/components/structured-data'
 
 // Lazy load heavy components for better initial load performance
@@ -33,7 +33,7 @@ export default async function Landing() {
   return (
     <>
       <StructuredData />
-      <Nav registrationMode={registrationMode} />
+      <PublicNav registrationMode={registrationMode} />
       <main className='relative border-border border-b pb-48'>
         <Suspense
           fallback={

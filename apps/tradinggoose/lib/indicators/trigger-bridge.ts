@@ -8,9 +8,12 @@ import type {
 
 export const TG_INDICATOR_TRIGGER_SENTINEL = '__tg_indicator_trigger__'
 
-const TRIGGER_EVENT_PATTERN = /^[a-z][a-z0-9_]{0,63}$/
-const VALID_SIGNALS = new Set<IndicatorTriggerSignal>(['long', 'short', 'flat'])
-const VALID_POSITIONS = new Set<SeriesMarkerPosition>(['aboveBar', 'belowBar', 'inBar'])
+export const INDICATOR_TRIGGER_EVENT_PATTERN = /^[a-z][a-z0-9_]{0,63}$/
+export const INDICATOR_TRIGGER_VALID_SIGNALS = ['long', 'short', 'flat'] as const
+export const INDICATOR_TRIGGER_VALID_POSITIONS = ['aboveBar', 'belowBar', 'inBar'] as const
+
+const VALID_SIGNALS = new Set<IndicatorTriggerSignal>(INDICATOR_TRIGGER_VALID_SIGNALS)
+const VALID_POSITIONS = new Set<SeriesMarkerPosition>(INDICATOR_TRIGGER_VALID_POSITIONS)
 const CONTEXT_CALL_PATCH_FLAG = '__tg_indicator_trigger_call_patched__'
 const TRIGGER_CALL_ID_PATTERN = /(^|[.$])trigger$/i
 
@@ -84,7 +87,7 @@ const captureTriggerCall = (context: any, args: unknown[]) => {
 
   const resolvedEvent = resolveCurrentValue(context, eventArg)
   const event = typeof resolvedEvent === 'string' ? resolvedEvent.trim() : ''
-  if (!event || !TRIGGER_EVENT_PATTERN.test(event)) {
+  if (!event || !INDICATOR_TRIGGER_EVENT_PATTERN.test(event)) {
     pushWarning(
       state,
       'indicator_trigger_invalid_event',

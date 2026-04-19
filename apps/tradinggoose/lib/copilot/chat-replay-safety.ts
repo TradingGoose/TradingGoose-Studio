@@ -21,14 +21,23 @@ export const EDIT_REPLAY_BLOCKED_MESSAGE =
 
 const ACCEPTED_WORKFLOW_MUTATION_STATES = new Set(['success', 'accepted'])
 const ALWAYS_UNSAFE_LIVE_MUTATION_TOOL_NAMES = new Set([
+  'create_workflow',
   'edit_workflow',
+  'rename_workflow',
   'set_global_workflow_variables',
-])
-const CONDITIONAL_ENTITY_MUTATION_TOOL_NAMES = new Set([
-  'manage_skill',
-  'manage_custom_tool',
-  'manage_indicator',
-  'manage_mcp_tool',
+  'edit_monitor',
+  'create_skill',
+  'edit_skill',
+  'rename_skill',
+  'create_custom_tool',
+  'edit_custom_tool',
+  'rename_custom_tool',
+  'create_indicator',
+  'edit_indicator',
+  'rename_indicator',
+  'create_mcp_server',
+  'edit_mcp_server',
+  'rename_mcp_server',
 ])
 
 function asWorkflowToolCall(value: unknown): ReplaySafetyToolCallLike | null {
@@ -47,20 +56,6 @@ function asToolCallBlock(value: unknown): ReplaySafetyBlockLike | null {
   return value as ReplaySafetyBlockLike
 }
 
-function getToolOperation(candidate: ReplaySafetyToolCallLike): string | null {
-  const resultOperation = candidate.result?.operation
-  if (typeof resultOperation === 'string' && resultOperation.trim().length > 0) {
-    return resultOperation
-  }
-
-  const paramsOperation = candidate.params?.operation
-  if (typeof paramsOperation === 'string' && paramsOperation.trim().length > 0) {
-    return paramsOperation
-  }
-
-  return null
-}
-
 export function isAcceptedLiveMutationToolCall(toolCall: unknown): boolean {
   const candidate = asWorkflowToolCall(toolCall)
   if (!candidate) {
@@ -76,11 +71,6 @@ export function isAcceptedLiveMutationToolCall(toolCall: unknown): boolean {
 
   if (candidate.name && ALWAYS_UNSAFE_LIVE_MUTATION_TOOL_NAMES.has(candidate.name)) {
     return true
-  }
-
-  if (candidate.name && CONDITIONAL_ENTITY_MUTATION_TOOL_NAMES.has(candidate.name)) {
-    const operation = getToolOperation(candidate)
-    return operation === null || operation === 'add' || operation === 'edit'
   }
 
   return false

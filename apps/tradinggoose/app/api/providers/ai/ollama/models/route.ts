@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveOllamaServiceConfig } from '@/lib/system-services/runtime'
 import type { ModelsObject } from '@/providers/ai/ollama/types'
 
 const logger = createLogger('OllamaModelsAPI')
-const OLLAMA_HOST = env.OLLAMA_URL || 'http://localhost:11434'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,11 +12,12 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
+    const ollamaConfig = await resolveOllamaServiceConfig()
     logger.info('Fetching Ollama models', {
-      host: OLLAMA_HOST,
+      host: ollamaConfig.baseUrl,
     })
 
-    const response = await fetch(`${OLLAMA_HOST}/api/tags`, {
+    const response = await fetch(`${ollamaConfig.baseUrl}/api/tags`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ models })
   } catch (error) {
-    logger.error('Failed to fetch Ollama models', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      host: OLLAMA_HOST,
-    })
+      logger.error('Failed to fetch Ollama models', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        host: (await resolveOllamaServiceConfig()).baseUrl,
+      })
 
     // Return empty array instead of error to avoid breaking the UI
     return NextResponse.json({ models: [] })

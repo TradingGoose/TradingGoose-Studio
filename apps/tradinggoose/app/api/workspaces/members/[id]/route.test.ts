@@ -58,6 +58,18 @@ describe('Workspace member DELETE route', () => {
     vi.doMock('@/lib/permissions/utils', () => ({
       hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
     }))
+
+    vi.doMock('@/lib/workspaces/billing-owner', () => ({
+      assertWorkspaceBillingOwnerCanBeRemoved: vi.fn(
+        ({ billingOwnerType, billingOwnerUserId, userId }: Record<string, string | null>) => {
+          if (billingOwnerType === 'user' && billingOwnerUserId === userId) {
+            throw new Error(
+              'Cannot remove the workspace billing owner. Please reassign billing first.'
+            )
+          }
+        }
+      ),
+    }))
   })
 
   afterEach(() => {

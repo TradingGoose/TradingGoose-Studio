@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,25 +13,40 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { buildImplicitCopilotContexts } from '@/widgets/widgets/copilot/live-contexts'
-import { areCopilotContextsEqual } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
+import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
-import type { ChatContext } from '@/stores/copilot/types'
 import type { PairColor } from '@/widgets/pair-colors'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import {
+  buildCopilotEditableReviewTargets,
+  buildImplicitCopilotContexts,
+  resolveCopilotWorkflowId,
+} from '@/widgets/widgets/copilot/live-contexts'
 import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
 const logger = createLogger('Copilot')
+const COPILOT_MESSAGE_VIEWPORT_CLASSNAME = '[&>div]:!block [&>div]:!min-w-0 [&>div]:!w-full'
+const AUTO_SCROLL_LOCK_MS = 120
+const SMOOTH_SCROLL_LOCK_MS = 450
+
+export function shouldMarkUserScrolledDuringStream(params: {
+  isTurnInProgress: boolean
+  nearBottom: boolean
+  scrollSource: 'user' | 'programmatic'
+}) {
+  return params.isTurnInProgress && !params.nearBottom && params.scrollSource === 'user'
+}
 
 interface CopilotProps {
+  workspaceId: string
   panelWidth: number
-  channelId: string
   pairColor?: PairColor
+  inputDisabled?: boolean
 }
 
 interface CopilotRef {
@@ -41,15 +55,9 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  (
-    {
-      panelWidth,
-      channelId,
-      pairColor = 'gray',
-    },
-    ref
-  ) => {
+  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [isInitialized, setIsInitialized] = useState(false)
     const [todosCollapsed, setTodosCollapsed] = useState(false)
@@ -60,11 +68,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     // Scroll state
     const [isNearBottom, setIsNearBottom] = useState(true)
     const [showScrollButton, setShowScrollButton] = useState(false)
-    // New state to track if user has intentionally scrolled during streaming
     const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
-    const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
+    const programmaticScrollResetTimerRef = useRef<number | null>(null)
+    const programmaticScrollInFlightRef = useRef(false)
 
-    const workspaceId = useWorkspaceId()
     const pairContext = usePairColorContext(pairColor)
     const implicitContexts = useMemo(
       () =>
@@ -74,20 +81,41 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         }),
       [pairContext, workspaceId]
     )
+    const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+    const reviewTarget = useMemo(
+      () => buildCopilotEditableReviewTargets({ pairContext })[0] ?? null,
+      [pairContext]
+    )
     const liveContext = useMemo(
       () => ({
-        workflowId: normalizeOptionalString(pairContext?.workflowId) ?? null,
+        workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
+        reviewTarget: reviewTarget
+          ? {
+              entityKind: reviewTarget.entityKind,
+              entityId: reviewTarget.entityId,
+              reviewSessionId: reviewTarget.reviewSessionId ?? null,
+              draftSessionId: reviewTarget.draftSessionId,
+            }
+          : null,
       }),
-      [pairContext?.workflowId, workspaceId]
+      [reviewTarget, workflowId, workspaceId]
     )
-
+    const sendRuntimeContext = useMemo<CopilotSendRuntimeContext>(
+      () => ({
+        liveContext,
+        implicitContexts,
+      }),
+      [implicitContexts, liveContext]
+    )
     // Use the new copilot store
     const {
       messages,
       chats,
       isLoadingChats,
       isSendingMessage,
+      isAwaitingContinuation,
+      abortController,
       isAborting,
       accessLevel,
       inputValue,
@@ -102,30 +130,16 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       selectedModel,
       setSelectedModel,
       currentChat,
+      toolCallsById,
       fetchContextUsage,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
-
-    useLayoutEffect(() => {
-      const storeState = copilotStoreApi.getState()
-      const nextState: Record<string, unknown> = {}
-
-      if (!areCopilotContextsEqual(storeState.implicitContexts, implicitContexts)) {
-        nextState.implicitContexts = implicitContexts
-      }
-
-      const currentLiveContext = storeState.liveContext
-      if (
-        currentLiveContext.workflowId !== liveContext.workflowId ||
-        currentLiveContext.workspaceId !== liveContext.workspaceId
-      ) {
-        nextState.liveContext = liveContext
-      }
-
-      if (Object.keys(nextState).length > 0) {
-        copilotStoreApi.setState(nextState as any)
-      }
-    }, [copilotStoreApi, implicitContexts, liveContext])
+    const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
+    const isTurnInProgress =
+      isSendingMessage ||
+      isAwaitingContinuation ||
+      currentChat?.latestTurnStatus === 'in_progress' ||
+      hasActiveToolCalls
 
     useEffect(() => {
       if (!selectedModel) {
@@ -146,7 +160,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         lastScopeKeyRef.current = scopeKey
         setIsInitialized(false)
 
-        await loadChats(true, { workspaceId: workspaceId ?? null })
+        await loadChats({ workspaceId: workspaceId ?? null })
         if (!cancelled) {
           setIsInitialized(true)
         }
@@ -168,87 +182,149 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     useEffect(() => {
       if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
-        fetchContextUsage().catch((err) => {
+        fetchContextUsage({ workflowId: liveContext.workflowId ?? undefined }).catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [isInitialized, currentChat?.reviewSessionId, fetchContextUsage])
+    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized, liveContext.workflowId])
 
-    // Scroll to bottom function
-    const scrollToBottom = useCallback(() => {
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector(
-          '[data-radix-scroll-area-viewport]'
-        )
-        if (scrollContainer) {
-          // Mark that we're programmatically scrolling
-          isUserScrollingRef.current = false
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth',
-          })
-        }
+    const clearProgrammaticScrollLock = useCallback(() => {
+      if (programmaticScrollResetTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollResetTimerRef.current)
+        programmaticScrollResetTimerRef.current = null
       }
+      programmaticScrollInFlightRef.current = false
     }, [])
 
-    // Handle scroll events to track user position
-    const handleScroll = useCallback(() => {
-      const scrollArea = scrollAreaRef.current
-      if (!scrollArea) return
-
-      // Find the viewport element inside the ScrollArea
-      const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
-      if (!viewport) return
-
-      const { scrollTop, scrollHeight, clientHeight } = viewport
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-
-      // Consider "near bottom" if within 100px of bottom
-      const nearBottom = distanceFromBottom <= 100
-      setIsNearBottom(nearBottom)
-      setShowScrollButton(!nearBottom)
-
-      // If user scrolled up during streaming, mark it
-      if (isSendingMessage && !nearBottom && isUserScrollingRef.current) {
-        setUserHasScrolledDuringStream(true)
+    const markProgrammaticScroll = useCallback((behavior: ScrollBehavior) => {
+      const lockMs = behavior === 'smooth' ? SMOOTH_SCROLL_LOCK_MS : AUTO_SCROLL_LOCK_MS
+      if (programmaticScrollResetTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollResetTimerRef.current)
       }
+      programmaticScrollInFlightRef.current = true
+      programmaticScrollResetTimerRef.current = window.setTimeout(() => {
+        programmaticScrollResetTimerRef.current = null
+        programmaticScrollInFlightRef.current = false
+      }, lockMs)
+    }, [])
 
-      // Reset the user scrolling flag after processing
-      isUserScrollingRef.current = true
-    }, [isSendingMessage])
+    const scrollToBottom = useCallback(
+      (behavior: ScrollBehavior = 'smooth') => {
+        if (scrollAreaRef.current) {
+          const scrollContainer = scrollAreaRef.current.querySelector(
+            '[data-radix-scroll-area-viewport]'
+          )
+          if (scrollContainer) {
+            markProgrammaticScroll(behavior)
+            scrollContainer.scrollTo({
+              top: scrollContainer.scrollHeight,
+              behavior,
+            })
+          }
+        }
+      },
+      [markProgrammaticScroll]
+    )
 
-    // Attach scroll listener
+    const handleScroll = useCallback(
+      (scrollSource: 'user' | 'programmatic' = 'user') => {
+        const scrollArea = scrollAreaRef.current
+        if (!scrollArea) return
+
+        const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+        if (!viewport) return
+
+        const { scrollTop, scrollHeight, clientHeight } = viewport
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+
+        const nearBottom = distanceFromBottom <= 100
+        setIsNearBottom(nearBottom)
+        setShowScrollButton(!nearBottom)
+
+        if (nearBottom) {
+          clearProgrammaticScrollLock()
+        }
+
+        if (
+          shouldMarkUserScrolledDuringStream({
+            isTurnInProgress,
+            nearBottom,
+            scrollSource,
+          })
+        ) {
+          setUserHasScrolledDuringStream(true)
+        }
+      },
+      [clearProgrammaticScrollLock, isTurnInProgress]
+    )
+
+    useEffect(() => {
+      return () => {
+        clearProgrammaticScrollLock()
+      }
+    }, [clearProgrammaticScrollLock])
+
     useEffect(() => {
       const scrollArea = scrollAreaRef.current
       if (!scrollArea) return
 
-      // Find the viewport element inside the ScrollArea
       const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
       if (!viewport) return
 
-      // Mark user-initiated scrolls
-      const handleUserScroll = () => {
-        isUserScrollingRef.current = true
-        handleScroll()
+      const resolveScrollSource = () =>
+        programmaticScrollInFlightRef.current ? 'programmatic' : 'user'
+
+      const handleViewportScroll = () => {
+        handleScroll(resolveScrollSource())
       }
 
-      viewport.addEventListener('scroll', handleUserScroll, { passive: true })
+      const handleViewportScrollEnd = () => {
+        handleScroll(resolveScrollSource())
+        clearProgrammaticScrollLock()
+      }
 
-      // Also listen for scrollend event if available (for smooth scrolling)
+      viewport.addEventListener('scroll', handleViewportScroll, { passive: true })
+
       if ('onscrollend' in viewport) {
-        viewport.addEventListener('scrollend', handleScroll, { passive: true })
+        viewport.addEventListener('scrollend', handleViewportScrollEnd, { passive: true })
       }
 
-      // Initial scroll state check with small delay to ensure DOM is ready
-      setTimeout(handleScroll, 100)
+      const timeoutId = window.setTimeout(() => {
+        handleScroll(resolveScrollSource())
+      }, 100)
 
       return () => {
-        viewport.removeEventListener('scroll', handleUserScroll)
+        window.clearTimeout(timeoutId)
+        viewport.removeEventListener('scroll', handleViewportScroll)
         if ('onscrollend' in viewport) {
-          viewport.removeEventListener('scrollend', handleScroll)
+          viewport.removeEventListener('scrollend', handleViewportScrollEnd)
         }
       }
-    }, [handleScroll])
+    }, [clearProgrammaticScrollLock, handleScroll])
+
+    useEffect(() => {
+      const messagesContainer = messagesContainerRef.current
+      if (!messagesContainer || typeof ResizeObserver === 'undefined') return
+
+      const observer = new ResizeObserver(() => {
+        const shouldAutoScroll =
+          (isTurnInProgress && !userHasScrolledDuringStream) || (!isTurnInProgress && isNearBottom)
+
+        if (!shouldAutoScroll) {
+          return
+        }
+
+        requestAnimationFrame(() => {
+          scrollToBottom('auto')
+        })
+      })
+
+      observer.observe(messagesContainer)
+
+      return () => {
+        observer.disconnect()
+      }
+    }, [isNearBottom, isTurnInProgress, scrollToBottom, userHasScrolledDuringStream])
 
     // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
     useEffect(() => {
@@ -263,43 +339,32 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       // 3. For assistant messages when not streaming: only if near bottom
       const shouldAutoScroll =
         isNewUserMessage ||
-        (isSendingMessage && !userHasScrolledDuringStream) ||
-        (!isSendingMessage && isNearBottom)
+        (isTurnInProgress && !userHasScrolledDuringStream) ||
+        (!isTurnInProgress && isNearBottom)
 
-      if (shouldAutoScroll && scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector(
-          '[data-radix-scroll-area-viewport]'
-        )
-        if (scrollContainer) {
-          // Mark that we're programmatically scrolling
-          isUserScrollingRef.current = false
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth',
-          })
-        }
+      if (shouldAutoScroll) {
+        scrollToBottom(isTurnInProgress && !isNewUserMessage ? 'auto' : 'smooth')
       }
-    }, [messages, isNearBottom, isSendingMessage, userHasScrolledDuringStream])
+    }, [isNearBottom, isTurnInProgress, messages, scrollToBottom, userHasScrolledDuringStream])
 
     // Reset user scroll state when streaming starts or when user sends a message
     useEffect(() => {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage?.role === 'user') {
-        // User sent a new message - reset scroll state
         setUserHasScrolledDuringStream(false)
-        isUserScrollingRef.current = false
+        clearProgrammaticScrollLock()
       }
-    }, [messages])
+    }, [clearProgrammaticScrollLock, messages])
 
     // Reset user scroll state when streaming completes
-    const prevIsSendingRef = useRef(false)
+    const prevIsTurnInProgressRef = useRef(false)
     useEffect(() => {
       // When streaming transitions from true to false, reset the user scroll state
-      if (prevIsSendingRef.current && !isSendingMessage) {
+      if (prevIsTurnInProgressRef.current && !isTurnInProgress) {
         setUserHasScrolledDuringStream(false)
       }
-      prevIsSendingRef.current = isSendingMessage
-    }, [isSendingMessage])
+      prevIsTurnInProgressRef.current = isTurnInProgress
+    }, [isTurnInProgress])
 
     // Auto-scroll to bottom when chat loads in
     useEffect(() => {
@@ -309,11 +374,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     }, [isInitialized, messages.length, scrollToBottom])
 
     // Track previous sending state to detect when stream completes
-    const wasSendingRef = useRef(false)
+    const wasTurnInProgressRef = useRef(false)
 
     // Auto-collapse todos and remove uncompleted ones when stream completes
     useEffect(() => {
-      if (wasSendingRef.current && !isSendingMessage && showPlanTodos) {
+      if (wasTurnInProgressRef.current && !isTurnInProgress && showPlanTodos) {
         // Stream just completed, collapse the todos and filter out uncompleted ones
         setTodosCollapsed(true)
 
@@ -325,41 +390,42 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           store.setPlanTodos(completedTodos)
         }
       }
-      wasSendingRef.current = isSendingMessage
-    }, [isSendingMessage, showPlanTodos, planTodos])
+      wasTurnInProgressRef.current = isTurnInProgress
+    }, [isTurnInProgress, showPlanTodos, planTodos])
 
     // Reset collapsed state when todos first appear
     useEffect(() => {
       if (showPlanTodos && planTodos.length > 0) {
         // Check if this is the first time todos are showing
         // (only expand if currently sending a message, meaning new todos are being created)
-        if (isSendingMessage) {
+        if (isTurnInProgress) {
           setTodosCollapsed(false)
         }
       }
-    }, [showPlanTodos, planTodos.length, isSendingMessage])
+    }, [showPlanTodos, planTodos.length, isTurnInProgress])
 
-    // Cleanup on component unmount (page refresh, navigation, etc.)
+    // Only abort during unmount when there is a live request to cancel.
+    // Reloaded/resumable turns intentionally restore isSendingMessage without
+    // an abortController, and those should remain resumable across unloads.
     useEffect(() => {
       return () => {
-        // Abort any active message streaming and terminate active tools
-        if (isSendingMessage) {
+        if (isSendingMessage && abortController) {
           abortMessage()
           logger.info('Aborted active message streaming due to component unmount')
         }
       }
-    }, [isSendingMessage, abortMessage])
+    }, [isSendingMessage, abortController, abortMessage])
 
     // Handle new chat creation
     const handleStartNewChat = useCallback(() => {
-      createNewChat()
+      createNewChat(workspaceId)
       logger.info('Started new chat')
 
       // Focus the input after creating new chat
       setTimeout(() => {
         userInputRef.current?.focus()
       }, 100) // Small delay to ensure DOM updates are complete
-    }, [createNewChat])
+    }, [createNewChat, workspaceId])
 
     const handleSetInputValueAndFocus = useCallback(
       (value: string) => {
@@ -397,7 +463,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         fileAttachments?: MessageFileAttachment[],
         contexts?: ChatContext[]
       ) => {
-        if (!query || isSendingMessage) return
+        if (!query || isTurnInProgress) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -407,9 +473,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
         try {
           await sendMessage(query, {
-            stream: true,
             fileAttachments,
             contexts,
+            runtimeContext: sendRuntimeContext,
           })
           logger.info(
             'Sent message:',
@@ -420,7 +486,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [isSendingMessage, sendMessage, showPlanTodos, copilotStoreApi]
+      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi, sendRuntimeContext]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -428,7 +494,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       setIsEditingMessage(isEditing)
       logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
     }, [])
-
 
     return (
       <>
@@ -445,14 +510,19 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             <>
               {/* Messages area */}
               <div className='relative flex-1 overflow-hidden'>
-                <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
-                  <div className='w-full max-w-full space-y-2 overflow-hidden'>
-                    {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
+                <ScrollArea
+                  ref={scrollAreaRef}
+                  className='h-full'
+                  viewportClassName={COPILOT_MESSAGE_VIEWPORT_CLASSNAME}
+                  hideScrollbar={true}
+                >
+                  <div
+                    ref={messagesContainerRef}
+                    className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
+                  >
+                    {messages.length === 0 && !isTurnInProgress && !isEditingMessage ? (
                       <div className='flex h-full items-center justify-center p-4'>
-                        <CopilotWelcome
-                          onQuestionClick={handleSubmit}
-                          accessLevel={accessLevel}
-                        />
+                        <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
                       </div>
                     ) : (
                       messages.map((message, index) => {
@@ -461,9 +531,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
                         // Dim messages after the one being edited
                         if (editingMessageId) {
-                          const editingIndex = messages.findIndex(
-                            (m) => m.id === editingMessageId
-                          )
+                          const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
                           isDimmed = editingIndex !== -1 && index > editingIndex
                         }
 
@@ -471,8 +539,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                           <CopilotMessage
                             key={message.id}
                             message={message}
+                            runtimeContext={sendRuntimeContext}
                             isStreaming={
-                              isSendingMessage && message.id === messages[messages.length - 1]?.id
+                              (isSendingMessage || isAwaitingContinuation) &&
+                              message.id === messages[messages.length - 1]?.id
                             }
                             panelWidth={panelWidth}
                             isDimmed={isDimmed}
@@ -490,7 +560,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                 {showScrollButton && (
                   <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
                     <Button
-                      onClick={scrollToBottom}
+                      onClick={() => scrollToBottom()}
                       size='sm'
                       variant='outline'
                       className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
@@ -503,26 +573,18 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
               </div>
 
               {/* Todo list from plan tool */}
-              {showPlanTodos && (
-                <TodoList
-                  todos={planTodos}
-                  collapsed={todosCollapsed}
-                  onClose={() => {
-                    const store = copilotStoreApi.getState()
-                    store.setPlanTodos([])
-                  }}
-                />
-              )}
+              {showPlanTodos && <TodoList todos={planTodos} collapsed={todosCollapsed} />}
 
               {/* Input area with integrated access selector */}
               <div className='pt-2'>
                 <UserInput
                   ref={userInputRef}
-                  channelId={channelId}
+                  workspaceId={workspaceId}
+                  workflowId={workflowId}
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
-                  disabled={false}
-                  isLoading={isSendingMessage}
+                  disabled={inputDisabled}
+                  isLoading={isTurnInProgress}
                   isAborting={isAborting}
                   accessLevel={accessLevel}
                   onAccessLevelChange={setAccessLevel}

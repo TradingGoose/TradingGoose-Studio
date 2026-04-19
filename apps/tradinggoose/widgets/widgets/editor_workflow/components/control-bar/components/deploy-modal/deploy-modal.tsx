@@ -9,7 +9,7 @@ import {
   useState,
   type WheelEvent,
 } from 'react'
-import { Check, CreditCard, History, Loader2, MoreVertical, PanelLeft, X } from 'lucide-react'
+import { Check, ChevronDown, CreditCard, History, Loader2, MoreVertical, PanelLeft, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
   Button,
@@ -34,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   type ChatAuthType,
   getChatDeploymentDraftFromBlock,
@@ -47,6 +48,7 @@ import type { WorkflowDeploymentVersionResponse } from '@/lib/workflows/db-helpe
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -61,7 +63,11 @@ import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control
 import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
-import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
+import {
+  buildTriggerEditingLayout,
+  getTriggerAwareSubBlockStableKey,
+  removeTriggerModeSelectorFromRows,
+} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('DeployModal')
@@ -131,7 +137,11 @@ interface TriggerDeployTab {
   triggerId: string
   icon: ComponentType<{ className?: string }> | undefined
   iconAccentColor: string | undefined
-  subBlocks: SubBlockConfig[]
+  regularRows: SubBlockConfig[][]
+  advancedRows: SubBlockConfig[][]
+  stateToUse: Record<string, any>
+  displayAdvancedOptions: boolean
+  hasAdvancedOnlyFields: boolean
   hasConfigurableFields: boolean
 }
 
@@ -219,11 +229,13 @@ export function DeployModal({
   refetchDeployedState,
 }: DeployModalProps) {
   const workspaceId = useWorkspaceId()
+  const userPermissions = useUserPermissionsContext()
   const deploymentStatus = useWorkflowRegistry((state) =>
     state.getWorkflowDeploymentStatus(workflowId)
   )
   const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
   const currentBlocks = useWorkflowBlocks()
+  const { collaborativeToggleBlockAdvancedMode } = useWorkflowEditorActions()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUndeploying, setIsUndeploying] = useState(false)
   const [deploymentInfo, setDeploymentInfo] = useState<WorkflowDeploymentInfo | null>(null)
@@ -263,6 +275,7 @@ export function DeployModal({
     Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
   const blockList = Object.values(mergedBlocks)
+  const shouldDisableTriggerWrite = !userPermissions.canEdit
   const hasApiTrigger = blockList.some((block) => block.type === 'api_trigger')
   const hasInputTrigger = blockList.some((block) => block.type === 'input_trigger')
   const hasIndicatorTrigger = blockList.some((block) => block.type === 'indicator_trigger')
@@ -282,16 +295,18 @@ export function DeployModal({
         return null
       }
 
-      const subBlocks = buildSubBlockRows({
-        subBlocks: blockConfig?.subBlocks ?? [],
-        stateToUse: block.subBlocks || {},
-        isAdvancedMode: false,
-        isTriggerMode: true,
-        isPureTriggerBlock: blockConfig?.category === 'triggers',
-        availableTriggerIds: blockConfig?.triggers?.available,
-        hideFromPreview: false,
-      }).flat()
-      const hasConfigurableFields = subBlocks.some(isConfigurableTriggerDeploySubBlock)
+      const triggerEditingLayout = buildTriggerEditingLayout({
+        blockConfig,
+        blockState: block,
+        shouldDisableWrite: shouldDisableTriggerWrite,
+      })
+      const regularRows = removeTriggerModeSelectorFromRows(triggerEditingLayout.regularRows)
+      const advancedRows = removeTriggerModeSelectorFromRows(triggerEditingLayout.advancedRows)
+      const allSubBlocks = [
+        ...regularRows.flat(),
+        ...advancedRows.flat(),
+      ]
+      const hasConfigurableFields = allSubBlocks.some(isConfigurableTriggerDeploySubBlock)
 
       return {
         key: `trigger-${block.id}`,
@@ -302,7 +317,11 @@ export function DeployModal({
           triggerDef?.icon ??
           (blockConfig?.icon as ComponentType<{ className?: string }> | undefined),
         iconAccentColor: sanitizeSolidIconColor(blockConfig?.bgColor),
-        subBlocks,
+        regularRows,
+        advancedRows,
+        stateToUse: triggerEditingLayout.stateToUse,
+        displayAdvancedOptions: triggerEditingLayout.displayAdvancedOptions,
+        hasAdvancedOnlyFields: triggerEditingLayout.hasAdvancedOnlyFields,
         hasConfigurableFields,
       }
     })
@@ -333,7 +352,11 @@ export function DeployModal({
 
     return triggerDeployTabs.map((tab) => {
       const block = currentBlocks[tab.blockId]
-      const configurableSubBlocks = tab.subBlocks.filter(isConfigurableTriggerDeploySubBlock)
+      const visibleSubBlocks = [
+        ...tab.regularRows.flat(),
+        ...(tab.displayAdvancedOptions ? tab.advancedRows.flat() : []),
+      ]
+      const configurableSubBlocks = visibleSubBlocks.filter(isConfigurableTriggerDeploySubBlock)
       const missingRequiredFieldLabels = configurableSubBlocks
         .filter((subBlock) => subBlock.required)
         .filter((subBlock) => {
@@ -345,7 +368,7 @@ export function DeployModal({
         })
         .map((subBlock) => subBlock.title || subBlock.id)
 
-      const requiresSavedConfig = tab.subBlocks.some(
+      const requiresSavedConfig = visibleSubBlocks.some(
         (subBlock) => subBlock.id === 'triggerSave' || subBlock.type === 'trigger-save'
       )
       const webhookIdValue = requiresSavedConfig
@@ -533,7 +556,7 @@ export function DeployModal({
                     activeTriggerDeployTab.triggerId === 'indicator_trigger'
                       ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
                       : activeTriggerDeployTab.hasConfigurableFields
-                        ? 'Review trigger settings here before deployment. These fields mirror the workflow editor, and webhook-backed triggers should be saved after changes.'
+                        ? "Trigger mode is managed in the workflow editor. Edit the active mode's settings here, and save webhook-backed triggers after changes."
                         : 'Review this trigger before deployment. No additional configuration is required.',
                 }
               : null
@@ -1135,6 +1158,10 @@ export function DeployModal({
 
   const renderTriggerTab = (tab: TriggerDeployTab) => {
     const validationState = triggerValidationStateByKey.get(tab.key)
+    const visibleSubBlocks = [
+      ...tab.regularRows.flat(),
+      ...(tab.displayAdvancedOptions ? tab.advancedRows.flat() : []),
+    ]
 
     if (!tab.blockId) {
       return (
@@ -1144,7 +1171,7 @@ export function DeployModal({
       )
     }
 
-    if (tab.subBlocks.length === 0) {
+    if (visibleSubBlocks.length === 0) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
           This trigger deploys with the workflow. No additional configuration is required.
@@ -1177,20 +1204,79 @@ export function DeployModal({
             )}
           </div>
         )}
-        {tab.subBlocks.some(isConfigurableTriggerDeploySubBlock) && (
+        <div className='text-muted-foreground text-sm'>
+          Trigger mode is controlled in the workflow editor. Edit the current mode's settings
+          here before deployment.
+        </div>
+        {visibleSubBlocks.some(isConfigurableTriggerDeploySubBlock) && (
           <div className='text-muted-foreground text-sm'>
-            These settings mirror the workflow editor so you can do a final check here before
-            deployment.
+            These settings stay editable here and in the workflow editor.
           </div>
         )}
-        {tab.subBlocks.map((subBlock) => (
-          <SubBlock
-            key={`${tab.blockId}-${subBlock.id}`}
-            blockId={tab.blockId}
-            config={subBlock}
-            isConnecting={false}
-          />
+        {tab.regularRows.map((row, rowIndex) => (
+          <div key={`deploy-trigger-row-${tab.blockId}-${rowIndex}`} className='flex gap-3'>
+            {row.map((subBlock) => (
+              <div
+                key={getTriggerAwareSubBlockStableKey(
+                  tab.blockId,
+                  subBlock,
+                  tab.stateToUse,
+                  [tab.triggerId]
+                )}
+                className={subBlock.layout === 'half' ? 'flex-1 space-y-1' : 'w-full space-y-1'}
+              >
+                <SubBlock
+                  blockId={tab.blockId}
+                  config={subBlock}
+                  isConnecting={false}
+                  disabled={shouldDisableTriggerWrite}
+                />
+              </div>
+            ))}
+          </div>
         ))}
+        {tab.hasAdvancedOnlyFields && !shouldDisableTriggerWrite && (
+          <div className='flex items-center gap-[10px] pt-[4px]'>
+            <div className='h-px flex-1 border-border border-t border-dashed' />
+            <button
+              type='button'
+              onClick={() => collaborativeToggleBlockAdvancedMode(tab.blockId)}
+              className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
+            >
+              {tab.displayAdvancedOptions ? 'Hide additional fields' : 'Show additional fields'}
+              <ChevronDown
+                className={`h-[14px] w-[14px] transition-transform duration-200 ${tab.displayAdvancedOptions ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <div className='h-px flex-1 border-border border-t border-dashed' />
+          </div>
+        )}
+        {tab.displayAdvancedOptions &&
+          tab.advancedRows.map((row, rowIndex) => (
+            <div
+              key={`deploy-trigger-advanced-row-${tab.blockId}-${rowIndex}`}
+              className='flex gap-3'
+            >
+              {row.map((subBlock) => (
+                <div
+                  key={getTriggerAwareSubBlockStableKey(
+                    tab.blockId,
+                    subBlock,
+                    tab.stateToUse,
+                    [tab.triggerId]
+                  )}
+                  className={subBlock.layout === 'half' ? 'flex-1 space-y-1' : 'w-full space-y-1'}
+                >
+                  <SubBlock
+                    blockId={tab.blockId}
+                    config={subBlock}
+                    isConnecting={false}
+                    disabled={shouldDisableTriggerWrite}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
       </div>
     )
   }

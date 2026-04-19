@@ -3,13 +3,9 @@
  */
 import { NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createMockRequest,
-  mockAuth,
-  setupCommonApiMocks,
-} from '@/app/api/__test-utils__/utils'
+import { createMockRequest, mockAuth, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
-describe('Copilot Chat POST Shared Review Sessions', () => {
+describe('Copilot Chat POST Generic Sessions', () => {
   const mockSelect = vi.fn()
   const mockDelete = vi.fn()
   const mockDeleteWhere = vi.fn().mockResolvedValue(undefined)
@@ -48,6 +44,39 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       },
     ],
   }))
+  const mockDeriveReviewTurnsAndItems = vi.fn(() => ({
+    turns: [
+      {
+        id: 'turn-rewritten-1',
+        sessionId: 'review-session-1',
+        sequence: 0,
+        status: 'completed',
+        userMessageItemId: 'user-message-duplicate',
+      },
+    ],
+    items: [
+      {
+        sessionId: 'review-session-1',
+        turnId: 'turn-rewritten-1',
+        sequence: 0,
+        itemId: 'user-message-duplicate',
+        kind: 'message',
+        messageRole: 'user',
+        content: 'Please update the summary',
+        timestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        sessionId: 'review-session-1',
+        turnId: 'turn-rewritten-1',
+        sequence: 1,
+        itemId: 'assistant-message-rewritten',
+        kind: 'message',
+        messageRole: 'assistant',
+        content: 'Saved response',
+        timestamp: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+  }))
 
   const selectOrderBy = vi.fn()
   const selectLimit = vi.fn()
@@ -57,6 +86,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
   const txSelectWhere = vi.fn(() => ({ orderBy: txSelectOrderBy }))
   const txSelectFrom = vi.fn(() => ({ where: txSelectWhere }))
   const txSelect = vi.fn(() => ({ from: txSelectFrom }))
+  const txDeleteWhere = vi.fn().mockResolvedValue(undefined)
+  const txDelete = vi.fn(() => ({ where: txDeleteWhere }))
   const mockInsertReturning = vi.fn()
   const mockInsertValues = vi.fn(() => ({ returning: mockInsertReturning }))
   const mockInsert = vi.fn(() => ({ values: mockInsertValues }))
@@ -71,9 +102,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     return new ReadableStream<Uint8Array>({
       start(controller) {
         for (const event of events) {
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
-          )
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
         }
         controller.close()
       },
@@ -102,6 +131,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         select: txSelect,
         insert: txInsert,
         update: txUpdate,
+        delete: txDelete,
       })
     )
 
@@ -181,6 +211,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
 
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({
       buildAppendReviewTurn: mockBuildAppendReviewTurn,
+      deriveReviewTurnsAndItems: mockDeriveReviewTurnsAndItems,
       mapReviewItemToApi: vi.fn((row: any) => row),
       MESSAGE_ROLES: {
         USER: 'user',
@@ -200,11 +231,17 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        COPILOT_PROVIDER: 'anthropic',
-        COPILOT_API_KEY: 'test-copilot-key',
-      },
+    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
+      buildCopilotRuntimeProviderConfig: vi.fn(
+        async ({ model, provider }: { model: string; provider?: string }) => ({
+          provider: provider ?? 'openai',
+          providerConfig: {
+            provider: provider ?? 'openai',
+            model,
+            apiKey: 'test-copilot-key',
+          },
+        })
+      ),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -260,13 +297,13 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     vi.restoreAllMocks()
   })
 
-  it('persists a collaborator reply on an existing shared saved-entity session', async () => {
+  it('persists a collaborator reply on an existing generic copilot session', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -292,20 +329,30 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       'review-session-1',
       'collaborator-user'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Please update the summary',
-        userId: 'collaborator-user',
-        model: 'gpt-5.4',
-        provider: {
-          provider: 'openai',
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Please update the summary',
+          userId: 'collaborator-user',
           model: 'gpt-5.4',
-          apiKey: 'test-copilot-key',
-        },
-        chatId: 'review-session-1',
-      }),
-    })
+          provider: {
+            provider: 'openai',
+            model: 'gpt-5.4',
+            apiKey: 'test-copilot-key',
+          },
+          chatId: 'review-session-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+            tools: expect.arrayContaining([
+              expect.objectContaining({ name: 'get_user_workflow' }),
+              expect.objectContaining({ name: 'edit_workflow' }),
+            ]),
+          }),
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(txInsertValues).toHaveBeenCalledTimes(2)
     expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
@@ -321,8 +368,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -380,8 +427,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -432,22 +479,28 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       'Update the current indicator',
       'workspace-1'
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Update the current indicator',
-        userId: 'collaborator-user',
-        model: 'claude-sonnet-4.6',
-        chatId: 'review-session-1',
-        context: [
-          {
-            type: 'current_indicator',
-            tag: '@Current Indicator',
-            content: '{"id":"indicator-1"}',
-          },
-        ],
-      }),
-    })
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Update the current indicator',
+          userId: 'collaborator-user',
+          model: 'claude-sonnet-4.6',
+          chatId: 'review-session-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+          }),
+          context: [
+            {
+              type: 'current_indicator',
+              tag: '@Current Indicator',
+              content: '{"id":"indicator-1"}',
+            },
+          ],
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {
@@ -455,8 +508,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -515,8 +568,8 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
       title: 'Shared skill review',
       conversationId: null,
@@ -556,6 +609,69 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     )
   })
 
+  it('rewrites an already-persisted user turn with finalized assistant content', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'copilot',
+      entityId: null,
+      workspaceId: 'workspace-1',
+      title: 'Shared skill review',
+      conversationId: 'conversation-1',
+    })
+    txSelectOrderBy.mockResolvedValueOnce([
+      {
+        itemId: 'user-message-duplicate',
+        messageRole: 'user',
+        content: 'Please update the summary',
+        timestamp: '2026-01-01T00:00:00.000Z',
+      },
+    ])
+
+    const request = createMockRequest('POST', {
+      message: 'Please update the summary',
+      userMessageId: 'user-message-duplicate',
+      reviewSessionId: 'review-session-1',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      reviewSessionId: 'review-session-1',
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockDeriveReviewTurnsAndItems).toHaveBeenCalledWith(
+      'review-session-1',
+      [
+        {
+          id: 'user-message-duplicate',
+          role: 'user',
+          content: 'Please update the summary',
+          timestamp: expect.any(String),
+          fileAttachments: undefined,
+          contexts: undefined,
+        },
+        {
+          id: expect.any(String),
+          role: 'assistant',
+          content: 'Saved response',
+          timestamp: expect.any(String),
+          toolCalls: undefined,
+        },
+      ],
+      'completed'
+    )
+    expect(txDeleteWhere).toHaveBeenCalledTimes(2)
+    expect(txInsertValues).toHaveBeenCalledTimes(2)
+    expect(mockBuildAppendReviewTurn).not.toHaveBeenCalled()
+    expect(txUpdateWhere).toHaveBeenCalledTimes(2)
+  })
+
   it('returns 404 when the supplied reviewSessionId cannot be loaded', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue(null)
 
@@ -581,14 +697,46 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
-  it('creates a fresh generic copilot session for the current panel channel', async () => {
+  it('returns 404 when the supplied reviewSessionId is entity-bound', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'entity-review-session-1',
+      userId: 'creator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      title: 'Skill review',
+      conversationId: null,
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Please update the summary',
+      reviewSessionId: 'entity-review-session-1',
+      stream: false,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Review session not found or unauthorized',
+    })
+    expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
+      'entity-review-session-1',
+      'collaborator-user'
+    )
+    expect(mockSelect).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('creates a fresh generic copilot session in the workspace history bucket', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-1',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -602,7 +750,6 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
 
     const request = createMockRequest('POST', {
       message: 'Start a fresh generic copilot chat',
-      channelId: 'copilot-panel-1',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: false,
@@ -622,28 +769,32 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         userId: 'collaborator-user',
         entityKind: 'copilot',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Start a fresh generic copilot chat',
-        userId: 'collaborator-user',
-        model: 'claude-sonnet-4.6',
-        chatId: 'review-session-channel-1',
-      }),
-    })
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Start a fresh generic copilot chat',
+          userId: 'collaborator-user',
+          model: 'claude-sonnet-4.6',
+          chatId: 'review-session-channel-1',
+          toolManifest: expect.objectContaining({
+            version: 'v1',
+          }),
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
   })
 
-  it('creates a new generic copilot session even when older chats already exist for the same panel channel', async () => {
+  it('creates a new generic copilot session even when older chats exist in the same workspace', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-newer',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -656,8 +807,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     ])
 
     const request = createMockRequest('POST', {
-      message: 'Create another chat in the same panel',
-      channelId: 'copilot-panel-1',
+      message: 'Create another chat in the same workspace',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: false,
@@ -677,26 +827,263 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
         userId: 'collaborator-user',
         entityKind: 'copilot',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-1',
       })
     )
-    expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
-      endpoint: '/api/copilot',
-      body: expect.objectContaining({
-        message: 'Create another chat in the same panel',
-        chatId: 'review-session-channel-newer',
-      }),
+    expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: '/api/copilot',
+        body: expect.objectContaining({
+          message: 'Create another chat in the same workspace',
+          chatId: 'review-session-channel-newer',
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
+  })
+
+  it('persists the finalized assistant item text from a streamed reply', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'review-session-finalized-stream',
+      userId: 'collaborator-user',
+      workspaceId: 'workspace-1',
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Finalized stream chat',
+      model: 'claude-sonnet-4.6',
+      conversationId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    mockProxyCopilotRequest.mockResolvedValueOnce({
+      ok: true,
+      body: createSseStream([
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-1',
+          delta: 'Draft reply that should be replaced.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Final corrected reply.' }],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-finalized' } },
+      ]),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Persist the final text, not the draft',
+      reviewSessionId: 'review-session-finalized-stream',
+      model: 'claude-sonnet-4.6',
+      stream: true,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+    await response.text()
+
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'review-session-finalized-stream',
+        assistantMessage: expect.objectContaining({
+          content: 'Final corrected reply.',
+        }),
+      })
+    )
+  })
+
+  it('persists streamed reasoning content blocks from a streamed reply', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'review-session-reasoning-stream',
+      userId: 'collaborator-user',
+      workspaceId: 'workspace-1',
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Reasoning stream chat',
+      model: 'claude-sonnet-4.6',
+      conversationId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    mockProxyCopilotRequest.mockResolvedValueOnce({
+      ok: true,
+      body: createSseStream([
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'reasoning-item-1',
+            type: 'reasoning',
+            content: [{ type: 'reasoning_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.reasoning_text.delta',
+          item_id: 'reasoning-item-1',
+          delta: 'Inspecting the workflow before saving.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'reasoning-item-1',
+            type: 'reasoning',
+            content: [
+              {
+                type: 'reasoning_text',
+                text: 'Inspecting the workflow before saving.',
+              },
+            ],
+          },
+        },
+        {
+          type: 'response.output_item.added',
+          item: {
+            id: 'assistant-item-reasoning-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: '' }],
+          },
+        },
+        {
+          type: 'response.output_text.delta',
+          item_id: 'assistant-item-reasoning-1',
+          delta: 'Done.',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            id: 'assistant-item-reasoning-1',
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Done.' }],
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-reasoning' } },
+      ]),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Persist the reasoning blocks too',
+      reviewSessionId: 'review-session-reasoning-stream',
+      model: 'claude-sonnet-4.6',
+      stream: true,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+    await response.text()
+
+    const persistedAssistantMessage =
+      mockBuildAppendReviewTurn.mock.calls.at(-1)?.[0]?.assistantMessage
+
+    expect(persistedAssistantMessage).toMatchObject({
+      content: 'Done.',
+      contentBlocks: [
+        {
+          type: 'thinking',
+          content: 'Inspecting the workflow before saving.',
+          itemId: 'reasoning-item-1',
+          timestamp: expect.any(Number),
+          startTime: expect.any(Number),
+          duration: expect.any(Number),
+        },
+        {
+          type: 'text',
+          content: 'Done.',
+          itemId: 'assistant-item-reasoning-1',
+          timestamp: expect.any(Number),
+        },
+      ],
     })
   })
 
-  it('keeps a newly created panel-scoped generic copilot chat when a streamed reply ends without assistant content', async () => {
+  it('normalizes JSON-string function call arguments before persisting streamed tool calls', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'review-session-stringified-tool-args',
+      userId: 'collaborator-user',
+      workspaceId: 'workspace-1',
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Stringified tool args chat',
+      model: 'claude-sonnet-4.6',
+      conversationId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    mockProxyCopilotRequest.mockResolvedValueOnce({
+      ok: true,
+      body: createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'tool-call-stringified',
+            name: 'get_user_workflow',
+            arguments: JSON.stringify({ workflowId: 'wf-stringified' }),
+          },
+        },
+        { type: 'response.completed', response: { id: 'response-stringified-tool-args' } },
+      ]),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Get the current workflow',
+      reviewSessionId: 'review-session-stringified-tool-args',
+      model: 'claude-sonnet-4.6',
+      stream: true,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+    await response.text()
+
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'review-session-stringified-tool-args',
+        assistantMessage: expect.objectContaining({
+          toolCalls: [
+            expect.objectContaining({
+              id: 'tool-call-stringified',
+              name: 'get_user_workflow',
+              arguments: { workflowId: 'wf-stringified' },
+            }),
+          ],
+        }),
+      })
+    )
+  })
+
+  it('keeps a newly created workspace copilot chat when a streamed reply ends without assistant content', async () => {
     mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-empty',
         userId: 'collaborator-user',
         workspaceId: 'workspace-1',
-        channelId: 'copilot-panel-empty',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -709,12 +1096,11 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     ])
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
-      body: createSseStream([{ type: 'done' }]),
+      body: createSseStream([{ type: 'response.completed', response: { id: 'response-empty-1' } }]),
     })
 
     const request = createMockRequest('POST', {
       message: 'Keep my user message even if the assistant is empty',
-      channelId: 'copilot-panel-empty',
       workspaceId: 'workspace-1',
       model: 'claude-sonnet-4.6',
       stream: true,
@@ -737,11 +1123,10 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
       id: 'review-session-existing-scope',
       userId: 'collaborator-user',
       workspaceId: 'workspace-1',
-      channelId: 'copilot-panel-existing',
       entityKind: 'copilot',
       entityId: null,
       draftSessionId: null,
-      title: 'Existing panel-scoped generic copilot chat',
+      title: 'Existing workspace copilot chat',
       model: 'claude-sonnet-4.6',
       conversationId: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -749,7 +1134,7 @@ describe('Copilot Chat POST Shared Review Sessions', () => {
     })
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
-      body: createSseStream([{ type: 'done' }]),
+      body: createSseStream([{ type: 'response.completed', response: { id: 'response-empty-2' } }]),
     })
 
     const request = createMockRequest('POST', {

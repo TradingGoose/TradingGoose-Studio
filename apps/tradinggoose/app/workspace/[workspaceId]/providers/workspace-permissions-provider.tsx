@@ -12,6 +12,7 @@ import {
 
 const logger = createLogger('WorkspacePermissionsProvider')
 const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
+const AUTH_ERROR_PATTERNS = ['authentication required', 'failed to get session']
 
 interface WorkspacePermissionsContextType {
   // Raw workspace permissions data
@@ -132,17 +133,33 @@ export function WorkspacePermissionsProvider({
   const isAccessDeniedError = normalizedError
     ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
     : false
-
-  const shouldTriggerRedirect =
-    Boolean(
-      workspaceId &&
-        !permissionsLoading &&
-        !userPermissions.isLoading &&
-        (isAccessDeniedError || !userPermissions.canRead)
-    )
+  const isAuthError = normalizedError
+    ? AUTH_ERROR_PATTERNS.some((pattern) => normalizedError.includes(pattern))
+    : false
+  const shouldTriggerRedirect = Boolean(
+    workspaceId &&
+      !permissionsLoading &&
+      !userPermissions.isLoading &&
+      (isAuthError || isAccessDeniedError || !userPermissions.canRead)
+  )
 
   useEffect(() => {
     if (!shouldTriggerRedirect || hasRedirected) {
+      return
+    }
+
+    if (isAuthError) {
+      const callbackTarget =
+        typeof window === 'undefined'
+          ? `/workspace/${workspaceId}`
+          : `${window.location.pathname}${window.location.search}`
+
+      setHasRedirected(true)
+      logger.warn('Redirecting unauthenticated user from protected workspace route', {
+        workspaceId,
+        error: combinedError ?? 'missing session',
+      })
+      router.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
       return
     }
 
@@ -152,7 +169,7 @@ export function WorkspacePermissionsProvider({
       error: combinedError ?? 'missing read permissions',
     })
     router.replace('/workspace')
-  }, [combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
+  }, [combinedError, hasRedirected, isAuthError, router, shouldTriggerRedirect, workspaceId])
 
   const shouldBlockRender = hasRedirected || shouldTriggerRedirect
 

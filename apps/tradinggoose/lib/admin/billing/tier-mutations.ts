@@ -32,6 +32,8 @@ export const adminBillingTierMutationSchema = z.object({
   syncRateLimitPerMinute: nullableIntegerSchema,
   asyncRateLimitPerMinute: nullableIntegerSchema,
   apiEndpointRateLimitPerMinute: nullableIntegerSchema,
+  maxPendingAgeSeconds: nullableIntegerSchema.optional().default(null),
+  maxPendingCount: nullableIntegerSchema.optional().default(null),
   canEditUsageLimit: z.boolean(),
   canConfigureSso: z.boolean(),
   logRetentionDays: nullableIntegerSchema,
@@ -44,9 +46,13 @@ export const adminBillingTierMutationSchema = z.object({
   displayOrder: z.number().int(),
 })
 
-export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
+export type AdminBillingTierMutationInput = z.infer<
+  typeof adminBillingTierMutationSchema
+>
 
-export function validateAdminBillingTierInput(input: AdminBillingTierMutationInput): string | null {
+export function validateAdminBillingTierInput(
+  input: AdminBillingTierMutationInput,
+): string | null {
   if (input.isDefault) {
     if (!input.isPublic) {
       return 'The default tier must be visible in the public catalog'
@@ -60,7 +66,10 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
       return 'The default tier must be a public user tier with individual usage and fixed seats'
     }
 
-    if (hasPositiveNumber(input.monthlyPriceUsd) || hasPositiveNumber(input.yearlyPriceUsd)) {
+    if (
+      hasPositiveNumber(input.monthlyPriceUsd) ||
+      hasPositiveNumber(input.yearlyPriceUsd)
+    ) {
       return 'The default tier cannot configure a recurring price'
     }
   }
@@ -81,7 +90,6 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
     if (input.canConfigureSso) {
       return 'User tiers cannot configure SSO'
     }
-
   }
 
   if (input.ownerType === 'organization') {
@@ -112,11 +120,19 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
     }
   }
 
-  if (input.isPublic && hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
+  if (
+    input.isPublic &&
+    hasPositiveNumber(input.monthlyPriceUsd) &&
+    !input.stripeMonthlyPriceId
+  ) {
     return 'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
   }
 
-  if (input.isPublic && hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
+  if (
+    input.isPublic &&
+    hasPositiveNumber(input.yearlyPriceUsd) &&
+    !input.stripeYearlyPriceId
+  ) {
     return 'Public tiers with a recurring yearly price must configure a Stripe yearly price ID'
   }
 

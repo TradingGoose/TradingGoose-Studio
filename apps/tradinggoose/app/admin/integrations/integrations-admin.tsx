@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Pencil, ShieldCheck, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
 import {
   Alert,
   AlertDescription,
@@ -10,7 +10,6 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  Input,
   Switch,
 } from '@/components/ui'
 import type {
@@ -19,6 +18,7 @@ import type {
   AdminIntegrationsSnapshot,
 } from '@/lib/admin/integrations/types'
 import { getSystemIntegrationCatalogCredentialFields } from '@/lib/system-integrations/catalog'
+import { AdminInlineSecretField } from '@/app/admin/admin-inline-secret-field'
 import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
@@ -49,8 +49,6 @@ export function AdminIntegrations() {
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminIntegrationsSnapshot | null>(null)
   const [expandedBundles, setExpandedBundles] = useState<Record<string, boolean>>({})
-  const [editingSecretId, setEditingSecretId] = useState<string | null>(null)
-  const [editingSecretValue, setEditingSecretValue] = useState('')
 
   useEffect(() => {
     if (!integrationsQuery.data || draft !== null) {
@@ -114,7 +112,7 @@ export function AdminIntegrations() {
     )
   ).length
   const headerStats = [
-    { label: 'Bundles', value: String(bundles.length) },
+    { label: 'Providers', value: String(bundles.length) },
     { label: 'Services', value: String(services.length) },
     { label: 'Configured', value: String(configuredBundleCount) },
   ]
@@ -123,13 +121,13 @@ export function AdminIntegrations() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Admin integrations</span>
+        <span className='font-medium text-sm'>System-managed OAuth</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder='Search integrations and secrets...'
+          placeholder='Search system-managed OAuth integrations...'
           className='w-full'
         />
       </div>
@@ -162,6 +160,14 @@ export function AdminIntegrations() {
           </Alert>
         ) : null}
 
+        <Alert className='border-border/60 bg-muted/20'>
+          <AlertDescription>
+            These rows manage system-managed OAuth integrations for runtime services like Google
+            Drive and GitHub repository access. Better Auth social sign-in for GitHub and Google
+            stays env-only in <code>apps/tradinggoose/.env.example</code> and is not edited here.
+          </AlertDescription>
+        </Alert>
+
         {!draft && integrationsQuery.isPending ? (
           <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
             <p className='text-muted-foreground text-sm'>Loading integration catalog...</p>
@@ -172,7 +178,7 @@ export function AdminIntegrations() {
           <div>
             {filteredBundleViews.length === 0 ? (
               <div className='flex min-h-[240px] items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center text-muted-foreground text-sm'>
-                No integrations match the current search.
+                No system-managed OAuth integrations match the current search.
               </div>
             ) : (
               <div className='overflow-hidden rounded-lg border border-border bg-background'>
@@ -213,6 +219,9 @@ export function AdminIntegrations() {
                               className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
                             >
                               <div className='min-w-0 flex-1 space-y-1'>
+                                <p className='text-[11px] text-muted-foreground uppercase tracking-[0.18em]'>
+                                  System-managed OAuth provider
+                                </p>
                                 <div className='flex flex-wrap items-center gap-2'>
                                   <h3 className='font-medium text-sm'>{bundle.displayName}</h3>
                                   <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
@@ -249,15 +258,15 @@ export function AdminIntegrations() {
                             <div className='space-y-4'>
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>Credentials</p>
+                                  <p className='font-medium text-sm'>Provider credentials</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Set the provider secrets for this bundle.
+                                    Set the secrets for this system-managed OAuth provider.
                                   </p>
                                 </div>
 
                                 {secretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This bundle does not require stored credentials.
+                                    This provider does not require stored credentials.
                                   </p>
                                 ) : visibleSecretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
@@ -271,127 +280,35 @@ export function AdminIntegrations() {
                                         secret.credentialKey
                                       )
                                       const isSecretConfigured = hasSecretValue(secret)
-                                      const isEditingSecret = editingSecretId === secret.id
-                                      const displayValue = isSecretConfigured
-                                        ? 'Configured. Stored value hidden.'
-                                        : 'Not set'
 
                                       return (
-                                        <div
+                                        <AdminInlineSecretField
                                           key={secret.id}
-                                          className='rounded-md border border-border/60 bg-muted/20 p-3'
-                                        >
-                                          <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
-                                            <div className='flex min-w-0 items-center gap-2'>
-                                              <div className='whitespace-nowrap font-medium text-sm'>
-                                                {credentialField.label}
-                                              </div>
-                                              <div className='min-w-0 truncate text-muted-foreground text-xs'>
-                                                {credentialField.note}
-                                              </div>
-                                            </div>
-                                            <Badge
-                                              variant={isSecretConfigured ? 'default' : 'secondary'}
-                                              className={ADMIN_STATUS_BADGE_CLASSNAME}
-                                            >
-                                              {isSecretConfigured ? 'Configured' : 'Incomplete'}
-                                            </Badge>
-                                          </div>
-                                          <div className='flex items-center gap-2'>
-                                            {isEditingSecret ? (
-                                              <>
-                                                <Button
-                                                  variant='ghost'
-                                                  size='icon'
-                                                  className='h-8 w-8 text-muted-foreground'
-                                                  disabled={isSavingBundle}
-                                                  onClick={() => {
-                                                    void saveEditingSecret(secret)
-                                                  }}
-                                                >
-                                                  <Check className='h-4 w-4' />
-                                                  <span className='sr-only'>
-                                                    Save {credentialField.label}
-                                                  </span>
-                                                </Button>
-                                                <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-2'>
-                                                  <Input
-                                                    id={`system-config-${secret.id}`}
-                                                    name={`system-config-${secret.id}`}
-                                                    className='h-4 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                                                    type={
-                                                      credentialField.isSensitive
-                                                        ? 'password'
-                                                        : 'text'
-                                                    }
-                                                    value={editingSecretValue}
-                                                    onChange={(event) =>
-                                                      setEditingSecretValue(event.target.value)
-                                                    }
-                                                    onKeyDown={(event) => {
-                                                      if (event.key === 'Enter') {
-                                                        event.preventDefault()
-                                                        void saveEditingSecret(secret)
-                                                      }
-
-                                                      if (event.key === 'Escape') {
-                                                        event.preventDefault()
-                                                        cancelEditingSecret()
-                                                      }
-                                                    }}
-                                                    placeholder={
-                                                      isSecretConfigured
-                                                        ? `Enter a new ${credentialField.label.toLowerCase()} to replace the stored value`
-                                                        : credentialField.placeholder
-                                                    }
-                                                    autoComplete={
-                                                      credentialField.isSensitive
-                                                        ? 'new-password'
-                                                        : 'off'
-                                                    }
-                                                    data-1p-ignore='true'
-                                                    data-lpignore='true'
-                                                    data-bwignore='true'
-                                                    data-form-type='other'
-                                                  />
-                                                </div>
-                                                <Button
-                                                  type='button'
-                                                  variant='ghost'
-                                                  size='icon'
-                                                  className='h-8 w-8 text-muted-foreground'
-                                                  onClick={cancelEditingSecret}
-                                                >
-                                                  <X className='h-4 w-4' />
-                                                  <span className='sr-only'>
-                                                    Cancel editing {credentialField.label}
-                                                  </span>
-                                                </Button>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <div className='min-w-0 flex-1 px-3 py-2'>
-                                                  <code className='block truncate font-mono text-foreground text-xs'>
-                                                    {displayValue}
-                                                  </code>
-                                                </div>
-                                                <Button
-                                                  type='button'
-                                                  variant='ghost'
-                                                  size='icon'
-                                                  className='h-8 w-8 text-muted-foreground'
-                                                  disabled={isSavingBundle}
-                                                  onClick={() => startEditingSecret(secret)}
-                                                >
-                                                  <Pencil className='h-4 w-4' />
-                                                  <span className='sr-only'>
-                                                    Edit {credentialField.label}
-                                                  </span>
-                                                </Button>
-                                              </>
-                                            )}
-                                          </div>
-                                        </div>
+                                          id={`system-config-${secret.id}`}
+                                          label={credentialField.label}
+                                          description={credentialField.note}
+                                          hasValue={isSecretConfigured}
+                                          statusClassName={ADMIN_STATUS_BADGE_CLASSNAME}
+                                          isSensitive={credentialField.isSensitive}
+                                          disabled={isSavingBundle}
+                                          placeholder={
+                                            isSecretConfigured
+                                              ? `Enter a new ${credentialField.label.toLowerCase()} to replace the stored value`
+                                              : credentialField.placeholder
+                                          }
+                                          onSave={(value) =>
+                                            persistSecretPatch(bundle.id, secret.id, {
+                                              value,
+                                              hasValue: true,
+                                            })
+                                          }
+                                          onClear={() =>
+                                            persistSecretPatch(bundle.id, secret.id, {
+                                              value: '',
+                                              hasValue: false,
+                                            })
+                                          }
+                                        />
                                       )
                                     })}
                                   </div>
@@ -400,15 +317,16 @@ export function AdminIntegrations() {
 
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>Services</p>
+                                  <p className='font-medium text-sm'>OAuth services</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Enable or disable services in this bundle.
+                                    Enable or disable the services that inherit this provider's
+                                    credentials.
                                   </p>
                                 </div>
 
                                 {bundleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This bundle does not expose any services.
+                                    This provider does not expose any OAuth services.
                                   </p>
                                 ) : visibleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
@@ -431,18 +349,17 @@ export function AdminIntegrations() {
                                               <p className='font-medium text-sm'>
                                                 {service.displayName}
                                               </p>
-                                              <Badge
-                                                variant='outline'
-                                                className={ADMIN_META_BADGE_CLASSNAME}
-                                              >
-                                                service
-                                              </Badge>
                                             </div>
-                                            <div className='text-muted-foreground text-xs'>
-                                              {service.id}
-                                            </div>
+                                            {hasDistinctDefinitionIdentifier(
+                                              service.displayName,
+                                              service.id
+                                            ) ? (
+                                              <div className='text-muted-foreground text-xs'>
+                                                {service.id}
+                                              </div>
+                                            ) : null}
                                             <p className='text-muted-foreground text-xs'>
-                                              Uses secrets from{' '}
+                                              Inherits credentials from{' '}
                                               {parent?.displayName ?? bundle.displayName}.
                                             </p>
                                           </div>
@@ -494,80 +411,31 @@ export function AdminIntegrations() {
 
   function resetDraftToPersisted() {
     setDraft(integrationsQuery.data ? cloneSnapshot(integrationsQuery.data) : null)
-    cancelEditingSecret()
   }
 
-  function persistBundleSnapshot(
-    bundleId: string,
-    nextSnapshot: AdminIntegrationsSnapshot,
-    options?: {
-      onSuccess?: () => void
-      onError?: () => void
-    }
-  ) {
+  async function persistBundleSnapshot(bundleId: string, nextSnapshot: AdminIntegrationsSnapshot) {
     const definition = nextSnapshot.definitions.find((candidate) => candidate.id === bundleId)
     if (!definition) {
       return
     }
 
-    saveBundleMutation.mutate(
-      {
+    try {
+      const serverSnapshot = await saveBundleMutation.mutateAsync({
         bundleId,
         definition,
         services: nextSnapshot.definitions.filter((candidate) => candidate.parentId === bundleId),
         secrets: nextSnapshot.secrets.filter((secret) => secret.definitionId === bundleId),
-      },
-      {
-        onSuccess: (serverSnapshot) => {
-          setDraft((current) =>
-            current
-              ? mergeBundleIntoDraft(current, serverSnapshot, bundleId)
-              : cloneSnapshot(serverSnapshot)
-          )
-          options?.onSuccess?.()
-        },
-        onError: () => {
-          resetDraftToPersisted()
-          options?.onError?.()
-        },
-      }
-    )
-  }
+      })
 
-  function startEditingSecret(secret: AdminIntegrationSecret) {
-    setEditingSecretId(secret.id)
-    setEditingSecretValue('')
-  }
-
-  function cancelEditingSecret() {
-    setEditingSecretId(null)
-    setEditingSecretValue('')
-  }
-
-  function saveEditingSecret(secret: AdminIntegrationSecret) {
-    const nextValue = editingSecretValue.trim()
-    const nextSnapshot = updateDraftSnapshot((current) => ({
-      ...current,
-      secrets: current.secrets.map((candidate) =>
-        candidate.id === secret.id
-          ? {
-              ...candidate,
-              value: editingSecretValue,
-              hasValue: candidate.hasValue || Boolean(nextValue),
-            }
-          : candidate
-      ),
-    }))
-
-    if (!nextSnapshot) {
-      return
+      setDraft((current) =>
+        current
+          ? mergeBundleIntoDraft(current, serverSnapshot, bundleId)
+          : cloneSnapshot(serverSnapshot)
+      )
+    } catch (error) {
+      resetDraftToPersisted()
+      throw error
     }
-
-    persistBundleSnapshot(secret.definitionId, nextSnapshot, {
-      onSuccess: () => {
-        cancelEditingSecret()
-      },
-    })
   }
 
   function updateDefinition(definitionId: string, updates: Partial<AdminIntegrationDefinition>) {
@@ -585,7 +453,26 @@ export function AdminIntegrations() {
       return
     }
 
-    persistBundleSnapshot(bundleId, nextSnapshot)
+    void persistBundleSnapshot(bundleId, nextSnapshot)
+  }
+
+  function persistSecretPatch(
+    bundleId: string,
+    secretId: string,
+    patch: { value: string; hasValue: boolean }
+  ) {
+    const nextSnapshot = updateDraftSnapshot((current) => ({
+      ...current,
+      secrets: current.secrets.map((candidate) =>
+        candidate.id === secretId ? { ...candidate, ...patch } : candidate
+      ),
+    }))
+
+    if (!nextSnapshot) {
+      return Promise.resolve()
+    }
+
+    return persistBundleSnapshot(bundleId, nextSnapshot)
   }
 }
 
@@ -745,7 +632,7 @@ function joinSummaryParts(parts: Array<string | null>) {
 }
 
 function getDefinitionRole(definition: AdminIntegrationDefinition) {
-  return definition.parentId ? 'service' : 'bundle'
+  return definition.parentId ? 'oauth service' : 'system-managed oauth provider'
 }
 
 function matchesDefinitionSearch(
@@ -773,6 +660,14 @@ function matchesSecretSearch(secret: AdminIntegrationSecret, searchTerm: string)
   }
 
   return [secret.credentialKey, secret.id].join(' ').toLowerCase().includes(searchTerm)
+}
+
+function hasDistinctDefinitionIdentifier(displayName: string, identifier: string) {
+  return normalizeIdentifierValue(displayName) !== normalizeIdentifierValue(identifier)
+}
+
+function normalizeIdentifierValue(value: string) {
+  return value.replaceAll(/[^a-z0-9]+/gi, '').toLowerCase()
 }
 
 function getErrorMessage(error: unknown) {

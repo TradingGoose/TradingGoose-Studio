@@ -3,11 +3,14 @@ import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggo
 import { inArray } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSystemIntegrationCatalogSeedSnapshot } from '@/lib/system-integrations/catalog'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('SystemIntegrationResolver')
 
-type SystemIntegrationDefinitionRecord = typeof systemIntegrationDefinition.$inferSelect
+type SystemIntegrationDefinitionRecord = Pick<
+  typeof systemIntegrationDefinition.$inferSelect,
+  'id' | 'parentId' | 'name' | 'isEnabled'
+>
 type SystemIntegrationSecretRecord = typeof systemIntegrationSecret.$inferSelect
 
 export interface ResolvedSystemIntegrationDefinition {
@@ -80,13 +83,27 @@ export async function resolveSystemIntegrationDefinitions(
 
 async function listDefinitionsById() {
   const rows = await db.select().from(systemIntegrationDefinition)
-  return new Map(rows.map((row) => [row.id, row]))
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        id: row.id,
+        parentId: row.parentId,
+        name: row.name,
+        isEnabled: row.isEnabled,
+      } satisfies SystemIntegrationDefinitionRecord,
+    ])
+  )
 }
 
 function getDefinitionLineage(
   definitionId: string,
   definitionsById: Map<string, SystemIntegrationDefinitionRecord>
 ) {
+  if (!definitionsById.has(definitionId)) {
+    return null
+  }
+
   const lineage: SystemIntegrationDefinitionRecord[] = []
   const visited = new Set<string>()
   let currentId: string | null = definitionId
@@ -104,6 +121,10 @@ function getDefinitionLineage(
 
     const definition = definitionsById.get(currentId)
     if (!definition) {
+      if (lineage.length === 0) {
+        return null
+      }
+
       logger.error('System integration definition is missing during lineage resolution', {
         definitionId,
         missingDefinitionId: currentId,

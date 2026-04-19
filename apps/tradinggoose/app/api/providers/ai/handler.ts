@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeProviderRequest as executeAIProviderRequest } from '@/providers/ai'
-import { getApiKey, getProvider } from '@/providers/ai/utils'
+import { getProvider } from '@/providers/ai/utils'
+import { getApiKey } from '@/providers/ai/utils-server'
 
 const logger = createLogger('ProvidersAPI:AI')
 
@@ -106,7 +107,7 @@ export async function handleAIProviderRequest({
 
   let finalApiKey: string
   try {
-    finalApiKey = getApiKey(providerId, resolvedModel, apiKey)
+    finalApiKey = await getApiKey(providerId, resolvedModel, apiKey)
   } catch (error) {
     logger.error(`[${requestId}] Failed to get API key:`, {
       provider: providerId,

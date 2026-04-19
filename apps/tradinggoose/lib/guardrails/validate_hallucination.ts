@@ -1,7 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { executeProviderRequest } from '@/providers/ai'
-import { getApiKey, getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/utils'
+import { getApiKey } from '@/providers/ai/utils-server'
 
 const logger = createLogger('HallucinationValidator')
 
@@ -205,7 +206,7 @@ export async function validateHallucination(
     let finalApiKey: string
     try {
       const providerId = getProviderFromModel(model)
-      finalApiKey = getApiKey(providerId, model, apiKey)
+      finalApiKey = await getApiKey(providerId, model, apiKey)
     } catch (error: any) {
       return {
         passed: false,

@@ -9,18 +9,17 @@ import { getWorkspaceIdFromPath, getWorkspaceSwitchPath } from './utils'
 
 interface UseWorkspaceSwitcherOptions {
   enabled: boolean
-  readOnly?: boolean
 }
 
 export function shouldResetWorkflowRegistryOnWorkspaceSwitch(pathname: string): boolean {
   return Boolean(getWorkspaceIdFromPath(pathname))
 }
 
-export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspaceSwitcherOptions) {
+export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
   const pathname = usePathname() ?? '/'
   const router = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
-  const canManageWorkspaces = !readOnly
+  const canManageWorkspaces = true
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
@@ -49,9 +48,7 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
 
     setIsWorkspacesLoading(true)
     try {
-      const response = await fetch(
-        canManageWorkspaces ? '/api/workspaces' : '/api/workspaces?autoCreate=false'
-      )
+      const response = await fetch('/api/workspaces')
       if (!response.ok) {
         setWorkspaces([])
         setActiveWorkspace(null)
@@ -80,27 +77,7 @@ export function useWorkspaceSwitcher({ enabled, readOnly = false }: UseWorkspace
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [canManageWorkspaces, enabled, workspaceId])
-
-  React.useEffect(() => {
-    if (canManageWorkspaces) {
-      return
-    }
-
-    setWorkspaceMenuOpen(false)
-    setHoveredWorkspaceId(null)
-    setIsCreatingWorkspace(false)
-    setEditingWorkspaceId(null)
-    setEditingWorkspaceName('')
-    setIsRenamingWorkspace(false)
-    setRenameError(null)
-    setInviteDialogOpen(false)
-    setInviteWorkspace(null)
-    setDeleteDialogOpen(false)
-    setWorkspaceToDelete(null)
-    setIsDeletingWorkspace(false)
-    setDeleteError(null)
-  }, [canManageWorkspaces])
+  }, [enabled, workspaceId])
 
   React.useEffect(() => {
     void fetchWorkspaces()

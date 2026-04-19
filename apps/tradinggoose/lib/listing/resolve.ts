@@ -1,6 +1,6 @@
 import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
-import { marketClient } from '@/lib/market/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export type ResolvedListingDetails = {
   base?: string
@@ -24,6 +24,15 @@ type MarketSearchResponse<T> = {
 
 type CodeRow = { code?: string; name?: string | null; iconUrl?: string | null }
 
+const buildMarketGetUrl = (path: string, params: URLSearchParams) => {
+  const relativeUrl = `/api/market/get/${path}?${params.toString()}`
+  if (typeof window !== 'undefined') {
+    return relativeUrl
+  }
+
+  return new URL(relativeUrl, getBaseUrl()).toString()
+}
+
 const uniqueNonEmpty = (values: string[]) => {
   const seen = new Set<string>()
   const result: string[] = []
@@ -46,14 +55,25 @@ const fetchMarketSearch = async <T>(path: string, params: URLSearchParams): Prom
   if (!params.get('version')) {
     params.set('version', MARKET_API_VERSION)
   }
-  const response = await marketClient.makeRequest<MarketSearchResponse<T>>(
-    `/api/get/${path}?${params.toString()}`
-  )
-  if (!response.success) {
-    throw new Error(response.error || `Market search failed: ${path}`)
+
+  const response = await fetch(buildMarketGetUrl(path, params), {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  let payload: MarketSearchResponse<T> | null = null
+  try {
+    payload = (await response.json()) as MarketSearchResponse<T>
+  } catch {
+    payload = null
   }
 
-  const payload = response.data as MarketSearchResponse<T> | null
+  if (!response.ok) {
+    throw new Error(payload?.error || `Market search failed: ${path}`)
+  }
+
   if (!payload || typeof payload !== 'object') return null
   if (payload.error) {
     throw new Error(payload.error)

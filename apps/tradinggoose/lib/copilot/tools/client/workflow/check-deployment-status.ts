@@ -7,7 +7,7 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 
 interface CheckDeploymentStatusArgs {
-  workflowId?: string
+  workflowId: string
 }
 
 export class CheckDeploymentStatusClientTool extends BaseClientTool {
@@ -43,12 +43,10 @@ export class CheckDeploymentStatusClientTool extends BaseClientTool {
     const logger = createLogger('CheckDeploymentStatusClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const executionContext = this.requireExecutionContext()
-
-      const workflowId = args?.workflowId || executionContext.workflowId
+      const workflowId = args?.workflowId?.trim()
 
       if (!workflowId) {
-        throw new Error('No workflow ID provided')
+        throw new Error('workflowId is required')
       }
 
       // Fetch deployment status from API

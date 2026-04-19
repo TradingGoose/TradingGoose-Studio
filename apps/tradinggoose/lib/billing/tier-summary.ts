@@ -17,6 +17,8 @@ export const EMPTY_BILLING_TIER_SUMMARY: BillingTierSummary = {
   syncRateLimitPerMinute: null,
   asyncRateLimitPerMinute: null,
   apiEndpointRateLimitPerMinute: null,
+  maxPendingAgeSeconds: null,
+  maxPendingCount: null,
   canEditUsageLimit: false,
   canConfigureSso: false,
   logRetentionDays: null,
@@ -34,16 +36,20 @@ type BillingTierAccessLike = {
   logRetentionDays?: number | null
 }
 
-export function canTierEditUsageLimit(tier: BillingTierAccessLike | null | undefined): boolean {
+export function canTierEditUsageLimit(
+  tier: BillingTierAccessLike | null | undefined,
+): boolean {
   return tier?.canEditUsageLimit ?? false
 }
 
-export function canTierConfigureSso(tier: BillingTierAccessLike | null | undefined): boolean {
+export function canTierConfigureSso(
+  tier: BillingTierAccessLike | null | undefined,
+): boolean {
   return tier?.canConfigureSso ?? false
 }
 
 export function getTierLogRetentionDays(
-  tier: BillingTierAccessLike | null | undefined
+  tier: BillingTierAccessLike | null | undefined,
 ): number | null {
   return tier?.logRetentionDays ?? null
 }

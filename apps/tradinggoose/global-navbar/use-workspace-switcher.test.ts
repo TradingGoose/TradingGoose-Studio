@@ -105,16 +105,18 @@ describe('useWorkspaceSwitcher', () => {
     globalThis.fetch = originalFetch
   })
 
-  it('clears workspace-management state when read-only admin mode is enabled', async () => {
+  it('keeps the standard workspace switcher behavior on admin routes', async () => {
     const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
 
-    function Harness({ readOnly }: { readOnly: boolean }) {
-      latestValue = useWorkspaceSwitcher({ enabled: true, readOnly })
+    function Harness() {
+      latestValue = useWorkspaceSwitcher({ enabled: true })
       return null
     }
 
+    mockPathname = '/admin'
+
     await act(async () => {
-      root?.render(React.createElement(Harness, { readOnly: false }))
+      root?.render(React.createElement(Harness))
       await flush()
     })
 
@@ -136,25 +138,5 @@ describe('useWorkspaceSwitcher', () => {
     expect(latestValue.editingWorkspaceId).toBe('ws-1')
     expect(latestValue.inviteDialogOpen).toBe(true)
     expect(latestValue.deleteDialogOpen).toBe(true)
-
-    await act(async () => {
-      root?.render(React.createElement(Harness, { readOnly: true }))
-      await flush()
-    })
-
-    expect(latestValue.canManageWorkspaces).toBe(false)
-    expect(latestValue.workspaceMenuOpen).toBe(false)
-    expect(latestValue.editingWorkspaceId).toBeNull()
-    expect(latestValue.editingWorkspaceName).toBe('')
-    expect(latestValue.inviteDialogOpen).toBe(false)
-    expect(latestValue.inviteWorkspace).toBeNull()
-    expect(latestValue.deleteDialogOpen).toBe(false)
-    expect(latestValue.workspaceToDelete).toBeNull()
-    expect(latestValue.isCreatingWorkspace).toBe(false)
-    expect(latestValue.isRenamingWorkspace).toBe(false)
-    expect(latestValue.isDeletingWorkspace).toBe(false)
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain(
-      '/api/workspaces?autoCreate=false'
-    )
   })
 })

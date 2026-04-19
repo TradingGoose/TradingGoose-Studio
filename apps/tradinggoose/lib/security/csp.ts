@@ -5,21 +5,47 @@ import { MARKET_API_URL_DEFAULT } from '../market/client/constants'
  * Content Security Policy (CSP) configuration builder
  */
 
-function getHostnameFromUrl(url: string | undefined): string[] {
-  if (!url) return []
+function getUrlOrigin(url: string | undefined, fallback?: string): string | null {
+  const candidate = url?.trim() || fallback
+  if (!candidate) return null
   try {
-    return [`https://${new URL(url).hostname}`]
+    return new URL(candidate).origin
   } catch {
-    return []
+    if (!fallback || candidate === fallback) return null
+    try {
+      return new URL(fallback).origin
+    } catch {
+      return null
+    }
   }
 }
 
-function getOriginFromUrl(url: string | undefined): string[] {
-  if (!url) return []
+function getOriginFromUrl(url: string | undefined, fallback?: string): string[] {
+  const origin = getUrlOrigin(url, fallback)
+  return origin ? [origin] : []
+}
+
+function getSocketSourcesFromUrl(url: string | undefined, fallback = 'http://localhost:3002'): string[] {
+  const candidate = url?.trim() || fallback
+  if (!candidate) return []
   try {
-    return [new URL(url).origin]
+    const parsed = new URL(candidate)
+    const sources = new Set<string>([parsed.origin])
+
+    if (parsed.protocol === 'http:') {
+      sources.add(`ws://${parsed.host}`)
+    } else if (parsed.protocol === 'https:') {
+      sources.add(`wss://${parsed.host}`)
+    } else if (parsed.protocol === 'ws:') {
+      sources.add(`http://${parsed.host}`)
+    } else if (parsed.protocol === 'wss:') {
+      sources.add(`https://${parsed.host}`)
+    }
+
+    return [...sources]
   } catch {
-    return []
+    if (!fallback || candidate === fallback) return []
+    return getSocketSourcesFromUrl(fallback)
   }
 }
 
@@ -67,22 +93,19 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://s3.amazonaws.com',
     'https://github.com/*',
     ...(env.S3_BUCKET_NAME && env.AWS_REGION
-      ? [`https://${env.S3_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`]
+      ? getOriginFromUrl(`https://${env.S3_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`)
       : []),
     ...(env.S3_KB_BUCKET_NAME && env.AWS_REGION
-      ? [`https://${env.S3_KB_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`]
+      ? getOriginFromUrl(`https://${env.S3_KB_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`)
       : []),
     ...(env.S3_CHAT_BUCKET_NAME && env.AWS_REGION
-      ? [`https://${env.S3_CHAT_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`]
+      ? getOriginFromUrl(`https://${env.S3_CHAT_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`)
       : []),
     'https://*.amazonaws.com',
     'https://*.blob.core.windows.net',
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
-    ...getOriginFromUrl(env.MARKET_API_URL),
-    ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
-    ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
-    ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_FAVICON_URL),
+    ...(env.NODE_ENV === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
   ],
 
   'media-src': ["'self'", 'blob:'],
@@ -91,11 +114,9 @@ export const buildTimeCSPDirectives: CSPDirectives = {
 
   'connect-src': [
     "'self'",
-    env.NEXT_PUBLIC_APP_URL || '',
-    env.OLLAMA_URL || 'http://localhost:11434',
-    env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002',
-    env.NEXT_PUBLIC_SOCKET_URL?.replace('http://', 'ws://').replace('https://', 'wss://') ||
-      'ws://localhost:3002',
+    ...getOriginFromUrl(env.NEXT_PUBLIC_APP_URL),
+    ...getSocketSourcesFromUrl(env.NEXT_PUBLIC_SOCKET_URL),
+    ...getOriginFromUrl('http://localhost:11434'),
     'https://api.browser-use.com',
     'https://api.exa.ai',
     'https://api.firecrawl.dev',
@@ -108,11 +129,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://api.github.com',
     'https://github.com/*',
     ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
-    ...getOriginFromUrl(env.MARKET_API_URL),
-    ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
-    ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
-    ...getHostnameFromUrl(env.NEXT_PUBLIC_PRIVACY_URL),
-    ...getHostnameFromUrl(env.NEXT_PUBLIC_TERMS_URL),
+    ...(env.NODE_ENV === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
   ],
 
   'worker-src': ["'self'", 'blob:'],
@@ -132,7 +149,11 @@ export function buildCSPString(directives: CSPDirectives): string {
   return Object.entries(directives)
     .map(([directive, sources]) => {
       if (!sources || sources.length === 0) return ''
-      const validSources = sources.filter((source: string) => source && source.trim() !== '')
+      const validSources = sources.filter((source: string | undefined): source is string => {
+        if (typeof source !== 'string') return false
+        const normalized = source.trim()
+        return normalized !== '' && normalized !== 'undefined' && normalized !== 'null'
+      })
       if (validSources.length === 0) return ''
       return `${directive} ${validSources.join(' ')}`
     })
@@ -141,51 +162,73 @@ export function buildCSPString(directives: CSPDirectives): string {
 }
 
 /**
- * Generate runtime CSP header with dynamic environment variables (safer approach)
- * This maintains compatibility with existing inline scripts while fixing Docker env var issues
+ * Generate runtime CSP header from explicit allowlisted origins.
+ * This runs inside middleware/proxy, so it uses request-time env values but avoids broad scheme
+ * relaxations and filters invalid values before serialization.
  */
-export function generateRuntimeCSP(): string {
-  const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL') || 'http://localhost:3002'
-  const socketWsUrl =
-    socketUrl.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:3002'
-  const appUrl = getEnv('NEXT_PUBLIC_APP_URL') || ''
-  const ollamaUrl = getEnv('OLLAMA_URL') || 'http://localhost:11434'
-  const marketUrl = getEnv('MARKET_API_URL') || MARKET_API_URL_DEFAULT
-  const devMarketUrl = getEnv('NODE_ENV') === 'development' ? 'http://localhost:3001' : ''
+export async function generateRuntimeCSP(): Promise<string> {
+  const runtimeCSP: CSPDirectives = {
+    'default-src': ["'self'"],
+    'script-src': [
+      "'self'",
+      "'unsafe-inline'",
+      "'unsafe-eval'",
+      'https://*.google.com',
+      'https://apis.google.com',
+    ],
+    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    'img-src': [
+      "'self'",
+      'data:',
+      'blob:',
+      'https://*.googleusercontent.com',
+      'https://*.google.com',
+      'https://*.atlassian.com',
+      'https://cdn.discordapp.com',
+      'https://cdn.jsdelivr.net',
+      'https://*.githubusercontent.com',
+      'https://*.s3.amazonaws.com',
+      'https://s3.amazonaws.com',
+      'https://*.amazonaws.com',
+      'https://*.blob.core.windows.net',
+      'https://github.com/*',
+      ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
+      ...(getEnv('NODE_ENV') === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
+    ],
+    'media-src': ["'self'", 'blob:'],
+    'font-src': ["'self'", 'https://fonts.gstatic.com'],
+    'connect-src': [
+      "'self'",
+      ...getOriginFromUrl(getEnv('NEXT_PUBLIC_APP_URL')),
+      ...getSocketSourcesFromUrl(getEnv('NEXT_PUBLIC_SOCKET_URL')),
+      ...getOriginFromUrl('http://localhost:11434'),
+      ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
+      ...(getEnv('NODE_ENV') === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
+      'https://api.browser-use.com',
+      'https://api.exa.ai',
+      'https://api.firecrawl.dev',
+      'https://*.googleapis.com',
+      'https://*.amazonaws.com',
+      'https://*.s3.amazonaws.com',
+      'https://*.blob.core.windows.net',
+      'https://api.github.com',
+      'https://github.com/*',
+      'https://*.atlassian.com',
+      'https://*.supabase.co',
+    ],
+    'worker-src': ["'self'", 'blob:'],
+    'frame-src': [
+      'https://drive.google.com',
+      'https://docs.google.com',
+      'https://*.google.com',
+    ],
+    'frame-ancestors': ["'self'"],
+    'form-action': ["'self'"],
+    'base-uri': ["'self'"],
+    'object-src': ["'none'"],
+  }
 
-  const brandLogoDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL'))
-  const brandFaviconDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL'))
-  const privacyDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_PRIVACY_URL'))
-  const termsDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_TERMS_URL'))
-
-  const allDynamicDomains = [
-    ...brandLogoDomains,
-    ...brandFaviconDomains,
-    ...privacyDomains,
-    ...termsDomains,
-  ]
-  const uniqueDynamicDomains = Array.from(new Set(allDynamicDomains))
-  const dynamicDomainsStr = uniqueDynamicDomains.join(' ')
-  const brandLogoDomain = brandLogoDomains[0] || ''
-  const brandFaviconDomain = brandFaviconDomains[0] || ''
-
-  return `
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google.com https://apis.google.com;
-    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com https://*.atlassian.com https://cdn.discordapp.com https://cdn.jsdelivr.net https://*.githubusercontent.com ${brandLogoDomain} ${brandFaviconDomain} ${marketUrl} ${devMarketUrl};
-    media-src 'self' blob:;
-    font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} ${marketUrl} ${devMarketUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
-    worker-src 'self' blob:;
-    frame-src https://drive.google.com https://docs.google.com https://*.google.com;
-    frame-ancestors 'self';
-    form-action 'self';
-    base-uri 'self';
-    object-src 'none';
-  `
-    .replace(/\s{2,}/g, ' ')
-    .trim()
+  return buildCSPString(runtimeCSP)
 }
 
 /**

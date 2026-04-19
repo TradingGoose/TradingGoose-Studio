@@ -51,7 +51,9 @@ function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined
 }
 
-export function parseBillingAmount(value: string | number | null | undefined): number {
+export function parseBillingAmount(
+  value: string | number | null | undefined,
+): number {
   if (value === null || value === undefined) {
     return 0
   }
@@ -60,13 +62,17 @@ export function parseBillingAmount(value: string | number | null | undefined): n
   return Number.isFinite(parsed) ? Math.max(parsed, 0) : 0
 }
 
-function parseOptionalBillingAmount(value: string | number | null | undefined): number | null {
-  return value === null || value === undefined ? null : parseBillingAmount(value)
+function parseOptionalBillingAmount(
+  value: string | number | null | undefined,
+): number | null {
+  return value === null || value === undefined
+    ? null
+    : parseBillingAmount(value)
 }
 
 function parseBillingAmountWithFallback(
   value: string | number | null | undefined,
-  fallback: number
+  fallback: number,
 ): number {
   if (value === null || value === undefined) {
     return fallback
@@ -76,47 +82,61 @@ function parseBillingAmountWithFallback(
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
 }
 
-export function isFreeBillingTier(tier: BillingTierRecord | null | undefined): boolean {
+export function isFreeBillingTier(
+  tier: BillingTierRecord | null | undefined,
+): boolean {
   return Boolean(
     tier &&
-      parseBillingAmount(tier.monthlyPriceUsd) <= 0 &&
-      parseBillingAmount(tier.yearlyPriceUsd) <= 0
+    parseBillingAmount(tier.monthlyPriceUsd) <= 0 &&
+    parseBillingAmount(tier.yearlyPriceUsd) <= 0,
   )
 }
 
-export function isPaidBillingTier(tier: BillingTierRecord | null | undefined): boolean {
+export function isPaidBillingTier(
+  tier: BillingTierRecord | null | undefined,
+): boolean {
   return Boolean(tier && !isFreeBillingTier(tier))
 }
 
 export function isOrganizationBillingTier(
-  tier: BillingTierRecord | null | undefined
+  tier: BillingTierRecord | null | undefined,
 ): tier is OrganizationBillingTierRecord {
   return tier?.ownerType === 'organization'
 }
 
 function isSeatBillingTier(
-  tier: BillingTierRecord | null | undefined
+  tier: BillingTierRecord | null | undefined,
 ): tier is SeatBillingTierRecord {
   return tier?.ownerType === 'organization' && tier?.seatMode === 'adjustable'
 }
 
-function usesSeatBasedBilling(tier: BillingTierRecord | null | undefined): boolean {
+function usesSeatBasedBilling(
+  tier: BillingTierRecord | null | undefined,
+): boolean {
   return tier?.ownerType === 'organization'
 }
 
-export function usesIndividualBillingLedger(tier: BillingTierRecord | null | undefined): boolean {
+export function usesIndividualBillingLedger(
+  tier: BillingTierRecord | null | undefined,
+): boolean {
   return Boolean(tier && tier.usageScope === 'individual')
 }
 
-export function getTierBasePrice(tier: BillingTierRecord | null | undefined): number {
+export function getTierBasePrice(
+  tier: BillingTierRecord | null | undefined,
+): number {
   return parseBillingAmount(tier?.monthlyPriceUsd)
 }
 
-export function getTierIncludedUsageLimit(tier: BillingTierRecord | null | undefined): number {
+export function getTierIncludedUsageLimit(
+  tier: BillingTierRecord | null | undefined,
+): number {
   return parseBillingAmount(tier?.includedUsageLimitUsd)
 }
 
-export function getTierUsageAllowanceUsd(tier: BillingTierRecord | null | undefined): number {
+export function getTierUsageAllowanceUsd(
+  tier: BillingTierRecord | null | undefined,
+): number {
   if (isDefined(tier?.includedUsageLimitUsd)) {
     return parseBillingAmount(tier.includedUsageLimitUsd)
   }
@@ -132,10 +152,12 @@ export function getSubscriptionUsageAllowanceUsd(
         tier?: BillingTierRecord | null
       }
     | null
-    | undefined
+    | undefined,
 ): number {
   const tier: BillingTierRecord | null | undefined =
-    source && 'tier' in source ? source.tier : (source as BillingTierRecord | null | undefined)
+    source && 'tier' in source
+      ? source.tier
+      : (source as BillingTierRecord | null | undefined)
   const seats = source && 'tier' in source ? Math.max(source.seats || 1, 1) : 1
 
   if (!tier) {
@@ -149,12 +171,14 @@ export function getSubscriptionUsageAllowanceUsd(
   return getTierUsageAllowanceUsd(tier)
 }
 
-export function getTierDisplayName(tier: BillingTierRecord | null | undefined): string {
+export function getTierDisplayName(
+  tier: BillingTierRecord | null | undefined,
+): string {
   return tier?.displayName || 'Billing tier'
 }
 
 export function toBillingTierSummary(
-  tier: BillingTierRecord | null | undefined
+  tier: BillingTierRecord | null | undefined,
 ): BillingTierSummary {
   if (!tier) {
     return EMPTY_BILLING_TIER_SUMMARY
@@ -169,7 +193,9 @@ export function toBillingTierSummary(
     displayOrder: tier.displayOrder,
     monthlyPriceUsd: parseOptionalBillingAmount(tier.monthlyPriceUsd),
     yearlyPriceUsd: parseOptionalBillingAmount(tier.yearlyPriceUsd),
-    includedUsageLimitUsd: parseOptionalBillingAmount(tier.includedUsageLimitUsd),
+    includedUsageLimitUsd: parseOptionalBillingAmount(
+      tier.includedUsageLimitUsd,
+    ),
     storageLimitGb: tier.storageLimitGb ?? null,
     concurrencyLimit: tier.concurrencyLimit ?? null,
     seatCount: tier.seatCount ?? null,
@@ -177,18 +203,23 @@ export function toBillingTierSummary(
     syncRateLimitPerMinute: tier.syncRateLimitPerMinute ?? null,
     asyncRateLimitPerMinute: tier.asyncRateLimitPerMinute ?? null,
     apiEndpointRateLimitPerMinute: tier.apiEndpointRateLimitPerMinute ?? null,
+    maxPendingAgeSeconds: tier.maxPendingAgeSeconds ?? null,
+    maxPendingCount: tier.maxPendingCount ?? null,
     canEditUsageLimit: tier.canEditUsageLimit,
     canConfigureSso: tier.canConfigureSso,
     logRetentionDays: tier.logRetentionDays ?? null,
     workflowModelCostMultiplier: parseBillingAmountWithFallback(
       tier.workflowModelCostMultiplier,
-      1
+      1,
     ),
     functionExecutionDurationMultiplier: parseBillingAmountWithFallback(
       tier.functionExecutionDurationMultiplier,
-      0
+      0,
     ),
-    copilotCostMultiplier: parseBillingAmountWithFallback(tier.copilotCostMultiplier, 1),
+    copilotCostMultiplier: parseBillingAmountWithFallback(
+      tier.copilotCostMultiplier,
+      1,
+    ),
     pricingFeatures: tier.pricingFeatures,
     isPublic: tier.isPublic,
     hasStripeMonthlyPriceId: Boolean(tier.stripeMonthlyPriceId),
@@ -204,18 +235,23 @@ export function getTierRateLimits(tier: BillingTierRecord | null | undefined) {
 }
 
 export function getTierWorkflowModelCostMultiplier(
-  tier: BillingTierRecord | null | undefined
+  tier: BillingTierRecord | null | undefined,
 ): number {
   return parseBillingAmountWithFallback(tier?.workflowModelCostMultiplier, 1)
 }
 
 export function getTierFunctionExecutionDurationMultiplier(
-  tier: BillingTierRecord | null | undefined
+  tier: BillingTierRecord | null | undefined,
 ): number {
-  return parseBillingAmountWithFallback(tier?.functionExecutionDurationMultiplier, 0)
+  return parseBillingAmountWithFallback(
+    tier?.functionExecutionDurationMultiplier,
+    0,
+  )
 }
 
-export function getTierCopilotCostMultiplier(tier: BillingTierRecord | null | undefined): number {
+export function getTierCopilotCostMultiplier(
+  tier: BillingTierRecord | null | undefined,
+): number {
   return parseBillingAmountWithFallback(tier?.copilotCostMultiplier, 1)
 }
 
@@ -225,7 +261,7 @@ function getSubscriptionDateValue(value: Date | null | undefined): number {
 
 function compareEffectiveSubscriptions(
   left: Pick<SubscriptionWithTier, 'tier' | 'periodStart' | 'periodEnd'>,
-  right: Pick<SubscriptionWithTier, 'tier' | 'periodStart' | 'periodEnd'>
+  right: Pick<SubscriptionWithTier, 'tier' | 'periodStart' | 'periodEnd'>,
 ): number {
   const leftOwnerRank = left.tier.usageScope === 'pooled' ? 1 : 0
   const rightOwnerRank = right.tier.usageScope === 'pooled' ? 1 : 0
@@ -235,16 +271,20 @@ function compareEffectiveSubscriptions(
   }
 
   const periodEndDiff =
-    getSubscriptionDateValue(left.periodEnd) - getSubscriptionDateValue(right.periodEnd)
+    getSubscriptionDateValue(left.periodEnd) -
+    getSubscriptionDateValue(right.periodEnd)
   if (periodEndDiff !== 0) {
     return periodEndDiff
   }
 
-  return getSubscriptionDateValue(left.periodStart) - getSubscriptionDateValue(right.periodStart)
+  return (
+    getSubscriptionDateValue(left.periodStart) -
+    getSubscriptionDateValue(right.periodStart)
+  )
 }
 
 export function selectEffectiveSubscription<T extends SubscriptionWithTier>(
-  subscriptions: T[]
+  subscriptions: T[],
 ): T | null {
   return subscriptions.reduce<T | null>((effectiveSubscription, candidate) => {
     if (!effectiveSubscription) {
@@ -258,26 +298,37 @@ export function selectEffectiveSubscription<T extends SubscriptionWithTier>(
 }
 
 export function isOrganizationSubscription(
-  subscriptionRecord: { tier?: BillingTierRecord | null } | null | undefined
+  subscriptionRecord: { tier?: BillingTierRecord | null } | null | undefined,
 ): subscriptionRecord is OrganizationSubscriptionWithTier {
-  return Boolean(subscriptionRecord?.tier && isOrganizationBillingTier(subscriptionRecord.tier))
+  return Boolean(
+    subscriptionRecord?.tier &&
+    isOrganizationBillingTier(subscriptionRecord.tier),
+  )
 }
 
 export function getSubscriptionBillingScope(
   individualUserId: string,
-  subscriptionRecord: SubscriptionScopeRecord | null | undefined
+  subscriptionRecord: SubscriptionScopeRecord | null | undefined,
 ): BillingScope {
-  if (subscriptionRecord?.tier?.usageScope === 'pooled' && subscriptionRecord.referenceId) {
+  if (
+    subscriptionRecord?.tier?.usageScope === 'pooled' &&
+    subscriptionRecord.referenceId
+  ) {
     return {
       scopeId: subscriptionRecord.referenceId,
       scopeType: subscriptionRecord.referenceType,
       organizationId:
-        subscriptionRecord.referenceType === 'organization' ? subscriptionRecord.referenceId : null,
+        subscriptionRecord.referenceType === 'organization'
+          ? subscriptionRecord.referenceId
+          : null,
       userId: null,
     }
   }
 
-  if (subscriptionRecord?.referenceType === 'organization' && subscriptionRecord.referenceId) {
+  if (
+    subscriptionRecord?.referenceType === 'organization' &&
+    subscriptionRecord.referenceId
+  ) {
     return {
       scopeId: `${subscriptionRecord.referenceId}:${individualUserId}`,
       scopeType: 'organization_member',
@@ -294,7 +345,9 @@ export function getSubscriptionBillingScope(
   }
 }
 
-export async function requireBillingTierById(id: string): Promise<BillingTierRecord> {
+export async function requireBillingTierById(
+  id: string,
+): Promise<BillingTierRecord> {
   const rows = await db
     .select()
     .from(systemBillingTier)
@@ -322,8 +375,8 @@ export async function getDefaultBillingTier(): Promise<BillingTierRecord | null>
         eq(systemBillingTier.usageScope, 'individual'),
         eq(systemBillingTier.seatMode, 'fixed'),
         sql`coalesce(${systemBillingTier.monthlyPriceUsd}, '0')::numeric = 0`,
-        sql`coalesce(${systemBillingTier.yearlyPriceUsd}, '0')::numeric = 0`
-      )
+        sql`coalesce(${systemBillingTier.yearlyPriceUsd}, '0')::numeric = 0`,
+      ),
     )
     .orderBy(asc(systemBillingTier.displayOrder))
     .limit(1)
@@ -344,20 +397,31 @@ export async function getPublicBillingTiers(): Promise<BillingTierRecord[]> {
   return db
     .select()
     .from(systemBillingTier)
-    .where(and(eq(systemBillingTier.status, 'active'), eq(systemBillingTier.isPublic, true)))
+    .where(
+      and(
+        eq(systemBillingTier.status, 'active'),
+        eq(systemBillingTier.isPublic, true),
+      ),
+    )
     .orderBy(asc(systemBillingTier.displayOrder))
 }
 
 export async function getPrimaryPublicUserUpgradeTier(): Promise<BillingTierRecord | null> {
   const tiers = await getPublicBillingTiers()
   const tier = tiers.find(
-    (candidate) => candidate.ownerType === 'user' && candidate.usageScope === 'individual' && !isFreeBillingTier(candidate)
+    (candidate) =>
+      candidate.ownerType === 'user' &&
+      candidate.usageScope === 'individual' &&
+      !isFreeBillingTier(candidate),
   )
   return tier ?? null
 }
 
 export async function getAllBillingTiers(): Promise<BillingTierRecord[]> {
-  return db.select().from(systemBillingTier).orderBy(asc(systemBillingTier.displayOrder))
+  return db
+    .select()
+    .from(systemBillingTier)
+    .orderBy(asc(systemBillingTier.displayOrder))
 }
 
 export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierRecord | null> {
@@ -368,8 +432,8 @@ export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierR
       and(
         eq(systemBillingTier.status, 'active'),
         eq(systemBillingTier.isPublic, false),
-        eq(systemBillingTier.ownerType, 'organization')
-      )
+        eq(systemBillingTier.ownerType, 'organization'),
+      ),
     )
     .orderBy(asc(systemBillingTier.displayOrder))
     .limit(1)
@@ -378,13 +442,13 @@ export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierR
 }
 
 export async function hydrateSubscriptionsWithTiers(
-  subscriptions: SubscriptionRecord[]
+  subscriptions: SubscriptionRecord[],
 ): Promise<SubscriptionWithTier[]> {
   const tierIds = [
     ...new Set(
       subscriptions
         .map((row) => row.billingTierId)
-        .filter((tierId): tierId is string => Boolean(tierId))
+        .filter((tierId): tierId is string => Boolean(tierId)),
     ),
   ]
 
@@ -419,12 +483,15 @@ export async function hydrateSubscriptionsWithTiers(
     }
 
     if (subscriptionRecord.referenceType !== tier.ownerType) {
-      logger.error('Subscription ownership does not match billing tier owner type', {
-        subscriptionId: subscriptionRecord.id,
-        billingTierId: subscriptionRecord.billingTierId,
-        referenceType: subscriptionRecord.referenceType,
-        tierOwnerType: tier.ownerType,
-      })
+      logger.error(
+        'Subscription ownership does not match billing tier owner type',
+        {
+          subscriptionId: subscriptionRecord.id,
+          billingTierId: subscriptionRecord.billingTierId,
+          referenceType: subscriptionRecord.referenceType,
+          tierOwnerType: tier.ownerType,
+        },
+      )
       return []
     }
 

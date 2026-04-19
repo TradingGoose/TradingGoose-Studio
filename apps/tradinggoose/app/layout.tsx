@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { PublicEnvScript } from 'next-runtime-env'
-import { BrandedLayout } from '@/components/branded-layout'
-import { generateThemeCSS } from '@/lib/branding/inject-theme'
+import { PUBLIC_ENV_KEY } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
@@ -24,6 +22,10 @@ const BROWSER_EXTENSION_ATTRIBUTES = [
   'data-grammarly',
   'data-fgm',
   'data-lt-installed',
+  'data-sharkid',
+  'data-sharklabel',
+  'data-sharkidcontainer',
+  'shark-icon-container',
 ]
 
 if (typeof window !== 'undefined') {
@@ -58,28 +60,29 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = generateBrandedMetadata()
 
+function getPublicEnvSnapshot() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => key.startsWith('NEXT_PUBLIC_') && typeof value === 'string'
+    )
+  )
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const themeCSS = generateThemeCSS()
+  const publicEnv = JSON.stringify(getPublicEnvSnapshot()).replace(/</g, '\\u003c')
 
   return (
     <html lang='en' suppressHydrationWarning>
       <head>
-        {/* Theme CSS Override */}
-        {themeCSS && (
-          <style
-            id='theme-override'
-            dangerouslySetInnerHTML={{
-              __html: themeCSS,
-            }}
-          />
-        )}
-
         {/* Basic head hints that are not covered by the Metadata API */}
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
         <meta httpEquiv='x-ua-compatible' content='ie=edge' />
-
-        <PublicEnvScript />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window['${PUBLIC_ENV_KEY}'] = ${publicEnv};`,
+          }}
+        />
       </head>
       <body suppressHydrationWarning>
         <PostHogProvider>
@@ -88,10 +91,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SessionProvider>
                 <ProviderModelsBootstrap />
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                  <BrandedLayout>
-                    <ZoomPrevention />
-                    {children}
-                  </BrandedLayout>
+                  <ZoomPrevention />
+                  {children}
                 </TooltipProvider>
               </SessionProvider>
             </QueryProvider>

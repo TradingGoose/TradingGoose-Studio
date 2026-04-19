@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { BlogLayout } from '@/app/(landing)/components'
+import BlogLayout from '@/app/(landing)/components/blog-layout'
 import { getAllPosts } from './lib/posts'
 import PageHeading from './components/page-heading'
 import FilteredPosts from './components/filtered-posts'

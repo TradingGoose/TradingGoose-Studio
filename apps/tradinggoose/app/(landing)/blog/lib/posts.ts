@@ -2,14 +2,15 @@ import { cache } from 'react'
 import fs from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
+import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
 import { normalizeHeadingText, textToSlug } from './heading-slugs'
 import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
 
 /**
  * Blog content source configuration.
  *
- * Set BLOG_GITHUB_REPO to fetch posts from a public GitHub repo instead of
- * local files. Format: "owner/repo" (e.g. "TradingGoose/blog").
+ * Configure the GitHub Admin Service to fetch posts from a public GitHub repo
+ * instead of local files. Format: "owner/repo" (e.g. "TradingGoose/blog").
  *
  * Expected structure (same for local and GitHub repo):
  *   my-post/
@@ -20,25 +21,28 @@ import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
  * All relative image paths (in frontmatter `image` and markdown `![](...)`)
  * are auto-resolved to raw.githubusercontent.com URLs.
  *
- * Set BLOG_GITHUB_BRANCH to specify the branch (defaults to "main").
- * Set GITHUB_TOKEN to increase API rate limits (optional for public repos).
+ * Configure the GitHub Admin Service token to increase API rate limits
+ * (optional for public repos).
  *
- * When BLOG_GITHUB_REPO is not set, falls back to local filesystem at
+ * When no GitHub blog repository is configured, falls back to local filesystem at
  * app/(landing)/blog/content/.
  */
-const GITHUB_REPO = process.env.BLOG_GITHUB_REPO ?? ''
-const GITHUB_BRANCH = process.env.BLOG_GITHUB_BRANCH ?? 'main'
 const LOCAL_CONTENT_DIR = path.join(process.cwd(), 'app/(landing)/blog/content')
 
 /** Fetch fresh on every request — no ISR cache for blog content. */
 const FETCH_OPTIONS: RequestInit = { cache: 'no-store' }
 
+type GitHubBlogSource = {
+  repository: string
+  branch: string
+}
+
 // ---------------------------------------------------------------------------
 // Shared utilities
 // ---------------------------------------------------------------------------
 
-function rawGitHubUrl(filePath: string): string {
-  return `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/${filePath}`
+function rawGitHubUrl(source: GitHubBlogSource, filePath: string): string {
+  return `https://raw.githubusercontent.com/${source.repository}/${source.branch}/${filePath}`
 }
 
 function calculateReadingTime(content: string): number {
@@ -86,15 +90,20 @@ function resolveAuthors(raw: PostFrontmatter['authors']): ResolvedAuthor[] {
  * - Relative paths (cover.png, ./diagram.png) are resolved to the
  *   raw GitHub URL or kept relative for local mode.
  */
-function resolveImageUrl(imagePath: string, postDir: string, mode: 'github' | 'local'): string {
+function resolveImageUrl(
+  imagePath: string,
+  postDir: string,
+  source: GitHubBlogSource | null
+): string {
   if (!imagePath) return ''
   if (/^https?:\/\//.test(imagePath)) return imagePath
 
   const clean = imagePath.replace(/^\.\//, '')
 
-  if (mode === 'github') {
-    return rawGitHubUrl(`${postDir}/${clean}`)
+  if (source) {
+    return rawGitHubUrl(source, `${postDir}/${clean}`)
   }
+
   // Local: serve from public or leave relative — for local dev the images
   // sit next to the markdown so we serve them via a catch-all or public dir
   return `/blog-images/${postDir.split('/').pop()}/${clean}`
@@ -104,12 +113,16 @@ function resolveImageUrl(imagePath: string, postDir: string, mode: 'github' | 'l
  * Rewrite relative image references inside markdown content so they point
  * to the correct absolute URL when served from GitHub.
  */
-function resolveContentImages(content: string, postDir: string, mode: 'github' | 'local'): string {
+function resolveContentImages(
+  content: string,
+  postDir: string,
+  source: GitHubBlogSource | null
+): string {
   // Match ![alt](./path) and ![alt](path) but not ![alt](https://...)
   return content.replace(
     /!\[([^\]]*)\]\((?!https?:\/\/|\/\/)\.?\/?([^)]+)\)/g,
     (_, alt, imgPath) => {
-      const resolved = resolveImageUrl(imgPath, postDir, mode)
+      const resolved = resolveImageUrl(imgPath, postDir, source)
       return `![${alt}](${resolved})`
     }
   )
@@ -119,7 +132,7 @@ function parsePost(
   slug: string,
   fileContent: string,
   postDir: string,
-  mode: 'github' | 'local'
+  source: GitHubBlogSource | null
 ): Post | null {
   const { data, content } = matter(fileContent)
   const frontmatter = data as PostFrontmatter
@@ -128,9 +141,9 @@ function parsePost(
   if (!published) return null
 
   const resolvedImage = frontmatter.image
-    ? resolveImageUrl(frontmatter.image, postDir, mode)
+    ? resolveImageUrl(frontmatter.image, postDir, source)
     : ''
-  const resolvedContent = resolveContentImages(content, postDir, mode)
+  const resolvedContent = resolveContentImages(content, postDir, source)
 
   return {
     ...frontmatter,
@@ -153,11 +166,15 @@ interface GitHubTreeItem {
   type: string
 }
 
-async function fetchPostsFromGitHub(): Promise<Post[]> {
-  const treeUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`
+async function fetchPostsFromGitHub(
+  source: GitHubBlogSource,
+  token: string | null
+): Promise<Post[]> {
+  const treeUrl = `https://api.github.com/repos/${source.repository}/git/trees/${source.branch}?recursive=1`
   const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' }
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
   }
 
   const treeRes = await fetch(treeUrl, {
@@ -179,13 +196,13 @@ async function fetchPostsFromGitHub(): Promise<Post[]> {
 
   const posts = await Promise.all(
     postFiles.map(async (file) => {
-      const res = await fetch(rawGitHubUrl(file.path), FETCH_OPTIONS)
+      const res = await fetch(rawGitHubUrl(source, file.path), FETCH_OPTIONS)
       if (!res.ok) return null
 
       const text = await res.text()
       // my-post/index.md → slug: "my-post", dir: "my-post"
       const slug = file.path.split('/')[0]
-      return parsePost(slug, text, slug, 'github')
+      return parsePost(slug, text, slug, source)
     })
   )
 
@@ -212,14 +229,14 @@ function fetchPostsFromLocal(): Post[] {
       if (!indexFile) return null
       const filePath = path.join(LOCAL_CONTENT_DIR, entry.name, indexFile)
       const content = fs.readFileSync(filePath, 'utf-8')
-      return parsePost(entry.name, content, entry.name, 'local')
+      return parsePost(entry.name, content, entry.name, null)
     }
     if (entry.isFile() && /\.mdx?$/.test(entry.name)) {
       // Flat file fallback: my-post.md
       const filePath = path.join(LOCAL_CONTENT_DIR, entry.name)
       const content = fs.readFileSync(filePath, 'utf-8')
       const slug = entry.name.replace(/\.mdx?$/, '')
-      return parsePost(slug, content, slug, 'local')
+      return parsePost(slug, content, slug, null)
     }
     return null
   })
@@ -233,11 +250,27 @@ function fetchPostsFromLocal(): Post[] {
 // Public API
 // ---------------------------------------------------------------------------
 
-const useGitHub = GITHUB_REPO.length > 0
-
 // Deduplicate within a single server render pass (generateMetadata + page component)
 export const getAllPosts = cache(async (): Promise<Post[]> => {
-  return useGitHub ? fetchPostsFromGitHub() : fetchPostsFromLocal()
+  try {
+    const githubConfig = await resolveGitHubServiceConfig()
+    const repository = githubConfig.blogRepository
+
+    if (!repository) {
+      return fetchPostsFromLocal()
+    }
+
+    return fetchPostsFromGitHub(
+      {
+        repository,
+        branch: githubConfig.blogBranch,
+      },
+      githubConfig.token
+    )
+  } catch {
+    console.warn('[blog] Failed to resolve GitHub blog settings, falling back to local content')
+    return fetchPostsFromLocal()
+  }
 })
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {

@@ -4,7 +4,6 @@ import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
-import { executeProviderRequest } from '@/providers/ai'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -47,17 +46,6 @@ vi.mock('@/tools', () => ({
   executeTool: vi.fn(),
 }))
 
-vi.mock('@/providers/ai', () => ({
-  executeProviderRequest: vi.fn().mockResolvedValue({
-    content: 'Mocked response content',
-    model: 'mock-model',
-    tokens: { prompt: 10, completion: 20, total: 30 },
-    toolCalls: [],
-    cost: 0.001,
-    timing: { total: 100 },
-  }),
-}))
-
 global.fetch = Object.assign(vi.fn(), { preconnect: vi.fn() }) as typeof fetch
 
 const mockGetAllBlocks = getAllBlocks as Mock
@@ -66,7 +54,6 @@ const mockIsHosted = isHosted as unknown as Mock
 const mockGetProviderFromModel = getProviderFromModel as Mock
 const mockTransformBlockTool = transformBlockTool as Mock
 const mockFetch = global.fetch as unknown as Mock
-const mockExecuteProviderRequest = executeProviderRequest as Mock
 
 describe('AgentBlockHandler', () => {
   let handler: AgentBlockHandler

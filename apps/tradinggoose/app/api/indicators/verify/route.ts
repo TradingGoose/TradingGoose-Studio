@@ -1,21 +1,21 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
-  getCodeExecutionConcurrencyLimitMessage,
-  isCodeExecutionConcurrencyBackendUnavailableError,
-  isCodeExecutionConcurrencyLimitError,
-  withCodeExecutionConcurrencyLimit,
-} from '@/lib/execution/concurrency-limit'
-import {
-  getLocalVmSaturationLimitMessage,
-  isLocalVmSaturationLimitError,
-} from '@/lib/execution/local-saturation-limit'
+  ExecutionGateError,
+  enforceServerExecutionRateLimit,
+  getExecutionConcurrencyLimitMessage,
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
+} from '@/lib/execution/execution-concurrency-limit'
+import { getLocalVmSaturationLimitMessage, isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { generateRequestId } from '@/lib/utils'
+import { RateLimitError } from '@/services/queue'
 import {
   authenticateIndicatorRequest,
   getWorkspaceWritePermissionError,
@@ -67,14 +67,24 @@ export async function POST(request: NextRequest) {
     const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
     if (permissionError) return permissionError
 
+    await enforceServerExecutionRateLimit({
+      actorUserId: auth.userId,
+      authType: auth.authType,
+      workspaceId,
+      isAsync: false,
+      logger,
+      requestId,
+      source: 'indicator verify',
+    })
+
     const series = generateMockMarketSeries()
     const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)
 
-    const compiled = await withCodeExecutionConcurrencyLimit({
+    const compiled = await withExecutionConcurrencyLimit({
       userId: auth.userId,
       workspaceId,
-      task: () =>
-        executeCompiledIndicator({
+      task: async () =>
+        await executeCompiledIndicator({
           pineCode,
           barsMs,
           inputsMap: inputs ?? {},
@@ -175,23 +185,45 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    if (isCodeExecutionConcurrencyBackendUnavailableError(error)) {
+    if (error instanceof ExecutionGateError) {
       return NextResponse.json(
         {
           success: false,
           error: error.message,
-          code: 'execution_backend_unavailable',
+          code: 'usage_limit_exceeded',
         },
         { status: error.statusCode }
       )
     }
 
-    if (isCodeExecutionConcurrencyLimitError(error)) {
+    if (error instanceof RateLimitError) {
       return NextResponse.json(
         {
           success: false,
-          error: getCodeExecutionConcurrencyLimitMessage(error),
-          code: 'concurrency_limit_exceeded',
+          error: error.message,
+          code: 'rate_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isExecutionConcurrencyLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getExecutionConcurrencyLimitMessage(error),
+          code: 'execution_concurrency_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isExecutionConcurrencyBackendUnavailableError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: 'execution_limiter_unavailable',
         },
         { status: error.statusCode }
       )

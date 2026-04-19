@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
-  checkRateLimits,
   findWebhookAndWorkflow,
   handleProviderChallenges,
   mapDispatchGateResultToHttpResponse,
@@ -69,12 +68,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return authError
   }
 
-  const rateLimitResult = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
-  const rateLimitError = mapDispatchGateResultToHttpResponse(rateLimitResult, foundWebhook.provider)
-  if (rateLimitError) {
-    return rateLimitError
-  }
-
   logger.info(
     `[${requestId}] Executing TEST webhook for ${foundWebhook.provider} (workflow: ${foundWorkflow.id})`
   )
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     foundWebhook,
     foundWorkflow,
     body,
-    { kind: 'http', request },
+    request,
     {
       requestId,
       path: foundWebhook.path,

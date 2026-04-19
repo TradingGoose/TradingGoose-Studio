@@ -17,37 +17,35 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import {
-  COPILOT_RUNTIME_MODELS,
-  DEFAULT_COPILOT_RUNTIME_MODEL,
-} from '@/lib/copilot/runtime-models'
-import {
-  buildCopilotRuntimeProviderConfig,
-} from '@/lib/copilot/runtime-provider.server'
-import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
-import {
-  buildAppendReviewTurn,
-  mapReviewItemToApi,
-  MESSAGE_ROLES,
-  REVIEW_ITEM_KINDS,
-  type ReviewMessageApi,
-  type ReviewMessageInput,
-} from '@/lib/copilot/review-sessions/thread-history'
+import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
   mapSessionToApiResponse,
   SESSION_SELECT_COLUMNS,
 } from '@/lib/copilot/review-sessions/api-mapping'
 import { loadReviewSessionForUser } from '@/lib/copilot/review-sessions/permissions'
 import {
+  buildAppendReviewTurn,
+  deriveReviewTurnsAndItems,
+  MESSAGE_ROLES,
+  mapReviewItemToApi,
+  REVIEW_ITEM_KINDS,
+  type ReviewMessageApi,
+  type ReviewMessageInput,
+  type ReviewTurnStatus,
+} from '@/lib/copilot/review-sessions/thread-history'
+import { COPILOT_RUNTIME_MODELS, DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
+import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
+import {
   COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
   COPILOT_SESSION_KIND,
 } from '@/lib/copilot/session-scope'
-import type { ProviderId } from '@/providers/ai/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotChatAPI')
 
@@ -58,6 +56,7 @@ interface PersistMessageAttachments {
   fileAttachments?: ReviewMessageInput['fileAttachments']
   contexts?: ReviewMessageInput['contexts']
   toolCalls?: ReviewMessageInput['toolCalls']
+  contentBlocks?: ReviewMessageInput['contentBlocks']
 }
 
 interface PersistChatMessagesResult {
@@ -65,35 +64,85 @@ interface PersistChatMessagesResult {
   savedAssistantMessage: boolean
 }
 
-// Generic copilot chats are grouped by widget panel channel + workspace for
-// history lists. Creating a new generic chat inserts a fresh session unless a
-// specific reviewSessionId is explicitly supplied by the client.
+type StreamAssistantItemState = {
+  id: string
+  order: number
+  timestamp: number
+  provisionalText: string
+  finalText: string | null
+}
+
+type StreamFunctionCallState = {
+  id: string
+  order: number
+  timestamp: number
+  name: string
+  arguments?: Record<string, unknown>
+  state: 'pending' | 'success' | 'error' | 'rejected'
+  result?: unknown
+}
+
+type StreamReasoningItemState = {
+  id: string
+  order: number
+  timestamp: number
+  startTime: number
+  provisionalText: string
+  finalText: string | null
+  duration?: number
+}
+
+async function lockReviewSessionForHistoryMutation(tx: any, reviewSessionId: string) {
+  await tx
+    .update(copilotReviewSessions)
+    .set({
+      updatedAt: new Date(),
+    })
+    .where(eq(copilotReviewSessions.id, reviewSessionId))
+}
+
+function getPersistedReviewMessageId(message: ReviewMessageApi | Record<string, unknown>): string {
+  if (typeof message.id === 'string') {
+    return message.id
+  }
+
+  const itemId = (message as Record<string, unknown>).itemId
+  if (typeof itemId === 'string') {
+    return itemId
+  }
+
+  return ''
+}
+
+// Generic copilot chats are grouped by workspace for history lists. Creating a
+// new generic chat inserts a fresh session unless a specific reviewSessionId is
+// explicitly supplied by the client.
 
 /**
  * Persists user + assistant messages and updates the review session in a single transaction.
  * Shared between the streaming and non-streaming response paths.
  */
-async function persistChatMessages(params: {
-  reviewSessionId: string
-  userMessageId: string
-  userContent: string
-  assistantContent: string | null
-  timestamp: string
-  conversationId?: string
-} & PersistMessageAttachments): Promise<PersistChatMessagesResult> {
+async function persistChatMessages(
+  params: {
+    reviewSessionId: string
+    userMessageId: string
+    userContent: string
+    assistantContent: string | null
+    timestamp: string
+    conversationId?: string
+    latestTurnStatus?: ReviewTurnStatus
+  } & PersistMessageAttachments
+): Promise<PersistChatMessagesResult> {
   const hasAssistantMessage =
     (typeof params.assistantContent === 'string' && params.assistantContent.trim().length > 0) ||
-    (Array.isArray(params.toolCalls) && params.toolCalls.length > 0)
+    (Array.isArray(params.toolCalls) && params.toolCalls.length > 0) ||
+    (Array.isArray(params.contentBlocks) && params.contentBlocks.length > 0)
 
   await db.transaction(async (tx) => {
-    // Serialize append operations per session so sequence numbers are derived
-    // from the latest committed ledger, not from the pre-request snapshot.
-    await tx
-      .update(copilotReviewSessions)
-      .set({
-        updatedAt: new Date(),
-      })
-      .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+    // Serialize history mutations per review session. The stream route appends
+    // here while the client may also POST `/update-messages` immediately after
+    // the SSE `done` event, so both paths need to contend on the same row lock.
+    await lockReviewSessionForHistoryMutation(tx, params.reviewSessionId)
 
     const currentItems = await tx
       .select()
@@ -106,6 +155,9 @@ async function persistChatMessages(params: {
       )
       .orderBy(asc(copilotReviewItems.sequence))
     const currentMessages = currentItems.map(mapReviewItemToApi)
+    const hasPersistedUserMessage = currentMessages.some(
+      (message) => getPersistedReviewMessageId(message) === params.userMessageId
+    )
 
     const assistantMessage = hasAssistantMessage
       ? {
@@ -114,8 +166,66 @@ async function persistChatMessages(params: {
           content: params.assistantContent ?? '',
           timestamp: params.timestamp,
           toolCalls: params.toolCalls,
+          contentBlocks: params.contentBlocks,
         }
       : null
+
+    if (hasPersistedUserMessage) {
+      const userMessageIndex = currentMessages.findIndex(
+        (message) => getPersistedReviewMessageId(message) === params.userMessageId
+      )
+      const nextUserTurnBoundary = currentMessages.findIndex(
+        (message, index) => index > userMessageIndex && message.role === MESSAGE_ROLES.USER
+      )
+      const trailingMessages =
+        nextUserTurnBoundary === -1
+          ? []
+          : (currentMessages.slice(nextUserTurnBoundary) as ReviewMessageInput[])
+
+      const nextMessages: ReviewMessageInput[] = [
+        ...(currentMessages.slice(0, userMessageIndex) as ReviewMessageInput[]),
+        {
+          id: params.userMessageId,
+          role: MESSAGE_ROLES.USER,
+          content: params.userContent,
+          timestamp: params.timestamp,
+          fileAttachments: params.fileAttachments,
+          contexts: params.contexts,
+        },
+        ...(assistantMessage ? [assistantMessage] : []),
+        ...trailingMessages,
+      ]
+
+      const nextHistory = deriveReviewTurnsAndItems(
+        params.reviewSessionId,
+        nextMessages,
+        params.latestTurnStatus ?? 'completed'
+      )
+
+      await tx
+        .delete(copilotReviewItems)
+        .where(eq(copilotReviewItems.sessionId, params.reviewSessionId))
+      await tx
+        .delete(copilotReviewTurns)
+        .where(eq(copilotReviewTurns.sessionId, params.reviewSessionId))
+
+      if (nextHistory.turns.length > 0) {
+        await tx.insert(copilotReviewTurns).values(nextHistory.turns)
+      }
+
+      if (nextHistory.items.length > 0) {
+        await tx.insert(copilotReviewItems).values(nextHistory.items)
+      }
+
+      await tx
+        .update(copilotReviewSessions)
+        .set({
+          updatedAt: new Date(),
+          ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+        })
+        .where(eq(copilotReviewSessions.id, params.reviewSessionId))
+      return
+    }
 
     const nextTurn = buildAppendReviewTurn({
       reviewSessionId: params.reviewSessionId,
@@ -129,6 +239,7 @@ async function persistChatMessages(params: {
         contexts: params.contexts,
       },
       assistantMessage,
+      latestTurnStatus: params.latestTurnStatus ?? 'completed',
     })
 
     await tx.insert(copilotReviewTurns).values(nextTurn.turn)
@@ -185,9 +296,259 @@ function generateAndPersistTitle(params: {
     })
 }
 
+const getOutputItemText = (
+  item: Record<string, unknown>,
+  expectedType: 'output_text' | 'reasoning_text'
+): string => {
+  const content = Array.isArray(item.content) ? item.content : []
+  for (const entry of content) {
+    if (!entry || typeof entry !== 'object') continue
+    const typedEntry = entry as Record<string, unknown>
+    if (typedEntry.type === expectedType && typeof typedEntry.text === 'string') {
+      return typedEntry.text
+    }
+  }
+  return ''
+}
+
+const createCopilotStreamCapture = () => {
+  const assistantItems = new Map<string, StreamAssistantItemState>()
+  const reasoningItems = new Map<string, StreamReasoningItemState>()
+  const functionCalls = new Map<string, StreamFunctionCallState>()
+  let itemOrder = 0
+
+  const nextOrder = () => itemOrder++
+
+  const ensureAssistantItem = (itemId: string) => {
+    let item = assistantItems.get(itemId)
+    if (!item) {
+      item = {
+        id: itemId,
+        order: nextOrder(),
+        timestamp: Date.now(),
+        provisionalText: '',
+        finalText: null,
+      }
+      assistantItems.set(itemId, item)
+    }
+    return item
+  }
+
+  const ensureReasoningItem = (itemId: string) => {
+    let item = reasoningItems.get(itemId)
+    if (!item) {
+      const startTime = Date.now()
+      item = {
+        id: itemId,
+        order: nextOrder(),
+        timestamp: startTime,
+        startTime,
+        provisionalText: '',
+        finalText: null,
+      }
+      reasoningItems.set(itemId, item)
+    }
+    return item
+  }
+
+  const ensureFunctionCall = (
+    callId: string,
+    options?: {
+      name?: string
+      arguments?: Record<string, unknown>
+    }
+  ) => {
+    let item = functionCalls.get(callId)
+    if (!item) {
+      item = {
+        id: callId,
+        order: nextOrder(),
+        timestamp: Date.now(),
+        name: options?.name ?? '',
+        arguments: options?.arguments,
+        state: 'pending',
+      }
+      functionCalls.set(callId, item)
+      return item
+    }
+
+    if (options?.name) {
+      item.name = options.name
+    }
+    if (options?.arguments) {
+      item.arguments = options.arguments
+    }
+    return item
+  }
+
+  const buildPersistedToolCall = (toolCall: StreamFunctionCallState) => ({
+    id: toolCall.id,
+    name: toolCall.name,
+    state: toolCall.state,
+    ...(toolCall.arguments ? { arguments: toolCall.arguments, params: toolCall.arguments } : {}),
+    ...(toolCall.result !== undefined ? { result: toolCall.result } : {}),
+  })
+
+  return {
+    captureAddedItem(item: Record<string, unknown>) {
+      if (item.type === 'message' && item.role === 'assistant') {
+        const itemId = typeof item.id === 'string' ? item.id : ''
+        if (!itemId) return
+        const state = ensureAssistantItem(itemId)
+        const initialText = getOutputItemText(item, 'output_text')
+        if (initialText && state.provisionalText.length === 0 && state.finalText === null) {
+          state.provisionalText = initialText
+        }
+        return
+      }
+
+      if (item.type === 'reasoning') {
+        const itemId = typeof item.id === 'string' ? item.id : ''
+        if (!itemId) return
+        const state = ensureReasoningItem(itemId)
+        const initialText = getOutputItemText(item, 'reasoning_text')
+        if (initialText && state.provisionalText.length === 0 && state.finalText === null) {
+          state.provisionalText = initialText
+        }
+      }
+    },
+    captureTextDelta(itemId: string, delta: string) {
+      if (!itemId || !delta) return
+      const state = ensureAssistantItem(itemId)
+      state.provisionalText += delta
+    },
+    captureReasoningDelta(itemId: string, delta: string) {
+      if (!itemId || !delta) return
+      const state = ensureReasoningItem(itemId)
+      state.provisionalText += delta
+    },
+    captureDoneItem(item: Record<string, unknown>) {
+      if (item.type === 'message' && item.role === 'assistant') {
+        const itemId = typeof item.id === 'string' ? item.id : ''
+        if (!itemId) return
+        const state = ensureAssistantItem(itemId)
+        state.finalText = getOutputItemText(item, 'output_text')
+        return
+      }
+
+      if (item.type === 'reasoning') {
+        const itemId = typeof item.id === 'string' ? item.id : ''
+        if (!itemId) return
+        const state = ensureReasoningItem(itemId)
+        state.finalText = getOutputItemText(item, 'reasoning_text')
+        state.duration = Date.now() - state.startTime
+        return
+      }
+
+      if (item.type === 'function_call') {
+        const callId = typeof item.call_id === 'string' ? item.call_id : ''
+        const name = typeof item.name === 'string' ? item.name : ''
+        if (!callId || !name) return
+        const args = normalizeFunctionCallArguments(item.arguments)
+        ensureFunctionCall(callId, {
+          name,
+          ...(args ? { arguments: args } : {}),
+        })
+      }
+    },
+    captureToolResult(event: Record<string, unknown>) {
+      const toolCallId =
+        typeof event.toolCallId === 'string'
+          ? event.toolCallId
+          : typeof (event.data as Record<string, unknown> | undefined)?.id === 'string'
+            ? ((event.data as Record<string, unknown>).id as string)
+            : ''
+      if (!toolCallId) return
+
+      const toolName = typeof event.toolName === 'string' ? event.toolName : undefined
+      const current = ensureFunctionCall(toolCallId, { name: toolName })
+      const success = event.success === true
+      const failedDependency = event.failedDependency === true
+      const skipped =
+        event.result &&
+        typeof event.result === 'object' &&
+        (event.result as Record<string, unknown>).skipped === true
+
+      current.state = success ? 'success' : failedDependency || skipped ? 'rejected' : 'error'
+      if ('result' in event) {
+        current.result = event.result
+      }
+    },
+    captureToolError(event: Record<string, unknown>) {
+      const toolCallId =
+        typeof event.toolCallId === 'string'
+          ? event.toolCallId
+          : typeof (event.data as Record<string, unknown> | undefined)?.id === 'string'
+            ? ((event.data as Record<string, unknown>).id as string)
+            : ''
+      if (!toolCallId) return
+
+      const toolName = typeof event.toolName === 'string' ? event.toolName : undefined
+      const current = ensureFunctionCall(toolCallId, { name: toolName })
+      current.state = event.failedDependency === true ? 'rejected' : 'error'
+      current.result = {
+        success: false,
+        ...(typeof event.error === 'string' ? { error: event.error } : {}),
+      }
+    },
+    buildAssistantContent() {
+      return Array.from(assistantItems.values())
+        .sort((a, b) => a.order - b.order)
+        .map((item) => item.finalText ?? item.provisionalText)
+        .join('')
+    },
+    buildToolCalls() {
+      return Array.from(functionCalls.values())
+        .sort((a, b) => a.order - b.order)
+        .filter((toolCall) => toolCall.name.length > 0)
+        .map(buildPersistedToolCall)
+    },
+    buildContentBlocks() {
+      const now = Date.now()
+      const textBlocks = Array.from(assistantItems.values())
+        .sort((a, b) => a.order - b.order)
+        .map((item) => ({
+          type: 'text' as const,
+          content: item.finalText ?? item.provisionalText,
+          timestamp: item.timestamp,
+          itemId: item.id,
+          order: item.order,
+        }))
+        .filter((item) => item.content.trim().length > 0)
+
+      const thinkingBlocks = Array.from(reasoningItems.values())
+        .sort((a, b) => a.order - b.order)
+        .map((item) => ({
+          type: 'thinking' as const,
+          content: item.finalText ?? item.provisionalText,
+          timestamp: item.timestamp,
+          itemId: item.id,
+          startTime: item.startTime,
+          duration: item.duration ?? Math.max(0, now - item.startTime),
+          order: item.order,
+        }))
+        .filter((item) => item.content.trim().length > 0)
+
+      const toolBlocks = Array.from(functionCalls.values())
+        .sort((a, b) => a.order - b.order)
+        .filter((toolCall) => toolCall.name.length > 0)
+        .map((toolCall) => ({
+          type: 'tool_call' as const,
+          timestamp: toolCall.timestamp,
+          toolCall: buildPersistedToolCall(toolCall),
+          order: toolCall.order,
+        }))
+
+      return [...textBlocks, ...thinkingBlocks, ...toolBlocks]
+        .sort((a, b) => a.order - b.order)
+        .map(({ order: _order, ...block }) => block)
+    },
+  }
+}
+
 /**
  * Extracts a user-facing message from an SSE error event, wraps it in italics,
- * and enqueues the rewritten content + done events onto the stream.
+ * and enqueues a synthetic assistant item lifecycle onto the stream.
  * Returns the formatted assistant content string so the caller can persist it.
  */
 function enqueueErrorRewrite(
@@ -205,14 +566,48 @@ function enqueueErrorRewrite(
     (typeof event.data === 'string' && event.data) ||
     'Sorry, I encountered an error. Please try again.'
   const formatted = `_${displayMessage}_`
+  const itemId = `error-${crypto.randomUUID()}`
   try {
-    controller.enqueue(encodeSSE({ type: 'content', data: formatted }))
+    controller.enqueue(
+      encodeSSE({
+        type: 'response.output_item.added',
+        item: {
+          id: itemId,
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: '' }],
+        },
+      })
+    )
   } catch {
     reader.cancel()
     return formatted
   }
   try {
-    controller.enqueue(encodeSSE({ type: 'done' }))
+    controller.enqueue(
+      encodeSSE({
+        type: 'response.output_text.delta',
+        item_id: itemId,
+        delta: formatted,
+      })
+    )
+    controller.enqueue(
+      encodeSSE({
+        type: 'response.output_item.done',
+        item: {
+          id: itemId,
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: formatted }],
+        },
+      })
+    )
+    controller.enqueue(
+      encodeSSE({
+        type: 'response.completed',
+        response: { id: itemId },
+      })
+    )
   } catch {
     reader.cancel()
   }
@@ -231,8 +626,6 @@ const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
   reviewSessionId: z.string().optional(),
-  channelId: z.string().min(1).optional(),
-  workflowId: z.string().min(1).optional(),
   model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   prefetch: z.boolean().optional(),
   stream: z.boolean().optional().default(true),
@@ -275,6 +668,7 @@ const ChatMessageSchema = z.object({
         blockId: z.string().optional(),
         templateId: z.string().optional(),
         executionId: z.string().optional(),
+        draftSessionId: z.string().optional(),
         // For workflow_block, provide both workflowId and blockId
       })
     )
@@ -284,6 +678,18 @@ const ChatMessageSchema = z.object({
 /** POST /api/copilot/chat */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
+  const upstreamAbortController = new AbortController()
+  const abortUpstream = () => {
+    if (!upstreamAbortController.signal.aborted) {
+      upstreamAbortController.abort()
+    }
+  }
+
+  if (req.signal.aborted) {
+    abortUpstream()
+  } else {
+    req.signal.addEventListener('abort', abortUpstream, { once: true })
+  }
 
   try {
     const session = await getSession()
@@ -299,8 +705,6 @@ export async function POST(req: NextRequest) {
       message,
       userMessageId,
       reviewSessionId: incomingReviewSessionId,
-      channelId,
-      workflowId,
       model,
       prefetch,
       stream,
@@ -310,9 +714,6 @@ export async function POST(req: NextRequest) {
       workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
-    if (!incomingReviewSessionId && !channelId) {
-      return createBadRequestResponse('channelId or reviewSessionId is required')
-    }
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
       logger.info(`[${tracker.requestId}] Received chat POST`, {
@@ -368,7 +769,7 @@ export async function POST(req: NextRequest) {
 
     if (incomingReviewSessionId) {
       const session = await loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId)
-      if (!session) {
+      if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
         return createNotFoundResponse('Review session not found or unauthorized')
       }
 
@@ -386,13 +787,10 @@ export async function POST(req: NextRequest) {
         .orderBy(asc(copilotReviewItems.sequence))
 
       conversationHistory = existingMessages.map(mapReviewItemToApi)
-    } else if (channelId) {
+    } else {
       if (!model || typeof model !== 'string') {
         return createBadRequestResponse('model is required when creating a new review session')
       }
-      // Generic copilot supports multiple chats per panel. When the client omits
-      // reviewSessionId, this route always creates a fresh session in that panel's
-      // history bucket instead of reusing the latest channel-matched row.
       const [newSession] = await db
         .insert(copilotReviewSessions)
         .values({
@@ -401,7 +799,6 @@ export async function POST(req: NextRequest) {
           entityId: null,
           workspaceId: incomingWorkspaceId || null,
           draftSessionId: null,
-          channelId,
           title: null,
           model: COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
         })
@@ -426,7 +823,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { provider: runtimeProvider, providerConfig } = buildCopilotRuntimeProviderConfig({
+    const { provider: runtimeProvider, providerConfig } = await buildCopilotRuntimeProviderConfig({
       model,
       provider,
     })
@@ -434,9 +831,10 @@ export async function POST(req: NextRequest) {
     const effectiveConversationId =
       (currentSession?.conversationId as string | undefined) || conversationId
 
+    const { getCopilotRuntimeToolManifest } = await import('@/lib/copilot/runtime-tool-manifest')
+
     const requestPayload = {
       message: message, // Just send the current user message text
-      workflowId,
       userId: authenticatedUserId,
       stream: stream,
       streamToolCalls: true,
@@ -448,6 +846,7 @@ export async function POST(req: NextRequest) {
       ...(session?.user?.name && { userName: session.user.name }),
       ...(agentContexts.length > 0 && { context: agentContexts }),
       ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
+      toolManifest: await getCopilotRuntimeToolManifest(),
       ...(processedFileContents.length > 0 && { fileAttachments: processedFileContents }),
     }
 
@@ -464,6 +863,7 @@ export async function POST(req: NextRequest) {
     const copilotResponse = await proxyCopilotRequest({
       endpoint: '/api/copilot',
       body: requestPayload,
+      signal: upstreamAbortController.signal,
     })
 
     if (!copilotResponse.ok) {
@@ -498,12 +898,14 @@ export async function POST(req: NextRequest) {
           }),
       }
 
+      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
       const transformedStream = new ReadableStream({
         async start(controller) {
-          let assistantContent = ''
-          const toolCalls: any[] = []
+          let assistantContentOverride: string | null = null
+          const streamCapture = createCopilotStreamCapture()
           let buffer = ''
           let conversationIdFromStart: string | undefined
+          let latestTurnStatus: ReviewTurnStatus = 'completed'
           const shouldGenerateTitle =
             actualReviewSessionId && !currentSession?.title && conversationHistory.length === 0
           let titleRequested = false
@@ -513,18 +915,24 @@ export async function POST(req: NextRequest) {
           }
 
           if (actualReviewSessionId) {
-            controller.enqueue(encodeSSE({
-              type: 'review_session_id',
-              reviewSessionId: actualReviewSessionId,
-            }))
+            controller.enqueue(
+              encodeSSE({
+                type: 'review_session_id',
+                reviewSessionId: actualReviewSessionId,
+              })
+            )
             logger.debug(`[${tracker.requestId}] Sent initial reviewSessionId event to client`)
           }
 
-          const reader = copilotResponse.body!.getReader()
+          reader = copilotResponse.body!.getReader()
           const decoder = new TextDecoder()
 
           try {
             while (true) {
+              if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+                break
+              }
+
               const { done, value } = await reader.read()
               if (done) {
                 break
@@ -555,31 +963,12 @@ export async function POST(req: NextRequest) {
                     const event = JSON.parse(jsonStr)
 
                     switch (event.type) {
-                      case 'content':
-                        if (event.data) {
-                          assistantContent += event.data
-                        }
-                        break
-
-                      case 'reasoning':
-                        logger.debug(
-                          `[${tracker.requestId}] Reasoning chunk received (${(event.data || event.content || '').length} chars)`
-                        )
-                        break
-
-                      case 'tool_call':
-                        if (!event.data?.partial) {
-                          toolCalls.push(event.data)
-                        }
-                        break
-
-                      case 'tool_generating':
-                        break
-
                       case 'tool_result':
+                        streamCapture.captureToolResult(event as Record<string, unknown>)
                         break
 
                       case 'tool_error':
+                        streamCapture.captureToolError(event as Record<string, unknown>)
                         logger.error(`[${tracker.requestId}] Tool error:`, {
                           toolCallId: event.toolCallId,
                           toolName: event.toolName,
@@ -609,16 +998,49 @@ export async function POST(req: NextRequest) {
                             provider: runtimeProvider,
                             requestId: tracker.requestId,
                             onTitle: (title) => {
-                              controller.enqueue(encodeSSE({
-                                type: 'title_updated',
-                                title,
-                              }))
+                              controller.enqueue(
+                                encodeSSE({
+                                  type: 'title_updated',
+                                  title,
+                                })
+                              )
                             },
                           })
                         }
                         break
 
-                      case 'done':
+                      case 'response.output_item.added':
+                        if (event.item && typeof event.item === 'object') {
+                          streamCapture.captureAddedItem(event.item as Record<string, unknown>)
+                        }
+                        break
+
+                      case 'response.output_text.delta':
+                        if (typeof event.item_id === 'string' && typeof event.delta === 'string') {
+                          streamCapture.captureTextDelta(event.item_id, event.delta)
+                        }
+                        break
+
+                      case 'response.reasoning_text.delta':
+                        if (typeof event.item_id === 'string' && typeof event.delta === 'string') {
+                          streamCapture.captureReasoningDelta(event.item_id, event.delta)
+                        }
+                        logger.debug(
+                          `[${tracker.requestId}] Reasoning chunk received (${(event.delta || '').length} chars)`
+                        )
+                        break
+
+                      case 'response.output_item.done':
+                        if (event.item && typeof event.item === 'object') {
+                          streamCapture.captureDoneItem(event.item as Record<string, unknown>)
+                        }
+                        break
+
+                      case 'response.completed':
+                        break
+
+                      case 'awaiting_tools':
+                        latestTurnStatus = 'in_progress'
                         break
 
                       case 'error':
@@ -628,7 +1050,7 @@ export async function POST(req: NextRequest) {
                     }
 
                     if (event?.type === 'error') {
-                      assistantContent = enqueueErrorRewrite(event, controller, reader)
+                      assistantContentOverride = enqueueErrorRewrite(event, controller, reader)
                     } else {
                       try {
                         controller.enqueue(encodeSSE(event))
@@ -671,11 +1093,34 @@ export async function POST(req: NextRequest) {
                 try {
                   const jsonStr = buffer.slice(6)
                   const event = JSON.parse(jsonStr)
-                  if (event.type === 'content' && event.data) {
-                    assistantContent += event.data
+                  if (event.type === 'tool_result') {
+                    streamCapture.captureToolResult(event as Record<string, unknown>)
+                  }
+                  if (event.type === 'tool_error') {
+                    streamCapture.captureToolError(event as Record<string, unknown>)
+                  }
+                  if (event.type === 'response.output_item.added' && event.item) {
+                    streamCapture.captureAddedItem(event.item as Record<string, unknown>)
+                  }
+                  if (
+                    event.type === 'response.output_text.delta' &&
+                    typeof event.item_id === 'string' &&
+                    typeof event.delta === 'string'
+                  ) {
+                    streamCapture.captureTextDelta(event.item_id, event.delta)
+                  }
+                  if (
+                    event.type === 'response.reasoning_text.delta' &&
+                    typeof event.item_id === 'string' &&
+                    typeof event.delta === 'string'
+                  ) {
+                    streamCapture.captureReasoningDelta(event.item_id, event.delta)
+                  }
+                  if (event.type === 'response.output_item.done' && event.item) {
+                    streamCapture.captureDoneItem(event.item as Record<string, unknown>)
                   }
                   if (event?.type === 'error') {
-                    assistantContent = enqueueErrorRewrite(event, controller, reader)
+                    assistantContentOverride = enqueueErrorRewrite(event, controller, reader)
                   } else {
                     try {
                       controller.enqueue(encodeSSE(event))
@@ -690,9 +1135,14 @@ export async function POST(req: NextRequest) {
             }
 
             // Log final streaming summary
+            const assistantContent =
+              assistantContentOverride ?? streamCapture.buildAssistantContent()
+            const toolCalls = streamCapture.buildToolCalls()
+            const contentBlocks = streamCapture.buildContentBlocks()
             logger.info(`[${tracker.requestId}] Streaming complete summary:`, {
               totalContentLength: assistantContent.length,
               toolCallsCount: toolCalls.length,
+              contentBlocksCount: contentBlocks.length,
               hasContent: assistantContent.length > 0,
               toolNames: toolCalls.map((tc) => tc?.name).filter(Boolean),
             })
@@ -700,8 +1150,7 @@ export async function POST(req: NextRequest) {
             if (currentSession) {
               const now = new Date().toISOString()
               const conversationIdToPersist =
-                conversationIdFromStart ||
-                (currentSession?.conversationId ?? undefined)
+                conversationIdFromStart || (currentSession?.conversationId ?? undefined)
 
               persistedMessages = await persistChatMessages({
                 reviewSessionId: actualReviewSessionId!,
@@ -712,9 +1161,10 @@ export async function POST(req: NextRequest) {
                 conversationId: conversationIdToPersist,
                 fileAttachments:
                   fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
-                contexts:
-                  Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
+                contexts: Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
                 toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+                latestTurnStatus,
               })
 
               logger.info(
@@ -743,10 +1193,23 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (error) {
-            logger.error(`[${tracker.requestId}] Error processing stream:`, error)
-            controller.error(error)
+            if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+              logger.info(`[${tracker.requestId}] Copilot stream aborted by client disconnect`)
+            } else {
+              logger.error(`[${tracker.requestId}] Error processing stream:`, error)
+              controller.error(error)
+            }
           } finally {
-            controller.close()
+            reader = null
+            try {
+              controller.close()
+            } catch {}
+          }
+        },
+        cancel() {
+          abortUpstream()
+          if (reader) {
+            void reader.cancel().catch(() => {})
           }
         },
       })
@@ -800,9 +1263,9 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
         fileAttachments:
           fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
-        contexts:
-          Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
+        contexts: Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
         toolCalls,
+        latestTurnStatus: 'completed',
       })
 
       if (actualReviewSessionId && !currentSession.title && conversationHistory.length === 0) {
@@ -836,6 +1299,13 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const duration = tracker.getDuration()
 
+    if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+      logger.info(`[${tracker.requestId}] Copilot chat request aborted`, {
+        duration,
+      })
+      return new NextResponse(null, { status: 204 })
+    }
+
     if (error instanceof z.ZodError) {
       logger.error(`[${tracker.requestId}] Validation error:`, {
         duration,
@@ -857,6 +1327,8 @@ export async function POST(req: NextRequest) {
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
+  } finally {
+    req.signal.removeEventListener('abort', abortUpstream)
   }
 }
 
@@ -864,12 +1336,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const reviewSessionId = searchParams.get('reviewSessionId')
-    const channelId = searchParams.get('channelId')
     const workspaceId = searchParams.get('workspaceId')
-
-    if (!reviewSessionId && !channelId) {
-      return createBadRequestResponse('channelId or reviewSessionId is required')
-    }
 
     const { userId: authenticatedUserId, isAuthenticated } =
       await authenticateCopilotRequestSessionOnly()
@@ -882,8 +1349,11 @@ export async function GET(req: NextRequest) {
     if (reviewSessionId) {
       const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId)
 
-      if (!session) {
-        return NextResponse.json({ error: 'Review session not found or unauthorized' }, { status: 404 })
+      if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
+        return NextResponse.json(
+          { error: 'Review session not found or unauthorized' },
+          { status: 404 }
+        )
       }
 
       sessions = [session]
@@ -895,7 +1365,6 @@ export async function GET(req: NextRequest) {
           and(
             eq(copilotReviewSessions.userId, authenticatedUserId),
             eq(copilotReviewSessions.entityKind, COPILOT_SESSION_KIND),
-            eq(copilotReviewSessions.channelId, channelId!),
             workspaceId
               ? eq(copilotReviewSessions.workspaceId, workspaceId)
               : isNull(copilotReviewSessions.workspaceId)
@@ -906,23 +1375,40 @@ export async function GET(req: NextRequest) {
 
     const sessionIds = sessions.map((s) => s.id)
     const messagesBySession = new Map<string, ReviewMessageApi[]>()
+    const latestTurnStatusBySession = new Map<string, string | null>()
 
     if (sessionIds.length > 0) {
-      const allMessages = await db
-        .select()
-        .from(copilotReviewItems)
-        .where(
-          and(
-            inArray(copilotReviewItems.sessionId, sessionIds),
-            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+      const [allMessages, allTurns] = await Promise.all([
+        db
+          .select()
+          .from(copilotReviewItems)
+          .where(
+            and(
+              inArray(copilotReviewItems.sessionId, sessionIds),
+              eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
+            )
           )
-        )
-        .orderBy(asc(copilotReviewItems.sessionId), asc(copilotReviewItems.sequence))
+          .orderBy(asc(copilotReviewItems.sessionId), asc(copilotReviewItems.sequence)),
+        db
+          .select({
+            sessionId: copilotReviewTurns.sessionId,
+            status: copilotReviewTurns.status,
+          })
+          .from(copilotReviewTurns)
+          .where(inArray(copilotReviewTurns.sessionId, sessionIds))
+          .orderBy(asc(copilotReviewTurns.sessionId), desc(copilotReviewTurns.sequence)),
+      ])
 
       for (const msg of allMessages) {
         const list = messagesBySession.get(msg.sessionId) ?? []
         list.push(mapReviewItemToApi(msg))
         messagesBySession.set(msg.sessionId, list)
+      }
+
+      for (const turn of allTurns) {
+        if (!latestTurnStatusBySession.has(turn.sessionId)) {
+          latestTurnStatusBySession.set(turn.sessionId, turn.status ?? null)
+        }
       }
     }
 
@@ -930,11 +1416,12 @@ export async function GET(req: NextRequest) {
       mapSessionToApiResponse(session, {
         messageCount: messagesBySession.get(session.id)?.length ?? 0,
         messages: messagesBySession.get(session.id) ?? [],
+        latestTurnStatus: latestTurnStatusBySession.get(session.id) ?? null,
       })
     )
 
     logger.info(
-      `Retrieved ${transformedChats.length} review sessions for ${channelId ? `channel ${channelId}` : `session ${reviewSessionId}`}`
+      `Retrieved ${transformedChats.length} review sessions for ${reviewSessionId ? `session ${reviewSessionId}` : `workspace ${workspaceId ?? 'global'}`}`
     )
 
     return NextResponse.json({

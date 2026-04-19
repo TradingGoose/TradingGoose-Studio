@@ -17,7 +17,7 @@ export function getRegistrationPrimaryHref(mode: RegistrationMode) {
     case 'waitlist':
       return '/waitlist'
     case 'disabled':
-      return '/login'
+      return null
   }
 }
 
@@ -28,7 +28,7 @@ export function getRegistrationPrimaryLabel(mode: RegistrationMode) {
     case 'waitlist':
       return 'Join Waitlist'
     case 'disabled':
-      return 'Login'
+      return 'Coming soon'
   }
 }
 

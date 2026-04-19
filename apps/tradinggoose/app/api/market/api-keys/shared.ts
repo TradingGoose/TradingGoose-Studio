@@ -1,20 +1,19 @@
-import { env } from '@/lib/env'
 import { MARKET_API_URL_DEFAULT, MARKET_API_VERSION } from '@/lib/market/client/constants'
-
-const MARKET_API_URL = env.MARKET_API_URL || MARKET_API_URL_DEFAULT
+import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
 
 type RemoteServiceKey = {
   id: string
   apiKey: string
 }
 
-function createRequestInit(body?: Record<string, unknown>): RequestInit {
+async function createRequestInit(body?: Record<string, unknown>): Promise<RequestInit> {
+  const marketApi = await resolveMarketApiServiceConfig()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
-  if (env.MARKET_API_KEY) {
-    headers['x-api-key'] = env.MARKET_API_KEY
+  if (marketApi.apiKey) {
+    headers['x-api-key'] = marketApi.apiKey
   }
 
   return {
@@ -24,12 +23,13 @@ function createRequestInit(body?: Record<string, unknown>): RequestInit {
   }
 }
 
-function getMarketApiUrl(endpoint: string) {
-  return new URL(endpoint, MARKET_API_URL).toString()
+async function getMarketApiUrl(endpoint: string) {
+  const marketApi = await resolveMarketApiServiceConfig()
+  return new URL(endpoint, marketApi.baseUrl || MARKET_API_URL_DEFAULT).toString()
 }
 
-export function proxyMarketApiKeysRequest(endpoint: string, body?: Record<string, unknown>) {
-  return fetch(getMarketApiUrl(endpoint), createRequestInit(body))
+export async function proxyMarketApiKeysRequest(endpoint: string, body?: Record<string, unknown>) {
+  return fetch(await getMarketApiUrl(endpoint), await createRequestInit(body))
 }
 
 export function maskServiceKeys(apiKeys: RemoteServiceKey[]) {

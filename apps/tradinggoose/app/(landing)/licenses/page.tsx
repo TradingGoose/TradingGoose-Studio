@@ -1,4 +1,4 @@
-import { LegalLayout } from '@/app/(landing)/components'
+import LegalLayout from '@/app/(landing)/components/legal-layout'
 
 export default function LicensesPage() {
   return (
@@ -57,14 +57,14 @@ export default function LicensesPage() {
           <h2 className='mb-4 font-semibold text-2xl'>Third-Party Components</h2>
           <ul className='mb-4 list-disc space-y-2 pl-6'>
             <li>
-              <strong>TradingGoose Studio</strong> - upstream Apache-2.0 project this repository derives
+              <strong>Sim Studio</strong> - upstream Apache-2.0 project this repository derives
               from. Source:{' '}
               <a
-                href='https://github.com/TradingGoose/TradingGoose-Studio/tree/b768ca845e9b05aa98e8e7379f5287efa4829ddb'
+                href='https://github.com/simstudioai/sim/releases/tag/v0.4.25'
                 target='_blank'
                 rel='noopener noreferrer'
               >
-                TradingGoose/TradingGoose-Studio@b768ca8
+                simstudioai/sim v0.4.25 release
               </a>
               .
             </li>

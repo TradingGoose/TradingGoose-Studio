@@ -1,5 +1,4 @@
 import { getEnv, isTruthy } from '@/lib/env'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getEmbeddingModelPricing,
@@ -21,7 +20,6 @@ import {
 } from '@/providers/ai/models'
 import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import { useProvidersStore } from '@/stores/providers/store'
 
 const logger = createLogger('ProviderUtils')
 
@@ -533,50 +531,6 @@ export function getHostedModels(): string[] {
 export function shouldBillModelUsage(model: string): boolean {
   const hostedModels = getHostedModels()
   return hostedModels.includes(model)
-}
-
-/**
- * Get an API key for a specific provider, handling rotation and fallbacks
- * For use server-side only
- */
-export function getApiKey(provider: string, model: string, userProvidedKey?: string): string {
-  // If user provided a key, use it as a fallback
-  const hasUserKey = !!userProvidedKey
-
-  // Ollama models don't require API keys - they run locally
-  const isOllamaModel =
-    provider === 'ollama' || useProvidersStore.getState().providers.ollama.models.includes(model)
-  if (isOllamaModel) {
-    return 'empty' // Ollama uses 'empty' as a placeholder API key
-  }
-
-  // Use server key rotation for all OpenAI models and Anthropic's Claude models on the hosted platform
-  const isOpenAIModel = provider === 'openai'
-  const isClaudeModel = provider === 'anthropic'
-
-  if (isHosted && (isOpenAIModel || isClaudeModel)) {
-    try {
-      // Import the key rotation function
-      const { getRotatingApiKey } = require('@/lib/utils')
-      const serverKey = getRotatingApiKey(provider)
-      return serverKey
-    } catch (_error) {
-      // If server key fails and we have a user key, fallback to that
-      if (hasUserKey) {
-        return userProvidedKey!
-      }
-
-      // Otherwise, throw an error
-      throw new Error(`No API key available for ${provider} ${model}`)
-    }
-  }
-
-  // For all other cases, require user-provided key
-  if (!hasUserKey) {
-    throw new Error(`API key is required for ${provider} ${model}`)
-  }
-
-  return userProvidedKey!
 }
 
 /**

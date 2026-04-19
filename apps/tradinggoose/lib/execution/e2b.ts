@@ -1,6 +1,6 @@
 import { Sandbox } from '@e2b/code-interpreter'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveE2BServiceConfig } from '@/lib/system-services/runtime'
 import { CodeLanguage } from './languages'
 
 export interface E2BExecutionRequest {
@@ -23,25 +23,6 @@ const logger = createLogger('E2BExecution')
 const DEFAULT_E2B_KEEP_WARM_CAP_MS = 60 * 60 * 1000
 const WARM_SANDBOX_TIMEOUT_BUFFER_MS = 5_000
 export const E2B_WARM_SANDBOX_LIMIT_ERROR_CODE = 'E2B_WARM_SANDBOX_LIMIT_REACHED'
-
-const resolveKeepWarmCapMs = () => {
-  const raw = env.E2B_KEEP_WARM_CAP_MS
-  if (!raw) return DEFAULT_E2B_KEEP_WARM_CAP_MS
-  const parsed = Number.parseInt(raw, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_E2B_KEEP_WARM_CAP_MS
-  return parsed
-}
-
-const resolveMaxConcurrentWarmSandboxes = () => {
-  const raw = env.E2B_MAX_CONCURRENT_SANDBOX
-  if (!raw) return undefined
-  const parsed = Number.parseInt(raw, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined
-  return parsed
-}
-
-const E2B_KEEP_WARM_CAP_MS = resolveKeepWarmCapMs()
-const MAX_CONCURRENT_WARM_SANDBOXES = resolveMaxConcurrentWarmSandboxes()
 
 const isSandboxNotFoundError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? '')
@@ -90,7 +71,7 @@ const getAnyPendingWarmSandboxCreationForKey = (
 const getPendingWarmSandboxCreationsTotal = () =>
   [...warmSandboxCreations.values()].reduce((sum, pending) => sum + pending.size, 0)
 
-export const getWarmSandboxPoolState = () => {
+export const getWarmSandboxPoolState = (maxConcurrentWarmSandboxes?: number) => {
   const entries = [...warmSandboxEntries.values()].flat()
   const active = entries.length
   const inUse = entries.filter((entry) => entry.pendingRuns > 0).length
@@ -102,11 +83,9 @@ export const getWarmSandboxPoolState = () => {
     idle,
     pending,
     total: active + pending,
-    maxConcurrent: MAX_CONCURRENT_WARM_SANDBOXES,
+    maxConcurrent: maxConcurrentWarmSandboxes,
   }
 }
-
-logger.info('E2B warm sandbox pool startup state', getWarmSandboxPoolState())
 
 export const isE2BWarmSandboxLimitError = (
   error: unknown
@@ -137,15 +116,19 @@ const sanitizeUserScope = (userScope?: string) => {
   return value && value.length > 0 ? value : undefined
 }
 
-const normalizeKeepWarmMs = (keepWarmMs?: number) => {
+const normalizeKeepWarmMs = (keepWarmMs: number | undefined, keepWarmCapMs: number) => {
   if (!Number.isFinite(keepWarmMs)) return 0
   const normalizedKeepWarmMs = Math.max(0, Math.floor(keepWarmMs ?? 0))
-  return Math.min(normalizedKeepWarmMs, E2B_KEEP_WARM_CAP_MS)
+  return Math.min(normalizedKeepWarmMs, keepWarmCapMs)
 }
 
-const resolveWarmSandboxTimeoutMs = (keepWarmMs: number, executionTimeoutMs: number) =>
+const resolveWarmSandboxTimeoutMs = (
+  keepWarmMs: number,
+  executionTimeoutMs: number,
+  keepWarmCapMs: number
+) =>
   Math.min(
-    E2B_KEEP_WARM_CAP_MS,
+    keepWarmCapMs,
     keepWarmMs + Math.max(0, executionTimeoutMs) + WARM_SANDBOX_TIMEOUT_BUFFER_MS
   )
 
@@ -290,8 +273,8 @@ const selectLeastBusyWarmSandboxForScope = (entries: WarmSandboxEntry[], scope: 
   return selectLeastBusyWarmSandbox(scopeEntries)
 }
 
-const buildWarmSandboxLimitError = (cacheKey: string) => {
-  const poolState = getWarmSandboxPoolState()
+const buildWarmSandboxLimitError = (cacheKey: string, maxConcurrentWarmSandboxes?: number) => {
+  const poolState = getWarmSandboxPoolState(maxConcurrentWarmSandboxes)
   return Object.assign(new Error('E2B warm sandbox pool at capacity'), {
     name: 'E2BWarmSandboxLimitError',
     code: E2B_WARM_SANDBOX_LIMIT_ERROR_CODE,
@@ -299,7 +282,7 @@ const buildWarmSandboxLimitError = (cacheKey: string) => {
       cacheKey,
       activeWarmSandboxes: poolState.active,
       pendingWarmSandboxes: poolState.pending,
-      maxConcurrentWarmSandboxes: MAX_CONCURRENT_WARM_SANDBOXES,
+      maxConcurrentWarmSandboxes,
     },
   })
 }
@@ -309,19 +292,21 @@ const getOrCreateWarmSandbox = async ({
   template,
   apiKey,
   queueScope,
+  maxConcurrentWarmSandboxes,
 }: {
   cacheKey: string
   template?: string
   apiKey: string
   queueScope?: string
+  maxConcurrentWarmSandboxes?: number
 }): Promise<WarmSandboxEntry> => {
   const entries = getWarmSandboxEntriesForKey(cacheKey)
   const idleEntry = entries.find((entry) => entry.pendingRuns === 0)
   if (idleEntry) return idleEntry
 
-  const poolState = getWarmSandboxPoolState()
+  const poolState = getWarmSandboxPoolState(maxConcurrentWarmSandboxes)
   const hasGlobalCapacity =
-    !MAX_CONCURRENT_WARM_SANDBOXES || poolState.total < MAX_CONCURRENT_WARM_SANDBOXES
+    !maxConcurrentWarmSandboxes || poolState.total < maxConcurrentWarmSandboxes
   if (hasGlobalCapacity) {
     return createWarmSandboxEntry({
       cacheKey,
@@ -345,7 +330,7 @@ const getOrCreateWarmSandbox = async ({
     cacheKey,
     ...poolState,
   })
-  throw buildWarmSandboxLimitError(cacheKey)
+  throw buildWarmSandboxLimitError(cacheKey, maxConcurrentWarmSandboxes)
 }
 
 const runWithSandboxLock = async <T>(
@@ -457,7 +442,9 @@ const runCodeInSandbox = async ({
 export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecutionResult> {
   const { code, language, timeoutMs } = req
   const template = sanitizeTemplate(req.template)
-  const keepWarmMs = normalizeKeepWarmMs(req.keepWarmMs)
+  const e2bConfig = await resolveE2BServiceConfig()
+  const keepWarmCapMs = e2bConfig.keepWarmCapMs ?? DEFAULT_E2B_KEEP_WARM_CAP_MS
+  const keepWarmMs = normalizeKeepWarmMs(req.keepWarmMs, keepWarmCapMs)
   const userScope = sanitizeUserScope(req.userScope)
   const queueScope = userScope
   const warmReuseEnabled = keepWarmMs > 0
@@ -472,14 +459,14 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
     ...summarizeCode(code),
   })
 
-  const apiKey = process.env.E2B_API_KEY
+  const apiKey = e2bConfig.apiKey
   if (!apiKey) {
-    throw new Error('E2B_API_KEY is required when E2B is enabled')
+    throw new Error('E2B service API key is required when E2B is enabled')
   }
 
   if (warmReuseEnabled) {
     const cacheKey = buildWarmCacheKey({ template, language })
-    const warmSandboxTimeoutMs = resolveWarmSandboxTimeoutMs(keepWarmMs, timeoutMs)
+    const warmSandboxTimeoutMs = resolveWarmSandboxTimeoutMs(keepWarmMs, timeoutMs, keepWarmCapMs)
     let retryOnNotFound = true
 
     while (true) {
@@ -488,6 +475,7 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
         template,
         apiKey,
         queueScope,
+        maxConcurrentWarmSandboxes: e2bConfig.maxConcurrentWarmSandboxes,
       })
 
       try {

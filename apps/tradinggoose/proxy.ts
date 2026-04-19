@@ -21,15 +21,19 @@ const HOSTED_HOSTNAMES = [
   'staging.tradinggoose.ai',
 ]
 
-function isHostedEnvironment(): boolean {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  if (!appUrl) return false
+function extractHostname(value: string | null | undefined): string {
+  if (!value) return ''
   try {
-    const hostname = new URL(appUrl.includes('://') ? appUrl : `https://${appUrl}`).hostname
-    return HOSTED_HOSTNAMES.includes(hostname)
+    return new URL(value.includes('://') ? value : `https://${value}`).hostname
   } catch {
-    return HOSTED_HOSTNAMES.includes(appUrl.replace(/^https?:\/\//, '').split('/')[0])
+    return value.replace(/^https?:\/\//, '').split('/')[0]?.split(':')[0] ?? ''
   }
+}
+
+function isHostedEnvironment(request: NextRequest): boolean {
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+  const requestHost = forwardedHost || request.nextUrl.hostname || request.headers.get('host')
+  return HOSTED_HOSTNAMES.includes(extractHostname(requestHost))
 }
 
 function isAllowedInHostedMode(pathname: string): boolean {
@@ -92,6 +96,16 @@ function buildLoginRedirect(request: NextRequest, callback?: string) {
   return NextResponse.redirect(loginUrl)
 }
 
+function isProtectedAppPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/workspace') ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/w' ||
+    pathname.startsWith('/w/')
+  )
+}
+
 /**
  * Handles workspace invitation API endpoint access
  */
@@ -152,17 +166,14 @@ export async function proxy(request: NextRequest) {
   const url = request.nextUrl
 
   // In hosted mode, only serve landing pages — everything else is 404
-  if (isHostedEnvironment() && !isAllowedInHostedMode(url.pathname)) {
+  if (isHostedEnvironment(request) && !isAllowedInHostedMode(url.pathname)) {
     return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 })
   }
 
   const hasActiveSession = Boolean(getSessionCookie(request))
+  const isProtectedPath = isProtectedAppPath(url.pathname)
 
-  if (
-    url.pathname.startsWith('/workspace') ||
-    url.pathname === '/w' ||
-    url.pathname.startsWith('/w/')
-  ) {
+  if (isProtectedPath) {
     if (!hasActiveSession) {
       const callbackTarget = `${url.pathname}${url.search}`
       return buildLoginRedirect(request, callbackTarget)
@@ -189,7 +200,16 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const response = NextResponse.next()
+  const requestHeaders = new Headers(request.headers)
+  if (isProtectedPath) {
+    requestHeaders.set('x-auth-callback-url', `${url.pathname}${url.search}`)
+  }
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
   response.headers.set('Vary', 'User-Agent')
 
   if (
@@ -197,7 +217,7 @@ export async function proxy(request: NextRequest) {
     url.pathname.startsWith('/chat') ||
     url.pathname === '/'
   ) {
-    response.headers.set('Content-Security-Policy', generateRuntimeCSP())
+    response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
   }
 
   return response

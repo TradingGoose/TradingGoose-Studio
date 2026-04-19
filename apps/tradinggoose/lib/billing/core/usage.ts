@@ -131,16 +131,7 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     }
   } catch (error) {
     logger.error('Failed to get user usage data', { userId, error })
-    return {
-      currentUsage: 0,
-      limit: 0,
-      percentUsed: 0,
-      isWarning: false,
-      isExceeded: false,
-      billingPeriodStart: null,
-      billingPeriodEnd: null,
-      lastPeriodCost: 0,
-    }
+    throw error
   }
 }
 
@@ -165,7 +156,7 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
         currentLimit: Number.MAX_SAFE_INTEGER,
         canEdit: false,
         minimumLimit: 0,
-        tier: toBillingTierSummary(subscription?.tier),
+        tier: toBillingTierSummary(null),
         updatedAt: stats.customUsageLimitUpdatedAt,
       }
     }

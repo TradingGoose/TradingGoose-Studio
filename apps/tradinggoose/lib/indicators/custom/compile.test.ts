@@ -15,6 +15,12 @@ vi.mock('@/lib/execution/e2b', () => ({
     )
   }),
 }))
+vi.mock('@/lib/execution/local-saturation-limit', () => ({
+  isLocalVmSaturationLimitError: vi.fn(() => false),
+  withLocalVmSaturationLimit: vi.fn(
+    async ({ task }: { task: () => Promise<unknown> }) => await task()
+  ),
+}))
 vi.mock('@/lib/indicators/execution/local-executor', () => ({
   executeIndicatorInLocalVm: vi.fn(),
 }))

@@ -6,7 +6,8 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { decryptSecret, encryptSecret, generateRequestId } from '@/lib/utils'
+import { generateRequestId } from '@/lib/utils'
+import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('WorkspaceEnvironmentAPI')
 

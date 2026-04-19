@@ -54,7 +54,6 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
 
   const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
   const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
-  const isRegistrationDisabled = registrationMode === 'disabled'
 
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
@@ -99,9 +98,9 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
           </div>
 
           <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
-            {isRegistrationDisabled ? (
+            {registrationPrimaryHref === null ? (
               <Button size='lg' className='font-semibold text-lg' disabled>
-                Coming soon
+                {registrationPrimaryLabel}
               </Button>
             ) : (
               <Button size='lg' className='font-semibold text-lg' asChild>

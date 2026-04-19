@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockUseSession = vi.fn()
 const mockUseOrganizations = vi.fn()
 const mockUseOrganizationBilling = vi.fn()
-const mockCanTierConfigureSso = vi.fn()
 
 vi.mock('@/components/ui', () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -21,10 +20,6 @@ vi.mock('@/components/ui/skeleton', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => mockUseSession(),
-}))
-
-vi.mock('@/lib/billing/tier-summary', () => ({
-  canTierConfigureSso: (...args: unknown[]) => mockCanTierConfigureSso(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -73,13 +68,13 @@ describe('SSO access guard', () => {
     })
     mockUseOrganizationBilling.mockReturnValue({
       data: {
-        billingEnabled: false,
+        billingEnabled: true,
         subscriptionTier: {
           ownerType: 'organization',
+          canConfigureSso: true,
         },
       },
     })
-    mockCanTierConfigureSso.mockReturnValue(true)
   })
 
   it('blocks non-admin org members from the self-hosted org SSO surface', async () => {
@@ -89,16 +84,6 @@ describe('SSO access guard', () => {
     expect(markup).toContain(
       'Only organization owners and admins can configure Single Sign-On settings.'
     )
-    expect(markup).not.toContain('Only the user who configured SSO can manage these settings.')
-  })
-
-  it('shows the org-tier disabled message instead of the legacy user-owned flow', async () => {
-    mockCanTierConfigureSso.mockReturnValue(false)
-
-    const { SSO } = await import('./sso')
-    const markup = renderToStaticMarkup(<SSO />)
-
-    expect(markup).toContain('Single Sign-On is not enabled for this billing tier.')
     expect(markup).not.toContain('Only the user who configured SSO can manage these settings.')
   })
 
@@ -116,12 +101,36 @@ describe('SSO access guard', () => {
     expect(markup).not.toContain('Only the user who configured SSO can manage these settings.')
   })
 
-  it('shows the tier gate for non-organization billing instead of a legacy personal owner check', async () => {
+  it('blocks org admins when the current billing tier cannot configure SSO', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          email: 'admin@example.com',
+        },
+      },
+    })
+    mockUseOrganizations.mockReturnValue({
+      data: {
+        activeOrganization: {
+          id: 'org-1',
+          members: [
+            {
+              role: 'admin',
+              user: {
+                email: 'admin@example.com',
+              },
+            },
+          ],
+        },
+      },
+    })
     mockUseOrganizationBilling.mockReturnValue({
       data: {
-        billingEnabled: false,
+        billingEnabled: true,
         subscriptionTier: {
-          ownerType: 'user',
+          ownerType: 'organization',
+          canConfigureSso: false,
         },
       },
     })
@@ -130,6 +139,45 @@ describe('SSO access guard', () => {
     const markup = renderToStaticMarkup(<SSO />)
 
     expect(markup).toContain('Single Sign-On is not enabled for this billing tier.')
-    expect(markup).not.toContain('Only the user who configured SSO can manage these settings.')
+  })
+
+  it('keeps org-admin SSO settings available when billing is disabled', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          email: 'admin@example.com',
+        },
+      },
+    })
+    mockUseOrganizations.mockReturnValue({
+      data: {
+        activeOrganization: {
+          id: 'org-1',
+          members: [
+            {
+              role: 'admin',
+              user: {
+                email: 'admin@example.com',
+              },
+            },
+          ],
+        },
+      },
+    })
+    mockUseOrganizationBilling.mockReturnValue({
+      data: {
+        billingEnabled: false,
+        subscriptionTier: null,
+      },
+    })
+
+    const { SSO } = await import('./sso')
+    const markup = renderToStaticMarkup(<SSO />)
+
+    expect(markup).not.toContain('Single Sign-On is not enabled for this billing tier.')
+    expect(markup).not.toContain(
+      'Only organization owners and admins can configure Single Sign-On settings.'
+    )
   })
 })

@@ -1,9 +1,9 @@
 import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
 import type { BillingTierSummary } from '@/lib/billing/types'
-import { RateLimiter } from '@/services/queue'
+import { ExecutionLimiter } from '@/services/queue'
 
 export interface UserLimits {
-  workflowExecutionRateLimit: {
+  executionRateLimit: {
     sync: {
       limit: number
       remaining: number
@@ -26,7 +26,7 @@ export interface UserLimits {
 export async function getUserLimits(userId: string): Promise<UserLimits> {
   const [billingSnapshot, rateLimiter] = await Promise.all([
     getPersonalBillingSnapshot(userId),
-    Promise.resolve(new RateLimiter()),
+    Promise.resolve(new ExecutionLimiter()),
   ])
 
   const [syncStatus, asyncStatus] = await Promise.all([
@@ -45,7 +45,7 @@ export async function getUserLimits(userId: string): Promise<UserLimits> {
   ])
 
   return {
-    workflowExecutionRateLimit: {
+    executionRateLimit: {
       sync: {
         limit: syncStatus.limit,
         remaining: syncStatus.remaining,

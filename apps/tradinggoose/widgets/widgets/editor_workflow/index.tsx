@@ -19,9 +19,6 @@ import { WorkflowUIConfigProvider } from '@/widgets/widgets/editor_workflow/cont
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowCanvasUIConfig = {
   floatingControls: true,
-  trainingControls: true,
-  // Respect user toggle for training controls in the widget
-  forceTrainingControls: false,
 }
 
 const getWorkflowToolbarScopeId = (widgetKey: string, panelId?: string) =>

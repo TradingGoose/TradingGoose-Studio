@@ -7,6 +7,7 @@ type MockOAuthCredentials = {
 }
 
 const mockCredentials: Record<string, MockOAuthCredentials> = {}
+const mockEnvValues: Record<string, string> = {}
 
 vi.mock('@/lib/oauth/system-managed-config', () => ({
   loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
@@ -21,6 +22,10 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
   loadSystemOAuthClientCredentialsForProvider: vi.fn(async (providerId: string) =>
     mockCredentials[providerId] ?? null
   ),
+}))
+
+vi.mock('@/lib/env', () => ({
+  getEnv: vi.fn((key: string) => mockEnvValues[key]),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -54,6 +59,9 @@ function setIntegration(providerIds: string[], clientId: string, clientSecret: s
 function seedMockIntegrations() {
   for (const key of Object.keys(mockCredentials)) {
     delete mockCredentials[key]
+  }
+  for (const key of Object.keys(mockEnvValues)) {
+    delete mockEnvValues[key]
   }
 
   setIntegration(
@@ -89,6 +97,11 @@ function seedMockIntegrations() {
   setIntegration(['webflow'], 'webflow_client_id', 'webflow_client_secret')
   setIntegration(['tradier'], 'tradier_client_id', 'tradier_client_secret')
   setIntegration(['alpaca'], 'alpaca_client_id', 'alpaca_client_secret')
+
+  mockEnvValues.GITHUB_CLIENT_ID = 'github_social_client_id'
+  mockEnvValues.GITHUB_CLIENT_SECRET = 'github_social_client_secret'
+  mockEnvValues.GOOGLE_CLIENT_ID = 'google_social_client_id'
+  mockEnvValues.GOOGLE_CLIENT_SECRET = 'google_social_client_secret'
 }
 
 describe('OAuth Provider Availability', () => {
@@ -108,6 +121,13 @@ describe('OAuth Provider Availability', () => {
       'google-drive': true,
       'github-repo': true,
       'microsoft-teams': true,
+    })
+  })
+
+  it('marks env-backed social sign-in providers available', async () => {
+    await expect(getOAuthProviderAvailability(['github', 'google'])).resolves.toEqual({
+      github: true,
+      google: true,
     })
   })
 
@@ -132,6 +152,16 @@ describe('OAuth Provider Availability', () => {
     await expect(getOAuthProviderAvailability(['google-email', 'github-repo'])).resolves.toEqual({
       'google-email': false,
       'github-repo': false,
+    })
+  })
+
+  it('returns false for env-backed social sign-in providers when required env credentials are missing', async () => {
+    delete mockEnvValues.GITHUB_CLIENT_SECRET
+    delete mockEnvValues.GOOGLE_CLIENT_ID
+
+    await expect(getOAuthProviderAvailability(['github', 'google'])).resolves.toEqual({
+      github: false,
+      google: false,
     })
   })
 })

@@ -3,7 +3,12 @@ import { Check, Copy, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { MonacoEditor } from '@/components/monaco-editor'
-import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
+import {
+  createMonacoFunctionBodyDiagnosticSourceBuilder,
+  type MonacoDecoration,
+  type MonacoDiagnosticSourceBuilder,
+  type MonacoEditorHandle,
+} from '@/components/monaco-editor'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -427,6 +432,23 @@ IMPORTANT FORMATTING RULES:
     return ranges
   }, [code, shouldHighlightReference])
 
+  const diagnosticSourceBuilder = useMemo<MonacoDiagnosticSourceBuilder | undefined>(() => {
+    if (effectiveLanguage !== 'javascript' && effectiveLanguage !== 'typescript') {
+      return undefined
+    }
+
+    if (
+      generationType !== 'javascript-function-body' &&
+      generationType !== 'typescript-function-body'
+    ) {
+      return undefined
+    }
+
+    return createMonacoFunctionBodyDiagnosticSourceBuilder({
+      language: effectiveLanguage,
+    })
+  }, [effectiveLanguage, generationType])
+
 
   return (
     <>
@@ -512,6 +534,7 @@ IMPORTANT FORMATTING RULES:
             language={effectiveLanguage ?? 'javascript'}
             placeholder={isCollapsed ? '' : dynamicPlaceholder}
             decorations={decorations}
+            diagnosticSourceBuilder={diagnosticSourceBuilder}
             yText={yText}
             awareness={workflowSession?.awareness ?? null}
             autoHeight

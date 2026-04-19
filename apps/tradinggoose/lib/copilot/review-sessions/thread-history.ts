@@ -14,6 +14,7 @@ export const MESSAGE_ROLES = {
 } as const
 
 export type MessageRole = (typeof MESSAGE_ROLES)[keyof typeof MESSAGE_ROLES]
+export type ReviewTurnStatus = 'pending' | 'in_progress' | 'completed' | 'error'
 export type ReviewTurnRow = typeof copilotReviewTurns.$inferSelect
 export type ReviewTurnInsert = typeof copilotReviewTurns.$inferInsert
 export type ReviewItemRow = typeof copilotReviewItems.$inferSelect
@@ -152,7 +153,8 @@ export function buildReviewItemInsert(params: {
 
 export function deriveReviewTurnsAndItems(
   reviewSessionId: string,
-  messages: ReviewMessageInput[]
+  messages: ReviewMessageInput[],
+  latestTurnStatus: ReviewTurnStatus = 'completed'
 ): {
   turns: ReviewTurnInsert[]
   items: ReviewItemInsert[]
@@ -215,6 +217,21 @@ export function deriveReviewTurnsAndItems(
     )
   })
 
+  if (turns.length > 0) {
+    const lastTurnIndex = turns.length - 1
+    const lastTurn = turns[lastTurnIndex]
+    const completionTimestamp = lastTurn.updatedAt ?? lastTurn.createdAt
+
+    turns[lastTurnIndex] = {
+      ...lastTurn,
+      status: latestTurnStatus,
+      completedAt:
+        latestTurnStatus === 'completed' || latestTurnStatus === 'error'
+          ? completionTimestamp
+          : null,
+    }
+  }
+
   return { turns, items }
 }
 
@@ -223,6 +240,7 @@ export function buildAppendReviewTurn(params: {
   existingMessages: ReviewMessageApi[]
   userMessage: ReviewMessageInput
   assistantMessage?: ReviewMessageInput | null
+  latestTurnStatus?: ReviewTurnStatus
 }): {
   turn: ReviewTurnInsert
   items: ReviewItemInsert[]
@@ -236,6 +254,7 @@ export function buildAppendReviewTurn(params: {
     new Date().toISOString()
   const lastTimestamp =
     params.assistantMessage?.timestamp ?? params.userMessage.timestamp ?? firstTimestamp
+  const latestTurnStatus = params.latestTurnStatus ?? 'completed'
 
   const items: ReviewItemInsert[] = [
     buildReviewItemInsert({
@@ -262,11 +281,14 @@ export function buildAppendReviewTurn(params: {
       id: turnId,
       sessionId: params.reviewSessionId,
       sequence: nextTurnSequence,
-      status: 'completed',
+      status: latestTurnStatus,
       userMessageItemId: params.userMessage.id,
       createdAt: new Date(firstTimestamp),
       updatedAt: new Date(lastTimestamp),
-      completedAt: new Date(lastTimestamp),
+      completedAt:
+        latestTurnStatus === 'completed' || latestTurnStatus === 'error'
+          ? new Date(lastTimestamp)
+          : null,
     },
     items,
   }

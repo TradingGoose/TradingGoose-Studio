@@ -2,8 +2,11 @@ import { EmailClient, type EmailMessage } from '@azure/communication-email'
 import { Resend } from 'resend'
 import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  resolveAzureCommunicationEmailServiceConfig,
+  resolveResendServiceConfig,
+} from '@/lib/system-services/runtime'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('Mailer')
@@ -57,28 +60,23 @@ interface ProcessedEmailData {
   replyTo?: string
 }
 
-const resendApiKey = env.RESEND_API_KEY
-const azureConnectionString = env.AZURE_ACS_CONNECTION_STRING
-
-const resend =
-  resendApiKey && resendApiKey !== 'placeholder' && resendApiKey.trim() !== ''
-    ? new Resend(resendApiKey)
-    : null
-
-const azureEmailClient =
-  azureConnectionString && azureConnectionString.trim() !== ''
-    ? new EmailClient(azureConnectionString)
-    : null
+interface EmailClients {
+  resend: Resend | null
+  azureEmailClient: EmailClient | null
+}
 
 /**
  * Check if any email service is configured and available
  */
-export function hasEmailService(): boolean {
-  return !!(resend || azureEmailClient)
+export async function hasEmailService(): Promise<boolean> {
+  const clients = await resolveEmailClients()
+  return Boolean(clients.resend || clients.azureEmailClient)
 }
 
 export async function sendEmail(options: EmailOptions): Promise<SendEmailResult> {
   try {
+    const clients = await resolveEmailClients()
+
     // Check if user has unsubscribed (skip for critical transactional emails)
     if (options.emailType !== 'transactional') {
       const unsubscribeType = options.emailType as 'marketing' | 'updates' | 'notifications'
@@ -103,18 +101,18 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     const processedData = await processEmailData(options)
 
     // Try Resend first if configured
-    if (resend) {
+    if (clients.resend) {
       try {
-        return await sendWithResend(processedData)
+        return await sendWithResend(clients.resend, processedData)
       } catch (error) {
         logger.warn('Resend failed, attempting Azure Communication Services fallback:', error)
       }
     }
 
     // Fallback to Azure Communication Services if configured
-    if (azureEmailClient) {
+    if (clients.azureEmailClient) {
       try {
-        return await sendWithAzure(processedData)
+        return await sendWithAzure(clients.azureEmailClient, processedData)
       } catch (error) {
         logger.error('Azure Communication Services also failed:', error)
         return {
@@ -157,7 +155,7 @@ async function processEmailData(options: EmailOptions): Promise<ProcessedEmailDa
     replyTo,
   } = options
 
-  const senderEmail = from || getFromEmailAddress()
+  const senderEmail = from || (await getFromEmailAddress())
 
   // Generate unsubscribe token and add to content
   let finalHtml = html
@@ -194,9 +192,7 @@ async function processEmailData(options: EmailOptions): Promise<ProcessedEmailDa
   }
 }
 
-async function sendWithResend(data: ProcessedEmailData): Promise<SendEmailResult> {
-  if (!resend) throw new Error('Resend not configured')
-
+async function sendWithResend(resend: Resend, data: ProcessedEmailData): Promise<SendEmailResult> {
   const fromAddress = data.senderEmail
 
   const emailData: any = {
@@ -231,9 +227,10 @@ async function sendWithResend(data: ProcessedEmailData): Promise<SendEmailResult
   }
 }
 
-async function sendWithAzure(data: ProcessedEmailData): Promise<SendEmailResult> {
-  if (!azureEmailClient) throw new Error('Azure Communication Services not configured')
-
+async function sendWithAzure(
+  azureEmailClient: EmailClient,
+  data: ProcessedEmailData
+): Promise<SendEmailResult> {
   // Azure Communication Services requires at least one content type
   if (!data.html && !data.text) {
     throw new Error('Azure Communication Services requires either HTML or text content')
@@ -279,12 +276,13 @@ async function sendWithAzure(data: ProcessedEmailData): Promise<SendEmailResult>
 
 export async function sendBatchEmails(options: BatchEmailOptions): Promise<BatchSendEmailResult> {
   try {
+    const clients = await resolveEmailClients()
     const results: SendEmailResult[] = []
 
     // Try Resend first for batch emails if available
-    if (resend) {
+    if (clients.resend) {
       try {
-        return await sendBatchWithResend(options.emails)
+        return await sendBatchWithResend(clients.resend, options.emails)
       } catch (error) {
         logger.warn('Resend batch failed, falling back to individual sends:', error)
       }
@@ -324,21 +322,24 @@ export async function sendBatchEmails(options: BatchEmailOptions): Promise<Batch
   }
 }
 
-async function sendBatchWithResend(emails: EmailOptions[]): Promise<BatchSendEmailResult> {
-  if (!resend) throw new Error('Resend not configured')
-
+async function sendBatchWithResend(
+  resend: Resend,
+  emails: EmailOptions[]
+): Promise<BatchSendEmailResult> {
   const results: SendEmailResult[] = []
-  const batchEmails = emails.map((email) => {
-    const senderEmail = email.from || getFromEmailAddress()
-    const emailData: any = {
-      from: senderEmail,
-      to: email.to,
-      subject: email.subject,
-    }
-    if (email.html) emailData.html = email.html
-    if (email.text) emailData.text = email.text
-    return emailData
-  })
+  const batchEmails = await Promise.all(
+    emails.map(async (email) => {
+      const senderEmail = email.from || (await getFromEmailAddress())
+      const emailData: any = {
+        from: senderEmail,
+        to: email.to,
+        subject: email.subject,
+      }
+      if (email.html) emailData.html = email.html
+      if (email.text) emailData.text = email.text
+      return emailData
+    })
+  )
 
   try {
     const response = await resend.batch.send(batchEmails as any)
@@ -365,5 +366,22 @@ async function sendBatchWithResend(emails: EmailOptions[]): Promise<BatchSendEma
   } catch (error) {
     logger.error('Resend batch send failed:', error)
     throw error // Let the caller handle fallback
+  }
+}
+
+async function resolveEmailClients(): Promise<EmailClients> {
+  const [resendConfig, azureConfig] = await Promise.all([
+    resolveResendServiceConfig(),
+    resolveAzureCommunicationEmailServiceConfig(),
+  ])
+
+  return {
+    resend:
+      resendConfig.apiKey && resendConfig.apiKey !== 'placeholder'
+        ? new Resend(resendConfig.apiKey)
+        : null,
+    azureEmailClient: azureConfig.connectionString
+      ? new EmailClient(azureConfig.connectionString)
+      : null,
   }
 }

@@ -1,14 +1,14 @@
 import type Stripe from 'stripe'
 import {
   getCurrentStripeClient,
-  hasCachedStripeSecretKey,
-} from '@/lib/system-settings/stripe-runtime'
+  hasStripeSecretKey,
+} from '@/lib/system-services/stripe-runtime'
 
 /**
- * Check if Stripe credentials are valid
+ * Check if deployment-owned Stripe credentials are configured.
  */
 export function hasValidStripeCredentials(): boolean {
-  return hasCachedStripeSecretKey()
+  return hasStripeSecretKey()
 }
 
 /**
@@ -28,7 +28,7 @@ export function requireStripeClient(): Stripe {
 
   if (!client) {
     throw new Error(
-      'Stripe client is not available. Configure STRIPE_SECRET_KEY in system settings.'
+      'Stripe client is not available. Configure STRIPE_SECRET_KEY in apps/tradinggoose/.env.'
     )
   }
 

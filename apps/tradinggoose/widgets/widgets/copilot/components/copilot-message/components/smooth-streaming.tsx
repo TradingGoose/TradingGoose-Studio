@@ -25,98 +25,118 @@ StreamingIndicator.displayName = 'StreamingIndicator'
 interface SmoothStreamingTextProps {
   content: string
   isStreaming: boolean
+  typingKey?: string
+  onTypingStateChange?: (typingKey: string, isTyping: boolean) => void
 }
 
+const REVEAL_CHARS_PER_SECOND = 60
+const REVEAL_CHARS_PER_MS = REVEAL_CHARS_PER_SECOND / 1000
+
 export const SmoothStreamingText = memo(
-  ({ content, isStreaming }: SmoothStreamingTextProps) => {
-    const [displayedContent, setDisplayedContent] = useState('')
-    const contentRef = useRef(content)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const indexRef = useRef(0)
-    const streamingStartTimeRef = useRef<number | null>(null)
-    const isAnimatingRef = useRef(false)
+  ({ content, isStreaming, typingKey, onTypingStateChange }: SmoothStreamingTextProps) => {
+    const [displayedLength, setDisplayedLength] = useState(content.length)
+    const frameRef = useRef<number | null>(null)
+    const lastFrameTimeRef = useRef<number | null>(null)
+    const revealCarryRef = useRef(0)
+    const displayedLengthRef = useRef(content.length)
+    const targetContentRef = useRef(content)
+    const isTypingRef = useRef(false)
 
     useEffect(() => {
-      // Update content reference
-      contentRef.current = content
+      return () => {
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current)
+        }
+        if (typingKey && isTypingRef.current) {
+          onTypingStateChange?.(typingKey, false)
+        }
+      }
+    }, [onTypingStateChange, typingKey])
+
+    useEffect(() => {
+      targetContentRef.current = content
+
+      const setTypingState = (isTyping: boolean) => {
+        if (isTypingRef.current === isTyping) return
+        isTypingRef.current = isTyping
+        if (typingKey) {
+          onTypingStateChange?.(typingKey, isTyping)
+        }
+      }
+
+      const stopAnimation = () => {
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current)
+          frameRef.current = null
+        }
+        lastFrameTimeRef.current = null
+        revealCarryRef.current = 0
+      }
+
+      const syncDisplayedLength = (nextLength: number) => {
+        displayedLengthRef.current = nextLength
+        setDisplayedLength(nextLength)
+      }
+
+      const tick = (timestamp: number) => {
+        frameRef.current = null
+        const previousTimestamp = lastFrameTimeRef.current ?? timestamp
+        lastFrameTimeRef.current = timestamp
+        revealCarryRef.current += (timestamp - previousTimestamp) * REVEAL_CHARS_PER_MS
+        const advance = Math.floor(revealCarryRef.current)
+        if (advance > 0) {
+          revealCarryRef.current -= advance
+          const targetContent = targetContentRef.current
+          const currentLength = displayedLengthRef.current
+          const nextLength = Math.min(targetContent.length, currentLength + advance)
+          syncDisplayedLength(nextLength)
+        }
+
+        if (displayedLengthRef.current < targetContentRef.current.length) {
+          setTypingState(true)
+          frameRef.current = requestAnimationFrame(tick)
+          return
+        }
+
+        stopAnimation()
+        setTypingState(false)
+      }
 
       if (content.length === 0) {
-        setDisplayedContent('')
-        indexRef.current = 0
-        streamingStartTimeRef.current = null
+        stopAnimation()
+        if (displayedLengthRef.current !== 0) {
+          syncDisplayedLength(0)
+        }
+        setTypingState(false)
         return
       }
 
-      if (isStreaming) {
-        // Start timing when streaming begins
-        if (streamingStartTimeRef.current === null) {
-          streamingStartTimeRef.current = Date.now()
-        }
-
-        // Continue animation if there's more content to show
-        if (indexRef.current < content.length) {
-          const animateText = () => {
-            const currentContent = contentRef.current
-            const currentIndex = indexRef.current
-
-            if (currentIndex < currentContent.length) {
-              // Add characters one by one for true character-by-character streaming
-              const chunkSize = 1
-              const newDisplayed = currentContent.slice(0, currentIndex + chunkSize)
-
-              setDisplayedContent(newDisplayed)
-              indexRef.current = currentIndex + chunkSize
-
-              // Consistent fast speed for all characters
-              const delay = 3 // Consistent fast delay in ms for all characters
-
-              timeoutRef.current = setTimeout(animateText, delay)
-            } else {
-              // Animation complete
-              isAnimatingRef.current = false
-            }
-          }
-
-          // Only start new animation if not already animating
-          if (!isAnimatingRef.current) {
-            // Clear any existing animation
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current)
-            }
-
-            isAnimatingRef.current = true
-            // Continue animation from current position
-            animateText()
-          }
-        }
-      } else {
-        // Not streaming, show all content immediately and reset timing
-        setDisplayedContent(content)
-        indexRef.current = content.length
-        isAnimatingRef.current = false
-        streamingStartTimeRef.current = null
+      if (displayedLengthRef.current > content.length) {
+        stopAnimation()
+        syncDisplayedLength(content.length)
       }
 
-      // Cleanup on unmount
-      return () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-        }
-        isAnimatingRef.current = false
+      if (displayedLengthRef.current === content.length) {
+        stopAnimation()
+        setTypingState(false)
+        return
       }
-    }, [content, isStreaming])
+
+      if (displayedLengthRef.current < content.length && frameRef.current === null) {
+        setTypingState(true)
+        frameRef.current = requestAnimationFrame(tick)
+      }
+    }, [content, isStreaming, onTypingStateChange, typingKey])
+
+    const displayedContent = content.slice(0, displayedLength)
 
     return (
-      <div className='relative max-w-full overflow-hidden' style={{ minHeight: '1.25rem' }}>
+      <div
+        className='relative max-w-full overflow-hidden whitespace-pre-wrap break-words'
+        style={{ minHeight: '1.25rem' }}
+      >
         <CopilotMarkdownRenderer content={displayedContent} />
       </div>
-    )
-  },
-  (prevProps, nextProps) => {
-    // Prevent re-renders during streaming unless content actually changed
-    return (
-      prevProps.content === nextProps.content && prevProps.isStreaming === nextProps.isStreaming
-      // markdownComponents is now memoized so no need to compare
     )
   }
 )

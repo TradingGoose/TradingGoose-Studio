@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetBlocksMetadataExecute = vi.fn()
+const mockLoadSkill = vi.fn()
 
 vi.mock('@tradinggoose/db', () => ({
   db: {},
@@ -39,10 +40,26 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool', () => ({
   },
 }))
 
+vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
+  loadSkill: mockLoadSkill,
+  loadIndicator: vi.fn(),
+  loadCustomTool: vi.fn(),
+  loadMcpServer: vi.fn(),
+}))
+
+vi.mock('@/lib/workflows/db-helpers', () => ({
+  loadWorkflowStateWithFallback: vi.fn(),
+}))
+
+vi.mock('@/lib/workflows/json-sanitizer', () => ({
+  sanitizeForCopilot: vi.fn((value) => value),
+}))
+
 describe('processContextsServer', () => {
   beforeEach(() => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
+    mockLoadSkill.mockReset()
   })
 
   it('expands block contexts through the canonical blockIds path', async () => {
@@ -50,8 +67,8 @@ describe('processContextsServer', () => {
       metadata: {
         'block-1': {
           blockType: 'block-1',
-          name: 'RSI',
-          description: 'Relative Strength Index',
+          blockName: 'RSI',
+          blockDescription: 'Relative Strength Index',
         },
       },
     })
@@ -71,11 +88,53 @@ describe('processContextsServer', () => {
           metadata: {
             'block-1': {
               blockType: 'block-1',
-              name: 'RSI',
-              description: 'Relative Strength Index',
+              blockName: 'RSI',
+              blockDescription: 'Relative Strength Index',
             },
           },
         }),
+      },
+    ])
+  })
+
+  it('hydrates current entity contexts from the canonical entity loader', async () => {
+    mockLoadSkill.mockResolvedValue({
+      id: 'skill-1',
+      workspaceId: 'workspace-1',
+      name: 'Canonical Skill',
+      description: 'Canonical description',
+      content: 'Canonical content',
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_skill',
+          label: 'Current Skill',
+          workspaceId: 'workspace-1',
+          skillId: 'skill-1',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(mockLoadSkill).toHaveBeenCalledWith('skill-1', 'workspace-1')
+    expect(result).toEqual([
+      {
+        type: 'current_skill',
+        tag: '@Current Skill',
+        content: JSON.stringify(
+          {
+            id: 'skill-1',
+            workspaceId: 'workspace-1',
+            name: 'Canonical Skill',
+            description: 'Canonical description',
+            content: 'Canonical content',
+          },
+          null,
+          2
+        ),
       },
     ])
   })

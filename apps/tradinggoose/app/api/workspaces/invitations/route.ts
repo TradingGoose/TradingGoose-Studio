@@ -14,7 +14,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { WorkspaceInvitationEmail } from '@/components/emails/workspace-invitation'
 import { getSession } from '@/lib/auth'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -244,15 +243,12 @@ async function sendInvitationEmail({
       })
     )
 
-    const fromAddress = getFromEmailAddress()
-
-    logger.info(`Attempting to send email from ${fromAddress} to ${to}`)
+    logger.info(`Attempting to send invitation email to ${to}`)
 
     const result = await sendEmail({
       to,
       subject: `You've been invited to join "${workspaceName}" on TradingGoose`,
       html: emailHtml,
-      from: fromAddress,
       emailType: 'transactional',
     })
 

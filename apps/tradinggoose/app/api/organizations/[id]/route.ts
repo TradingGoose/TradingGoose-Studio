@@ -7,6 +7,7 @@ import {
   getOrganizationSeatInfo,
   updateOrganizationSeats,
 } from '@/lib/billing/validation/seat-management'
+import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { assertOrganizationCanBeDeleted } from '@/lib/workspaces/billing-owner'
 
@@ -136,6 +137,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (seats !== undefined) {
       if (typeof seats !== 'number' || seats < 1) {
         return NextResponse.json({ error: 'Invalid seat count' }, { status: 400 })
+      }
+
+      if (!(await getBillingGateState()).billingEnabled) {
+        return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
       }
 
       const result = await updateOrganizationSeats(organizationId, seats, session.user.id)

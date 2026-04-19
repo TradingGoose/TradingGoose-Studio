@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockEq,
-  mockDecryptSecret,
-  mockEncryptSecret,
   mockInsert,
   mockInsertOnConflictDoUpdate,
   mockInsertValues,
@@ -13,10 +11,6 @@ const {
   mockSelectWhere,
 } = vi.hoisted(() => ({
   mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  mockDecryptSecret: vi.fn(),
-  mockEncryptSecret: vi.fn(async (value: string) => ({
-    encrypted: `encrypted:${value}`,
-  })),
   mockInsert: vi.fn(),
   mockInsertOnConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
   mockInsertValues: vi.fn(),
@@ -43,20 +37,6 @@ vi.mock('drizzle-orm', () => ({
   eq: (left: unknown, right: unknown) => mockEq(left, right),
 }))
 
-vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: vi.fn().mockReturnValue({
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
-}))
-
-vi.mock('@/lib/utils', () => ({
-  decryptSecret: (value: string) => mockDecryptSecret(value),
-  encryptSecret: (value: string) => mockEncryptSecret(value),
-}))
-
 import { getResolvedSystemSettings, upsertSystemSettings } from './service'
 
 describe('system settings service', () => {
@@ -80,47 +60,35 @@ describe('system settings service', () => {
     }))
   })
 
-  it('decrypts Stripe secrets from system settings records', async () => {
-    const now = new Date('2026-04-11T00:00:00.000Z')
-
-    mockSelectLimit.mockResolvedValue([
-      {
-        id: 'global',
-        registrationMode: 'waitlist',
-        billingEnabled: true,
-        allowPromotionCodes: false,
-        stripeSecretKey: 'encrypted:secret',
-        stripeWebhookSecret: 'encrypted:webhook',
-        createdAt: now,
-        updatedAt: now,
-      },
-    ])
-    mockDecryptSecret
-      .mockResolvedValueOnce({ decrypted: 'sk_live_123' })
-      .mockResolvedValueOnce({ decrypted: 'whsec_123' })
+  it('returns app-owned defaults when no system settings record exists', async () => {
+    mockSelectLimit.mockResolvedValueOnce([])
 
     const result = await getResolvedSystemSettings()
 
-    expect(result.registrationMode).toBe('waitlist')
-    expect(result.billingEnabled).toBe(true)
-    expect(result.allowPromotionCodes).toBe(false)
-    expect(result.stripeSecretKey).toBe('sk_live_123')
-    expect(result.stripeWebhookSecret).toBe('whsec_123')
-    expect(mockDecryptSecret).toHaveBeenCalledTimes(2)
+    expect(result).toMatchObject({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: null,
+    })
   })
 
-  it('preserves omitted encrypted Stripe secrets during partial updates', async () => {
-    const now = new Date('2026-04-11T00:00:00.000Z')
+  it('upserts only app-owned settings and preserves omitted values', async () => {
+    const now = new Date('2026-04-12T00:00:00.000Z')
 
     mockSelectLimit
       .mockResolvedValueOnce([
         {
           id: 'global',
-          registrationMode: 'open',
+          registrationMode: 'waitlist',
           billingEnabled: false,
-          allowPromotionCodes: true,
-          stripeSecretKey: 'encrypted:existing-secret',
-          stripeWebhookSecret: 'encrypted:existing-webhook',
+          triggerDevEnabled: false,
+          allowPromotionCodes: false,
+          emailDomain: 'old.example.com',
+          fromEmailAddress: 'TradingGoose <noreply@old.example.com>',
           createdAt: now,
           updatedAt: now,
         },
@@ -128,50 +96,87 @@ describe('system settings service', () => {
       .mockResolvedValueOnce([
         {
           id: 'global',
-          registrationMode: 'open',
+          registrationMode: 'waitlist',
           billingEnabled: true,
+          triggerDevEnabled: true,
           allowPromotionCodes: false,
-          stripeSecretKey: 'encrypted:sk_live_next',
-          stripeWebhookSecret: 'encrypted:existing-webhook',
+          emailDomain: 'mail.example.com',
+          fromEmailAddress: null,
           createdAt: now,
           updatedAt: now,
         },
       ])
 
-    mockDecryptSecret
-      .mockResolvedValueOnce({ decrypted: 'sk_live_next' })
-      .mockResolvedValueOnce({ decrypted: 'whsec_existing' })
-
-    await upsertSystemSettings({
+    const result = await upsertSystemSettings({
       billingEnabled: true,
-      allowPromotionCodes: false,
-      stripeSecretKey: 'sk_live_next',
+      triggerDevEnabled: true,
+      emailDomain: 'mail.example.com',
+      fromEmailAddress: '',
     })
 
-    expect(mockEncryptSecret).toHaveBeenCalledWith('sk_live_next')
     expect(mockInsert).toHaveBeenCalledWith({
       id: 'system_settings.id',
     })
     expect(mockInsertValues).toHaveBeenCalledWith({
       id: 'global',
-      registrationMode: 'open',
+      registrationMode: 'waitlist',
       billingEnabled: true,
+      triggerDevEnabled: true,
       allowPromotionCodes: false,
-      stripeSecretKey: 'encrypted:sk_live_next',
-      stripeWebhookSecret: 'encrypted:existing-webhook',
+      emailDomain: 'mail.example.com',
+      fromEmailAddress: null,
       createdAt: now,
       updatedAt: expect.any(Date),
     })
     expect(mockInsertOnConflictDoUpdate).toHaveBeenCalledWith({
       target: 'system_settings.id',
       set: {
-        registrationMode: 'open',
+        registrationMode: 'waitlist',
         billingEnabled: true,
+        triggerDevEnabled: true,
         allowPromotionCodes: false,
-        stripeSecretKey: 'encrypted:sk_live_next',
-        stripeWebhookSecret: 'encrypted:existing-webhook',
+        emailDomain: 'mail.example.com',
+        fromEmailAddress: null,
         updatedAt: expect.any(Date),
       },
     })
+    expect(result).toMatchObject({
+      registrationMode: 'waitlist',
+      billingEnabled: true,
+      triggerDevEnabled: true,
+      allowPromotionCodes: false,
+      emailDomain: 'mail.example.com',
+      fromEmailAddress: null,
+    })
+  })
+})
+
+describe('trigger settings helper', () => {
+  it('reports ready only when both Trigger.dev credentials are configured', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        TRIGGER_PROJECT_ID: 'proj_123',
+        TRIGGER_SECRET_KEY: 'tr_dev_123',
+      },
+    }))
+
+    const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
+
+    expect(isTriggerConfigurationReady()).toBe(true)
+  })
+
+  it('reports not ready when either Trigger.dev credential is missing', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        TRIGGER_PROJECT_ID: 'proj_123',
+        TRIGGER_SECRET_KEY: '',
+      },
+    }))
+
+    const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
+
+    expect(isTriggerConfigurationReady()).toBe(false)
   })
 })

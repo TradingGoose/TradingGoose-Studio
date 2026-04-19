@@ -75,7 +75,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
   const status: 'ok' | 'warning' | 'exceeded' =
     percentUsed >= 100 ? 'exceeded' : percentUsed >= warningThresholdPercent ? 'warning' : 'ok'
 
-  const title = organizationBillingPayload.subscriptionTier.displayName
+  const title = organizationBillingPayload.subscriptionTier?.displayName || 'Organization Usage'
   const canEditUsageLimit = canTierEditUsageLimit(organizationBillingPayload.subscriptionTier)
 
   return (

@@ -20,6 +20,18 @@ interface DeriveCanvasNodesParams {
   onMissingBlockConfig?: (block: BlockState) => void
 }
 
+function getSafeBlockPosition(block: Pick<BlockState, 'id' | 'position'>): { x: number; y: number } {
+  if (
+    block.position &&
+    typeof block.position.x === 'number' &&
+    typeof block.position.y === 'number'
+  ) {
+    return block.position
+  }
+
+  return { x: 0, y: 0 }
+}
+
 export function getStableBlocksHash(
   blocks: Record<string, BlockState>,
   prevBlocksRef: MutableRefObject<Record<string, BlockState>>,
@@ -32,10 +44,11 @@ export function getStableBlocksHash(
   prevBlocksRef.current = blocks
 
   const hash = Object.values(blocks)
-    .map(
-      (block) =>
-        `${block.id}:${block.type}:${block.name}:${block.position.x.toFixed(0)}:${block.position.y.toFixed(0)}:${block.layout?.measuredWidth || ''}:${block.layout?.measuredHeight || block.height || ''}:${block.locked ? 1 : 0}:${block.data?.parentId || ''}:${block.data?.width || ''}:${block.data?.height || ''}:${block.data?.extent || ''}`
-    )
+    .map((block) => {
+      const position = getSafeBlockPosition(block)
+
+      return `${block.id}:${block.type}:${block.name}:${position.x.toFixed(0)}:${position.y.toFixed(0)}:${block.layout?.measuredWidth || ''}:${block.layout?.measuredHeight || block.height || ''}:${block.locked ? 1 : 0}:${block.data?.parentId || ''}:${block.data?.width || ''}:${block.data?.height || ''}:${block.data?.extent || ''}`
+    })
     .join('|')
 
   prevBlocksHashRef.current = hash
@@ -74,7 +87,7 @@ export function deriveCanvasNodes({
     nodes.push({
       id: block.id,
       type: nodeDescriptor.nodeType,
-      position: block.position,
+      position: getSafeBlockPosition(block),
       parentId: block.data?.parentId,
       draggable: !isBlockProtected(block.id, blocks),
       dragHandle: '.workflow-drag-handle',

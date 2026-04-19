@@ -9,6 +9,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockWorkflowQueryLimit = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockIsBillingEnabledForRuntime = vi.fn()
+const mockCheckRateLimitWithSubscription = vi.fn()
 
 describe('Function Execute Billing', () => {
   beforeEach(() => {
@@ -27,23 +28,69 @@ describe('Function Execute Billing', () => {
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
     vi.doMock('@/lib/auth/hybrid', () => ({
+      AuthType: {
+        SESSION: 'session',
+        API_KEY: 'api_key',
+        INTERNAL_JWT: 'internal_jwt',
+      },
       checkSessionOrInternalAuth: vi.fn().mockResolvedValue({
         success: true,
         userId: 'test-user-id',
         authType: 'session',
       }),
     }))
-    vi.doMock('@/lib/execution/concurrency-limit', () => ({
-      getCodeExecutionConcurrencyLimitMessage: vi.fn(() => 'Concurrency limited'),
-      isCodeExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
-      isCodeExecutionConcurrencyLimitError: vi.fn(() => false),
-      withCodeExecutionConcurrencyLimit: vi.fn(
-        async ({ task }: { task: () => Promise<unknown> }) => await task()
-      ),
-    }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
       isLocalVmSaturationLimitError: vi.fn(() => false),
+    }))
+    vi.doMock('@/lib/execution/execution-concurrency-limit', () => ({
+      ExecutionGateError: class ExecutionGateError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 402
+        ) {
+          super(message)
+          this.name = 'ExecutionGateError'
+        }
+      },
+      enforceServerExecutionRateLimit: vi.fn().mockResolvedValue(undefined),
+      getExecutionConcurrencyLimitMessage: vi.fn(() => 'Execution concurrency limit reached'),
+      isExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
+      isExecutionConcurrencyLimitError: vi.fn(() => false),
+      withExecutionConcurrencyLimit: vi.fn(
+        async ({ task }: { task: () => Promise<unknown> }) => await task()
+      ),
+    }))
+    mockCheckRateLimitWithSubscription.mockReset()
+    mockCheckRateLimitWithSubscription.mockResolvedValue({
+      allowed: true,
+      remaining: 10,
+      resetAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    vi.doMock('@/services/queue', () => ({
+      RateLimitError: class RateLimitError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 429
+        ) {
+          super(message)
+          this.name = 'RateLimitError'
+        }
+      },
+      ExecutionLimiter: vi.fn().mockImplementation(() => ({
+        checkRateLimitWithSubscription: mockCheckRateLimitWithSubscription,
+      })),
+    }))
+    vi.doMock('@/lib/trigger/settings', () => ({
+      TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+        constructor(
+          message: string,
+          public statusCode = 503
+        ) {
+          super(message)
+          this.name = 'TriggerExecutionUnavailableError'
+        }
+      },
     }))
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn(() => ({
@@ -109,10 +156,29 @@ describe('Function Execute Billing', () => {
       }),
     }))
     vi.doMock('@/lib/billing/workspace-billing', () => ({
+      getBillingContextResolutionMessage: vi.fn((error: unknown) =>
+        error instanceof Error ? error.message : 'Unable to determine usage limits.'
+      ),
+      toRateLimitBillingScope: vi.fn((_billingContext: any, actorUserId: string) => ({
+        scopeType: 'user',
+        scopeId: actorUserId,
+        organizationId: null,
+        userId: actorUserId,
+      })),
       resolveWorkspaceBillingContext: vi.fn().mockResolvedValue({
+        billingUserId: 'test-user-id',
+        billingOwner: { type: 'user', userId: 'test-user-id' },
+        subscription: { tier: { id: 'tier_user_fixed' } },
+        scopeId: 'test-user-id',
+        scopeType: 'user',
         tier: { id: 'tier_user_fixed' },
       }),
       resolveWorkflowBillingContext: vi.fn().mockResolvedValue({
+        billingUserId: 'test-user-id',
+        billingOwner: { type: 'user', userId: 'test-user-id' },
+        subscription: { tier: { id: 'tier_org_adjustable' } },
+        scopeId: 'test-user-id',
+        scopeType: 'user',
         tier: { id: 'tier_org_adjustable' },
       }),
     }))
@@ -293,7 +359,6 @@ describe('Function Execute Billing', () => {
 
     const { checkServerSideUsageLimits } = await import('@/lib/billing')
     const { resolveWorkflowBillingContext } = await import('@/lib/billing/workspace-billing')
-    const { withCodeExecutionConcurrencyLimit } = await import('@/lib/execution/concurrency-limit')
     const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(req)
@@ -303,7 +368,6 @@ describe('Function Execute Billing', () => {
     expect(payload.success).toBe(false)
     expect(payload.error).toBe('Workflow access denied')
     expect(checkServerSideUsageLimits).not.toHaveBeenCalled()
-    expect(withCodeExecutionConcurrencyLimit).not.toHaveBeenCalled()
     expect(resolveWorkflowBillingContext).not.toHaveBeenCalled()
     expect(accrueUserUsageCost).not.toHaveBeenCalled()
   })
@@ -327,7 +391,6 @@ describe('Function Execute Billing', () => {
 
     const { checkServerSideUsageLimits } = await import('@/lib/billing')
     const { resolveWorkspaceBillingContext } = await import('@/lib/billing/workspace-billing')
-    const { withCodeExecutionConcurrencyLimit } = await import('@/lib/execution/concurrency-limit')
     const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(req)
@@ -338,13 +401,6 @@ describe('Function Execute Billing', () => {
       workspaceId: 'workspace-123',
       workflowId: undefined,
     })
-    expect(withCodeExecutionConcurrencyLimit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'test-user-id',
-        workspaceId: 'workspace-123',
-        workflowId: undefined,
-      })
-    )
     expect(resolveWorkspaceBillingContext).toHaveBeenCalledWith({
       workspaceId: 'workspace-123',
       actorUserId: 'test-user-id',
@@ -373,7 +429,6 @@ describe('Function Execute Billing', () => {
 
     const { checkServerSideUsageLimits } = await import('@/lib/billing')
     const { resolveWorkspaceBillingContext } = await import('@/lib/billing/workspace-billing')
-    const { withCodeExecutionConcurrencyLimit } = await import('@/lib/execution/concurrency-limit')
     const { accrueUserUsageCost } = await import('@/lib/billing/usage-accrual')
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(req)
@@ -383,7 +438,6 @@ describe('Function Execute Billing', () => {
     expect(payload.success).toBe(false)
     expect(payload.error).toBe('Workspace access denied')
     expect(checkServerSideUsageLimits).not.toHaveBeenCalled()
-    expect(withCodeExecutionConcurrencyLimit).not.toHaveBeenCalled()
     expect(resolveWorkspaceBillingContext).not.toHaveBeenCalled()
     expect(accrueUserUsageCost).not.toHaveBeenCalled()
   })

@@ -120,17 +120,9 @@ async function getActivePersonalSubscriptions(userId: string): Promise<Subscript
 export async function getPersonalEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {
-  try {
-    const personalSubs = await getActivePersonalSubscriptions(userId)
-    const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
-    return selectEffectiveSubscription(hydratedSubscriptions)
-  } catch (error) {
-    logger.error('Error getting personal effective subscription', {
-      error,
-      userId,
-    })
-    return null
-  }
+  const personalSubs = await getActivePersonalSubscriptions(userId)
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
+  return selectEffectiveSubscription(hydratedSubscriptions)
 }
 
 function getDefaultUserSubscriptionId(userId: string) {
@@ -259,16 +251,7 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
     }
 
     if (!subscription) {
-      logger.error('Missing personal subscription while billing is enabled', {
-        userId,
-      })
-      return {
-        subscription: null,
-        tier: toBillingTierSummary(null),
-        currentPeriodCost,
-        limit: 0,
-        isExceeded: true,
-      }
+      throw new Error(`No active personal subscription found for billed user ${userId}`)
     }
 
     const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
@@ -286,16 +269,7 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
     }
   } catch (error) {
     logger.error('Error getting personal billing snapshot', { error, userId })
-    const { billingEnabled } = await getResolvedBillingSettings().catch(() => ({
-      billingEnabled: true,
-    }))
-    return {
-      subscription: null,
-      tier: toBillingTierSummary(null),
-      currentPeriodCost: 0,
-      limit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
-      isExceeded: billingEnabled,
-    }
+    throw error
   }
 }
 

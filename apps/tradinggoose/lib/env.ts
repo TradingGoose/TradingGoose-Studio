@@ -53,67 +53,23 @@ function safeCreateEnv() {
     API_ENCRYPTION_KEY: z.string().min(32).optional(),          // Dedicated key for encrypting API keys (optional for OSS)
     INTERNAL_API_SECRET: z.string().min(32),                     // Secret for internal API authentication
 
-    // Copilot
-    COPILOT_PROVIDER: z.string().optional(),                  // Provider for copilot API calls
-    COPILOT_MODEL: z.string().optional(),                  // Model for copilot API calls
-    COPILOT_API_KEY: z.string().min(1).optional(),           // Secret for internal tradinggoose agent API authentication
-    COPILOT_API_URL: z.string().url().optional(),            // URL for internal tradinggoose agent API
-    AGENT_INDEXER_URL: z.string().url().optional(),            // URL for agent training data indexer
-    AGENT_INDEXER_API_KEY: z.string().min(1).optional(),           // API key for agent indexer authentication
-
-    // Market
-    MARKET_API_KEY: z.string().min(1).optional(),           // API key for TradingGoose-Market
-    MARKET_API_URL: z.string().url().optional(),            // URL for TradingGoose-Market
-
     // Database & Storage
     REDIS_URL: z.string().url().optional(),            // Redis connection string for caching/sessions
 
     // Email & Communication
     EMAIL_VERIFICATION_ENABLED: z.boolean().optional(),                 // Enable email verification for user registration and login (defaults to false)
-    RESEND_API_KEY: z.string().min(1).optional(),           // Resend API key for transactional emails
-    RESEND_SEGMENT_ID: z.string().optional(),                    // Resend segment ID for newsletter subscribers
-    FROM_EMAIL_ADDRESS: z.string().min(1).optional(),           // Complete from address (e.g., "TradingGoose <noreply@domain.com>" or "noreply@domain.com")
-    EMAIL_DOMAIN: z.string().min(1).optional(),           // Domain for sending emails (fallback when FROM_EMAIL_ADDRESS not set)
-    AZURE_ACS_CONNECTION_STRING: z.string().optional(),                  // Azure Communication Services connection string
 
     // SMS & Messaging
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),           // Twilio Account SID for SMS sending
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),           // Twilio Auth Token for API authentication
     TWILIO_PHONE_NUMBER: z.string().min(1).optional(),           // Twilio phone number for sending SMS
 
-    // AI/LLM Provider API Keys
-    OPENAI_API_KEY: z.string().min(1).optional(),           // Primary OpenAI API key
-    OPENAI_API_KEY_1: z.string().min(1).optional(),           // Additional OpenAI API key for load balancing
-    OPENAI_API_KEY_2: z.string().min(1).optional(),           // Additional OpenAI API key for load balancing
-    OPENAI_API_KEY_3: z.string().min(1).optional(),           // Additional OpenAI API key for load balancing
-    MISTRAL_API_KEY: z.string().min(1).optional(),           // Mistral AI API key
-    ANTHROPIC_API_KEY_1: z.string().min(1).optional(),           // Primary Anthropic Claude API key
-    ANTHROPIC_API_KEY_2: z.string().min(1).optional(),           // Additional Anthropic API key for load balancing
-    ANTHROPIC_API_KEY_3: z.string().min(1).optional(),           // Additional Anthropic API key for load balancing
-    OLLAMA_URL: z.string().url().optional(),            // Ollama local LLM server URL
-    ELEVENLABS_API_KEY: z.string().min(1).optional(),           // ElevenLabs API key for text-to-speech in deployed chat
-    SERPER_API_KEY: z.string().min(1).optional(),           // Serper API key for online search
-    EXA_API_KEY: z.string().min(1).optional(),           // Exa AI API key for enhanced online search
+    // AI/LLM feature flags
     DEEPSEEK_MODELS_ENABLED: z.boolean().optional().default(false),  // Enable Deepseek models in UI (defaults to false for compliance)
-
-    // Azure Configuration - Shared credentials with feature-specific models
-    AZURE_OPENAI_ENDPOINT: z.string().url().optional(),            // Shared Azure OpenAI service endpoint
-    AZURE_OPENAI_API_VERSION: z.string().optional(),                  // Shared Azure OpenAI API version
-    AZURE_OPENAI_API_KEY: z.string().min(1).optional(),           // Shared Azure OpenAI API key
-    KB_OPENAI_MODEL_NAME: z.string().optional(),                  // Knowledge base OpenAI model name (works with both regular OpenAI and Azure OpenAI)
-    WAND_OPENAI_MODEL_NAME: z.string().optional(),                  // Wand generation OpenAI model name (works with both regular OpenAI and Azure OpenAI)
-    OCR_AZURE_ENDPOINT: z.string().url().optional(),            // Azure Mistral OCR service endpoint
-    OCR_AZURE_MODEL_NAME: z.string().optional(),                  // Azure Mistral OCR model name for document processing
-    OCR_AZURE_API_KEY: z.string().min(1).optional(),           // Azure Mistral OCR API key
 
     // Monitoring & Analytics
     TELEMETRY_ENDPOINT: z.string().url().optional(),            // Custom telemetry/analytics endpoint
     LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(), // Minimum log level to display (defaults to ERROR in production, DEBUG in development)
-
-    // External Services
-    BROWSERBASE_API_KEY: z.string().min(1).optional(),           // Browserbase API key for browser automation
-    BROWSERBASE_PROJECT_ID: z.string().min(1).optional(),           // Browserbase project ID
-    GITHUB_TOKEN: z.string().optional(),                  // GitHub personal access token for API access
 
     // Infrastructure & Deployment
     NEXT_RUNTIME: z.string().optional(),                  // Next.js runtime environment
@@ -122,16 +78,13 @@ function safeCreateEnv() {
     // Background Jobs & Scheduling
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
-    TRIGGER_DEV_ENABLED: z.boolean().optional(),                 // Toggle to enable/disable Trigger.dev for async jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
-    JOB_RETENTION_DAYS: z.string().optional().default('1'),     // Days to retain job logs/data
 
     // Cloud Storage - AWS S3
     AWS_REGION: z.string().optional(),                  // AWS region for S3 buckets
     AWS_ACCESS_KEY_ID: z.string().optional(),                  // AWS access key ID
     AWS_SECRET_ACCESS_KEY: z.string().optional(),                  // AWS secret access key
     S3_BUCKET_NAME: z.string().optional(),                  // S3 bucket for general file storage
-    S3_LOGS_BUCKET_NAME: z.string().optional(),                  // S3 bucket for storing logs
     S3_KB_BUCKET_NAME: z.string().optional(),                  // S3 bucket for knowledge base files
     S3_EXECUTION_FILES_BUCKET_NAME: z.string().optional(),                  // S3 bucket for workflow execution files
     S3_CHAT_BUCKET_NAME: z.string().optional(),                  // S3 bucket for chat logos
@@ -148,10 +101,6 @@ function safeCreateEnv() {
     AZURE_STORAGE_CHAT_CONTAINER_NAME: z.string().optional(),                  // Azure container for chat logos
     AZURE_STORAGE_COPILOT_CONTAINER_NAME: z.string().optional(),                  // Azure container for copilot files
     AZURE_STORAGE_PROFILE_PICTURES_CONTAINER_NAME: z.string().optional(),          // Azure container for profile pictures
-
-    // Rate Limiting Configuration
-    RATE_LIMIT_WINDOW_MS: z.string().optional().default('60000'), // Rate limit window duration in milliseconds (default: 1 minute)
-    MANUAL_EXECUTION_LIMIT: z.string().optional().default('999999'),// Manual execution bypass value (effectively unlimited)
 
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
@@ -170,18 +119,18 @@ function safeCreateEnv() {
     PORT: z.number().optional(),                  // Main application port
     ALLOWED_ORIGINS: z.string().optional(),                  // CORS allowed origins
 
-    // E2B Remote Code Execution
-    E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
-    E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation
-    E2B_INDICATOR_TEMPLATE_ID: z.string().optional(),                  // E2B template id for indicator/function sandbox creation
-    E2B_KEEP_WARM_CAP_MS: z.string().optional(),                  // Hard cap for E2B keep-warm in milliseconds (default 1 hour)
-    E2B_MAX_CONCURRENT_SANDBOX: z.string().optional(),                  // Max number of process-local warm E2B sandboxes before local fallback
-    E2B_KEEP_WARM_TARGET_MS: z.string().optional(),                  // Requested E2B keep-warm in milliseconds
-    LOCAL_VM_MAX_CONCURRENT_EXECUTIONS: z.string().optional(),                  // Max concurrent local VM executions per process
-    LOCAL_VM_MAX_ACTIVE_PER_OWNER: z.string().optional(),                  // Max concurrent local VM executions per owner key
-
     // SSO Configuration
     SSO_ENABLED: z.boolean().optional(),                 // Enable SSO functionality
+
+    // Social Login (env-only Better Auth providers)
+    GOOGLE_CLIENT_ID: z.string().optional(),                  // Google social login OAuth client ID
+    GOOGLE_CLIENT_SECRET: z.string().optional(),              // Google social login OAuth client secret
+    GITHUB_CLIENT_ID: z.string().optional(),                  // GitHub social login OAuth client ID
+    GITHUB_CLIENT_SECRET: z.string().optional(),              // GitHub social login OAuth client secret
+
+    // Deployment-owned billing configuration
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),         // Stripe secret key for server-side API requests
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),     // Stripe webhook signing secret for webhook verification
   },
 
   client: {
@@ -200,27 +149,7 @@ function safeCreateEnv() {
     NEXT_PUBLIC_POSTHOG_DISABLED: z.string().optional(),                 // Set to "1" to disable PostHog analytics
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),                  // PostHog project API key
 
-    // UI Branding & Whitelabeling
-    NEXT_PUBLIC_BRAND_NAME: z.string().optional(),                  // Custom brand name (defaults to "TradingGoose")
-    NEXT_PUBLIC_BRAND_LOGO_URL: z.string().url().optional(),            // Custom logo URL
-    NEXT_PUBLIC_BRAND_FAVICON_URL: z.string().url().optional(),            // Custom favicon URL
-    NEXT_PUBLIC_CUSTOM_CSS_URL: z.string().url().optional(),            // Custom CSS stylesheet URL
-    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),          // Custom support email
-
-    NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: z.string().optional(),
-    NEXT_PUBLIC_DOCUMENTATION_URL: z.string().url().optional(),            // Custom documentation URL
-    NEXT_PUBLIC_TERMS_URL: z.string().url().optional(),            // Custom terms of service URL
-    NEXT_PUBLIC_PRIVACY_URL: z.string().url().optional(),            // Custom privacy policy URL
-
-    // Theme Customization
-    NEXT_PUBLIC_BRAND_PRIMARY_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Primary brand color (hex format, e.g., "#ffcc00")
-    NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),    // Primary brand hover state (hex or hex+alpha)
-    NEXT_PUBLIC_BRAND_ACCENT_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Accent brand color (hex format)
-    NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Accent brand hover state (hex or hex+alpha)
-    NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: z.string().regex(/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/).optional(),     // Brand background color (hex format)
-
     // Feature Flags
-    NEXT_PUBLIC_TRIGGER_DEV_ENABLED: z.boolean().optional(),                 // Client-side gate for async executions UI
     NEXT_PUBLIC_SSO_ENABLED: z.boolean().optional(),                 // Enable SSO login UI components
   },
 
@@ -236,22 +165,7 @@ function safeCreateEnv() {
     NEXT_PUBLIC_GOOGLE_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
     NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER,
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
-    NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
-    NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
-    NEXT_PUBLIC_BRAND_FAVICON_URL: process.env.NEXT_PUBLIC_BRAND_FAVICON_URL,
-    NEXT_PUBLIC_CUSTOM_CSS_URL: process.env.NEXT_PUBLIC_CUSTOM_CSS_URL,
-    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    NEXT_PUBLIC_DOCUMENTATION_URL: process.env.NEXT_PUBLIC_DOCUMENTATION_URL,
-    NEXT_PUBLIC_TERMS_URL: process.env.NEXT_PUBLIC_TERMS_URL,
-    NEXT_PUBLIC_PRIVACY_URL: process.env.NEXT_PUBLIC_PRIVACY_URL,
-    NEXT_PUBLIC_BRAND_PRIMARY_COLOR: process.env.NEXT_PUBLIC_BRAND_PRIMARY_COLOR,
-    NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR: process.env.NEXT_PUBLIC_BRAND_PRIMARY_HOVER_COLOR,
-    NEXT_PUBLIC_BRAND_ACCENT_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_COLOR,
-    NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR: process.env.NEXT_PUBLIC_BRAND_ACCENT_HOVER_COLOR,
-    NEXT_PUBLIC_BRAND_BACKGROUND_COLOR: process.env.NEXT_PUBLIC_BRAND_BACKGROUND_COLOR,
-    NEXT_PUBLIC_TRIGGER_DEV_ENABLED: process.env.NEXT_PUBLIC_TRIGGER_DEV_ENABLED,
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
-    NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: process.env.NEXT_PUBLIC_COPILOT_TRAINING_ENABLED,
     NEXT_PUBLIC_POSTHOG_DISABLED: process.env.NEXT_PUBLIC_POSTHOG_DISABLED,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NODE_ENV: process.env.NODE_ENV,

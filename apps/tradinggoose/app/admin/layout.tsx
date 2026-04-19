@@ -5,11 +5,7 @@ import { GlobalNavbar } from '@/global-navbar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const access = await getSystemAdminAccess()
-  if (
-    !access.isAuthenticated ||
-    (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) ||
-    !access.user
-  ) {
+  if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
     notFound()
   }
 

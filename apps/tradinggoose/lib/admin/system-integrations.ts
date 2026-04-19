@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 import {
   getSystemIntegrationCatalogDefinitionIds,
   getSystemIntegrationCatalogSeedSnapshot,
@@ -83,7 +83,7 @@ export async function listSystemIntegrations(): Promise<SystemIntegrationState> 
     return {
       id: definition.id,
       parentId: persistedDefinition?.parentId ?? definition.parentId,
-      name: persistedDefinition?.name ?? definition.name,
+      name: definition.name,
       isEnabled: definition.parentId
         ? (persistedDefinition?.isEnabled ?? definition.isEnabled)
         : null,

@@ -4,11 +4,14 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface GetWorkflowConsoleArgs {
-  workflowId?: string
+  workflowId: string
   limit?: number
   includeDetails?: boolean
 }
@@ -42,14 +45,13 @@ export class GetWorkflowConsoleClientTool extends BaseClientTool {
     const logger = createLogger('GetWorkflowConsoleClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const executionContext = this.requireExecutionContext()
 
-      const params = args || {}
-      const workflowId = params.workflowId || executionContext.workflowId
+      const params = (args ?? {}) as Partial<GetWorkflowConsoleArgs>
+      const workflowId = params.workflowId?.trim()
       if (!workflowId) {
-        logger.error('No active workflow found for console fetch')
+        logger.error('No target workflow found for console fetch')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No active workflow found')
+        await this.markToolComplete(400, 'workflowId is required')
         return
       }
 
@@ -59,28 +61,17 @@ export class GetWorkflowConsoleClientTool extends BaseClientTool {
         includeDetails: params.includeDetails ?? true,
       }
 
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'get_workflow_console', payload }),
+      const result = await executeCopilotServerTool({
+        toolName: 'get_workflow_console',
+        payload,
       })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(text || `Server error (${res.status})`)
-      }
-
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-
-      // Mark success and include result data for UI rendering
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Workflow console fetched', parsed.result)
+      await this.markToolComplete(200, 'Workflow console fetched', result)
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       const message = e instanceof Error ? e.message : String(e)
-      createLogger('GetWorkflowConsoleClientTool').error('execute failed', { message })
+      logger.error('execute failed', { message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, message)
+      await this.markToolComplete(getCopilotServerToolErrorStatus(e) ?? 500, message)
     }
   }
 }

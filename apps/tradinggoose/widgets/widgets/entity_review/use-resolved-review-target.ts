@@ -107,9 +107,19 @@ export function useResolvedReviewTarget({
   const lastSatisfiedRequestKeyRef = useRef<string | null>(null)
 
   const isLinkedToColorPair = pairColor !== 'gray'
-  const requestedEntityId = selectionState.reviewEntityId ?? selectionState.legacyEntityId
-  const requestedDraftSessionId = selectionState.reviewDraftSessionId
-  const requestedReviewSessionId = selectionState.reviewSessionId
+  const hasConflictingEntitySelection =
+    !!selectionState.legacyEntityId &&
+    !!selectionState.reviewEntityId &&
+    selectionState.legacyEntityId !== selectionState.reviewEntityId
+  const requestedEntityId = hasConflictingEntitySelection
+    ? selectionState.legacyEntityId
+    : (selectionState.reviewEntityId ?? selectionState.legacyEntityId)
+  const requestedDraftSessionId = hasConflictingEntitySelection
+    ? null
+    : selectionState.reviewDraftSessionId
+  const requestedReviewSessionId = hasConflictingEntitySelection
+    ? null
+    : selectionState.reviewSessionId
 
   const persistDescriptor = useCallback(
     (descriptor: ReviewTargetDescriptor | null, legacyEntityId?: string | null) => {
@@ -260,8 +270,10 @@ export function useResolvedReviewTarget({
   ])
 
   const descriptor = useMemo(
-    () => resolvedTarget?.descriptor ?? selectionState.descriptor,
-    [resolvedTarget?.descriptor, selectionState.descriptor]
+    () =>
+      resolvedTarget?.descriptor ??
+      (hasConflictingEntitySelection ? null : selectionState.descriptor),
+    [hasConflictingEntitySelection, resolvedTarget?.descriptor, selectionState.descriptor]
   )
 
   return {

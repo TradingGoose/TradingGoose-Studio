@@ -4,7 +4,7 @@ import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
 import { getUserStorageLimit, getUserStorageUsage } from '@/lib/billing/storage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createErrorResponse } from '@/app/api/workflows/utils'
-import { RateLimiter } from '@/services/queue'
+import { ExecutionLimiter } from '@/services/queue'
 
 const logger = createLogger('UsageLimitsAPI')
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Rate limit info (sync + async), mirroring /users/me/rate-limit
     const billingSnapshot = await getPersonalBillingSnapshot(authenticatedUserId)
-    const rateLimiter = new RateLimiter()
+    const rateLimiter = new ExecutionLimiter()
     const triggerType = auth.authType === 'api_key' ? 'api' : 'manual'
     const [syncStatus, asyncStatus] = await Promise.all([
       rateLimiter.getRateLimitStatusWithSubscription(

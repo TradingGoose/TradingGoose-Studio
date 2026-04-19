@@ -90,7 +90,6 @@ describe('adaptPreviewPayloadToCanvas', () => {
       id: 'loop_parent',
       type: 'subflowNode',
       position: { x: 100, y: 50 },
-      draggable: false,
       data: {
         width: 640,
         height: 360,
@@ -104,7 +103,6 @@ describe('adaptPreviewPayloadToCanvas', () => {
       id: 'agent_inside_loop',
       type: 'previewNode',
       position: { x: 124, y: 66 },
-      draggable: false,
       data: {
         type: 'agent',
         name: 'Agent Inside Loop',
@@ -130,6 +128,27 @@ describe('adaptPreviewPayloadToCanvas', () => {
       expect.objectContaining({
         id: 'edge-typed',
         type: 'customEdge',
+      }),
+    ])
+  })
+
+  it('synthesizes stable edge ids when preview payload edges omit them', () => {
+    const workflowState = createWorkflowState()
+    workflowState.edges = [
+      {
+        source: 'loop_parent',
+        target: 'agent_inside_loop',
+      } as any,
+    ]
+
+    const result = adaptPreviewPayloadToCanvas(workflowState)
+
+    expect(result.edges).toEqual([
+      expect.objectContaining({
+        id: 'loop_parent-source-agent_inside_loop-target',
+        source: 'loop_parent',
+        target: 'agent_inside_loop',
+        type: 'workflowEdge',
       }),
     ])
   })

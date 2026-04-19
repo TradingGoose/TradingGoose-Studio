@@ -2,11 +2,14 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
 import { AdminPageShell } from './page-shell'
 import { AdminSystemSettingsSection } from './system-settings-section'
 
-export default function AdminHomePage() {
+export default async function AdminHomePage() {
+  const { stripeConfigured } = await getBillingGateState()
+
   return (
     <AdminPageShell
       left={
@@ -30,20 +33,41 @@ export default function AdminHomePage() {
         <AdminSystemSettingsSection />
 
         <div className='grid gap-4 md:grid-cols-2'>
+          {stripeConfigured ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing</CardTitle>
+                <CardDescription>
+                  Manage plans, pricing, base charges, and customer-facing billing limits.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='flex items-center justify-between gap-4'>
+                <p className='text-muted-foreground text-sm'>
+                  Open the billing area to create tiers, update pricing, and manage company-wide
+                  billing settings.
+                </p>
+                <Button asChild>
+                  <Link href='/admin/billing'>Open</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
-              <CardTitle>Billing</CardTitle>
+              <CardTitle>Services</CardTitle>
               <CardDescription>
-                Manage plans, pricing, base charges, and customer-facing billing limits.
+                Configure system-owned API credentials for search, embeddings, OCR, and browser
+                automation.
               </CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>
-                Open the billing area to create tiers, update pricing, and manage company-wide
-                billing settings.
+                Manage platform-wide service credentials without mixing them into OAuth
+                integrations.
               </p>
               <Button asChild>
-                <Link href='/admin/billing'>Open</Link>
+                <Link href='/admin/services'>Open</Link>
               </Button>
             </CardContent>
           </Card>
@@ -52,12 +76,13 @@ export default function AdminHomePage() {
             <CardHeader>
               <CardTitle>Integrations</CardTitle>
               <CardDescription>
-                Configure system-level providers, services, and secrets.
+                Configure system-managed OAuth integrations and provider bundles.
               </CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>
-                Start with service registration and admin-managed credentials.
+                Manage OAuth-backed integration bundles separately from system service
+                credentials.
               </p>
               <Button asChild>
                 <Link href='/admin/integrations'>Open</Link>

@@ -162,6 +162,34 @@
       "when": 1775924527489,
       "tag": "0022_loud_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1776034191795,
+      "tag": "0023_fat_young_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1776042745910,
+      "tag": "0024_polite_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1776102340299,
+      "tag": "0025_glamorous_giant_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1776576967265,
+      "tag": "0026_huge_mastermind",
+      "breakpoints": true
     }
   ]
 }

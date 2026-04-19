@@ -116,41 +116,6 @@ describe('normalizeColorPairsState', () => {
     })
   })
 
-  it('reads old flat-format review fields and produces nested reviewTarget', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          {
-            color: 'red',
-            workflowId: 'wf-2',
-            reviewSessionId: 'review-1',
-            reviewEntityKind: 'skill',
-            reviewEntityId: 'skill-1',
-            reviewDraftSessionId: 'draft-1',
-          },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        {
-          color: 'red',
-          workflowId: 'wf-2',
-          listing: null,
-          reviewTarget: {
-            reviewSessionId: 'review-1',
-            reviewEntityKind: 'skill',
-            reviewEntityId: 'skill-1',
-            reviewDraftSessionId: 'draft-1',
-          },
-          indicatorId: undefined,
-          mcpServerId: undefined,
-          customToolId: undefined,
-          skillId: undefined,
-        },
-      ],
-    })
-  })
-
   it('reads nested reviewTarget format', () => {
     expect(
       normalizeColorPairsState({
@@ -222,37 +187,6 @@ describe('normalizeDashboardLayout', () => {
   })
 
   it('clears persisted copilot params instead of keeping sticky context state', () => {
-    const normalized = normalizeDashboardLayout({
-      type: 'panel',
-      widget: {
-        key: 'workflow_copilot',
-        pairColor: 'blue',
-        params: {
-          workflowId: 'wf-1',
-          chatId: 'legacy-chat-id',
-          copilotChatId: 'legacy-review-session',
-          reviewSessionId: 'review-1',
-          reviewEntityKind: 'skill',
-          reviewEntityId: 'skill-1',
-          reviewDraftSessionId: 'draft-1',
-          ignored: 'value',
-        },
-      },
-    })
-
-    expect(normalized.type).toBe('panel')
-    if (normalized.type !== 'panel') {
-      throw new Error('Expected normalized workflow copilot layout to remain a panel')
-    }
-
-    expect(normalized.widget).toMatchObject({
-      key: 'workflow_copilot',
-      pairColor: 'blue',
-      params: null,
-    })
-  })
-
-  it('clears persisted params for the current copilot widget key as well', () => {
     const normalized = normalizeDashboardLayout({
       type: 'panel',
       widget: {

@@ -105,6 +105,7 @@ const ParallelSchema = z.object({
 })
 
 const WorkflowStateSchema = z.object({
+  direction: z.enum(['TD', 'LR']).optional(),
   blocks: z.record(BlockStateSchema),
   edges: z.array(EdgeSchema),
   loops: z.record(LoopSchema).optional(),
@@ -196,6 +197,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     )
 
     const workflowState = {
+      ...(state.direction !== undefined ? { direction: state.direction } : {}),
       blocks: filteredBlocks,
       edges: state.edges,
       loops: state.loops || {},
@@ -241,13 +243,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    const persistedWorkflowState = saveResult.normalizedState ?? workflowState
+
     // Apply the validated state to Yjs only when we can also preserve the
     // current variables snapshot. Otherwise this process might publish a
     // partial doc and wipe newer variables owned by the separate socket server.
     if (resolvedVariables.source !== 'unavailable') {
       await tryApplyWorkflowState(
         workflowId,
-        workflowState as WorkflowSnapshot,
+        persistedWorkflowState as WorkflowSnapshot,
         resolvedVariables.value
       )
     } else {
@@ -259,7 +263,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Extract and persist custom tools to database
     try {
       const { saved, errors } = await extractAndPersistCustomTools(
-        workflowState,
+        persistedWorkflowState,
         workflowData.workspaceId ?? null,
         userId
       )

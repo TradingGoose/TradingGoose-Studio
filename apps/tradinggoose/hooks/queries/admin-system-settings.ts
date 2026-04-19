@@ -21,10 +21,13 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
     return {
       registrationMode: 'open',
       billingEnabled: false,
+      stripeConfigured: false,
       billingReady: false,
+      triggerDevEnabled: false,
+      triggerReady: false,
       allowPromotionCodes: true,
-      hasStripeSecretKey: false,
-      hasStripeWebhookSecret: false,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
     }
   }
 
@@ -38,13 +41,19 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
         ? data.registrationMode
         : 'open',
     billingEnabled: typeof data.billingEnabled === 'boolean' ? data.billingEnabled : false,
+    stripeConfigured:
+      typeof data.stripeConfigured === 'boolean' ? data.stripeConfigured : false,
     billingReady: typeof data.billingReady === 'boolean' ? data.billingReady : false,
+    triggerDevEnabled:
+      typeof data.triggerDevEnabled === 'boolean' ? data.triggerDevEnabled : false,
+    triggerReady: typeof data.triggerReady === 'boolean' ? data.triggerReady : false,
     allowPromotionCodes:
       typeof data.allowPromotionCodes === 'boolean' ? data.allowPromotionCodes : true,
-    hasStripeSecretKey:
-      typeof data.hasStripeSecretKey === 'boolean' ? data.hasStripeSecretKey : false,
-    hasStripeWebhookSecret:
-      typeof data.hasStripeWebhookSecret === 'boolean' ? data.hasStripeWebhookSecret : false,
+    emailDomain:
+      typeof data.emailDomain === 'string' && data.emailDomain.trim().length > 0
+        ? data.emailDomain
+        : 'tradinggoose.ai',
+    fromEmailAddress: typeof data.fromEmailAddress === 'string' ? data.fromEmailAddress : '',
   }
 }
 

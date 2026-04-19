@@ -68,7 +68,7 @@ export const DataChartIntervalDropdown = ({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
@@ -142,7 +142,7 @@ export const DataChartCandleTypeDropdown = ({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>

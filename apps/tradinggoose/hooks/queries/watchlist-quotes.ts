@@ -100,25 +100,22 @@ export const useWatchlistQuotes = ({
   providerParams,
   enabled = true,
 }: UseWatchlistQuotesArgs) => {
-  const normalizedItems = useMemo(
-    () => {
-      const seen = new Set<string>()
-      const normalized: WatchlistQuoteRequestItem[] = []
+  const normalizedItems = useMemo(() => {
+    const seen = new Set<string>()
+    const normalized: WatchlistQuoteRequestItem[] = []
 
-      for (const entry of items) {
-        const itemId = entry.itemId.trim()
-        if (!itemId || seen.has(itemId)) continue
-        const listing = toListingValueObject(entry.listing)
-        if (!listing) continue
+    for (const entry of items) {
+      const itemId = entry.itemId.trim()
+      if (!itemId || seen.has(itemId)) continue
+      const listing = toListingValueObject(entry.listing)
+      if (!listing) continue
 
-        seen.add(itemId)
-        normalized.push({ itemId, listing })
-      }
+      seen.add(itemId)
+      normalized.push({ itemId, listing })
+    }
 
-      return normalized
-    },
-    [items]
-  )
+    return normalized
+  }, [items])
 
   return useQuery({
     queryKey: [
@@ -126,6 +123,8 @@ export const useWatchlistQuotes = ({
       workspaceId ?? '',
       provider ?? '',
       JSON.stringify(normalizedItems),
+      auth?.apiKey ?? '',
+      auth?.apiSecret ?? '',
       JSON.stringify(providerParams ?? {}),
     ],
     queryFn: () =>

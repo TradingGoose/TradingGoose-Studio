@@ -36,8 +36,11 @@ vi.mock('@/stores/workflows/server-utils', () => ({
 
 const mockDecryptSecret = vi.fn()
 
-vi.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils-server', () => ({
   decryptSecret: mockDecryptSecret,
+}))
+
+vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(),
 }))
 
@@ -244,7 +247,7 @@ describe('Chat API Utils', () => {
 
     it('should validate password for POST requests', async () => {
       const { validateChatAuth } = await import('@/app/api/chat/utils')
-      const { decryptSecret } = await import('@/lib/utils')
+      const { decryptSecret } = await import('@/lib/utils-server')
 
       const deployment = {
         id: 'chat-id',

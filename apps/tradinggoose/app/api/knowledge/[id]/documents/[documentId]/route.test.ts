@@ -27,7 +27,7 @@ vi.mock('@/app/api/knowledge/utils', () => ({
 vi.mock('@/lib/knowledge/documents/service', () => ({
   updateDocument: vi.fn(),
   deleteDocument: vi.fn(),
-  markDocumentAsFailedTimeout: vi.fn(),
+  failStaleDocumentProcessing: vi.fn(),
   retryDocumentProcessing: vi.fn(),
   processDocumentAsync: vi.fn(),
 }))
@@ -263,17 +263,17 @@ describe('Document By ID API Route', () => {
     })
   })
 
-  describe('PUT /api/knowledge/[id]/documents/[documentId] - Mark Failed Due to Timeout', () => {
+  describe('PUT /api/knowledge/[id]/documents/[documentId] - Retry Processing', () => {
     const mockParams = Promise.resolve({ id: 'kb-123', documentId: 'doc-123' })
 
-    it('should mark document as failed due to timeout successfully', async () => {
+    it('should fail stale processing successfully', async () => {
       const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { markDocumentAsFailedTimeout } = await import('@/lib/knowledge/documents/service')
+      const { failStaleDocumentProcessing } = await import('@/lib/knowledge/documents/service')
 
       const processingDocument = {
         ...mockDocument,
         processingStatus: 'processing',
-        processingStartedAt: new Date(Date.now() - 200000), // 200 seconds ago
+        processingStartedAt: new Date('2023-01-01T10:00:00Z'),
       }
 
       mockAuth$.mockAuthenticatedUser()
@@ -283,29 +283,27 @@ describe('Document By ID API Route', () => {
         knowledgeBase: { id: 'kb-123', userId: 'user-123' },
       })
 
-      vi.mocked(markDocumentAsFailedTimeout).mockResolvedValue({
+      vi.mocked(failStaleDocumentProcessing).mockResolvedValue({
         success: true,
-        processingDuration: 200000,
+        status: 'failed',
+        message: 'Document processing marked as failed',
       })
 
-      const req = createMockRequest('PUT', { markFailedDueToTimeout: true })
+      const req = createMockRequest('PUT', { failStaleProcessing: true })
       const { PUT } = await import('@/app/api/knowledge/[id]/documents/[documentId]/route')
       const response = await PUT(req, { params: mockParams })
       const data = await response.json()
 
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
-      expect(data.data.documentId).toBe('doc-123')
       expect(data.data.status).toBe('failed')
-      expect(data.data.message).toBe('Document marked as failed due to timeout')
-      expect(vi.mocked(markDocumentAsFailedTimeout)).toHaveBeenCalledWith(
+      expect(vi.mocked(failStaleDocumentProcessing)).toHaveBeenCalledWith(
         'doc-123',
-        processingDocument.processingStartedAt,
         expect.any(String)
       )
     })
 
-    it('should reject marking failed for non-processing document', async () => {
+    it('should reject stale failure for non-processing document', async () => {
       const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
 
       mockAuth$.mockAuthenticatedUser()
@@ -315,48 +313,14 @@ describe('Document By ID API Route', () => {
         knowledgeBase: { id: 'kb-123', userId: 'user-123' },
       })
 
-      const req = createMockRequest('PUT', { markFailedDueToTimeout: true })
+      const req = createMockRequest('PUT', { failStaleProcessing: true })
       const { PUT } = await import('@/app/api/knowledge/[id]/documents/[documentId]/route')
       const response = await PUT(req, { params: mockParams })
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toContain('Document is not in processing state')
+      expect(data.error).toBe('Document is not processing')
     })
-
-    it('should reject marking failed for recently started processing', async () => {
-      const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { markDocumentAsFailedTimeout } = await import('@/lib/knowledge/documents/service')
-
-      const recentProcessingDocument = {
-        ...mockDocument,
-        processingStatus: 'processing',
-        processingStartedAt: new Date(Date.now() - 60000), // 60 seconds ago
-      }
-
-      mockAuth$.mockAuthenticatedUser()
-      vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
-        hasAccess: true,
-        document: recentProcessingDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
-      })
-
-      vi.mocked(markDocumentAsFailedTimeout).mockRejectedValue(
-        new Error('Document has not been processing long enough to be considered dead')
-      )
-
-      const req = createMockRequest('PUT', { markFailedDueToTimeout: true })
-      const { PUT } = await import('@/app/api/knowledge/[id]/documents/[documentId]/route')
-      const response = await PUT(req, { params: mockParams })
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toContain('Document has not been processing long enough')
-    })
-  })
-
-  describe('PUT /api/knowledge/[id]/documents/[documentId] - Retry Processing', () => {
-    const mockParams = Promise.resolve({ id: 'kb-123', documentId: 'doc-123' })
 
     it('should retry processing successfully', async () => {
       const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')

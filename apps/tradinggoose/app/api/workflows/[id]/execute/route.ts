@@ -1,47 +1,38 @@
-import { tasks } from '@trigger.dev/sdk'
 import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { z } from 'zod'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
-import { getSession } from '@/lib/auth'
-import { checkServerSideUsageLimits } from '@/lib/billing'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import {
-  getBillingContextResolutionMessage,
-  resolveWorkspaceBillingContext,
-  toRateLimitBillingScope,
-} from '@/lib/billing/workspace-billing'
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
+import { getSession } from '@/lib/auth'
 import { env } from '@/lib/env'
-import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import {
+  ExecutionGateError,
+  enforceServerExecutionRateLimit,
+} from '@/lib/execution/execution-concurrency-limit'
 import { processExecutionFiles } from '@/lib/execution/files'
 import { createLogger } from '@/lib/logs/console/logger'
-import { LoggingSession } from '@/lib/logs/execution/logging-session'
-import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { decryptSecret, generateRequestId } from '@/lib/utils'
+import { generateRequestId } from '@/lib/utils'
+import {
+  runWorkflowExecution,
+  WorkflowUsageLimitError,
+} from '@/lib/workflows/execution-runner'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
-import { TriggerUtils } from '@/lib/workflows/triggers'
 import {
   createHttpResponseFromBlock,
-  updateWorkflowRunCounts,
   workflowHasResponseBlock,
 } from '@/lib/workflows/utils'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
-import { Executor } from '@/executor'
-import type { ExecutionResult } from '@/executor/types'
-import { Serializer } from '@/serializer'
-import { RateLimitError, RateLimiter, type TriggerType } from '@/services/queue'
-import { mergeSubblockState } from '@/stores/workflows/server-utils'
+import {
+  createErrorResponse,
+  createSuccessResponse,
+} from '@/app/api/workflows/utils'
+import { RateLimitError, type TriggerType } from '@/services/queue'
 
 const logger = createLogger('WorkflowExecuteAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const EnvVarsSchema = z.record(z.string())
-
-const runningExecutions = new Set<string>()
 
 export function createFilteredResult(result: any) {
   return {
@@ -56,36 +47,6 @@ export function createFilteredResult(result: any) {
   }
 }
 
-class UsageLimitError extends Error {
-  statusCode: number
-  constructor(message: string, statusCode = 402) {
-    super(message)
-    this.statusCode = statusCode
-  }
-}
-
-async function resolveExecutionBillingContext(params: {
-  requestId: string
-  workflowId: string
-  workspaceId?: string | null
-  actorUserId: string
-}) {
-  try {
-    return await resolveWorkspaceBillingContext({
-      workspaceId: params.workspaceId,
-      actorUserId: params.actorUserId,
-    })
-  } catch (error) {
-    logger.warn(`[${params.requestId}] Failed to resolve workflow billing context`, {
-      workflowId: params.workflowId,
-      workspaceId: params.workspaceId,
-      actorUserId: params.actorUserId,
-      error,
-    })
-    throw new UsageLimitError(getBillingContextResolutionMessage(error))
-  }
-}
-
 /**
  * Resolves output IDs to the internal blockId_attribute format
  * Supports both:
@@ -94,13 +55,14 @@ async function resolveExecutionBillingContext(params: {
  */
 function resolveOutputIds(
   selectedOutputs: string[] | undefined,
-  blocks: Record<string, any>
+  blocks: Record<string, any>,
 ): string[] | undefined {
   if (!selectedOutputs || selectedOutputs.length === 0) {
     return selectedOutputs
   }
 
-  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+  const UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
   return selectedOutputs.map((outputId) => {
     if (UUID_REGEX.test(outputId)) {
@@ -123,7 +85,9 @@ function resolveOutputIds(
     })
 
     if (!block) {
-      logger.warn(`Block not found for name: ${blockName} (from output ID: ${outputId})`)
+      logger.warn(
+        `Block not found for name: ${blockName} (from output ID: ${outputId})`,
+      )
       return outputId
     }
 
@@ -133,303 +97,10 @@ function resolveOutputIds(
   })
 }
 
-export async function executeWorkflow(
-  workflow: any,
-  requestId: string,
-  input: any | undefined,
-  actorUserId: string,
-  streamConfig?: {
-    enabled: boolean
-    selectedOutputs?: string[]
-    isSecureMode?: boolean // When true, filter out all sensitive data
-    workflowTriggerType?: 'api' | 'chat' // Which trigger block type to look for (default: 'api')
-    onStream?: (streamingExec: any) => Promise<void> // Callback for streaming agent responses
-    onBlockComplete?: (blockId: string, output: any) => Promise<void> // Callback when any block completes
-    skipLoggingComplete?: boolean // When true, skip calling loggingSession.safeComplete (for streaming)
-  },
-  providedExecutionId?: string
-): Promise<ExecutionResult> {
-  const workflowId = workflow.id
-  const executionId = providedExecutionId || uuidv4()
-
-  const executionKey = `${workflowId}:${requestId}`
-
-  if (runningExecutions.has(executionKey)) {
-    logger.warn(`[${requestId}] Execution is already running: ${executionKey}`)
-    throw new Error('Execution is already running')
-  }
-
-  const triggerType: TriggerType = streamConfig?.workflowTriggerType || 'api'
-  const loggingSession = new LoggingSession(workflowId, executionId, triggerType, requestId)
-
-  const usageCheck = await checkServerSideUsageLimits({
-    userId: actorUserId,
-    workflowId,
-    workspaceId: workflow.workspaceId,
-  })
-  if (usageCheck.isExceeded) {
-    logger.warn(`[${requestId}] Workspace billing subject has exceeded usage limits`, {
-      actorUserId,
-      currentUsage: usageCheck.currentUsage,
-      limit: usageCheck.limit,
-      workflowId,
-    })
-    throw new UsageLimitError(
-      usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
-    )
-  }
-
-  logger.info(
-    `[${requestId}] Executing workflow with input:`,
-    input ? JSON.stringify(input, null, 2) : 'No input provided'
-  )
-
-  const processedInput = input
-  logger.info(
-    `[${requestId}] Using input directly for workflow:`,
-    JSON.stringify(processedInput, null, 2)
-  )
-
-  try {
-    runningExecutions.add(executionKey)
-    logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`)
-
-    const deployedData = await loadDeployedWorkflowState(workflowId)
-    const { blocks, edges, loops, parallels } = deployedData
-    logger.info(`[${requestId}] Using deployed state for workflow execution: ${workflowId}`)
-    logger.debug(`[${requestId}] Deployed data loaded:`, {
-      blocksCount: Object.keys(blocks || {}).length,
-      edgesCount: (edges || []).length,
-      loopsCount: Object.keys(loops || {}).length,
-      parallelsCount: Object.keys(parallels || {}).length,
-    })
-
-    const mergedStates = mergeSubblockState(blocks)
-
-    const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-      actorUserId,
-      workflow.workspaceId || undefined
-    )
-    const variables = EnvVarsSchema.parse({ ...personalEncrypted, ...workspaceEncrypted })
-    const decryptedEnvVars: Record<string, string> = {}
-    for (const [key, encryptedValue] of Object.entries(variables)) {
-      try {
-        const { decrypted } = await decryptSecret(encryptedValue)
-        decryptedEnvVars[key] = decrypted
-      } catch (error: any) {
-        logger.error(`[${requestId}] Failed to decrypt environment variable "${key}"`, error)
-        throw new Error(`Failed to decrypt environment variable "${key}": ${error.message}`)
-      }
-    }
-
-    await loggingSession.safeStart({
-      userId: actorUserId,
-      workspaceId: workflow.workspaceId,
-      variables,
-    })
-
-    const currentBlockStates = await Object.entries(mergedStates).reduce(
-      async (accPromise, [id, block]) => {
-        const acc = await accPromise
-        acc[id] = await Object.entries(block.subBlocks).reduce(
-          async (subAccPromise, [key, subBlock]) => {
-            const subAcc = await subAccPromise
-            let value = subBlock.value
-
-            if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
-              const matches = value.match(/{{([^}]+)}}/g)
-              if (matches) {
-                for (const match of matches) {
-                  const varName = match.slice(2, -2)
-                  const decryptedValue = decryptedEnvVars[varName]
-                  if (decryptedValue === undefined) {
-                    throw new Error(`Environment variable "${varName}" was not found`)
-                  }
-                  value = (value as string).replace(match, decryptedValue)
-                }
-              }
-            }
-
-            subAcc[key] = value
-            return subAcc
-          },
-          Promise.resolve({} as Record<string, any>)
-        )
-        return acc
-      },
-      Promise.resolve({} as Record<string, Record<string, any>>)
-    )
-
-    const processedBlockStates = Object.entries(currentBlockStates).reduce(
-      (acc, [blockId, blockState]) => {
-        if (blockState.responseFormat && typeof blockState.responseFormat === 'string') {
-          const responseFormatValue = blockState.responseFormat.trim()
-
-          if (responseFormatValue.startsWith('<') && responseFormatValue.includes('>')) {
-            logger.debug(
-              `[${requestId}] Response format contains variable reference for block ${blockId}`
-            )
-            acc[blockId] = blockState
-          } else if (responseFormatValue === '') {
-            acc[blockId] = {
-              ...blockState,
-              responseFormat: undefined,
-            }
-          } else {
-            try {
-              logger.debug(`[${requestId}] Parsing responseFormat for block ${blockId}`)
-              const parsedResponseFormat = JSON.parse(responseFormatValue)
-
-              acc[blockId] = {
-                ...blockState,
-                responseFormat: parsedResponseFormat,
-              }
-            } catch (error) {
-              logger.warn(
-                `[${requestId}] Failed to parse responseFormat for block ${blockId}, using undefined`,
-                error
-              )
-              acc[blockId] = {
-                ...blockState,
-                responseFormat: undefined,
-              }
-            }
-          }
-        } else {
-          acc[blockId] = blockState
-        }
-        return acc
-      },
-      {} as Record<string, Record<string, any>>
-    )
-
-    const workflowVariables = normalizeVariables(workflow.variables)
-
-    if (Object.keys(workflowVariables).length > 0) {
-      logger.debug(
-        `[${requestId}] Loaded ${Object.keys(workflowVariables).length} workflow variables for: ${workflowId}`
-      )
-    } else {
-      logger.debug(`[${requestId}] No workflow variables found for: ${workflowId}`)
-    }
-
-    logger.debug(`[${requestId}] Serializing workflow: ${workflowId}`)
-    const serializedWorkflow = new Serializer().serializeWorkflow(
-      mergedStates,
-      edges,
-      loops,
-      parallels,
-      true
-    )
-
-    const preferredTriggerType = streamConfig?.workflowTriggerType || 'api'
-    const startBlock = TriggerUtils.findStartBlock(mergedStates, preferredTriggerType, false)
-
-    if (!startBlock) {
-      const errorMsg =
-        preferredTriggerType === 'api'
-          ? 'No API trigger block found. Add an API Trigger block to this workflow.'
-          : 'No chat trigger block found. Add a Chat Trigger block to this workflow.'
-      logger.error(`[${requestId}] ${errorMsg}`)
-      throw new Error(errorMsg)
-    }
-
-    const startBlockId = startBlock.blockId
-    const triggerBlock = startBlock.block
-
-    const outgoingConnections = serializedWorkflow.connections.filter(
-      (conn) => conn.source === startBlockId
-    )
-    if (outgoingConnections.length === 0) {
-      logger.error(`[${requestId}] Trigger block has no outgoing connections`)
-      throw new Error('Trigger block must be connected to other blocks to execute')
-    }
-
-    const contextExtensions: any = {
-      executionId,
-      workspaceId: workflow.workspaceId,
-      userId: actorUserId,
-      isDeployedContext: true,
-    }
-
-    if (streamConfig?.enabled) {
-      contextExtensions.stream = true
-      contextExtensions.selectedOutputs = streamConfig.selectedOutputs || []
-      contextExtensions.edges = edges.map((e: any) => ({
-        source: e.source,
-        target: e.target,
-      }))
-      contextExtensions.onStream = streamConfig.onStream
-      contextExtensions.onBlockComplete = streamConfig.onBlockComplete
-    }
-
-    const executor = new Executor({
-      workflow: serializedWorkflow,
-      currentBlockStates: processedBlockStates,
-      envVarValues: decryptedEnvVars,
-      workflowInput: processedInput,
-      workflowVariables,
-      contextExtensions,
-    })
-
-    loggingSession.setupExecutor(executor)
-
-    const result = (await executor.execute(workflowId, startBlockId)) as ExecutionResult
-
-    logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
-      success: result.success,
-      executionTime: result.metadata?.duration,
-    })
-
-    const { traceSpans, totalDuration } = buildTraceSpans(result)
-
-    if (result.success) {
-      await updateWorkflowRunCounts(workflowId)
-    }
-
-    if (!streamConfig?.skipLoggingComplete) {
-      await loggingSession.safeComplete({
-        endedAt: new Date().toISOString(),
-        totalDurationMs: totalDuration || 0,
-        finalOutput: result.output || {},
-        traceSpans: traceSpans || [],
-        workflowInput: processedInput,
-      })
-    } else {
-      result._streamingMetadata = {
-        loggingSession,
-        processedInput,
-      }
-    }
-
-    return result
-  } catch (error: any) {
-    logger.error(`[${requestId}] Workflow execution failed: ${workflowId}`, error)
-
-    const executionResultForError = (error?.executionResult as ExecutionResult | undefined) || {
-      success: false,
-      output: {},
-      logs: [],
-    }
-    const { traceSpans } = buildTraceSpans(executionResultForError)
-
-    await loggingSession.safeCompleteWithError({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: 0,
-      error: {
-        message: error.message || 'Workflow execution failed',
-        stackTrace: error.stack,
-      },
-      traceSpans,
-    })
-
-    throw error
-  } finally {
-    runningExecutions.delete(executionKey)
-  }
-}
-
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const requestId = generateRequestId()
   const { id } = await params
 
@@ -437,8 +108,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     logger.debug(`[${requestId}] GET execution request for workflow: ${id}`)
     const validation = await validateWorkflowAccess(request, id)
     if (validation.error) {
-      logger.warn(`[${requestId}] Workflow access validation failed: ${validation.error.message}`)
-      return createErrorResponse(validation.error.message, validation.error.status)
+      logger.warn(
+        `[${requestId}] Workflow access validation failed: ${validation.error.message}`,
+      )
+      return createErrorResponse(
+        validation.error.message,
+        validation.error.status,
+      )
     }
 
     let triggerType: TriggerType = 'manual'
@@ -451,12 +127,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     try {
-      let actorUserId: string | null = null
+      let actorUserId: string
       if (triggerType === 'manual') {
         actorUserId = session!.user!.id
       } else {
         const apiKeyHeader = request.headers.get('X-API-Key')
-        const auth = apiKeyHeader ? await authenticateApiKeyFromHeader(apiKeyHeader) : null
+        const auth = apiKeyHeader
+          ? await authenticateApiKeyFromHeader(apiKeyHeader)
+          : null
         if (!auth?.success || !auth.userId) {
           return createErrorResponse('Unauthorized', 401)
         }
@@ -464,37 +142,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (auth.keyId) {
           void updateApiKeyLastUsed(auth.keyId).catch(() => {})
         }
-
-        if (await isBillingEnabledForRuntime()) {
-          const billingContext = await resolveExecutionBillingContext({
-            requestId,
-            workflowId: validation.workflow.id,
-            workspaceId: validation.workflow.workspaceId,
-            actorUserId,
-          })
-          const rateLimiter = new RateLimiter()
-          const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-            billingContext.billingUserId,
-            billingContext.subscription,
-            'api',
-            false,
-            toRateLimitBillingScope(billingContext, actorUserId)
-          )
-
-          if (!rateLimitCheck.allowed) {
-            throw new RateLimitError(
-              `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
-            )
-          }
-        }
       }
 
-      const result = await executeWorkflow(
-        validation.workflow,
+      await enforceServerExecutionRateLimit({
+        actorUserId,
+        workflowId: validation.workflow.id,
+        workspaceId: validation.workflow.workspaceId,
+        isAsync: false,
+        logger,
         requestId,
-        undefined,
-        actorUserId as string
-      )
+        source: 'workflow execution',
+        triggerType,
+      })
+
+      const { result } = await runWorkflowExecution({
+        workflowId: validation.workflow.id,
+        workflowContext: validation.workflow,
+        actorUserId,
+        requestId,
+        triggerType,
+        workflowInput: undefined,
+        start: {
+          kind: 'trigger',
+          triggerType: 'api',
+        },
+      })
 
       const hasResponseBlock = workflowHasResponseBlock(result)
       if (hasResponseBlock) {
@@ -508,7 +180,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return createErrorResponse(
           'Service temporarily overloaded. Please try again later.',
           503,
-          'SERVICE_OVERLOADED'
+          'SERVICE_OVERLOADED',
         )
       }
       throw error
@@ -517,24 +189,40 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     logger.error(`[${requestId}] Error executing workflow: ${id}`, error)
 
     if (error instanceof RateLimitError) {
-      return createErrorResponse(error.message, error.statusCode, 'RATE_LIMIT_EXCEEDED')
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'RATE_LIMIT_EXCEEDED',
+      )
     }
 
-    if (error instanceof UsageLimitError) {
-      return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
+    if (error instanceof ExecutionGateError) {
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'USAGE_LIMIT_EXCEEDED',
+      )
+    }
+
+    if (error instanceof WorkflowUsageLimitError) {
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'USAGE_LIMIT_EXCEEDED',
+      )
     }
 
     return createErrorResponse(
       error.message || 'Failed to execute workflow',
       500,
-      'EXECUTION_ERROR'
+      'EXECUTION_ERROR',
     )
   }
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const requestId = generateRequestId()
   const logger = createLogger('WorkflowExecuteAPI')
@@ -546,22 +234,29 @@ export async function POST(
   try {
     const validation = await validateWorkflowAccess(request as NextRequest, id)
     if (validation.error) {
-      logger.warn(`[${requestId}] Workflow access validation failed: ${validation.error.message}`)
-      return createErrorResponse(validation.error.message, validation.error.status)
+      logger.warn(
+        `[${requestId}] Workflow access validation failed: ${validation.error.message}`,
+      )
+      return createErrorResponse(
+        validation.error.message,
+        validation.error.status,
+      )
     }
 
-    const executionMode = request.headers.get('X-Execution-Mode')
-    const isAsync = executionMode === 'async'
-
     const body = await request.text()
-    logger.info(`[${requestId}] ${body ? 'Request body provided' : 'No request body provided'}`)
+    logger.info(
+      `[${requestId}] ${body ? 'Request body provided' : 'No request body provided'}`,
+    )
 
     let parsedBody: any = {}
     if (body) {
       try {
         parsedBody = JSON.parse(body)
       } catch (error) {
-        logger.error(`[${requestId}] Failed to parse request body as JSON`, error)
+        logger.error(
+          `[${requestId}] Failed to parse request body as JSON`,
+          error,
+        )
         return createErrorResponse('Invalid JSON in request body', 400)
       }
     }
@@ -586,7 +281,8 @@ export async function POST(
       const isInternalCall = internalSecret === env.INTERNAL_API_SECRET
 
       const resolvedTriggerType: TriggerType =
-        body.workflowTriggerType || (isInternalCall && body.stream ? 'chat' : 'api')
+        body.workflowTriggerType ||
+        (isInternalCall && body.stream ? 'chat' : 'api')
 
       const resolvedInput =
         resolvedTriggerType === 'chat'
@@ -596,8 +292,11 @@ export async function POST(
             : body
 
       return {
-        isSecureMode: body.isSecureMode !== undefined ? body.isSecureMode : isInternalCall,
-        streamResponse: req.headers.get('X-Stream-Response') === 'true' || body.stream === true,
+        isSecureMode:
+          body.isSecureMode !== undefined ? body.isSecureMode : isInternalCall,
+        streamResponse:
+          req.headers.get('X-Stream-Response') === 'true' ||
+          body.stream === true,
         selectedOutputs:
           body.selectedOutputs ||
           (req.headers.get('X-Selected-Outputs')
@@ -620,32 +319,44 @@ export async function POST(
     const executionId = uuidv4()
 
     let processedInput = rawInput
-    logger.info(`[${requestId}] Raw input received:`, JSON.stringify(rawInput, null, 2))
+    logger.info(
+      `[${requestId}] Raw input received:`,
+      JSON.stringify(rawInput, null, 2),
+    )
 
     try {
       const deployedData = await loadDeployedWorkflowState(workflowId)
       const blocks = deployedData.blocks || {}
-      logger.info(`[${requestId}] Loaded ${Object.keys(blocks).length} blocks from workflow`)
+      logger.info(
+        `[${requestId}] Loaded ${Object.keys(blocks).length} blocks from workflow`,
+      )
 
       const apiTriggerBlock = Object.values(blocks).find(
-        (block: any) => block.type === 'api_trigger'
+        (block: any) => block.type === 'api_trigger',
       ) as any
       logger.info(`[${requestId}] API trigger block found:`, !!apiTriggerBlock)
 
       if (apiTriggerBlock?.subBlocks?.inputFormat?.value) {
-        const inputFormat = apiTriggerBlock.subBlocks.inputFormat.value as Array<{
+        const inputFormat = apiTriggerBlock.subBlocks.inputFormat
+          .value as Array<{
           name: string
           type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files'
         }>
         logger.info(
           `[${requestId}] Input format fields:`,
-          inputFormat.map((f) => `${f.name}:${f.type}`).join(', ')
+          inputFormat.map((f) => `${f.name}:${f.type}`).join(', '),
         )
 
         const fileFields = inputFormat.filter((field) => field.type === 'files')
-        logger.info(`[${requestId}] Found ${fileFields.length} file-type fields`)
+        logger.info(
+          `[${requestId}] Found ${fileFields.length} file-type fields`,
+        )
 
-        if (fileFields.length > 0 && typeof rawInput === 'object' && rawInput !== null) {
+        if (
+          fileFields.length > 0 &&
+          typeof rawInput === 'object' &&
+          rawInput !== null
+        ) {
           const executionContext = {
             workspaceId: validation.workflow.workspaceId,
             workflowId,
@@ -660,7 +371,6 @@ export async function POST(
                 fieldValue,
                 executionContext,
                 requestId,
-                isAsync
               )
 
               if (uploadedFiles.length > 0) {
@@ -669,7 +379,7 @@ export async function POST(
                   [fileField.name]: uploadedFiles,
                 }
                 logger.info(
-                  `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`
+                  `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`,
                 )
               }
             }
@@ -678,7 +388,10 @@ export async function POST(
       }
     } catch (error) {
       logger.error(`[${requestId}] Failed to process file uploads:`, error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process file uploads'
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to process file uploads'
       return createErrorResponse(errorMessage, 400)
     }
 
@@ -712,107 +425,22 @@ export async function POST(
       }
     }
 
-    const billingEnabled = await isBillingEnabledForRuntime()
-
-    if (isAsync) {
-      try {
-        if (billingEnabled) {
-          const billingContext = await resolveExecutionBillingContext({
-            requestId,
-            workflowId,
-            workspaceId: validation.workflow.workspaceId,
-            actorUserId: authenticatedUserId,
-          })
-          const rateLimiter = new RateLimiter()
-          const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-            billingContext.billingUserId,
-            billingContext.subscription,
-            'api',
-            true,
-            toRateLimitBillingScope(billingContext, authenticatedUserId)
-          )
-
-          if (!rateLimitCheck.allowed) {
-            logger.warn(`[${requestId}] Rate limit exceeded for async execution`, {
-              userId: authenticatedUserId,
-              remaining: rateLimitCheck.remaining,
-              resetAt: rateLimitCheck.resetAt,
-            })
-
-            return new Response(
-              JSON.stringify({
-                error: 'Rate limit exceeded',
-                message: `You have exceeded your async execution limit. ${rateLimitCheck.remaining} requests remaining. Limit resets at ${rateLimitCheck.resetAt}.`,
-                remaining: rateLimitCheck.remaining,
-                resetAt: rateLimitCheck.resetAt,
-              }),
-              {
-                status: 429,
-                headers: { 'Content-Type': 'application/json' },
-              }
-            )
-          }
-        }
-
-        const handle = await tasks.trigger('workflow-execution', {
-          workflowId,
-          userId: authenticatedUserId,
-          input,
-          triggerType: 'api',
-          metadata: { triggerType: 'api' },
-        })
-
-        logger.info(
-          `[${requestId}] Created Trigger.dev task ${handle.id} for workflow ${workflowId}`
-        )
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            taskId: handle.id,
-            status: 'queued',
-            createdAt: new Date().toISOString(),
-            links: {
-              status: `/api/jobs/${handle.id}`,
-            },
-          }),
-          {
-            status: 202,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        )
-      } catch (error: any) {
-        if (error instanceof UsageLimitError) {
-          return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
-        }
-        logger.error(`[${requestId}] Failed to create Trigger.dev task:`, error)
-        return createErrorResponse('Failed to queue workflow execution', 500)
-      }
-    }
+    const workflowStartTriggerType =
+      workflowTriggerType === 'chat' ? 'chat' : 'api'
+    const executionTriggerType =
+      workflowStartTriggerType === 'chat' ? 'chat' : triggerType
 
     try {
-      if (billingEnabled) {
-        const billingContext = await resolveExecutionBillingContext({
-          requestId,
-          workflowId,
-          workspaceId: validation.workflow.workspaceId,
-          actorUserId: authenticatedUserId,
-        })
-        const rateLimiter = new RateLimiter()
-        const rateLimitCheck = await rateLimiter.checkRateLimitWithSubscription(
-          billingContext.billingUserId,
-          billingContext.subscription,
-          triggerType,
-          false,
-          toRateLimitBillingScope(billingContext, authenticatedUserId)
-        )
-
-        if (!rateLimitCheck.allowed) {
-          throw new RateLimitError(
-            `Rate limit exceeded. You have ${rateLimitCheck.remaining} requests remaining. Resets at ${rateLimitCheck.resetAt.toISOString()}`
-          )
-        }
-      }
+      await enforceServerExecutionRateLimit({
+        actorUserId: authenticatedUserId,
+        workflowId,
+        workspaceId: validation.workflow.workspaceId,
+        isAsync: false,
+        logger,
+        requestId,
+        source: 'workflow execution',
+        triggerType: executionTriggerType,
+      })
 
       if (streamResponse) {
         const deployedData = await loadDeployedWorkflowState(workflowId)
@@ -820,7 +448,8 @@ export async function POST(
           ? resolveOutputIds(selectedOutputs, deployedData.blocks || {})
           : selectedOutputs
 
-        const { createStreamingResponse } = await import('@/lib/workflows/streaming')
+        const { createStreamingResponse } =
+          await import('@/lib/workflows/streaming')
         const { SSE_HEADERS } = await import('@/lib/utils')
 
         const stream = await createStreamingResponse({
@@ -830,10 +459,8 @@ export async function POST(
           executingUserId: authenticatedUserId,
           streamConfig: {
             selectedOutputs: resolvedSelectedOutputs,
-            isSecureMode: finalIsSecureMode,
-            workflowTriggerType: workflowTriggerType === 'chat' ? 'chat' : 'api',
+            workflowTriggerType: workflowStartTriggerType,
           },
-          createFilteredResult,
           executionId,
         })
 
@@ -843,14 +470,19 @@ export async function POST(
         })
       }
 
-      const result = await executeWorkflow(
-        validation.workflow,
+      const { result } = await runWorkflowExecution({
+        workflowId,
+        workflowContext: validation.workflow,
+        actorUserId: authenticatedUserId,
         requestId,
-        input,
-        authenticatedUserId,
-        undefined,
-        executionId
-      )
+        executionId,
+        triggerType: executionTriggerType,
+        workflowInput: input,
+        start: {
+          kind: 'trigger',
+          triggerType: workflowStartTriggerType,
+        },
+      })
 
       const hasResponseBlock = workflowHasResponseBlock(result)
       if (hasResponseBlock) {
@@ -864,30 +496,45 @@ export async function POST(
         return createErrorResponse(
           'Service temporarily overloaded. Please try again later.',
           503,
-          'SERVICE_OVERLOADED'
+          'SERVICE_OVERLOADED',
         )
       }
       throw error
     }
   } catch (error: any) {
-    logger.error(`[${requestId}] Error executing workflow: ${workflowId}`, error)
+    logger.error(
+      `[${requestId}] Error executing workflow: ${workflowId}`,
+      error,
+    )
 
     if (error instanceof RateLimitError) {
-      return createErrorResponse(error.message, error.statusCode, 'RATE_LIMIT_EXCEEDED')
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'RATE_LIMIT_EXCEEDED',
+      )
     }
 
-    if (error instanceof UsageLimitError) {
-      return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
+    if (error instanceof ExecutionGateError) {
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'USAGE_LIMIT_EXCEEDED',
+      )
     }
 
-    if (error.message?.includes('Rate limit exceeded')) {
-      return createErrorResponse(error.message, 429, 'RATE_LIMIT_EXCEEDED')
+    if (error instanceof WorkflowUsageLimitError) {
+      return createErrorResponse(
+        error.message,
+        error.statusCode,
+        'USAGE_LIMIT_EXCEEDED',
+      )
     }
 
     return createErrorResponse(
       error.message || 'Failed to execute workflow',
       500,
-      'EXECUTION_ERROR'
+      'EXECUTION_ERROR',
     )
   }
 }

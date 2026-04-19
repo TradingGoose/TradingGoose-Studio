@@ -33,7 +33,11 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
-import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
+import {
+  normalizePairColorContext,
+  type PairColorContext,
+  usePairColorStore,
+} from '@/stores/dashboard/pair-store'
 import {
   createLayoutNodeId,
   type LayoutNode,
@@ -201,8 +205,10 @@ export function DashboardClient({
   const [layouts, setLayouts] = useState<LayoutTab[]>(() => sortLayouts(initialLayouts ?? []))
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const layoutIdRef = useRef(layoutId)
+  const loadedLayoutIdRef = useRef(layoutId)
   const latestLayoutRef = useRef<LayoutNode>(initialTree)
   const hydratedDashboardIdentityRef = useRef(dashboardIdentity)
+  const layoutSwitchRequestRef = useRef(0)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const isCreatingLayoutRef = useRef(false)
   const pathname = usePathname()
@@ -239,22 +245,31 @@ export function DashboardClient({
 
       if (typeof data.layoutId === 'string') {
         layoutIdRef.current = data.layoutId
+        loadedLayoutIdRef.current = data.layoutId
       }
     },
     [normalizedInitialColorPairs, sortLayouts]
   )
 
   const persistLayoutImmediate = useCallback(
-    async (layoutIdOverride?: string) => {
-      const targetLayoutId = layoutIdOverride ?? layoutIdRef.current
+    async (
+      layoutIdOverride?: string,
+      snapshot?: {
+        layout: ReturnType<typeof serializeLayout>
+        colorPairs: PersistedColorPairsState
+      }
+    ) => {
+      const targetLayoutId = layoutIdOverride ?? loadedLayoutIdRef.current
       if (!targetLayoutId) return
 
-      const serialized = serializeLayout(latestLayoutRef.current)
-      const colorPairs = buildPersistedColorPairs(latestLayoutRef.current)
+      const currentSnapshot = snapshot ?? {
+        layout: serializeLayout(latestLayoutRef.current),
+        colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
+      }
       await fetch(`/api/workspaces/${workspaceId}/layout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layoutId: targetLayoutId, layout: serialized, colorPairs }),
+        body: JSON.stringify({ layoutId: targetLayoutId, ...currentSnapshot }),
       })
     },
     [workspaceId]
@@ -322,7 +337,9 @@ export function DashboardClient({
     setTree(initialTree)
     setLayouts(sortLayouts(initialLayouts ?? []))
     layoutIdRef.current = layoutId
+    loadedLayoutIdRef.current = layoutId
     latestLayoutRef.current = initialTree
+    layoutSwitchRequestRef.current += 1
     skipLayoutRef.current = new Set()
     setSearchQuery('')
     setIsSearchOpen(false)
@@ -341,12 +358,14 @@ export function DashboardClient({
   }, [tree])
 
   const persistLayout = useCallback(async () => {
-    const currentLayoutId = layoutIdRef.current
+    const currentLayoutId = loadedLayoutIdRef.current
     if (!currentLayoutId) return
 
-    const serialized = serializeLayout(latestLayoutRef.current)
-    const colorPairs = buildPersistedColorPairs(latestLayoutRef.current)
-    const body = JSON.stringify({ layoutId: currentLayoutId, layout: serialized, colorPairs })
+    const snapshot = {
+      layout: serializeLayout(latestLayoutRef.current),
+      colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
+    }
+    const body = JSON.stringify({ layoutId: currentLayoutId, ...snapshot })
     const url = `/api/workspaces/${workspaceId}/layout`
 
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
@@ -422,21 +441,20 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(() => ({ workspaceId }), [workspaceId])
 
   const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
-    setTree((prev) => {
-      const previousColor = findPanelPairColor(prev, panelId)
-      if (previousColor === color) {
-        return prev
-      }
+    const currentTree = latestLayoutRef.current
+    const previousColor = findPanelPairColor(currentTree, panelId)
+    if (previousColor === color) {
+      return
+    }
 
-      const next = updatePanelPairColor(prev, panelId, color)
+    const nextTree = updatePanelPairColor(currentTree, panelId, color)
+    if (nextTree === currentTree) {
+      return
+    }
 
-      if (next !== prev) {
-        clonePairContextIfEmpty(previousColor, color)
-        cleanupUnusedPairContexts(next)
-      }
-
-      return next === prev ? prev : next
-    })
+    latestLayoutRef.current = nextTree
+    setTree(nextTree)
+    clonePairContextIfEmpty(previousColor, color)
   }, [])
 
   const searchKnowledgeBases = useMemo(
@@ -469,7 +487,7 @@ export function DashboardClient({
         id: 'docs',
         name: 'Docs',
         icon: BookOpen,
-        href: brand.documentationUrl || 'https://docs.tradinggoose.ai/',
+        href: brand.documentationUrl,
       },
     ],
     [brand.documentationUrl, workspaceId]
@@ -572,15 +590,18 @@ export function DashboardClient({
 
   const handleSelectLayout = useCallback(
     async (nextLayoutId: string) => {
-      const previousLayoutId = layoutIdRef.current
-      if (!nextLayoutId || nextLayoutId === previousLayoutId) return
+      const previousSelectedLayoutId = layoutIdRef.current
+      if (!nextLayoutId || nextLayoutId === previousSelectedLayoutId) return
 
       const previousLayouts = layouts
-      try {
-        await persistLayoutImmediate(previousLayoutId ?? undefined)
-      } catch (error) {
-        console.error('Failed to persist current layout before switching:', error)
+      const sourceLayoutId = loadedLayoutIdRef.current
+      const sourceSnapshot = {
+        layout: serializeLayout(latestLayoutRef.current),
+        colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
       }
+      const requestId = layoutSwitchRequestRef.current + 1
+      layoutSwitchRequestRef.current = requestId
+
       layoutIdRef.current = nextLayoutId
       setLayouts((current) =>
         current.map((layout) => ({
@@ -590,18 +611,41 @@ export function DashboardClient({
       )
 
       try {
-        await fetch(`/api/workspaces/${workspaceId}/layout`, {
+        await persistLayoutImmediate(sourceLayoutId ?? undefined, sourceSnapshot)
+      } catch (error) {
+        console.error('Failed to persist current layout before switching:', error)
+      }
+
+      if (layoutSwitchRequestRef.current !== requestId) {
+        return
+      }
+
+      try {
+        const switchResponse = await fetch(`/api/workspaces/${workspaceId}/layout`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ activeLayoutId: nextLayoutId }),
         })
+        if (!switchResponse.ok) {
+          throw new Error(`Failed to switch layout (${switchResponse.status})`)
+        }
+
+        if (layoutSwitchRequestRef.current !== requestId) {
+          return
+        }
 
         const data = await loadLayoutData(nextLayoutId)
+        if (layoutSwitchRequestRef.current !== requestId) {
+          return
+        }
         applyLayoutData(data)
       } catch (error) {
+        if (layoutSwitchRequestRef.current !== requestId) {
+          return
+        }
         console.error('Failed to switch layout:', error)
         setLayouts(previousLayouts)
-        layoutIdRef.current = previousLayoutId
+        layoutIdRef.current = previousSelectedLayoutId
       }
     },
     [layouts, loadLayoutData, applyLayoutData, persistLayoutImmediate]
@@ -1169,13 +1213,15 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
   for (const pair of colorPairs.pairs ?? []) {
     if (!pair || !pair.color) continue
     nextContexts[pair.color] = {
-      workflowId: pair.workflowId ?? undefined,
-      listing: pair.listing ?? null,
-      reviewTarget: pair.reviewTarget,
-      indicatorId: pair.indicatorId ?? null,
-      mcpServerId: pair.mcpServerId ?? null,
-      customToolId: pair.customToolId ?? null,
-      skillId: pair.skillId ?? null,
+      ...normalizePairColorContext({
+        workflowId: pair.workflowId ?? undefined,
+        listing: pair.listing ?? null,
+        reviewTarget: pair.reviewTarget,
+        indicatorId: pair.indicatorId ?? null,
+        mcpServerId: pair.mcpServerId ?? null,
+        customToolId: pair.customToolId ?? null,
+        skillId: pair.skillId ?? null,
+      }),
       updatedAt: now,
     }
   }

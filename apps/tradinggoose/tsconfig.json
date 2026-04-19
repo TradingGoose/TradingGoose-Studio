@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "es2022",
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -8,11 +9,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
       "@apps/tradinggoose/hooks/queries/*": ["./hooks/queries/*"],
-      "@/components/*": ["components/*"],
+      "@/components/*": ["./components/*"],
       "@/lib/*": ["./lib/*"],
       "@/stores": ["./stores"],
       "@/stores/*": ["./stores/*"],
@@ -49,6 +49,7 @@
   },
   "include": [
     "**/*.ts",
+    "**/*.mts",
     "**/*.tsx",
     ".next/types/**/*.ts",
     "../next-env.d.ts",

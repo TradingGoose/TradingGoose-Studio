@@ -26,10 +26,43 @@ interface OrganizationSeatInfo {
   organizationId: string
   organizationName: string
   currentSeats: number
+  memberSeats: number
+  pendingInvitations: number
   maxSeats: number
   availableSeats: number
   subscriptionTierName: string
   canAddSeats: boolean
+}
+
+export async function getSeatOccupancy(organizationId: string): Promise<{
+  members: number
+  pending: number
+  occupied: number
+}> {
+  const [memberCount, pendingInvitationCount] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(member)
+      .where(eq(member.organizationId, organizationId)),
+    db
+      .select({ count: count() })
+      .from(invitation)
+      .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending'))),
+  ])
+
+  const members = memberCount[0]?.count || 0
+  const pending = pendingInvitationCount[0]?.count || 0
+
+  return {
+    members,
+    pending,
+    occupied: members + pending,
+  }
+}
+
+export async function getOccupiedSeatCount(organizationId: string): Promise<number> {
+  const { occupied } = await getSeatOccupancy(organizationId)
+  return occupied
 }
 
 /**
@@ -53,13 +86,7 @@ export async function validateSeatAvailability(
       }
     }
 
-    // Get current member count
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
-
-    const currentSeats = memberCount[0]?.count || 0
+    const { occupied: currentSeats } = await getSeatOccupancy(organizationId)
 
     if (subscription.tier.ownerType !== 'organization') {
       return {
@@ -136,12 +163,8 @@ export async function getOrganizationSeatInfo(
       return null
     }
 
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
-
-    const currentSeats = memberCount[0]?.count || 0
+    const seatOccupancy = await getSeatOccupancy(organizationId)
+    const currentSeats = seatOccupancy.occupied
 
     const maxSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
 
@@ -154,6 +177,8 @@ export async function getOrganizationSeatInfo(
       organizationId,
       organizationName: organizationData[0].name,
       currentSeats,
+      memberSeats: seatOccupancy.members,
+      pendingInvitations: seatOccupancy.pending,
       maxSeats,
       availableSeats,
       subscriptionTierName: subscription.tier.displayName,
@@ -265,17 +290,12 @@ export async function updateOrganizationSeats(
       return { success: false, error: 'Seat changes are only available for adjustable organization tiers' }
     }
 
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
+    const occupiedSeats = await getOccupiedSeatCount(organizationId)
 
-    const currentMembers = memberCount[0]?.count || 0
-
-    if (newSeatCount < currentMembers) {
+    if (newSeatCount < occupiedSeats) {
       return {
         success: false,
-        error: `Cannot reduce seats below current member count (${currentMembers})`,
+        error: `Cannot reduce seats below current occupied seat count (${occupiedSeats})`,
       }
     }
 
@@ -408,7 +428,8 @@ export async function getOrganizationSeatAnalytics(organizationId: string) {
       ...seatInfo,
       utilizationRate: Math.round(utilizationRate * 100) / 100,
       activeMembers: recentlyActive,
-      inactiveMembers: seatInfo.currentSeats - recentlyActive,
+      inactiveMembers: Math.max(0, seatInfo.memberSeats - recentlyActive),
+      pendingInvitations: seatInfo.pendingInvitations,
       memberActivity,
     }
   } catch (error) {

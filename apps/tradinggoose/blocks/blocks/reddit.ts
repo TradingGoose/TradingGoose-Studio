@@ -12,7 +12,7 @@ export const RedditBlock: BlockConfig<RedditResponse> = {
     'Integrate Reddit into the workflow. Can get posts and comments from a subreddit.',
   docsLink: 'https://docs.tradinggoose.ai/tools/reddit',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: `#FF5700`,
   icon: RedditIcon,
   subBlocks: [
     // Operation selection

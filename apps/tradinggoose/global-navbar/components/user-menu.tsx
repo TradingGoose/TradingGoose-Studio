@@ -21,8 +21,9 @@ import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
-import { canTierConfigureSso } from '@/lib/billing/tier-summary'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -69,7 +70,6 @@ interface UserMenuProps {
   userAvatarVersion?: number | string | null
   userId?: string | null
   onOpenSettings?: (section: SettingsSection) => void
-  canManageTeam?: boolean
   systemNavigation?: {
     href: string
     label: string
@@ -83,7 +83,6 @@ export function UserMenu({
   userAvatarVersion,
   userId,
   onOpenSettings,
-  canManageTeam,
   systemNavigation,
 }: UserMenuProps) {
   const router = useRouter()
@@ -114,18 +113,22 @@ export function UserMenu({
     organizationsData?.billingData?.data?.billingEnabled ??
     true
   const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan =
-    organizationBillingPayload?.subscriptionTier?.ownerType === 'organization'
-  const canConfigureSso = canTierConfigureSso(organizationBillingPayload?.subscriptionTier)
+  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
   const userRole = useMemo(
     () => getUserRole(activeOrganization, userEmail),
     [activeOrganization, userEmail]
   )
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
-  const canManageSSOSettings = Boolean(
-    activeOrganizationId && isOrganizationPlan && canConfigureSso && (isOwner || isAdmin)
-  )
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled,
+    hasOrganization: Boolean(activeOrganizationId),
+    isOrganizationAdmin: isOwner || isAdmin,
+    userTier: billingPayload?.tier,
+    organizationTier: organizationBillingPayload?.subscriptionTier,
+  })
+  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
+  const canManageSSOSettings = organizationAccess.canConfigureSso
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -332,21 +335,23 @@ export function UserMenu({
                   <User />
                   Account Detail
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('service')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'service' } })
-                      )
-                    }
-                  }}
-                >
-                  <KeyRound />
-                  Service API Keys
-                </DropdownMenuItem>
+                {isHosted ? (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      if (onOpenSettings) {
+                        onOpenSettings('service')
+                      } else if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('open-settings', { detail: { tab: 'service' } })
+                        )
+                      }
+                    }}
+                  >
+                    <KeyRound />
+                    Service API Keys
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
               {billingEnabled ? (
                 <>
@@ -380,11 +385,11 @@ export function UserMenu({
                   </DropdownMenuGroup>
                 </>
               ) : null}
-              {canManageTeam || canManageSSOSettings ? (
+              {canOpenTeamSettings || canManageSSOSettings ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {canManageTeam ? (
+                    {canOpenTeamSettings ? (
                       <DropdownMenuItem
                         onSelect={(event) => {
                           event.preventDefault()

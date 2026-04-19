@@ -19,7 +19,6 @@ import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn, redactApiKeys } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
-import { useGeneralStore } from '@/stores/settings/general/store'
 import { CodeDisplay } from '../../../code-display/code-display'
 import { JSONView } from '../../../json-view/json-view'
 import { StructuredOutput } from './components/structured-output'
@@ -186,8 +185,7 @@ export function OutputPanel({
   hideScrollbar = true,
   detailState,
 }: OutputPanelProps) {
-  const isConsoleExpandedByDefault = useGeneralStore((state) => state.isConsoleExpandedByDefault)
-  const [isExpanded, setIsExpanded] = useState(isConsoleExpandedByDefault)
+  const [isExpanded, setIsExpanded] = useState(true)
   const [showCopySuccess, setShowCopySuccess] = useState(false)
   const [localShowInput, setLocalShowInput] = useState(false) // State for input/output toggle
   const [isPlaying, setIsPlaying] = useState(false)

@@ -12,33 +12,15 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const copilotAppPropsSpy = vi.fn()
-let mockWorkflowWidgetState: any = {
-  channelId: 'workflow-copilot-panel-1',
-  resolvedPairColor: 'gray',
-  resolvedWorkflowId: 'wf-1',
-  hasLoadedWorkflows: true,
-  loadError: null,
-  isLoading: false,
-  workflowIds: ['wf-1'],
-}
-
-vi.mock('@/components/ui/loading-agent', () => ({
-  LoadingAgent: () => <div>loading</div>,
-}))
-
-vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
-  useWorkflowWidgetState: () => mockWorkflowWidgetState,
-}))
-
-vi.mock('./components/workflow-copilot-app', () => ({
-  __esModule: true,
-  default: () => <div>workflow-copilot-app</div>,
-}))
 vi.mock('./components/copilot-app', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
     copilotAppPropsSpy(props)
-    return <button type='button' data-testid='copilot-app'>copilot-app</button>
+    return (
+      <button type='button' data-testid='copilot-app'>
+        copilot-app
+      </button>
+    )
   },
 }))
 
@@ -59,15 +41,6 @@ describe('copilotWidget', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     copilotAppPropsSpy.mockClear()
-    mockWorkflowWidgetState = {
-      channelId: 'workflow-copilot-panel-1',
-      resolvedPairColor: 'gray',
-      resolvedWorkflowId: 'wf-1',
-      hasLoadedWorkflows: true,
-      loadError: null,
-      isLoading: false,
-      workflowIds: ['wf-1'],
-    }
   })
 
   afterEach(() => {
@@ -93,7 +66,7 @@ describe('copilotWidget', () => {
       )
     })
 
-    expect(container.textContent).toContain('workflow-copilot-panel-1')
+    expect(container.textContent).toContain('copilot-panel-1')
   })
 
   it('renders the copilot app without passing any review-target props', async () => {
@@ -129,26 +102,14 @@ describe('copilotWidget', () => {
     expect(copilotAppPropsSpy).toHaveBeenCalled()
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
-      workflowId: 'wf-1',
-      channelId: 'workflow-copilot-panel-1',
-      copilotChannelId: 'workflow-copilot-panel-1',
-      pairColor: 'gray',
+      channelId: 'pair-blue',
+      pairColor: 'blue',
     })
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTargetMode')
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewSessionId')
   })
 
-  it('uses the stable pair channel for linked copilot history instead of a panel-specific suffix', async () => {
-    mockWorkflowWidgetState = {
-      channelId: 'pair-red',
-      resolvedPairColor: 'red',
-      resolvedWorkflowId: 'wf-1',
-      hasLoadedWorkflows: true,
-      loadError: null,
-      isLoading: false,
-      workflowIds: ['wf-1'],
-    }
-
+  it('uses the pair runtime channel for linked copilot widgets', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
@@ -172,8 +133,65 @@ describe('copilotWidget', () => {
 
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       channelId: 'pair-red',
-      copilotChannelId: 'pair-red',
       pairColor: 'red',
+    })
+  })
+
+  it('keeps the copilot app mounted even when the workspace has no active workflow', async () => {
+    const Component = copilotWidget.component
+
+    await act(async () => {
+      root.render(
+        <>
+          {Component?.({
+            params: null,
+            context: { workspaceId: 'ws-1' },
+            pairColor: 'gray',
+            panelId: 'panel-1',
+            widget: {
+              key: 'copilot',
+              pairColor: 'gray',
+              params: null,
+            },
+            onWidgetParamsChange: vi.fn(),
+          })}
+        </>
+      )
+    })
+
+    expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
+      workspaceId: 'ws-1',
+      channelId: 'copilot-panel-1',
+      pairColor: 'gray',
+    })
+  })
+
+  it('uses a panel runtime channel when the widget is unpaired', async () => {
+    const Component = copilotWidget.component
+
+    await act(async () => {
+      root.render(
+        <>
+          {Component?.({
+            params: null,
+            context: { workspaceId: 'ws-1' },
+            pairColor: 'gray',
+            panelId: 'panel-42',
+            widget: {
+              key: 'copilot',
+              pairColor: 'gray',
+              params: null,
+            },
+            onWidgetParamsChange: vi.fn(),
+          })}
+        </>
+      )
+    })
+
+    expect(container.querySelector('[data-testid="copilot-app"]')).not.toBeNull()
+    expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
+      channelId: 'copilot-panel-42',
+      pairColor: 'gray',
     })
   })
 })

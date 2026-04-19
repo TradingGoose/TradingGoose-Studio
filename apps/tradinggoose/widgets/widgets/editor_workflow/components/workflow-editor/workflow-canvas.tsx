@@ -23,7 +23,6 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useGeneralStore } from '@/stores/settings/general/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
@@ -32,7 +31,6 @@ import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
-import { TrainingControls } from '@/widgets/widgets/editor_workflow/components/training-controls/training-controls'
 import { TriggerList } from '@/widgets/widgets/editor_workflow/components/trigger-list/trigger-list'
 import {
   TriggerWarningDialog,
@@ -92,13 +90,14 @@ import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/work
 const logger = createLogger('Workflow')
 
 // Memoized ReactFlow props to prevent unnecessary re-renders
-const defaultEdgeOptions = { type: 'custom' }
+const defaultEdgeOptions = { type: 'workflowEdge' }
 const connectionLineStyle = {
   stroke: '#94a3b8',
   strokeWidth: 2,
   strokeDasharray: '5,5',
 }
 const snapGrid: [number, number] = [20, 20]
+const AUTO_CONNECT_ENABLED = true
 
 interface BlockData {
   id: string
@@ -117,16 +116,12 @@ type WorkflowViewportBounds = {
 export type WorkflowCanvasUIConfig = {
   controlBar?: boolean
   floatingControls?: boolean
-  trainingControls?: boolean
-  forceTrainingControls?: boolean
   triggerList?: boolean
 }
 
 const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
   controlBar: false,
   floatingControls: false,
-  trainingControls: false,
-  forceTrainingControls: false,
   triggerList: true,
 }
 
@@ -675,7 +670,7 @@ const WorkflowCanvas = React.memo(
           const centerPosition = projectViewportCenter()
 
           // Auto-connect logic for container nodes
-          const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+          const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
           let autoConnectEdge
           if (isAutoConnectEnabled) {
             const closestBlock = findClosestOutput(centerPosition)
@@ -730,7 +725,7 @@ const WorkflowCanvas = React.memo(
         const name = getUniqueBlockName(baseName, blocks)
 
         // Auto-connect logic
-        const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+        const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
         let autoConnectEdge
         if (isAutoConnectEnabled && blockConfig.category !== 'triggers') {
           const closestBlock = findClosestOutput(centerPosition)
@@ -870,7 +865,7 @@ const WorkflowCanvas = React.memo(
               resizeLoopNodesWrapper()
             } else {
               // Auto-connect the container to the closest node on the canvas
-              const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+              const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
               let autoConnectEdge
               if (isAutoConnectEnabled) {
                 const closestBlock = findClosestOutput(position)
@@ -939,7 +934,7 @@ const WorkflowCanvas = React.memo(
             )
 
             // Auto-connect logic for blocks inside containers
-            const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+            const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
             let autoConnectEdge
             if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               if (existingChildBlocks.length > 0) {
@@ -1018,7 +1013,7 @@ const WorkflowCanvas = React.memo(
             }
 
             // Regular auto-connect logic
-            const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+            const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
             let autoConnectEdge
             if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               const closestBlock = findClosestOutput(position)
@@ -1520,7 +1515,7 @@ const WorkflowCanvas = React.memo(
             y: nodeAbsPosBefore.y - containerAbsPosBefore.y,
           }
 
-          const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+          const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
           const edgesToAdd = isAutoConnectEnabled
             ? buildAutoConnectEdgesForContainerDrop({
                 blocks,
@@ -1696,15 +1691,6 @@ const WorkflowCanvas = React.memo(
           {/* Floating Controls (Zoom, Undo, Redo) */}
           {uiConfig.floatingControls && (
             <FloatingControls constrainToContainer={Boolean(viewportBounds)} />
-          )}
-
-          {/* Training Controls - for recording workflow edits */}
-          {uiConfig.trainingControls && (
-            <TrainingControls
-              channelId={resolvedChannelId}
-              forceVisible={uiConfig.forceTrainingControls}
-              constrainToContainer={Boolean(viewportBounds)}
-            />
           )}
 
           <ReactFlow

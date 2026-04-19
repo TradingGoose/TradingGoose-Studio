@@ -1,15 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { env } from '@/lib/env'
 import { sendEmail } from '@/lib/email/mailer'
 import { renderNewsletterWelcomeEmail } from '@/components/emails/render-email'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveResendServiceConfig } from '@/lib/system-services/runtime'
 
 const logger = createLogger('NewsletterAPI')
 
 export async function POST(req: NextRequest) {
   try {
-    if (!env.RESEND_API_KEY || !env.RESEND_SEGMENT_ID) {
+    const resendConfig = await resolveResendServiceConfig()
+
+    if (!resendConfig.apiKey || !resendConfig.audienceId) {
       return NextResponse.json(
         { error: 'Newsletter service not configured' },
         { status: 503 }
@@ -34,11 +36,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const resend = new Resend(env.RESEND_API_KEY)
+    const resend = new Resend(resendConfig.apiKey)
 
     // Create the contact first
     const { data: contactData, error: createError } = await resend.contacts.create({
-      audienceId: env.RESEND_SEGMENT_ID,
+      audienceId: resendConfig.audienceId,
       email,
     })
 

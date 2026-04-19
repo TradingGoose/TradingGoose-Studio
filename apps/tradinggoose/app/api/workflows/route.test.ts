@@ -85,16 +85,28 @@ describe('Workflow API Route', () => {
       generateRequestId: vi.fn(() => 'request-id'),
     }))
 
-    vi.doMock('@/lib/workflows/db-helpers', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@/lib/workflows/db-helpers')>()
-      return {
-        ...actual,
-        saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
-      }
-    })
+    vi.doMock('@/lib/workflows/db-helpers', () => ({
+      remapVariableIds: vi.fn((variables: Record<string, any>, workflowId: string) =>
+        Object.fromEntries(
+          Object.entries(variables).map(([key, variable]) => [
+            key,
+            {
+              ...variable,
+              id: crypto.randomUUID(),
+              workflowId,
+            },
+          ])
+        )
+      ),
+      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
+    }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       tryApplyWorkflowState: tryApplyWorkflowStateMock,
+    }))
+
+    vi.doMock('@/lib/yjs/workflow-session', () => ({
+      createWorkflowSnapshot: vi.fn((snapshot) => snapshot),
     }))
 
     vi.doMock('@/lib/telemetry/tracer', () => ({

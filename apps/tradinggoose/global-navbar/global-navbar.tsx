@@ -14,6 +14,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
+import { isHosted } from '@/lib/environment'
+import { getOrganizationAccessState } from '@/lib/organization/access'
+import { getUserRole } from '@/lib/organization/helpers'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -73,8 +76,16 @@ export function GlobalNavbar({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
-  const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
-  const canManageTeam = billingEnabled && hasOrganization
+  const activeOrganization = organizationsData?.activeOrganization
+  const hasOrganization = Boolean(activeOrganization?.id)
+  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled,
+    hasOrganization,
+    isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
+    userTier: organizationsData?.billingData?.data?.tier,
+  })
+  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
@@ -87,17 +98,14 @@ export function GlobalNavbar({
   const userId = sessionData?.user?.id ?? null
   const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
-  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
+  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image
   const userAvatarVersion =
     userAvatarOverride.version ??
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
-    readOnly: navigationMode === 'admin',
   })
   const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
-  const workspaceSwitcherActiveWorkspace =
-    navigationMode === 'admin' ? null : workspaceSwitcher.activeWorkspace
   const systemNavigation = React.useMemo(() => {
     if (!isSystemAdmin || navigationMode === 'admin') {
       return null
@@ -111,15 +119,18 @@ export function GlobalNavbar({
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
+      if (section === 'service' && !isHosted) {
+        return 'account'
+      }
       if (section === 'subscription' && !billingEnabled) {
         return 'account'
       }
-      if (section === 'team' && !canManageTeam) {
+      if (section === 'team' && !canOpenTeamSettings) {
         return 'account'
       }
       return section
     },
-    [billingEnabled, canManageTeam]
+    [billingEnabled, canOpenTeamSettings]
   )
 
   const openSettings = React.useCallback(
@@ -304,7 +315,7 @@ export function GlobalNavbar({
           <Sidebar collapsible='icon'>
             <SidebarHeader>
               <WorkspaceSwitcher
-                activeWorkspace={workspaceSwitcherActiveWorkspace}
+                activeWorkspace={workspaceSwitcher.activeWorkspace}
                 workspaces={workspaceSwitcher.workspaces}
                 isLoading={workspaceSwitcher.isWorkspacesLoading}
                 canManageWorkspaces={canManageWorkspaces}
@@ -329,8 +340,7 @@ export function GlobalNavbar({
                   workspaceSwitcher.handleDeleteDialogChange(true)
                 }}
                 brandName={brand.name}
-                fallbackSubtitle={navigationMode === 'admin' ? 'admin' : 'Workspace'}
-                fallbackImageUrl={brand.logoUrl ?? brand.faviconUrl ?? '/favicon/favicon.ico'}
+                fallbackImageUrl={brand.faviconUrl}
               />
             </SidebarHeader>
             <SidebarContent>
@@ -347,7 +357,6 @@ export function GlobalNavbar({
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
-                canManageTeam={canManageTeam}
                 systemNavigation={systemNavigation}
               />
             </SidebarFooter>
@@ -356,7 +365,7 @@ export function GlobalNavbar({
           <SidebarInset className='flex h-full min-h-0 flex-1 overflow-hidden bg-background'>
             <div className='flex h-full min-h-0 flex-col bg-background'>
               <NavbarHeader
-                workspaceName={workspaceSwitcherActiveWorkspace?.name}
+                workspaceName={workspaceSwitcher.activeWorkspace?.name}
                 brandName={brand.name}
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}

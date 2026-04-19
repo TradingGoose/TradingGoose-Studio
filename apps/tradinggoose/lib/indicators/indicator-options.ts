@@ -1,7 +1,7 @@
 import ts from 'typescript'
 import type { IndicatorOptions } from '@/lib/indicators/types'
 
-const INDICATOR_OPTION_KEYS = new Set([
+export const INDICATOR_OPTION_KEYS = [
   'overlay',
   'format',
   'precision',
@@ -17,9 +17,11 @@ const INDICATOR_OPTION_KEYS = new Set([
   'calc_bars_count',
   'dynamic_requests',
   'behind_chart',
-])
+] as const
 
-const INDICATOR_DEFAULTS: Required<IndicatorOptions> = {
+const INDICATOR_OPTION_KEY_SET = new Set<string>(INDICATOR_OPTION_KEYS)
+
+export const INDICATOR_DEFAULTS: Required<IndicatorOptions> = {
   overlay: false,
   format: 'inherit',
   precision: 10,
@@ -101,7 +103,7 @@ export const normalizeIndicatorOptions = (
       if (value === defaultValue) return
       if (typeof value === 'string' && value.trim() === '' && defaultValue === '') return
     }
-    ; (result as Record<string, unknown>)[key] = value
+    ;(result as Record<string, unknown>)[key] = value
   })
 
   return Object.keys(result).length > 0 ? result : undefined
@@ -139,19 +141,17 @@ const parseIndicatorOptionsFromObject = (
     } else if (ts.isStringLiteral(prop.name)) {
       key = prop.name.text
     }
-    if (!key || !INDICATOR_OPTION_KEYS.has(key)) return
+    if (!key || !INDICATOR_OPTION_KEY_SET.has(key)) return
     const value = resolveLiteralValue(prop.initializer)
     if (typeof value === 'undefined') return
     const normalized = normalizeOptionValue(key as keyof IndicatorOptions, value)
     if (typeof normalized === 'undefined') return
-      ; (result as Record<string, unknown>)[key] = normalized
+    ;(result as Record<string, unknown>)[key] = normalized
   })
   return Object.keys(result).length > 0 ? result : undefined
 }
 
-export const inferIndicatorOptionsFromPineCode = (
-  code: string
-): IndicatorOptions | undefined => {
+export const inferIndicatorOptionsFromPineCode = (code: string): IndicatorOptions | undefined => {
   if (!code || code.trim().length === 0) return undefined
   const sourceFile = ts.createSourceFile(
     'indicator.ts',
@@ -225,4 +225,3 @@ export const coerceIndicatorCount = (value?: number): number | null => {
   const rounded = Math.trunc(value)
   return rounded > 0 ? rounded : null
 }
-

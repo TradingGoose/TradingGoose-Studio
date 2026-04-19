@@ -8,8 +8,8 @@ describe('Workspace Invitations API Route', () => {
 
   let mockDbResults: any[] = []
   let mockGetSession: any
-  let mockResendSend: any
   let mockInsertValues: any
+  let mockSendEmail: any
 
   beforeEach(() => {
     vi.resetModules()
@@ -72,11 +72,12 @@ describe('Workspace Invitations API Route', () => {
       permissionTypeEnum: { enumValues: ['admin', 'write', 'read'] as const },
     }))
 
-    mockResendSend = vi.fn().mockResolvedValue({ id: 'email-id' })
-    vi.doMock('resend', () => ({
-      Resend: vi.fn().mockImplementation(() => ({
-        emails: { send: mockResendSend },
-      })),
+    mockSendEmail = vi.fn().mockResolvedValue({
+      success: true,
+      message: 'Email sent successfully',
+    })
+    vi.doMock('@/lib/email/mailer', () => ({
+      sendEmail: mockSendEmail,
     }))
 
     vi.doMock('@react-email/render', () => ({
@@ -87,17 +88,8 @@ describe('Workspace Invitations API Route', () => {
       WorkspaceInvitationEmail: vi.fn(),
     }))
 
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        RESEND_API_KEY: 'test-resend-key',
-        NEXT_PUBLIC_APP_URL: 'https://test.tradinggoose.ai',
-        FROM_EMAIL_ADDRESS: 'TradingGoose <noreply@test.tradinggoose.ai>',
-        EMAIL_DOMAIN: 'test.tradinggoose.ai',
-      },
-    }))
-
     vi.doMock('@/lib/urls/utils', () => ({
-      getEmailDomain: vi.fn().mockReturnValue('tradinggoose.ai'),
+      getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
     }))
 
     vi.doMock('drizzle-orm', () => ({

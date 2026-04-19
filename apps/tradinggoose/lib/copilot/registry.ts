@@ -1,9 +1,13 @@
 import { z } from 'zod'
 import {
-  GetBlockConfigInput,
-  GetBlockConfigResult,
-  GetBlockOptionsInput,
-  GetBlockOptionsResult,
+  CUSTOM_TOOL_DOCUMENT_FORMAT,
+  INDICATOR_DOCUMENT_FORMAT,
+  MCP_SERVER_DOCUMENT_FORMAT,
+  SKILL_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import {
   GetBlockOutputsInput,
   GetBlockOutputsResult,
   GetBlocksAndToolsInput,
@@ -12,6 +16,10 @@ import {
   GetBlocksMetadataResult,
   GetBlockUpstreamReferencesInput,
   GetBlockUpstreamReferencesResult,
+  GetIndicatorCatalogInput,
+  GetIndicatorCatalogResult,
+  GetIndicatorMetadataInput,
+  GetIndicatorMetadataResult,
   GetTriggerBlocksInput,
   GetTriggerBlocksResult,
   KnowledgeBaseArgsSchema,
@@ -24,17 +32,16 @@ export const ToolIds = z.enum([
   'checkoff_todo',
   'mark_todo_in_progress',
   'get_user_workflow',
+  'create_workflow',
   'edit_workflow',
-  'preview_edit_workflow',
+  'edit_workflow_block',
+  'rename_workflow',
   'run_workflow',
   'get_workflow_console',
   'get_blocks_and_tools',
   'get_blocks_metadata',
-  'get_block_options',
-  'get_block_config',
-  'get_trigger_examples',
-  'get_examples_rag',
-  'get_operations_examples',
+  'get_indicator_catalog',
+  'get_indicator_metadata',
   'search_documentation',
   'search_online',
   'make_api_request',
@@ -44,7 +51,6 @@ export const ToolIds = z.enum([
   'get_credentials',
   'list_user_workflows',
   'get_workflow_from_name',
-  'get_workflow_data',
   'get_global_workflow_variables',
   'set_global_workflow_variables',
   'oauth_request_access',
@@ -52,10 +58,29 @@ export const ToolIds = z.enum([
   'deploy_workflow',
   'check_deployment_status',
   'knowledge_base',
-  'manage_custom_tool',
-  'manage_indicator',
-  'manage_skill',
-  'manage_mcp_tool',
+  'list_custom_tools',
+  'get_custom_tool',
+  'create_custom_tool',
+  'edit_custom_tool',
+  'rename_custom_tool',
+  'list_monitors',
+  'get_monitor',
+  'edit_monitor',
+  'list_indicators',
+  'get_indicator',
+  'create_indicator',
+  'edit_indicator',
+  'rename_indicator',
+  'list_skills',
+  'get_skill',
+  'create_skill',
+  'edit_skill',
+  'rename_skill',
+  'list_mcp_servers',
+  'get_mcp_server',
+  'create_mcp_server',
+  'edit_mcp_server',
+  'rename_mcp_server',
   'sleep',
   'get_block_outputs',
   'get_block_upstream_references',
@@ -75,14 +100,96 @@ const ToolCallSSEBase = z.object({
     partial: z.boolean().default(false),
   }),
 })
-export type ToolCallSSE = z.infer<typeof ToolCallSSEBase>
 
 // Reusable small schemas
-const StringArray = z.array(z.string())
 const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
+const RequiredId = z.string().trim().min(1)
+const WorkflowContextArgs = z.object({
+  workflowId: z.string().optional(),
+})
+const EntityReviewTargetArgs = z.object({
+  entityId: RequiredId.optional(),
+})
 
-// Tool argument schemas (per SSE examples provided)
+function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
+  documentFormat: TDocumentFormat,
+  options?: { includeEntityId?: boolean }
+) {
+  const shape = {
+    entityDocument: z.string().min(1),
+    documentFormat: z.literal(documentFormat).optional(),
+  }
+
+  return options?.includeEntityId === false ? z.object(shape) : EntityReviewTargetArgs.extend(shape)
+}
+
+const CreateWorkflowArgs = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    description: z.string().optional(),
+    color: z.string().optional(),
+    folderId: z.string().nullable().optional(),
+    workspaceId: RequiredId.optional(),
+  })
+  .strict()
+
+const RenameWorkflowArgs = z
+  .object({
+    workflowId: RequiredId,
+    name: z.string().trim().min(1),
+  })
+  .strict()
+
+const EditWorkflowArgs = z
+  .object({
+    workflowDocument: z.string().min(1),
+    documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
+    workflowId: RequiredId,
+    currentWorkflowState: z.string().optional(),
+  })
+  .strict()
+
+const EditWorkflowBlockArgs = z
+  .object({
+    workflowId: RequiredId,
+    blockId: z.string().trim().min(1).describe('Existing workflow block instance id.'),
+    blockType: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe('Optional safety check. Must match the existing workflow block type.'),
+    name: z.string().trim().min(1).optional(),
+    enabled: z.boolean().optional(),
+    subBlocks: z
+      .record(z.any())
+      .optional()
+      .describe(
+        'Map canonical sub-block ids to replacement values. Use get_blocks_metadata for the block type before editing.'
+      ),
+    currentWorkflowState: z.string().optional(),
+  })
+  .strict()
+
+const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
+const CreateCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT, {
+  includeEntityId: false,
+})
+const EditIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT)
+const CreateIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT, {
+  includeEntityId: false,
+})
+const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
+const CreateSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT, {
+  includeEntityId: false,
+})
+const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
+const CreateMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT, {
+  includeEntityId: false,
+})
+
+// Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
   plan: z.object({
     objective: z.string().optional(),
@@ -107,14 +214,19 @@ export const ToolArgSchemas = {
     id: z.string().optional(),
     todoId: z.string().optional(),
   }),
-  get_user_workflow: z.object({}),
+  get_user_workflow: z
+    .object({
+      workflowId: RequiredId,
+    })
+    .strict(),
+  create_workflow: CreateWorkflowArgs,
   list_user_workflows: z.object({}),
-  get_workflow_from_name: z.object({ workflow_name: z.string() }),
-  get_workflow_data: z.object({
-    data_type: z.enum(['global_variables', 'custom_tools', 'skills', 'mcp_tools', 'files']),
+  get_workflow_from_name: z.object({ workflow_name: z.string().trim().min(1) }).strict(),
+  get_global_workflow_variables: z.object({
+    workflowId: RequiredId,
   }),
-  get_global_workflow_variables: z.object({}),
   set_global_workflow_variables: z.object({
+    workflowId: RequiredId,
     operations: z.array(
       z.object({
         operation: z.enum(['add', 'delete', 'edit']),
@@ -130,44 +242,23 @@ export const ToolArgSchemas = {
   deploy_workflow: z.object({
     action: z.enum(['deploy', 'undeploy']).optional().default('deploy'),
     deployType: z.enum(['api', 'chat']).optional().default('api'),
+    workflowId: RequiredId,
   }),
   check_deployment_status: z.object({
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
   }),
 
-  edit_workflow: z.object({
-    operations: z
-      .array(
-        z.object({
-          operation_type: z.enum(['add', 'edit', 'delete']),
-          block_id: z.string(),
-          params: z.record(z.any()).optional(),
-        })
-      )
-      .min(1),
-    workflowId: z.string().optional(),
-    currentUserWorkflow: z.string().optional(),
-  }),
-  preview_edit_workflow: z.object({
-    operations: z
-      .array(
-        z.object({
-          operation_type: z.enum(['add', 'edit', 'delete']),
-          block_id: z.string(),
-          params: z.record(z.any()).optional(),
-        })
-      )
-      .min(1),
-    workflowId: z.string().optional(),
-    currentUserWorkflow: z.string().optional(),
-  }),
+  edit_workflow: EditWorkflowArgs,
+  edit_workflow_block: EditWorkflowBlockArgs,
+  rename_workflow: RenameWorkflowArgs,
 
   run_workflow: z.object({
+    workflowId: RequiredId,
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 
   get_workflow_console: z.object({
-    workflowId: z.string().optional(),
+    workflowId: RequiredId,
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
@@ -176,21 +267,11 @@ export const ToolArgSchemas = {
 
   get_blocks_metadata: GetBlocksMetadataInput,
 
-  get_block_options: GetBlockOptionsInput,
+  get_indicator_catalog: GetIndicatorCatalogInput,
 
-  get_block_config: GetBlockConfigInput,
+  get_indicator_metadata: GetIndicatorMetadataInput,
 
   get_trigger_blocks: GetTriggerBlocksInput,
-
-  get_trigger_examples: z.object({}),
-
-  get_examples_rag: z.object({
-    query: z.string(),
-  }),
-
-  get_operations_examples: z.object({
-    query: z.string(),
-  }),
 
   search_documentation: z.object({
     query: z.string(),
@@ -213,19 +294,19 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  get_environment_variables: z.object({}),
+  get_environment_variables: WorkflowContextArgs,
 
-  set_environment_variables: z.object({
+  set_environment_variables: WorkflowContextArgs.extend({
     variables: z.record(z.string()),
   }),
 
-  get_oauth_credentials: z.object({}),
+  get_oauth_credentials: WorkflowContextArgs,
 
-  get_credentials: z.object({}),
+  get_credentials: WorkflowContextArgs,
 
   gdrive_request_access: z.object({}),
 
-  list_gdrive_files: z.object({
+  list_gdrive_files: WorkflowContextArgs.extend({
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
   }),
@@ -234,140 +315,47 @@ export const ToolArgSchemas = {
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
+    workflowId: z.string().optional(),
   }),
 
   knowledge_base: KnowledgeBaseArgsSchema,
 
-  manage_custom_tool: z.object({
-    operation: z
-      .enum(['add', 'edit', 'list'])
-      .describe(
-        'The operation to perform: add (create new), edit (update existing), or list'
-      ),
-    toolId: z
-      .string()
-      .optional()
-      .describe(
-        'Required for edit operations. The database ID of the custom tool (e.g., "0robnW7_JUVwZrDkq1mqj"). Use manage_custom_tool with operation "list" or get_workflow_data with data_type "custom_tools" to get the list of tools and their IDs. Do NOT use the function name - use the actual "id" field from the tool.'
-      ),
-    title: z
-      .string()
-      .optional()
-      .describe(
-        'Optional display title for the custom tool. If omitted, the function name will be used.'
-      ),
-    schema: z
-      .object({
-        type: z.literal('function'),
-        function: z.object({
-          name: z.string().describe('The function name (camelCase, e.g. getWeather)'),
-          description: z.string().optional().describe('What the function does'),
-          parameters: z.object({
-            type: z.string(),
-            properties: z.record(z.any()),
-            required: z.array(z.string()).optional(),
-          }),
-        }),
-      })
-      .optional()
-      .describe('Required for add. The OpenAI function calling format schema.'),
-    code: z
-      .string()
-      .optional()
-      .describe(
-        'Required for add. The JavaScript function body code. Use {{ENV_VAR}} for environment variables and reference parameters directly by name.'
-      ),
+  list_custom_tools: z.object({}),
+  get_custom_tool: EntityReviewTargetArgs,
+  create_custom_tool: CreateCustomToolArgs,
+  edit_custom_tool: EditCustomToolArgs,
+  rename_custom_tool: EditCustomToolArgs,
+
+  list_monitors: z.object({
+    workflowId: z.string().optional(),
+    blockId: z.string().optional(),
   }),
-  manage_skill: z.object({
-    operation: z
-      .enum(['add', 'edit', 'list'])
-      .describe(
-        'The operation to perform: add (create new), edit (update existing), or list'
-      ),
-    skillId: z
-      .string()
-      .optional()
-      .describe(
-        'Required for edit operations. The database ID of the skill. Use manage_skill with operation "list" or get_workflow_data with data_type "skills" to get the list of skills and their IDs.'
-      ),
-    name: z
-      .string()
-      .optional()
-      .describe('Required for add. The skill name in kebab-case, for example market-research.'),
-    description: z
-      .string()
-      .optional()
-      .describe('Required for add. A short description of what the skill does.'),
-    content: z
-      .string()
-      .optional()
-      .describe('Required for add. The full skill instructions content.'),
+  get_monitor: z.object({
+    monitorId: RequiredId,
+  }),
+  edit_monitor: z.object({
+    monitorId: RequiredId,
+    monitorDocument: z.string().min(1),
+    documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT).optional(),
   }),
 
-  manage_indicator: z.object({
-    operation: z
-      .enum(['add', 'edit', 'list'])
-      .describe('The operation to perform: add (create new), edit (update existing), or list'),
-    indicatorId: z
-      .string()
-      .optional()
-      .describe(
-        'Required for edit operations. The database ID of the indicator. Use manage_indicator with operation "list" to get the list of indicators and their IDs.'
-      ),
-    name: z.string().optional().describe('Required for add. The indicator display name.'),
-    color: z.string().optional().describe('Optional. The indicator color hex code.'),
-    pineCode: z.string().optional().describe('Required for add. The Pine Script indicator code.'),
-    inputMeta: z
-      .record(z.unknown())
-      .optional()
-      .describe('Optional. Input metadata for the indicator.'),
-  }),
+  list_indicators: z.object({}),
+  get_indicator: EntityReviewTargetArgs,
+  create_indicator: CreateIndicatorArgs,
+  edit_indicator: EditIndicatorArgs,
+  rename_indicator: EditIndicatorArgs,
 
-  manage_mcp_tool: z.object({
-    operation: z
-      .enum(['add', 'edit', 'list'])
-      .describe(
-        'The operation to perform: add (create new), edit (update existing), or list'
-      ),
-    serverId: z
-      .string()
-      .optional()
-      .describe(
-        'Required for edit operations. The database ID of the MCP server. Use manage_mcp_tool with operation "list" to get the available servers and their IDs.'
-      ),
-    config: z
-      .object({
-        name: z.string().optional().describe('The display name for the MCP server'),
-        description: z.string().optional().describe('Optional description for the MCP server'),
-        transport: z
-          .enum(['http', 'sse', 'streamable-http'])
-          .optional()
-          .default('streamable-http')
-          .describe('Transport protocol (currently limited to the URL-based MCP transports)'),
-        url: z.string().optional().describe('The MCP server endpoint URL (required for add)'),
-        headers: z
-          .record(z.string())
-          .optional()
-          .describe('Optional HTTP headers to send with requests'),
-        command: z
-          .string()
-          .optional()
-          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
-        args: z
-          .array(z.string())
-          .optional()
-          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
-        env: z
-          .record(z.string())
-          .optional()
-          .describe('Stored only. Preserved in the MCP server record but not executed in this runtime.'),
-        timeout: z.number().optional().describe('Request timeout in milliseconds (default: 30000)'),
-        retries: z.number().optional().describe('Retry count for the MCP server (default: 3)'),
-        enabled: z.boolean().optional().describe('Whether the server is enabled (default: true)'),
-      })
-      .optional()
-      .describe('Required for add and edit operations. The MCP server configuration.'),
-  }),
+  list_skills: z.object({}),
+  get_skill: EntityReviewTargetArgs,
+  create_skill: CreateSkillArgs,
+  edit_skill: EditSkillArgs,
+  rename_skill: EditSkillArgs,
+
+  list_mcp_servers: z.object({}),
+  get_mcp_server: EntityReviewTargetArgs,
+  create_mcp_server: CreateMcpServerArgs,
+  edit_mcp_server: EditMcpServerArgs,
+  rename_mcp_server: EditMcpServerArgs,
 
   sleep: z.object({
     seconds: z
@@ -377,11 +365,14 @@ export const ToolArgSchemas = {
       .describe('The number of seconds to sleep (0-180, max 3 minutes)'),
   }),
 
-  get_block_outputs: GetBlockOutputsInput,
+  get_block_outputs: GetBlockOutputsInput.extend({
+    workflowId: RequiredId,
+  }),
 
-  get_block_upstream_references: GetBlockUpstreamReferencesInput,
+  get_block_upstream_references: GetBlockUpstreamReferencesInput.extend({
+    workflowId: RequiredId,
+  }),
 } as const
-export type ToolArgSchemaMap = typeof ToolArgSchemas
 
 // Tool-specific SSE schemas (tool_call with typed arguments)
 function toolCallSSEFor<TName extends ToolId, TArgs extends z.ZodTypeAny>(
@@ -404,12 +395,12 @@ export const ToolSSESchemas = {
     ToolArgSchemas.mark_todo_in_progress
   ),
   get_user_workflow: toolCallSSEFor('get_user_workflow', ToolArgSchemas.get_user_workflow),
+  create_workflow: toolCallSSEFor('create_workflow', ToolArgSchemas.create_workflow),
   list_user_workflows: toolCallSSEFor('list_user_workflows', ToolArgSchemas.list_user_workflows),
   get_workflow_from_name: toolCallSSEFor(
     'get_workflow_from_name',
     ToolArgSchemas.get_workflow_from_name
   ),
-  get_workflow_data: toolCallSSEFor('get_workflow_data', ToolArgSchemas.get_workflow_data),
   get_global_workflow_variables: toolCallSSEFor(
     'get_global_workflow_variables',
     ToolArgSchemas.get_global_workflow_variables
@@ -419,23 +410,21 @@ export const ToolSSESchemas = {
     ToolArgSchemas.set_global_workflow_variables
   ),
   edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
-  preview_edit_workflow: toolCallSSEFor(
-    'preview_edit_workflow',
-    ToolArgSchemas.preview_edit_workflow
-  ),
+  edit_workflow_block: toolCallSSEFor('edit_workflow_block', ToolArgSchemas.edit_workflow_block),
+  rename_workflow: toolCallSSEFor('rename_workflow', ToolArgSchemas.rename_workflow),
   run_workflow: toolCallSSEFor('run_workflow', ToolArgSchemas.run_workflow),
   get_workflow_console: toolCallSSEFor('get_workflow_console', ToolArgSchemas.get_workflow_console),
   get_blocks_and_tools: toolCallSSEFor('get_blocks_and_tools', ToolArgSchemas.get_blocks_and_tools),
   get_blocks_metadata: toolCallSSEFor('get_blocks_metadata', ToolArgSchemas.get_blocks_metadata),
-  get_block_options: toolCallSSEFor('get_block_options', ToolArgSchemas.get_block_options),
-  get_block_config: toolCallSSEFor('get_block_config', ToolArgSchemas.get_block_config),
-  get_trigger_blocks: toolCallSSEFor('get_trigger_blocks', ToolArgSchemas.get_trigger_blocks),
-  get_trigger_examples: toolCallSSEFor('get_trigger_examples', ToolArgSchemas.get_trigger_examples),
-  get_examples_rag: toolCallSSEFor('get_examples_rag', ToolArgSchemas.get_examples_rag),
-  get_operations_examples: toolCallSSEFor(
-    'get_operations_examples',
-    ToolArgSchemas.get_operations_examples
+  get_indicator_catalog: toolCallSSEFor(
+    'get_indicator_catalog',
+    ToolArgSchemas.get_indicator_catalog
   ),
+  get_indicator_metadata: toolCallSSEFor(
+    'get_indicator_metadata',
+    ToolArgSchemas.get_indicator_metadata
+  ),
+  get_trigger_blocks: toolCallSSEFor('get_trigger_blocks', ToolArgSchemas.get_trigger_blocks),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
@@ -465,10 +454,29 @@ export const ToolSSESchemas = {
     ToolArgSchemas.check_deployment_status
   ),
   knowledge_base: toolCallSSEFor('knowledge_base', ToolArgSchemas.knowledge_base),
-  manage_custom_tool: toolCallSSEFor('manage_custom_tool', ToolArgSchemas.manage_custom_tool),
-  manage_indicator: toolCallSSEFor('manage_indicator', ToolArgSchemas.manage_indicator),
-  manage_skill: toolCallSSEFor('manage_skill', ToolArgSchemas.manage_skill),
-  manage_mcp_tool: toolCallSSEFor('manage_mcp_tool', ToolArgSchemas.manage_mcp_tool),
+  list_custom_tools: toolCallSSEFor('list_custom_tools', ToolArgSchemas.list_custom_tools),
+  get_custom_tool: toolCallSSEFor('get_custom_tool', ToolArgSchemas.get_custom_tool),
+  create_custom_tool: toolCallSSEFor('create_custom_tool', ToolArgSchemas.create_custom_tool),
+  edit_custom_tool: toolCallSSEFor('edit_custom_tool', ToolArgSchemas.edit_custom_tool),
+  rename_custom_tool: toolCallSSEFor('rename_custom_tool', ToolArgSchemas.rename_custom_tool),
+  list_monitors: toolCallSSEFor('list_monitors', ToolArgSchemas.list_monitors),
+  get_monitor: toolCallSSEFor('get_monitor', ToolArgSchemas.get_monitor),
+  edit_monitor: toolCallSSEFor('edit_monitor', ToolArgSchemas.edit_monitor),
+  list_indicators: toolCallSSEFor('list_indicators', ToolArgSchemas.list_indicators),
+  get_indicator: toolCallSSEFor('get_indicator', ToolArgSchemas.get_indicator),
+  create_indicator: toolCallSSEFor('create_indicator', ToolArgSchemas.create_indicator),
+  edit_indicator: toolCallSSEFor('edit_indicator', ToolArgSchemas.edit_indicator),
+  rename_indicator: toolCallSSEFor('rename_indicator', ToolArgSchemas.rename_indicator),
+  list_skills: toolCallSSEFor('list_skills', ToolArgSchemas.list_skills),
+  get_skill: toolCallSSEFor('get_skill', ToolArgSchemas.get_skill),
+  create_skill: toolCallSSEFor('create_skill', ToolArgSchemas.create_skill),
+  edit_skill: toolCallSSEFor('edit_skill', ToolArgSchemas.edit_skill),
+  rename_skill: toolCallSSEFor('rename_skill', ToolArgSchemas.rename_skill),
+  list_mcp_servers: toolCallSSEFor('list_mcp_servers', ToolArgSchemas.list_mcp_servers),
+  get_mcp_server: toolCallSSEFor('get_mcp_server', ToolArgSchemas.get_mcp_server),
+  create_mcp_server: toolCallSSEFor('create_mcp_server', ToolArgSchemas.create_mcp_server),
+  edit_mcp_server: toolCallSSEFor('edit_mcp_server', ToolArgSchemas.edit_mcp_server),
+  rename_mcp_server: toolCallSSEFor('rename_mcp_server', ToolArgSchemas.rename_mcp_server),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
   get_block_outputs: toolCallSSEFor('get_block_outputs', ToolArgSchemas.get_block_outputs),
   get_block_upstream_references: toolCallSSEFor(
@@ -476,15 +484,164 @@ export const ToolSSESchemas = {
     ToolArgSchemas.get_block_upstream_references
   ),
 } as const
-export type ToolSSESchemaMap = typeof ToolSSESchemas
 
 // Known result schemas per tool (what tool_result.result should conform to)
-// Note: Where legacy variability exists, schema captures the common/expected shape for new runtime.
-const BuildOrEditWorkflowResult = z.object({
-  yamlContent: z.string(),
-  userWorkflow: z.string().optional(),
-  description: z.string().optional(),
+const WorkflowTargetEnvelope = z.object({
+  entityKind: z.literal('workflow'),
+  entityId: z.string(),
+  entityName: z.string().optional(),
+  workspaceId: z.string().optional(),
+  workflowId: z.string(),
+  workflowName: z.string().optional(),
+})
+
+const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
+  documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+  workflowDocument: z.string(),
+  workflowSummary: z
+    .object({
+      blocks: z.array(
+        z.object({
+          blockId: z.string(),
+          blockType: z.string(),
+          blockName: z.string(),
+          enabled: z.boolean().optional(),
+          subBlockIds: z.array(z.string()),
+        })
+      ),
+    })
+    .optional(),
+})
+
+const GenericEntityListEntry = z.object({
+  entityId: z.string(),
+  entityName: z.string(),
+  workspaceId: z.string().optional(),
+  entityDescription: z.string().optional(),
+  entityTitle: z.string().optional(),
+  entityFunctionName: z.string().optional(),
+  entityColor: z.string().optional(),
+  entityTransport: z.string().optional(),
+  entityUrl: z.string().optional(),
+  entityEnabled: z.boolean().optional(),
+  entityConnectionStatus: z.string().optional(),
+})
+
+const GenericEntityListResult = z.object({
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
+  entities: z.array(GenericEntityListEntry),
+  count: z.number(),
+})
+
+const EntityDocumentEnvelopeBase = z.object({
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
+  entityId: z.string().optional(),
+  entityName: z.string().optional(),
+  entityDocument: z.string(),
+})
+
+const SkillDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+  documentFormat: z.literal(SKILL_DOCUMENT_FORMAT),
+})
+
+const CustomToolDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+  documentFormat: z.literal(CUSTOM_TOOL_DOCUMENT_FORMAT),
+})
+
+const MonitorListEntry = z.object({
+  monitorId: z.string(),
+  monitorName: z.string(),
+  monitorDescription: z.string().optional(),
+  workflowId: z.string(),
+  blockId: z.string(),
+  providerId: z.string(),
+  indicatorId: z.string(),
+  interval: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+})
+
+const MonitorListResult = z.object({
+  surfaceKind: z.literal('monitor'),
+  monitors: z.array(MonitorListEntry),
+  count: z.number(),
+})
+
+const MonitorDocumentEnvelope = z.object({
+  surfaceKind: z.literal('monitor'),
+  monitorId: z.string(),
+  monitorName: z.string().optional(),
+  documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT),
+  monitorDocument: z.string(),
+})
+
+const IndicatorDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+  documentFormat: z.literal(INDICATOR_DOCUMENT_FORMAT),
+})
+
+const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+  documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT),
+})
+
+const EditEntityDocumentResultBase = z.object({
+  success: z.boolean(),
+  reviewSessionId: z.string().optional(),
+  draftSessionId: z.string().optional(),
+})
+
+const WorkflowMutationResult = WorkflowTargetEnvelope.extend({
+  success: z.boolean(),
+})
+
+const CustomToolDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  CustomToolDocumentEnvelope.extend({
+    entityKind: z.literal('custom_tool'),
+  })
+)
+
+const IndicatorDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  IndicatorDocumentEnvelope.extend({
+    entityKind: z.literal('indicator'),
+  })
+)
+
+const SkillDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  SkillDocumentEnvelope.extend({
+    entityKind: z.literal('skill'),
+  })
+)
+
+const McpServerDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  McpServerDocumentEnvelope.extend({
+    entityKind: z.literal('mcp_server'),
+  })
+)
+
+const WorkflowPreviewEdge = z.object({
+  source: z.string(),
+  target: z.string(),
+  sourceHandle: z.string().optional(),
+  targetHandle: z.string().optional(),
+})
+
+const BuildOrEditWorkflowResult = WorkflowDocumentEnvelope.extend({
   workflowState: z.unknown().optional(),
+  preview: z
+    .object({
+      blockDiff: z.object({
+        added: z.array(z.string()),
+        removed: z.array(z.string()),
+        updated: z.array(z.string()),
+      }),
+      edgeDiff: z.object({
+        added: z.array(WorkflowPreviewEdge),
+        removed: z.array(WorkflowPreviewEdge),
+      }),
+      warnings: z.array(z.string()),
+    })
+    .optional(),
   data: z
     .object({
       blocksCount: z.number(),
@@ -528,61 +685,12 @@ export const ToolResultSchemas = {
     todoId: z.string().optional(),
     id: z.string().optional(),
   }),
-  get_user_workflow: z
-    .object({ userWorkflow: z.string() })
-    .or(z.object({ yamlContent: z.string() }))
-    .or(z.string()),
-  list_user_workflows: z.object({ workflow_names: z.array(z.string()) }),
-  get_workflow_from_name: z.object({ userWorkflow: z.string() }).or(z.string()),
-  get_workflow_data: z.union([
-    z.object({
-      variables: z.array(z.object({ id: z.string(), name: z.string(), value: z.any() })),
-    }),
-    z.object({
-      customTools: z.array(
-        z.object({
-          id: z.string(),
-          title: z.string(),
-          functionName: z.string(),
-          description: z.string(),
-          parameters: z.any().optional(),
-        })
-      ),
-    }),
-    z.object({
-      skills: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          description: z.string(),
-        })
-      ),
-    }),
-    z.object({
-      mcpTools: z.array(
-        z.object({
-          name: z.string(),
-          serverId: z.string(),
-          serverName: z.string(),
-          description: z.string(),
-          inputSchema: z.any().optional(),
-        })
-      ),
-    }),
-    z.object({
-      files: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          key: z.string(),
-          path: z.string(),
-          size: z.number(),
-          type: z.string(),
-          uploadedAt: z.string(),
-        })
-      ),
-    }),
-  ]),
+  get_user_workflow: WorkflowDocumentEnvelope,
+  create_workflow: WorkflowMutationResult,
+  list_user_workflows: GenericEntityListResult.extend({
+    entityKind: z.literal('workflow'),
+  }),
+  get_workflow_from_name: WorkflowDocumentEnvelope,
   get_global_workflow_variables: z
     .object({ variables: z.record(z.any()) })
     .or(z.array(z.object({ name: z.string(), value: z.any() }))),
@@ -595,7 +703,8 @@ export const ToolResultSchemas = {
   }),
 
   edit_workflow: BuildOrEditWorkflowResult,
-  preview_edit_workflow: BuildOrEditWorkflowResult,
+  edit_workflow_block: BuildOrEditWorkflowResult,
+  rename_workflow: WorkflowMutationResult,
   run_workflow: z.object({
     executionId: z.string().optional(),
     message: z.any().optional(),
@@ -604,38 +713,19 @@ export const ToolResultSchemas = {
   get_workflow_console: z.object({ entries: z.array(ExecutionEntry) }),
   get_blocks_and_tools: GetBlocksAndToolsResult,
   get_blocks_metadata: GetBlocksMetadataResult,
-  get_block_options: GetBlockOptionsResult,
-  get_block_config: GetBlockConfigResult,
+  get_indicator_catalog: GetIndicatorCatalogResult,
+  get_indicator_metadata: GetIndicatorMetadataResult,
   get_trigger_blocks: GetTriggerBlocksResult,
-  get_trigger_examples: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
-  get_examples_rag: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
-  get_operations_examples: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
   search_documentation: z.object({ results: z.array(z.any()) }),
-  search_online: z.object({ results: z.array(z.any()) }),
+  search_online: z.object({
+    results: z.array(z.any()),
+    query: z.string().optional(),
+    type: z.string().optional(),
+    requestedType: z.string().optional(),
+    totalResults: z.number().optional(),
+    source: z.enum(['exa', 'serper', 'duckduckgo']).optional(),
+    warnings: z.array(z.string()).optional(),
+  }),
   make_api_request: z.object({
     status: z.number(),
     statusText: z.string().optional(),
@@ -742,101 +832,49 @@ export const ToolResultSchemas = {
     deployedAt: z.string().nullable(),
   }),
   knowledge_base: KnowledgeBaseResultSchema,
-  manage_custom_tool: z
+  list_custom_tools: GenericEntityListResult.extend({
+    entityKind: z.literal('custom_tool'),
+  }),
+  get_custom_tool: CustomToolDocumentEnvelope.extend({
+    entityKind: z.literal('custom_tool'),
+  }),
+  create_custom_tool: CustomToolDocumentMutationResult,
+  edit_custom_tool: CustomToolDocumentMutationResult,
+  rename_custom_tool: CustomToolDocumentMutationResult,
+  list_monitors: MonitorListResult,
+  get_monitor: MonitorDocumentEnvelope,
+  edit_monitor: z
     .object({
       success: z.boolean(),
-      operation: z.enum(['add', 'edit']),
-      toolId: z.string().optional(),
-      title: z.string().optional(),
-      functionName: z.string().optional(),
-      message: z.string().optional(),
     })
-    .or(
-      z.object({
-        success: z.boolean(),
-        operation: z.literal('list'),
-        tools: z.array(
-          z.object({
-            id: z.string(),
-            title: z.string(),
-            schema: z.any().optional(),
-            code: z.string().optional(),
-          })
-        ),
-        count: z.number(),
-      })
-    ),
-  manage_skill: z
-    .object({
-      success: z.boolean(),
-      operation: z.enum(['add', 'edit']),
-      skillId: z.string().optional(),
-      name: z.string().optional(),
-      message: z.string().optional(),
-    })
-    .or(
-      z.object({
-        success: z.boolean(),
-        operation: z.literal('list'),
-        skills: z.array(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            description: z.string(),
-            createdAt: z.any().optional(),
-          })
-        ),
-        count: z.number(),
-      })
-    ),
-  manage_indicator: z
-    .object({
-      success: z.boolean(),
-      operation: z.enum(['add', 'edit']),
-      indicatorId: z.string().optional(),
-      name: z.string().optional(),
-      message: z.string().optional(),
-    })
-    .or(
-      z.object({
-        success: z.boolean(),
-        operation: z.literal('list'),
-        indicators: z.array(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            color: z.string().optional(),
-          })
-        ),
-        count: z.number(),
-      })
-    ),
-  manage_mcp_tool: z
-    .object({
-      success: z.boolean(),
-      operation: z.enum(['add', 'edit']),
-      serverId: z.string().optional(),
-      name: z.string().optional(),
-      serverName: z.string().optional(),
-      message: z.string().optional(),
-    })
-    .or(
-      z.object({
-        success: z.boolean(),
-        operation: z.literal('list'),
-        servers: z.array(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            url: z.string().optional(),
-            transport: z.string().optional(),
-            enabled: z.boolean().optional(),
-            connectionStatus: z.string().optional(),
-          })
-        ),
-        count: z.number(),
-      })
-    ),
+    .merge(MonitorDocumentEnvelope),
+  list_indicators: GenericEntityListResult.extend({
+    entityKind: z.literal('indicator'),
+  }),
+  get_indicator: IndicatorDocumentEnvelope.extend({
+    entityKind: z.literal('indicator'),
+  }),
+  create_indicator: IndicatorDocumentMutationResult,
+  edit_indicator: IndicatorDocumentMutationResult,
+  rename_indicator: IndicatorDocumentMutationResult,
+  list_skills: GenericEntityListResult.extend({
+    entityKind: z.literal('skill'),
+  }),
+  get_skill: SkillDocumentEnvelope.extend({
+    entityKind: z.literal('skill'),
+  }),
+  create_skill: SkillDocumentMutationResult,
+  edit_skill: SkillDocumentMutationResult,
+  rename_skill: SkillDocumentMutationResult,
+  list_mcp_servers: GenericEntityListResult.extend({
+    entityKind: z.literal('mcp_server'),
+  }),
+  get_mcp_server: McpServerDocumentEnvelope.extend({
+    entityKind: z.literal('mcp_server'),
+  }),
+  create_mcp_server: McpServerDocumentMutationResult,
+  edit_mcp_server: McpServerDocumentMutationResult,
+  rename_mcp_server: McpServerDocumentMutationResult,
   sleep: z.object({
     success: z.boolean(),
     seconds: z.number(),
@@ -845,7 +883,6 @@ export const ToolResultSchemas = {
   get_block_outputs: GetBlockOutputsResult,
   get_block_upstream_references: GetBlockUpstreamReferencesResult,
 } as const
-export type ToolResultSchemaMap = typeof ToolResultSchemas
 
 // Consolidated registry entry per tool
 export const ToolRegistry = Object.freeze(
@@ -863,7 +900,6 @@ export const ToolRegistry = Object.freeze(
     >
   )
 )
-export type ToolRegistryMap = typeof ToolRegistry
 
 export function isToolId(toolId: string): toolId is ToolId {
   return Object.hasOwn(ToolRegistry, toolId)
@@ -872,8 +908,3 @@ export function isToolId(toolId: string): toolId is ToolId {
 export function getToolContract(toolId: string) {
   return isToolId(toolId) ? ToolRegistry[toolId] : undefined
 }
-
-// Convenience helper types inferred from schemas
-export type InferArgs<T extends ToolId> = z.infer<(typeof ToolArgSchemas)[T]>
-export type InferResult<T extends ToolId> = z.infer<(typeof ToolResultSchemas)[T]>
-export type InferToolCallSSE<T extends ToolId> = z.infer<(typeof ToolSSESchemas)[T]>

@@ -14,7 +14,7 @@ import {
 } from '@/lib/indicators/monitor-config'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 export const INDICATOR_PROVIDER = 'indicator'
 

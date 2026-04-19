@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('EnvironmentUtils')
 

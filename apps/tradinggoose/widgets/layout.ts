@@ -154,21 +154,14 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
 
     const rawTarget = (raw as { reviewTarget?: unknown }).reviewTarget
-    const isNestedTarget = rawTarget && typeof rawTarget === 'object'
+    const nestedTarget =
+      rawTarget && typeof rawTarget === 'object' ? (rawTarget as Record<string, unknown>) : null
 
     const reviewTarget: PairReviewTarget = {
-      reviewSessionId: normalizeOptionalString(
-        isNestedTarget ? (rawTarget as any).reviewSessionId : (raw as any).reviewSessionId
-      ),
-      reviewEntityKind: normalizeOptionalString(
-        isNestedTarget ? (rawTarget as any).reviewEntityKind : (raw as any).reviewEntityKind
-      ),
-      reviewEntityId: normalizeOptionalString(
-        isNestedTarget ? (rawTarget as any).reviewEntityId : (raw as any).reviewEntityId
-      ),
-      reviewDraftSessionId: normalizeOptionalString(
-        isNestedTarget ? (rawTarget as any).reviewDraftSessionId : (raw as any).reviewDraftSessionId
-      ),
+      reviewSessionId: normalizeOptionalString(nestedTarget?.reviewSessionId),
+      reviewEntityKind: normalizeOptionalString(nestedTarget?.reviewEntityKind),
+      reviewEntityId: normalizeOptionalString(nestedTarget?.reviewEntityId),
+      reviewDraftSessionId: normalizeOptionalString(nestedTarget?.reviewDraftSessionId),
     }
 
     const hasReviewTarget = Object.values(reviewTarget).some(v => v != null)
@@ -278,8 +271,7 @@ function normalizeWidgetInstance(widget: WidgetInstance): WidgetInstance {
   return {
     ...widget,
     pairColor,
-    params:
-      widget.key === 'workflow_copilot' || widget.key === 'copilot' ? null : (widget.params ?? null),
+    params: widget.key === 'copilot' ? null : (widget.params ?? null),
   }
 }
 
@@ -295,7 +287,7 @@ export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
     }
     const normalizedParams = normalizeListingParamsForStorage(widget.params ?? null)
     const nextWidget =
-      widget.key === 'workflow_copilot' || widget.key === 'copilot'
+      widget.key === 'copilot'
         ? {
             ...widget,
             params: null,

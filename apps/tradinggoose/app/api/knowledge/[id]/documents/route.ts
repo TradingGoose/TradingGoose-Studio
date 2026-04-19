@@ -5,13 +5,12 @@ import { getSession } from '@/lib/auth'
 import {
   bulkDocumentOperation,
   createDocumentRecords,
-  createSingleDocument,
+  enqueueDocumentProcessingJobs,
   getDocuments,
-  getProcessingConfig,
-  processDocumentsWithQueue,
 } from '@/lib/knowledge/documents/service'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
@@ -184,7 +183,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         )
 
         logger.info(
-          `[${requestId}] Starting controlled async processing of ${createdDocuments.length} documents`
+          `[${requestId}] Queueing ${createdDocuments.length} document pending executions`
         )
 
         // Track bulk document upload
@@ -201,30 +200,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           // Silently fail
         }
 
-        processDocumentsWithQueue(
-          createdDocuments,
-          knowledgeBaseId,
-          validatedData.processingOptions,
+        const taskIds = await enqueueDocumentProcessingJobs(
+          createdDocuments.map((doc) => ({
+            knowledgeBaseId,
+            documentId: doc.documentId,
+            docData: {
+              filename: doc.filename,
+              fileUrl: doc.fileUrl,
+              fileSize: doc.fileSize,
+              mimeType: doc.mimeType,
+            },
+            processingOptions: {
+              chunkSize: validatedData.processingOptions.chunkSize || 1024,
+              minCharactersPerChunk:
+                validatedData.processingOptions.minCharactersPerChunk || 1,
+              recipe: validatedData.processingOptions.recipe || 'default',
+              lang: validatedData.processingOptions.lang || 'en',
+              chunkOverlap: validatedData.processingOptions.chunkOverlap || 200,
+            },
+            requestId,
+          })),
           requestId
-        ).catch((error: unknown) => {
-          logger.error(`[${requestId}] Critical error in document processing pipeline:`, error)
-        })
+        )
 
         return NextResponse.json({
           success: true,
           data: {
             total: createdDocuments.length,
-            documentsCreated: createdDocuments.map((doc) => ({
+            documentsCreated: createdDocuments.map((doc, index) => ({
               documentId: doc.documentId,
               filename: doc.filename,
               status: 'pending',
+              taskId: taskIds[index] ?? null,
             })),
-            processingMethod: 'background',
-            processingConfig: {
-              maxConcurrentDocuments: getProcessingConfig().maxConcurrentDocuments,
-              batchSize: getProcessingConfig().batchSize,
-              totalBatches: Math.ceil(createdDocuments.length / getProcessingConfig().batchSize),
-            },
           },
         })
       } catch (validationError) {
@@ -240,15 +248,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         throw validationError
       }
     } else {
-      // Handle single document creation
       try {
         const validatedData = CreateDocumentSchema.parse(body)
 
-        const newDocument = await createSingleDocument(
-          validatedData,
+        const [newDocument] = await createDocumentRecords(
+          [validatedData],
           knowledgeBaseId,
           requestId,
           userId
+        )
+
+        if (!newDocument) {
+          throw new Error('Document was not created')
+        }
+
+        const [taskId] = await enqueueDocumentProcessingJobs(
+          [
+            {
+              knowledgeBaseId,
+              documentId: newDocument.documentId,
+              docData: {
+                filename: newDocument.filename,
+                fileUrl: newDocument.fileUrl,
+                fileSize: newDocument.fileSize,
+                mimeType: newDocument.mimeType,
+              },
+              processingOptions: {
+                chunkSize: 1024,
+                minCharactersPerChunk: 1,
+                recipe: 'default',
+                lang: 'en',
+                chunkOverlap: 200,
+              },
+              requestId,
+            },
+          ],
+          requestId
         )
 
         // Track single document upload
@@ -267,7 +302,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         return NextResponse.json({
           success: true,
-          data: newDocument,
+          data: {
+            id: newDocument.documentId,
+            knowledgeBaseId,
+            filename: newDocument.filename,
+            fileUrl: newDocument.fileUrl,
+            fileSize: newDocument.fileSize,
+            mimeType: newDocument.mimeType,
+            chunkCount: 0,
+            tokenCount: 0,
+            characterCount: 0,
+            enabled: true,
+            uploadedAt: newDocument.uploadedAt ?? new Date(),
+            tag1: newDocument.tag1 ?? null,
+            tag2: newDocument.tag2 ?? null,
+            tag3: newDocument.tag3 ?? null,
+            tag4: newDocument.tag4 ?? null,
+            tag5: newDocument.tag5 ?? null,
+            tag6: newDocument.tag6 ?? null,
+            tag7: newDocument.tag7 ?? null,
+            status: 'pending',
+            taskId,
+          },
         })
       } catch (validationError) {
         if (validationError instanceof z.ZodError) {
@@ -283,6 +339,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
   } catch (error) {
+    if (error instanceof TriggerExecutionUnavailableError) {
+      logger.error(`[${requestId}] Document processing blocked`, { error: error.message })
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+
     logger.error(`[${requestId}] Error creating document`, error)
 
     // Check if it's a storage limit error

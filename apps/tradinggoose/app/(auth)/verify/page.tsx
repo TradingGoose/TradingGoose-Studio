@@ -4,8 +4,8 @@ import { VerifyContent } from '@/app/(auth)/verify/verify-content'
 
 export const dynamic = 'force-dynamic'
 
-export default function VerifyPage() {
-  const emailServiceConfigured = hasEmailService()
+export default async function VerifyPage() {
+  const emailServiceConfigured = await hasEmailService()
 
   return (
     <VerifyContent

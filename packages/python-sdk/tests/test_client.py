@@ -97,40 +97,6 @@ def test_context_manager(mock_close):
     mock_close.assert_called_once()
 
 
-# Tests for async execution
-@patch('tradinggoose.requests.Session.post')
-def test_async_execution_returns_task_id(mock_post):
-    """Test async execution returns AsyncExecutionResult."""
-    mock_response = Mock()
-    mock_response.ok = True
-    mock_response.status_code = 202
-    mock_response.json.return_value = {
-        "success": True,
-        "taskId": "task-123",
-        "status": "queued",
-        "createdAt": "2024-01-01T00:00:00Z",
-        "links": {"status": "/api/jobs/task-123"}
-    }
-    mock_response.headers.get.return_value = None
-    mock_post.return_value = mock_response
-
-    client = TradingGooseClient(api_key="test-api-key")
-    result = client.execute_workflow(
-        "workflow-id",
-        input_data={"message": "Hello"},
-        async_execution=True
-    )
-
-    assert result.success is True
-    assert result.task_id == "task-123"
-    assert result.status == "queued"
-    assert result.links["status"] == "/api/jobs/task-123"
-
-    # Verify X-Execution-Mode header was set
-    call_args = mock_post.call_args
-    assert call_args[1]["headers"]["X-Execution-Mode"] == "async"
-
-
 @patch('tradinggoose.requests.Session.post')
 def test_sync_execution_returns_result(mock_post):
     """Test sync execution returns WorkflowExecutionResult."""
@@ -149,79 +115,11 @@ def test_sync_execution_returns_result(mock_post):
     result = client.execute_workflow(
         "workflow-id",
         input_data={"message": "Hello"},
-        async_execution=False
     )
 
     assert result.success is True
     assert result.output == {"result": "completed"}
     assert not hasattr(result, 'task_id')
-
-
-@patch('tradinggoose.requests.Session.post')
-def test_async_header_not_set_when_false(mock_post):
-    """Test X-Execution-Mode header is not set when async_execution is None."""
-    mock_response = Mock()
-    mock_response.ok = True
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"success": True, "output": {}}
-    mock_response.headers.get.return_value = None
-    mock_post.return_value = mock_response
-
-    client = TradingGooseClient(api_key="test-api-key")
-    client.execute_workflow("workflow-id", input_data={"message": "Hello"})
-
-    call_args = mock_post.call_args
-    assert "X-Execution-Mode" not in call_args[1]["headers"]
-
-
-# Tests for job status
-@patch('tradinggoose.requests.Session.get')
-def test_get_job_status_success(mock_get):
-    """Test getting job status."""
-    mock_response = Mock()
-    mock_response.ok = True
-    mock_response.json.return_value = {
-        "success": True,
-        "taskId": "task-123",
-        "status": "completed",
-        "metadata": {
-            "startedAt": "2024-01-01T00:00:00Z",
-            "completedAt": "2024-01-01T00:01:00Z",
-            "duration": 60000
-        },
-        "output": {"result": "done"}
-    }
-    mock_response.headers.get.return_value = None
-    mock_get.return_value = mock_response
-
-    client = TradingGooseClient(api_key="test-api-key", base_url="https://test.tradinggoose.ai")
-    result = client.get_job_status("task-123")
-
-    assert result["taskId"] == "task-123"
-    assert result["status"] == "completed"
-    assert result["output"]["result"] == "done"
-    mock_get.assert_called_once_with("https://test.tradinggoose.ai/api/jobs/task-123")
-
-
-@patch('tradinggoose.requests.Session.get')
-def test_get_job_status_not_found(mock_get):
-    """Test job not found error."""
-    mock_response = Mock()
-    mock_response.ok = False
-    mock_response.status_code = 404
-    mock_response.reason = "Not Found"
-    mock_response.json.return_value = {
-        "error": "Job not found",
-        "code": "JOB_NOT_FOUND"
-    }
-    mock_response.headers.get.return_value = None
-    mock_get.return_value = mock_response
-
-    client = TradingGooseClient(api_key="test-api-key")
-
-    with pytest.raises(TradingGooseError) as exc_info:
-        client.get_job_status("invalid-task")
-    assert "Job not found" in str(exc_info.value)
 
 
 # Tests for retry with rate limiting

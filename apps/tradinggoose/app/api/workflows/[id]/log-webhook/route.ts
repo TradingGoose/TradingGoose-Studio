@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('WorkflowLogWebhookAPI')
 

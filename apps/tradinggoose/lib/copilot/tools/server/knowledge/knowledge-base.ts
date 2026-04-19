@@ -1,8 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import {
   type KnowledgeBaseArgs,
-  KnowledgeBaseArgsSchema,
   type KnowledgeBaseResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
@@ -15,11 +17,6 @@ import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/se
 
 const logger = createLogger('KnowledgeBaseServerTool')
 
-// Re-export for backwards compatibility
-export const KnowledgeBaseInput = KnowledgeBaseArgsSchema
-export type KnowledgeBaseInputType = KnowledgeBaseArgs
-export type KnowledgeBaseResultType = KnowledgeBaseResult
-
 /**
  * Knowledge base tool for copilot to create, list, and get knowledge bases
  */
@@ -27,7 +24,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
   name: 'knowledge_base',
   async execute(
     params: KnowledgeBaseArgs,
-    context?: { userId: string }
+    context?: ServerToolExecutionContext
   ): Promise<KnowledgeBaseResult> {
     if (!context?.userId) {
       logger.error('Unauthorized attempt to access knowledge base - no authenticated user context')

@@ -1,125 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { env } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
 import { formatTimezoneLabel, parseUtcOffsetMinutes } from '@/lib/time-format'
-
-const logger = createLogger('Utils')
-const HEX_KEY_REGEX = /^[0-9a-fA-F]{64}$/
-const BASE64_KEY_REGEX = /^[0-9a-zA-Z+/=]+$/
-
-type NonHexKeyFormat = 'base64' | 'utf8'
-let encryptionKeyWarningType: NonHexKeyFormat | null = null
-
-function warnAboutEncryptionKey(format: NonHexKeyFormat) {
-  if (encryptionKeyWarningType === format) {
-    return
-  }
-
-  encryptionKeyWarningType = format
-  const message =
-    format === 'base64'
-      ? 'ENCRYPTION_KEY appears to be base64 encoded. Please switch to a 64-character hex string generated with `openssl rand -hex 32`.'
-      : 'ENCRYPTION_KEY is not a 64-character hex string. Falling back to raw string bytes for backward compatibility – please update your configuration.'
-  logger.warn(message)
-}
-
-function decodeBase64Key(key: string): Buffer | null {
-  if (key.length % 4 !== 0 || !BASE64_KEY_REGEX.test(key)) {
-    return null
-  }
-
-  try {
-    const decoded = Buffer.from(key, 'base64')
-    return decoded.length === 32 ? decoded : null
-  } catch {
-    return null
-  }
-}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
-}
-
-function getEncryptionKey(): Buffer {
-  const rawKey = env.ENCRYPTION_KEY?.trim()
-  if (!rawKey) {
-    throw new Error('ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes)')
-  }
-
-  if (HEX_KEY_REGEX.test(rawKey)) {
-    return Buffer.from(rawKey, 'hex')
-  }
-
-  const base64Key = decodeBase64Key(rawKey)
-  if (base64Key) {
-    warnAboutEncryptionKey('base64')
-    return base64Key
-  }
-
-  const utf8Buffer = Buffer.from(rawKey, 'utf8')
-  if (utf8Buffer.length === 32) {
-    warnAboutEncryptionKey('utf8')
-    return utf8Buffer
-  }
-
-  throw new Error('ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes)')
-}
-
-/**
- * Encrypts a secret using AES-256-GCM
- * @param secret - The secret to encrypt
- * @returns A promise that resolves to an object containing the encrypted secret and IV
- */
-export async function encryptSecret(secret: string): Promise<{ encrypted: string; iv: string }> {
-  const iv = randomBytes(16)
-  const key = getEncryptionKey()
-
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
-  let encrypted = cipher.update(secret, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-
-  const authTag = cipher.getAuthTag()
-
-  // Format: iv:encrypted:authTag
-  return {
-    encrypted: `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`,
-    iv: iv.toString('hex'),
-  }
-}
-
-/**
- * Decrypts an encrypted secret
- * @param encryptedValue - The encrypted value in format "iv:encrypted:authTag"
- * @returns A promise that resolves to an object containing the decrypted secret
- */
-export async function decryptSecret(encryptedValue: string): Promise<{ decrypted: string }> {
-  const parts = encryptedValue.split(':')
-  const ivHex = parts[0]
-  const authTagHex = parts[parts.length - 1]
-  const encrypted = parts.slice(1, -1).join(':')
-
-  if (!ivHex || !encrypted || !authTagHex) {
-    throw new Error('Invalid encrypted value format. Expected "iv:encrypted:authTag"')
-  }
-
-  const key = getEncryptionKey()
-  const iv = Buffer.from(ivHex, 'hex')
-  const authTag = Buffer.from(authTagHex, 'hex')
-
-  try {
-    const decipher = createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(authTag)
-
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-    decrypted += decipher.final('utf8')
-
-    return { decrypted }
-  } catch (error: any) {
-    logger.error('Decryption error:', { error: error.message })
-    throw error
-  }
 }
 
 export function convertScheduleOptionsToCron(
@@ -271,43 +155,6 @@ export function generatePassword(length = 24): string {
   }
 
   return result
-}
-
-/**
- * Rotates through available API keys for a provider
- * @param provider - The provider to get a key for (e.g., 'openai')
- * @returns The selected API key
- * @throws Error if no API keys are configured for rotation
- */
-export function getRotatingApiKey(provider: string): string {
-  if (provider !== 'openai' && provider !== 'anthropic') {
-    throw new Error(`No rotation implemented for provider: ${provider}`)
-  }
-
-  const keys = []
-
-  if (provider === 'openai') {
-    if (env.OPENAI_API_KEY_1) keys.push(env.OPENAI_API_KEY_1)
-    if (env.OPENAI_API_KEY_2) keys.push(env.OPENAI_API_KEY_2)
-    if (env.OPENAI_API_KEY_3) keys.push(env.OPENAI_API_KEY_3)
-  } else if (provider === 'anthropic') {
-    if (env.ANTHROPIC_API_KEY_1) keys.push(env.ANTHROPIC_API_KEY_1)
-    if (env.ANTHROPIC_API_KEY_2) keys.push(env.ANTHROPIC_API_KEY_2)
-    if (env.ANTHROPIC_API_KEY_3) keys.push(env.ANTHROPIC_API_KEY_3)
-  }
-
-  if (keys.length === 0) {
-    throw new Error(
-      `No API keys configured for rotation. Please configure ${provider.toUpperCase()}_API_KEY_1, ${provider.toUpperCase()}_API_KEY_2, or ${provider.toUpperCase()}_API_KEY_3.`
-    )
-  }
-
-  // Simple round-robin rotation based on current minute
-  // This distributes load across keys and is stateless
-  const currentMinute = new Date().getMinutes()
-  const keyIndex = currentMinute % keys.length
-
-  return keys[keyIndex]
 }
 
 /**

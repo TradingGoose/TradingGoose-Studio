@@ -1,3 +1,5 @@
+import { maybeHandleCopilotMarkCompleteContinuation } from '@/stores/copilot/mark-complete'
+
 export async function reportClientManagedToolFailure(params: {
   id: string
   name?: string
@@ -14,7 +16,7 @@ export async function reportClientManagedToolFailure(params: {
       return
     }
 
-    await fetchImpl('/api/copilot/tools/mark-complete', {
+    const response = await fetchImpl('/api/copilot/tools/mark-complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -24,5 +26,12 @@ export async function reportClientManagedToolFailure(params: {
         message,
       }),
     })
+
+    if (response instanceof Response && response.ok) {
+      await maybeHandleCopilotMarkCompleteContinuation({
+        toolCallId: id,
+        response,
+      })
+    }
   } catch {}
 }

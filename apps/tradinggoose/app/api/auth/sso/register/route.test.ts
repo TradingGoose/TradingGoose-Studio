@@ -8,14 +8,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetSession,
   mockRegisterSSOProvider,
-  mockGetOrganizationBillingData,
   mockIsOrganizationOwnerOrAdmin,
+  mockGetOrganizationBillingData,
+  mockGetBillingGateState,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockRegisterSSOProvider: vi.fn(),
-  mockGetOrganizationBillingData: vi.fn(),
   mockIsOrganizationOwnerOrAdmin: vi.fn(),
+  mockGetOrganizationBillingData: vi.fn(),
+  mockGetBillingGateState: vi.fn(),
   mockLogger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -33,8 +35,12 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/billing/core/organization', () => ({
-  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
   isOrganizationOwnerOrAdmin: (...args: unknown[]) => mockIsOrganizationOwnerOrAdmin(...args),
+  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
+}))
+
+vi.mock('@/lib/billing/settings', () => ({
+  getBillingGateState: (...args: unknown[]) => mockGetBillingGateState(...args),
 }))
 
 vi.mock('@/lib/env', () => ({
@@ -56,8 +62,10 @@ describe('SSO register route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: true })
     mockGetOrganizationBillingData.mockResolvedValue({
       subscriptionTier: {
+        ownerType: 'organization',
         canConfigureSso: true,
       },
     })
@@ -163,7 +171,7 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
-  it('rejects organizations whose tier cannot configure sso', async () => {
+  it('rejects organizations whose tier cannot configure SSO', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -174,6 +182,7 @@ describe('SSO register route', () => {
     })
     mockGetOrganizationBillingData.mockResolvedValue({
       subscriptionTier: {
+        ownerType: 'organization',
         canConfigureSso: false,
       },
     })
@@ -201,6 +210,61 @@ describe('SSO register route', () => {
       error: 'Single Sign-On is not enabled for this organization',
     })
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+  })
+
+  it('keeps org-admin SSO registration available when billing is disabled', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+      session: {
+        activeOrganizationId: 'org-1',
+      },
+    })
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
+    mockGetOrganizationBillingData.mockResolvedValue({
+      subscriptionTier: null,
+    })
+    mockRegisterSSOProvider.mockResolvedValue({
+      providerId: 'okta',
+    })
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          authorization_endpoint: 'https://issuer.example.com/oauth2/v1/authorize',
+          token_endpoint: 'https://issuer.example.com/oauth2/v1/token',
+          userinfo_endpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
+          jwks_uri: 'https://issuer.example.com/oauth2/v1/keys',
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        }
+      )
+    )
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerId: 'okta',
+          issuer: 'https://issuer.example.com',
+          domain: 'example.com',
+          providerType: 'oidc',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+        }),
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockRegisterSSOProvider).toHaveBeenCalled()
   })
 
   it('rejects legacy manual oidc endpoint override fields', async () => {
@@ -320,7 +384,6 @@ describe('SSO register route', () => {
       }),
     })
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
-    expect(mockGetOrganizationBillingData).toHaveBeenCalledWith('org-1')
   })
 
   it('registers saml providers for the active organization with a computed callback url', async () => {

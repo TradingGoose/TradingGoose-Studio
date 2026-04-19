@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasAdminPermission } from '@/lib/permissions/utils'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('ChatAuthUtils')
 

@@ -8,6 +8,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const { resolveAzureOpenAIServiceConfig, resolveOpenAIServiceConfig } = vi.hoisted(() => ({
+  resolveAzureOpenAIServiceConfig: vi.fn(),
+  resolveOpenAIServiceConfig: vi.fn(),
+}))
+
 vi.mock('drizzle-orm', () => ({
   and: (...args: any[]) => args,
   eq: (...args: any[]) => args,
@@ -16,10 +21,15 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/env', () => ({
-  env: { OPENAI_API_KEY: 'test-key' },
+  env: {},
   getEnv: (key: string) => process.env[key],
   isTruthy: (value: string | boolean | number | undefined) =>
     typeof value === 'string' ? value === 'true' || value === '1' : Boolean(value),
+}))
+
+vi.mock('@/lib/system-services/runtime', () => ({
+  resolveAzureOpenAIServiceConfig,
+  resolveOpenAIServiceConfig,
 }))
 
 vi.mock('@/lib/knowledge/documents/utils', () => ({
@@ -165,6 +175,18 @@ describe('Knowledge Utils', () => {
     dbOps.updatePayloads.length = 0
     resetDatasets()
     vi.clearAllMocks()
+    resolveAzureOpenAIServiceConfig.mockReset()
+    resolveOpenAIServiceConfig.mockReset()
+    resolveAzureOpenAIServiceConfig.mockResolvedValue({
+      apiKey: null,
+      endpoint: null,
+      apiVersion: '2024-07-01-preview',
+      embeddingModel: null,
+    })
+    resolveOpenAIServiceConfig.mockResolvedValue({
+      defaultApiKey: 'test-key',
+      rotationKeys: [],
+    })
   })
 
   describe('processDocumentAsync', () => {
@@ -255,14 +277,15 @@ describe('Knowledge Utils', () => {
     })
 
     it('should use Azure OpenAI when Azure config is provided', async () => {
-      const { env } = await import('@/lib/env')
-      Object.keys(env).forEach((key) => delete (env as any)[key])
-      Object.assign(env, {
-        AZURE_OPENAI_API_KEY: 'test-azure-key',
-        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
-        AZURE_OPENAI_API_VERSION: '2024-12-01-preview',
-        KB_OPENAI_MODEL_NAME: 'text-embedding-ada-002',
-        OPENAI_API_KEY: 'test-openai-key',
+      resolveAzureOpenAIServiceConfig.mockResolvedValue({
+        apiKey: 'test-azure-key',
+        endpoint: 'https://test.openai.azure.com',
+        apiVersion: '2024-12-01-preview',
+        embeddingModel: 'text-embedding-ada-002',
+      })
+      resolveOpenAIServiceConfig.mockResolvedValue({
+        defaultApiKey: 'test-openai-key',
+        rotationKeys: [],
       })
 
       const fetchSpy = vi.mocked(fetch)
@@ -283,15 +306,12 @@ describe('Knowledge Utils', () => {
           }),
         })
       )
-
-      Object.keys(env).forEach((key) => delete (env as any)[key])
     })
 
     it('should fallback to OpenAI when no Azure config provided', async () => {
-      const { env } = await import('@/lib/env')
-      Object.keys(env).forEach((key) => delete (env as any)[key])
-      Object.assign(env, {
-        OPENAI_API_KEY: 'test-openai-key',
+      resolveOpenAIServiceConfig.mockResolvedValue({
+        defaultApiKey: 'test-openai-key',
+        rotationKeys: [],
       })
 
       const fetchSpy = vi.mocked(fetch)
@@ -312,16 +332,16 @@ describe('Knowledge Utils', () => {
           }),
         })
       )
-
-      Object.keys(env).forEach((key) => delete (env as any)[key])
     })
 
     it('should throw error when no API configuration provided', async () => {
-      const { env } = await import('@/lib/env')
-      Object.keys(env).forEach((key) => delete (env as any)[key])
+      resolveOpenAIServiceConfig.mockResolvedValue({
+        defaultApiKey: null,
+        rotationKeys: [],
+      })
 
       await expect(generateEmbeddings(['test text'])).rejects.toThrow(
-        'Either OPENAI_API_KEY or Azure OpenAI configuration (AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT) must be configured'
+        'Either the OpenAI default API key or Azure OpenAI service config must be configured'
       )
     })
   })

@@ -1,7 +1,10 @@
 'use client'
 
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { MonacoEditorHandle } from '@/components/monaco-editor'
+import {
+  buildMonacoIndicatorDiagnosticSource,
+  type MonacoEditorHandle,
+} from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Notice } from '@/components/ui/notice'
 import {
@@ -13,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
+import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/lib/indicators/pine-cheat-sheet'
 import { useUpdateIndicator, useVerifyIndicator } from '@/hooks/queries/indicators'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
@@ -21,7 +25,6 @@ import {
   CHEAT_SHEET_GROUPS,
   type CheatSheetGroup,
 } from '@/widgets/widgets/editor_indicator/components/pine-cheat-sheet'
-import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/widgets/widgets/editor_indicator/components/pine-cheat-sheet-typings'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 
@@ -397,6 +400,7 @@ export function IndicatorCodePanel({
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}
           extraLibs={PINE_CHEAT_SHEET_EXTRA_LIBS}
+          diagnosticSourceBuilder={buildMonacoIndicatorDiagnosticSource}
           editorOptions={{
             scrollbar: { alwaysConsumeMouseWheel: true },
           }}

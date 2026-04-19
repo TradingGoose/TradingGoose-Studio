@@ -27,7 +27,7 @@ import {
   Paperclip,
   Send,
   Shapes,
-  Shield,
+  ShieldAlert,
   ShieldCheck,
   SquareChevronRight,
   Workflow,
@@ -61,7 +61,6 @@ import { cn } from '@/lib/utils'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
 const logger = createLogger('CopilotUserInput')
@@ -91,7 +90,8 @@ interface AttachedFile {
 }
 
 interface UserInputProps {
-  channelId?: string
+  workspaceId: string
+  workflowId?: string | null
   onSubmit: (
     message: string,
     fileAttachments?: MessageFileAttachment[],
@@ -119,7 +119,8 @@ interface UserInputRef {
 const UserInput = forwardRef<UserInputRef, UserInputProps>(
   (
     {
-      channelId,
+      workspaceId,
+      workflowId = null,
       onSubmit,
       onAbort,
       disabled = false,
@@ -217,9 +218,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const [isLoadingLogs, setIsLoadingLogs] = useState(false)
 
     const { data: session } = useSession()
-    const { liveContext, contextUsage, createNewChat } = useCopilotStore()
-    const workspaceId = useWorkspaceId()
-    const workflowId = liveContext.workflowId
+    const { contextUsage, createNewChat } = useCopilotStore()
 
     // Determine placeholder based on access level
     const effectivePlaceholder =
@@ -254,7 +253,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Use controlled value if provided, otherwise use internal state
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
 
     // Load workflows on mount if we have a workflowId
     useEffect(() => {
@@ -267,7 +266,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     useEffect(() => {
       setPastChats([])
       setIsLoadingPastChats(false)
-    }, [channelId, workspaceId])
+    }, [workspaceId])
 
     // Auto-resize textarea and toggle vertical scroll when exceeding max height
     useEffect(() => {
@@ -368,15 +367,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         setIsLoadingPastChats(true)
 
         const params = new URLSearchParams()
-        if (channelId) {
-          params.set('channelId', channelId)
-        }
         if (workspaceId) {
           params.set('workspaceId', workspaceId)
         }
 
         const query = params.toString()
-        const resp = await fetch(query ? `/api/copilot/chats?${query}` : '/api/copilot/chats')
+        const resp = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
         if (!resp.ok) throw new Error(`Failed to load chats: ${resp.status}`)
         const data = await resp.json()
         const items = Array.isArray(data?.chats) ? data.chats : []
@@ -638,11 +634,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             prev.map((f) =>
               f.id === tempFile.id
                 ? {
-                    ...f,
-                    path: presignedData.fileInfo.path,
-                    key: presignedData.fileInfo.key, // Store the actual storage key
-                    uploading: false,
-                  }
+                  ...f,
+                  path: presignedData.fileInfo.path,
+                  key: presignedData.fileInfo.key, // Store the actual storage key
+                  uploading: false,
+                }
                 : f
             )
           )
@@ -738,25 +734,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const aggregatedList =
           !openSubmenuFor && mainQ.length > 0
             ? [
-                ...workflowBlocks
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
-                ...workflows
-                  .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
-                  .map((w) => ({ type: 'Workflows' as const, value: w })),
-                ...blocksList
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Blocks' as const, value: b })),
-                ...knowledgeBases
-                  .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
-                  .map((k) => ({ type: 'Knowledge' as const, value: k })),
-                ...templatesList
-                  .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
-                  .map((t) => ({ type: 'Templates' as const, value: t })),
-                ...pastChats
-                  .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
-                  .map((c) => ({ type: 'Chats' as const, value: c })),
-              ]
+              ...workflowBlocks
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
+              ...workflows
+                .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
+                .map((w) => ({ type: 'Workflows' as const, value: w })),
+              ...blocksList
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Blocks' as const, value: b })),
+              ...knowledgeBases
+                .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
+                .map((k) => ({ type: 'Knowledge' as const, value: k })),
+              ...templatesList
+                .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
+                .map((t) => ({ type: 'Templates' as const, value: t })),
+              ...pastChats
+                .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
+                .map((c) => ({ type: 'Chats' as const, value: c })),
+            ]
             : []
 
         if (openSubmenuFor === 'Chats' && pastChats.length > 0) {
@@ -1723,9 +1719,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const getAccessLevelIcon = () => {
       if (accessLevel === 'full') {
-        return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+        return <ShieldAlert className='h-3 w-3 text-muted-foreground' />
       }
-      return <Shield className='h-3 w-3 text-muted-foreground' />
+      return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
     }
 
     const getAccessLevelText = () => {
@@ -2103,7 +2099,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -2115,7 +2111,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             <div className='absolute top-2 right-2 z-10'>
               <ContextUsagePill
                 percentage={contextUsage.percentage}
-                onCreateNewChat={createNewChat}
+                onCreateNewChat={() => createNewChat(workspaceId)}
               />
             </div>
           )}
@@ -3246,7 +3242,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <Shield className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Limited
                             </span>
                             {accessLevel === 'limited' && (
@@ -3273,7 +3269,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Full
                             </span>
                             {accessLevel === 'full' && (
@@ -3303,7 +3299,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   (isBrainModel || isBrainCircuitModel || isFastModel) && !agentPrefetch
 
                 return (
-                  <DropdownMenu onOpenChange={() => {}}>
+                  <DropdownMenu onOpenChange={() => { }}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant='ghost'

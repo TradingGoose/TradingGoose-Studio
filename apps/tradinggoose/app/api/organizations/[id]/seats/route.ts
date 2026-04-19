@@ -5,8 +5,12 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  getOccupiedSeatCount,
+  getSeatOccupancy,
+} from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationSeatsAPI')
@@ -28,8 +32,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!(await isBillingEnabledForRuntime())) {
-      return NextResponse.json({ error: 'Billing is not enabled' }, { status: 400 })
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
     }
 
     const { id: organizationId } = await params
@@ -102,17 +106,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    // Validate that we're not reducing below current member count
-    const memberCount = await db
-      .select({ userId: member.userId })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
+    const occupiedSeats = await getOccupiedSeatCount(organizationId)
 
-    if (newSeatCount < memberCount.length) {
+    if (newSeatCount < occupiedSeats) {
       return NextResponse.json(
         {
-          error: `Cannot reduce seats below current member count (${memberCount.length})`,
-          currentMembers: memberCount.length,
+          error: `Cannot reduce seats below current occupied seat count (${occupiedSeats})`,
+          occupiedSeats,
         },
         { status: 400 }
       )
@@ -251,6 +251,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
+    }
+
     const { id: organizationId } = await params
 
     // Verify user has access to this organization
@@ -273,14 +277,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
     }
 
-    // Get member count
-    const memberCount = await db
-      .select({ userId: member.userId })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
-
     const maxSeats = Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
-    const usedSeats = memberCount.length
+    const seatOccupancy = await getSeatOccupancy(organizationId)
+    const usedSeats = seatOccupancy.occupied
     const availableSeats = Math.max(0, maxSeats - usedSeats)
 
     return NextResponse.json({
@@ -288,6 +287,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       data: {
         maxSeats,
         usedSeats,
+        memberSeats: seatOccupancy.members,
+        pendingInvitations: seatOccupancy.pending,
         availableSeats,
         tier: orgSubscription.tier.displayName,
         canModifySeats:

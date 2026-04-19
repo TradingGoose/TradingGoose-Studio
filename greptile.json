@@ -1,0 +1,98 @@
+{
+  "commentTypes": [
+    "logic",
+    "syntax"
+  ],
+  "strictness": 2,
+  "instructions": "Prioritize architectural regressions, data consistency bugs, billing entitlement mistakes, Yjs collaboration breakage, and provider-normalization drift. Ignore style-only nits unless they hide a correctness, maintainability, or contract issue.",
+  "ignorePatterns": "**/migration/**\n**/migrations/**\nLICENSE*\nLICENSES/**\nNOTICE\nTHIRD-PARTY-LICENSES",
+  "customContext": {
+    "rules": [
+      {
+        "rule": "This repo is Yjs-first for collaborative workflow and entity editing. Flag any PR that introduces a second authoritative collaborative state path, bypasses apps/tradinggoose/lib/yjs/* helpers, or treats local React/Zustand state as the durable source of truth for realtime collaborative data. Yjs is the live source; normalized DB writes are persistence/snapshot paths."
+      },
+      {
+        "rule": "When billing is enabled, all entitlement checks, default/free tier behavior, and billing-scope resolution must go through the shared billing helpers in apps/tradinggoose/lib/billing/settings.ts, apps/tradinggoose/lib/billing/tiers.ts, apps/tradinggoose/lib/billing/core/subscription.ts, and apps/tradinggoose/lib/billing/workspace-billing.ts. Flag duplicated tier checks, subscription.plan branching, hardcoded free/default logic, or direct subscription-row interpretation outside those helpers."
+      },
+      {
+        "rule": "Any PR targeting `staging` must add exactly one new dated markdown file under `changelog/` to document the branch. Flag PRs to `staging` that add zero new changelog files or more than one new changelog file."
+      },
+      {
+        "rule": "Configuration ownership split is strict. Keep in .env: Next.js / Better Auth / database / Redis config, OAuth app credentials for sign-in providers, and anything needed at build-time or framework boot-time. DB-backed system settings/services are only for runtime outbound service config after app boot. Flag PRs that move boot-time or framework-auth config into DB, or that add env-only/hardcoded config for runtime outbound system services that should live in systemSettings, systemIntegrationDefinition/systemIntegrationSecret, or systemServiceCredential/systemServiceSetting."
+      },
+      {
+        "rule": "DB-backed runtime outbound system service config includes services like Copilot API, Market API, search providers, Azure OpenAI / Azure OCR, Browserbase, Ollama, ElevenLabs, E2B, and similar outbound provider credentials/settings. Review for correct use of the system service / system integration service layers instead of direct env reads in runtime business logic."
+      },
+      {
+        "rule": "Listing-related internal app, provider, tool, widget, and persistence contracts should carry canonical ListingIdentity objects from apps/tradinggoose/lib/listing/identity.ts. Flag PRs that introduce raw symbol/base/quote/provider-string request contracts in provider-agnostic layers. Provider strings are derived leaf values, not the canonical cross-layer identifier. This guardrail is about internal cross-layer contracts, not low-level market metadata endpoints that intentionally operate on raw market ids."
+      },
+      {
+        "scope": [
+          "apps/tradinggoose/providers/market/**/*",
+          "apps/tradinggoose/socket-server/market/**/*",
+          "apps/tradinggoose/app/api/providers/market/**/*"
+        ],
+        "rule": "In apps/tradinggoose/providers/market/*, provider symbol resolution must use the shared rule-backed path: resolveListingContext() plus resolveProviderSymbol() with provider config rule tables. Flag ad hoc symbol concatenation, duplicated regex logic, or provider-specific normalization that bypasses providers/market/utils.ts."
+      },
+      {
+        "scope": [
+          "apps/tradinggoose/providers/trading/**/*",
+          "apps/tradinggoose/app/api/tools/trading/**/*",
+          "apps/tradinggoose/tools/trading/**/*"
+        ],
+        "rule": "In apps/tradinggoose/providers/trading/*, the only canonical normalization helpers are listingIdentityToTradingSymbol() for order submission and tradingSymbolToListingIdentity() for holdings/unified listing mapping. Both directions must derive from the same provider config rule tables in providers/trading/utils.ts. Flag provider-local symbol wrapper files, ad hoc symbol concatenation, or duplicated reverse parsing that bypasses those centralized helpers."
+      }
+    ],
+    "files": [
+      {
+        "path": "AGENTS.md",
+        "description": "Repo-wide engineering constraints: no legacy backfill paths, no migration edits, prefer simple minimal changes, and validation expectations."
+      },
+      {
+        "path": "changelog",
+        "description": "Dated changelog folder containing current design scopes, canonical helpers, replacements, removals, and guardrails that downstream operations like changelog-aware rebases rely on."
+      },
+      {
+        "path": "apps/tradinggoose/lib/yjs/workflow-session.ts",
+        "description": "Canonical Yjs workflow document structure and mutation model."
+      },
+      {
+        "path": "apps/tradinggoose/lib/billing/core/subscription.ts",
+        "description": "Canonical active/default subscription resolution, including default tier provisioning."
+      },
+      {
+        "path": "apps/tradinggoose/lib/billing/workspace-billing.ts",
+        "description": "Single billing-context resolver used by runtime execution, logging, and rate-limit paths."
+      },
+      {
+        "path": "apps/tradinggoose/lib/system-settings/service.ts",
+        "description": "DB-backed system settings and Stripe secret ownership."
+      },
+      {
+        "path": "apps/tradinggoose/lib/system-integrations/resolver.ts",
+        "description": "DB-backed system OAuth/integration bundle resolution and secret hydration."
+      },
+      {
+        "path": "apps/tradinggoose/lib/system-services/service.ts",
+        "description": "DB-backed system service credentials and settings."
+      },
+      {
+        "path": "apps/tradinggoose/lib/listing/identity.ts",
+        "description": "Canonical ListingIdentity shape and normalization contract."
+      },
+      {
+        "path": "apps/tradinggoose/providers/market/utils.ts",
+        "description": "Shared rule-backed listingIdentity to market provider symbol resolution."
+      },
+      {
+        "path": "apps/tradinggoose/providers/trading/utils.ts",
+        "description": "Shared rule-backed bidirectional trading normalization: listingIdentityToTradingSymbol() and tradingSymbolToListingIdentity()."
+      }
+    ],
+    "other": [
+      {
+        "content": "This is a Bun + Turborepo monorepo. Prefer comments about correctness, data integrity, authorization, billing scope, and contract drift over formatting suggestions. Ignore autogenerated migration files."
+      }
+    ]
+  }
+}
