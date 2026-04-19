@@ -38,7 +38,7 @@ import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
 } from '@/lib/billing/organization'
-import { getPlans } from '@/lib/billing/plans'
+import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import {
@@ -1430,7 +1430,7 @@ export const auth = betterAuth({
       },
       subscription: {
         enabled: true,
-        plans: getPlans,
+        plans: getBetterAuthPlansConfig(),
         authorizeReference: async ({ user, referenceId }) => {
           return await authorizeSubscriptionReference(user.id, referenceId)
         },
