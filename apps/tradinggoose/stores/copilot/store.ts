@@ -4,6 +4,7 @@ import { createContext, createElement, type ReactNode, useContext, useMemo } fro
 import type { StoreApi } from 'zustand'
 import { create, useStore } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { useStoreWithEqualityFn } from 'zustand/traditional'
 import {
   shouldAutoExecuteCopilotTool,
   shouldAutoExecuteIntegrationTool,
@@ -1830,7 +1831,9 @@ export function useCopilotStore<T = CopilotStore>(
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
   const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
-  return useStore(store, resolvedSelector, equalityFn)
+  return equalityFn
+    ? useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
+    : useStore(store, resolvedSelector)
 }
 
 export function useCopilotStoreApi(channelId?: string) {
