@@ -18,7 +18,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -1737,11 +1737,12 @@ function isUnauthorizedSessionError(error: unknown) {
   )
 }
 
-export async function getSession(headersOverride?: Headers) {
+export async function getSession(headersOverride?: Headers, options?: { disableCookieCache?: boolean }) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
+      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })

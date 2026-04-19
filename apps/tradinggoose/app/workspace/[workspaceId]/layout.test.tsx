@@ -7,13 +7,18 @@ const mockRedirect = vi.fn((url: string) => {
 })
 const mockGetSession = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
+const mockHeaders = vi.fn()
 
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
 }))
 
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}))
+
 vi.mock('@/lib/auth', () => ({
-  getSession: () => mockGetSession(),
+  getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -21,27 +26,27 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
-  default: ({
-    children,
-    workspaceId,
-  }: {
-    children: React.ReactNode
-    workspaceId?: string
-  }) => <div data-workspace-id={workspaceId}>{children}</div>,
+  default: ({ children, workspaceId }: { children: React.ReactNode; workspaceId?: string }) => (
+    <div data-workspace-id={workspaceId}>{children}</div>
+  ),
 }))
 
 describe('Workspace layout access guard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    mockHeaders.mockResolvedValue(new Headers())
 
     mockRedirect.mockImplementation((url: string) => {
       throw new Error(`redirect:${url}`)
     })
   })
 
-  it('redirects to login when there is no authenticated session', async () => {
+  it('redirects to login with the current callback target when there is no authenticated session', async () => {
     mockGetSession.mockResolvedValue(null)
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-auth-callback-url', '/workspace/ws-1/dashboard?layoutId=layout-1']])
+    )
 
     const WorkspaceLayout = (await import('./layout')).default
 
@@ -50,9 +55,14 @@ describe('Workspace layout access guard', () => {
         children: <div>workspace</div>,
         params: Promise.resolve({ workspaceId: 'ws-1' }),
       })
-    ).rejects.toThrow('redirect:/login')
+    ).rejects.toThrow(
+      'redirect:/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    )
 
-    expect(mockRedirect).toHaveBeenCalledWith('/login')
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    )
+    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers), { disableCookieCache: true })
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
   })
 

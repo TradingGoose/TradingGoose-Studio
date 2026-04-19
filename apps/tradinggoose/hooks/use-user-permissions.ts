@@ -39,7 +39,8 @@ export function useUserPermissions(
 
   const userPermissions = useMemo((): WorkspaceUserPermissions => {
     const sessionEmail = session?.user?.email
-    const resolvedError = permissionsError ?? sessionError?.message ?? null
+    const sessionErrorMessage = sessionError?.message ?? null
+    const resolvedError = permissionsError ?? sessionErrorMessage
 
     if (permissionsLoading || isSessionPending) {
       return {
@@ -59,7 +60,7 @@ export function useUserPermissions(
         canAdmin: false,
         userPermissions: 'read',
         isLoading: false,
-        error: resolvedError ?? 'Authentication required',
+        error: sessionErrorMessage ?? 'Authentication required',
       }
     }
 
