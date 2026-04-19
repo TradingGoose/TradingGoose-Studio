@@ -47,7 +47,7 @@ vi.mock('reactflow', () => {
   }
 })
 
-vi.mock('reactflow/dist/style.css', () => ({}))
+vi.mock('@xyflow/react/dist/style.css', () => ({}))
 vi.mock('./preview-subflow', () => ({
   PreviewSubflow: () => null,
 }))

@@ -4,7 +4,7 @@
  * This file contains test fixtures for serializer tests, providing
  * sample workflow states with different configurations.
  */
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import type { BlockState, Loop } from '@/stores/workflows/workflow/types'
 
 /**

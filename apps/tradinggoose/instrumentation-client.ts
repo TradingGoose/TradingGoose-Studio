@@ -144,6 +144,24 @@ if (typeof window !== 'undefined') {
       })
     }
 
+  window.addEventListener(
+    'unhandledrejection',
+    (event) => {
+      const error = event.reason
+      if (
+        error instanceof Error &&
+        (error.name === 'Canceled' ||
+          error.message === 'Canceled' ||
+          error.message === 'Canceled: Canceled') &&
+        (error.stack?.includes('monaco-editor') || error.stack?.includes('q_monaco-editor'))
+      ) {
+        event.stopImmediatePropagation()
+        event.preventDefault()
+      }
+    },
+    { capture: true }
+  )
+
   if (telemetryEnabled) {
     const shouldTrackVitals = Math.random() < 0.1
 

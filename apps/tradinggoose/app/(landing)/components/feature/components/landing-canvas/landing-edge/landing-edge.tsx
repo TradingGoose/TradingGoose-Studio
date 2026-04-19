@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { type EdgeProps, getSmoothStepPath, Position } from 'reactflow'
+import { type EdgeProps, getSmoothStepPath, Position } from '@xyflow/react'
 
 /**
  * Custom edge component with animated dotted line that floats between handles

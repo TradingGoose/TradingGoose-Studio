@@ -2,16 +2,17 @@
 
 import { useCallback, useMemo } from 'react'
 import { Minus, Plus } from 'lucide-react'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
   ReactFlowProvider,
   useReactFlow,
   useStore,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'

@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -20,6 +21,7 @@ const logSocketIssue = (
 ) => {
   if (isSocketAuthError(details.message)) {
     logger.warn(event, details)
+    void handleAuthError('socket-auth')
   } else {
     logger.error(event, details)
   }

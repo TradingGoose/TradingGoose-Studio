@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlock } from '@/blocks'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'

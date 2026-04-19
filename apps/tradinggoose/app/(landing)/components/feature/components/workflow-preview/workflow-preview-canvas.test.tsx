@@ -36,7 +36,7 @@ vi.mock('reactflow', () => {
   }
 })
 
-vi.mock('reactflow/dist/style.css', () => ({}))
+vi.mock('@xyflow/react/dist/style.css', () => ({}))
 vi.mock('@/components/ui/button', () => ({
   Button: ({
     children,

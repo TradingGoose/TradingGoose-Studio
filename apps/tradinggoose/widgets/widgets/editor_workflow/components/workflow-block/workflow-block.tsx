@@ -1,5 +1,5 @@
 import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Handle, type NodeProps, Position, useStore, useUpdateNodeInternals } from 'reactflow'
+import { Handle, type Node, type NodeProps, Position, useStore, useUpdateNodeInternals } from '@xyflow/react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { PopoverEnvironmentProvider } from '@/components/ui/popover'
@@ -246,7 +246,7 @@ function formatSkillInputValue(value: unknown): string {
   return `${resolvedNames[0]}, ${resolvedNames[1]} +${resolvedNames.length - 2}`
 }
 
-interface WorkflowBlockProps {
+interface WorkflowBlockProps extends Record<string, unknown> {
   type: string
   config: BlockConfig
   name: string
@@ -258,9 +258,11 @@ interface WorkflowBlockProps {
   blockState?: any // Block state data passed in preview mode
 }
 
+type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
+
 // Combine both interfaces into a single component - wrapped in memo for performance
 export const WorkflowBlock = memo(
-  function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockProps>) {
+  function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
 
     // State management

@@ -13,6 +13,12 @@ interface BillingPlan {
   }
 }
 
+const NEXT_BUILD_PHASE = 'phase-production-build'
+
+export function getBetterAuthPlansConfig(): BillingPlan[] | typeof getPlans {
+  return process.env.NEXT_PHASE === NEXT_BUILD_PHASE ? [] : getPlans
+}
+
 /**
  * Get the Better Auth Stripe plan configuration from active public billing tiers.
  */

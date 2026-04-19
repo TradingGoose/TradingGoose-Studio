@@ -1,12 +1,12 @@
 import { memo, useMemo } from 'react'
-import { Handle, type NodeProps, Position } from 'reactflow'
+import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getPreviewDiffClasses } from './preview-diff'
-import type { PreviewNodeData } from './preview-payload-adapter'
+import type { PreviewCanvasNode } from './preview-payload-adapter'
 
 function extractSubBlockValue(entry: unknown): unknown {
   if (entry && typeof entry === 'object' && 'value' in entry) {
@@ -64,7 +64,7 @@ function getPreviewSubBlockStableKey(
   return `${nodeType}-${subBlock.id}-${index}`
 }
 
-export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<PreviewNodeData>) {
+export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<PreviewCanvasNode>) {
   const blockConfig = useMemo(() => getBlock(data.type) ?? data.config, [data.type, data.config])
   const Icon = blockConfig.icon
   const isEnabled = data.blockState?.enabled ?? true

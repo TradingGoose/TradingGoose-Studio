@@ -1,4 +1,4 @@
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
