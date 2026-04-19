@@ -21,13 +21,23 @@ export const EDIT_REPLAY_BLOCKED_MESSAGE =
 
 const ACCEPTED_WORKFLOW_MUTATION_STATES = new Set(['success', 'accepted'])
 const ALWAYS_UNSAFE_LIVE_MUTATION_TOOL_NAMES = new Set([
+  'create_workflow',
   'edit_workflow',
+  'rename_workflow',
   'set_global_workflow_variables',
   'edit_monitor',
+  'create_skill',
   'edit_skill',
+  'rename_skill',
+  'create_custom_tool',
   'edit_custom_tool',
+  'rename_custom_tool',
+  'create_indicator',
   'edit_indicator',
+  'rename_indicator',
+  'create_mcp_server',
   'edit_mcp_server',
+  'rename_mcp_server',
 ])
 
 function asWorkflowToolCall(value: unknown): ReplaySafetyToolCallLike | null {

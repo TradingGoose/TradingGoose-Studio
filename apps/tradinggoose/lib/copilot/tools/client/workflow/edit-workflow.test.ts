@@ -63,7 +63,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
 describe('EditWorkflowClientTool approval gating', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
     accessLevel = 'limited'
     persistedToolCalls = {}
     mockGetReadableWorkflowState.mockReset()

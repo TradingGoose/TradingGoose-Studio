@@ -11,6 +11,15 @@ const editWorkflowExecute = vi.fn(async () => ({
   workflowState: { blocks: {} },
 }))
 const getWorkflowConsoleExecute = vi.fn(async () => ({ entries: [] }))
+const getIndicatorCatalogExecute = vi.fn(async () => ({
+  sections: [],
+  items: [],
+  count: 0,
+}))
+const getIndicatorMetadataExecute = vi.fn(async () => ({
+  items: [],
+  missingIds: [],
+}))
 const listGDriveFilesExecute = vi.fn(async () => ({ files: [] }))
 const readGDriveFileExecute = vi.fn(async () => ({ content: '' }))
 const getCredentialsExecute = vi.fn(async () => ({
@@ -62,6 +71,18 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool', () => ({
     execute: vi.fn(async () => ({ metadata: {} })),
   },
 }))
+vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-catalog', () => ({
+  getIndicatorCatalogServerTool: {
+    name: 'get_indicator_catalog',
+    execute: getIndicatorCatalogExecute,
+  },
+}))
+vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-metadata', () => ({
+  getIndicatorMetadataServerTool: {
+    name: 'get_indicator_metadata',
+    execute: getIndicatorMetadataExecute,
+  },
+}))
 vi.mock('@/lib/copilot/tools/server/blocks/get-trigger-blocks', () => ({
   getTriggerBlocksServerTool: {
     name: 'get_trigger_blocks',
@@ -81,10 +102,16 @@ vi.mock('@/lib/copilot/tools/server/gdrive/read-file', () => ({
   readGDriveFileServerTool: { name: 'read_gdrive_file', execute: readGDriveFileExecute },
 }))
 vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
-  knowledgeBaseServerTool: { name: 'knowledge_base', execute: vi.fn(async () => ({ results: [] })) },
+  knowledgeBaseServerTool: {
+    name: 'knowledge_base',
+    execute: vi.fn(async () => ({ results: [] })),
+  },
 }))
 vi.mock('@/lib/copilot/tools/server/other/make-api-request', () => ({
-  makeApiRequestServerTool: { name: 'make_api_request', execute: vi.fn(async () => ({ success: true })) },
+  makeApiRequestServerTool: {
+    name: 'make_api_request',
+    execute: vi.fn(async () => ({ success: true })),
+  },
 }))
 vi.mock('@/lib/copilot/tools/server/other/search-online', () => ({
   searchOnlineServerTool: { name: 'search_online', execute: vi.fn(async () => ({ results: [] })) },
@@ -132,6 +159,8 @@ beforeAll(async () => {
 beforeEach(() => {
   editWorkflowExecute.mockClear()
   getWorkflowConsoleExecute.mockClear()
+  getIndicatorCatalogExecute.mockClear()
+  getIndicatorMetadataExecute.mockClear()
   listGDriveFilesExecute.mockClear()
   readGDriveFileExecute.mockClear()
   getCredentialsExecute.mockClear()
@@ -144,6 +173,8 @@ describe('copilot contract registry', () => {
   it('only exposes supported tool ids', () => {
     expect(isToolId('get_blocks_and_tools')).toBe(true)
     expect(isToolId('get_blocks_metadata')).toBe(true)
+    expect(isToolId('get_indicator_catalog')).toBe(true)
+    expect(isToolId('get_indicator_metadata')).toBe(true)
     expect(isToolId('get_block_options')).toBe(false)
     expect(isToolId('get_block_config')).toBe(false)
     expect(isToolId('get_block_best_practices')).toBe(false)
@@ -210,6 +241,35 @@ describe('routeExecution', () => {
     await expect(routeExecution('get_blocks_and_tools', {})).resolves.toMatchObject({
       blocks: expect.any(Array),
     })
+  })
+
+  it('routes indicator catalog requests through the central contract', async () => {
+    await expect(
+      routeExecution('get_indicator_catalog', { query: 'input', includeItems: true })
+    ).resolves.toMatchObject({
+      sections: expect.any(Array),
+      items: expect.any(Array),
+      count: expect.any(Number),
+    })
+
+    expect(getIndicatorCatalogExecute).toHaveBeenCalledWith(
+      { query: 'input', includeItems: true },
+      undefined
+    )
+  })
+
+  it('routes indicator metadata requests through the central contract', async () => {
+    await expect(
+      routeExecution('get_indicator_metadata', { targetIds: ['input.int'] })
+    ).resolves.toMatchObject({
+      items: expect.any(Array),
+      missingIds: expect.any(Array),
+    })
+
+    expect(getIndicatorMetadataExecute).toHaveBeenCalledWith(
+      { targetIds: ['input.int'] },
+      undefined
+    )
   })
 
   it('preserves workflow edit context fields when routing workflow tools', async () => {

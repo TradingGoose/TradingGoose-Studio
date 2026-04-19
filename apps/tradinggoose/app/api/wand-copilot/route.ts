@@ -1,12 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import {
-  formatCompletionModel,
-  readCompletionDeltaText,
-  readCompletionError,
-} from '@/lib/copilot/completion'
-import { getCopilotModel } from '@/lib/copilot/config'
+import { formatCompletionModel, readCompletionDeltaText, readCompletionError } from '@/lib/copilot/completion'
+import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
@@ -96,9 +93,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { prompt, systemPrompt, history } = parsed.data
-  const defaultModel = getCopilotModel('chat')
-  const configuredModel = defaultModel.model
-  const configuredProvider = defaultModel.provider
+  const configuredModel = DEFAULT_COPILOT_RUNTIME_MODEL
+  const configuredProvider = resolveCopilotRuntimeProvider(configuredModel)
   const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
     ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
     ...(history || []).map((message) => ({
@@ -117,6 +113,9 @@ export async function POST(req: NextRequest) {
         messages,
       },
       signal: req.signal,
+      headers: {
+        'x-copilot-user-id': session.user.id,
+      },
     })
   } catch (error) {
     logger.error('Failed to proxy wand stream', { error })

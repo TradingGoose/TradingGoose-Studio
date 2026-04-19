@@ -1,4 +1,14 @@
-import { BarChart3, BookOpen, Check, Code2, FileJson, Loader2, Server, X, XCircle } from 'lucide-react'
+import {
+  BarChart3,
+  BookOpen,
+  Check,
+  Code2,
+  FileJson,
+  Loader2,
+  Server,
+  X,
+  XCircle,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
   getEntityDocumentFormat,
@@ -43,6 +53,8 @@ type EditEntityDocumentArgs = ReadEntityDocumentArgs & {
   entityDocument: string
   documentFormat?: string
 }
+
+type EntityMutationAction = 'edit' | 'create' | 'rename'
 
 function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
   try {
@@ -123,35 +135,63 @@ function createReadMetadata(config: EntityToolConfig): BaseClientToolMetadata {
   }
 }
 
-function createEditMetadata(config: EntityToolConfig): BaseClientToolMetadata {
+function createMutationMetadata(
+  config: EntityToolConfig,
+  action: EntityMutationAction
+): BaseClientToolMetadata {
+  const actionLabels =
+    action === 'create'
+      ? {
+          gerund: 'Creating',
+          prompt: 'Create',
+          past: 'Created',
+          error: 'create',
+          aborted: 'creating',
+        }
+      : action === 'rename'
+        ? {
+            gerund: 'Renaming',
+            prompt: 'Rename',
+            past: 'Renamed',
+            error: 'rename',
+            aborted: 'renaming',
+          }
+        : {
+            gerund: 'Editing',
+            prompt: 'Edit',
+            past: 'Edited',
+            error: 'edit',
+            aborted: 'editing',
+          }
+
   return {
     displayNames: {
       [ClientToolCallState.generating]: {
-        text: `Editing ${config.singularLabel} document`,
+        text: `${actionLabels.gerund} ${config.singularLabel} document`,
         icon: Loader2,
       },
       [ClientToolCallState.pending]: {
-        text: `Edit ${config.singularLabel} document?`,
+        text: `${actionLabels.prompt} ${config.singularLabel} document?`,
         icon: config.icon,
       },
       [ClientToolCallState.executing]: {
-        text: `Editing ${config.singularLabel} document`,
+        text: `${actionLabels.gerund} ${config.singularLabel} document`,
         icon: Loader2,
       },
       [ClientToolCallState.success]: {
-        text: `Edited ${config.singularLabel} document`,
+        text: `${actionLabels.past} ${config.singularLabel} document`,
         icon: Check,
       },
       [ClientToolCallState.error]: {
-        text: `Failed to edit ${config.singularLabel} document`,
+        text: `Failed to ${actionLabels.error} ${config.singularLabel} document`,
         icon: X,
       },
       [ClientToolCallState.aborted]: {
-        text: `Aborted editing ${config.singularLabel} document`,
+        text: `Aborted ${actionLabels.aborted} ${config.singularLabel} document`,
         icon: XCircle,
       },
       [ClientToolCallState.rejected]: {
-        text: `Skipped editing ${config.singularLabel} document`,
+        text: `Skipped ${actionLabels.aborted} ${config.singularLabel} document`,
         icon: XCircle,
       },
     },
@@ -230,10 +270,14 @@ function createGetEntityDocumentTool(toolId: string, config: EntityToolConfig) {
   }
 }
 
-function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) {
+function createEntityDocumentMutationTool(
+  toolId: string,
+  config: EntityToolConfig,
+  action: EntityMutationAction
+) {
   return class EditEntityDocumentClientTool extends BaseClientTool {
     static readonly id = toolId
-    static readonly metadata = createEditMetadata(config)
+    static readonly metadata = createMutationMetadata(config, action)
     private currentArgs?: EditEntityDocumentArgs
 
     constructor(toolCallId: string) {
@@ -275,13 +319,11 @@ function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) 
 
         if (!session) {
           if (!entityId) {
-            throw new Error(
-              `entityId is required to edit a saved ${config.singularLabel}; unsaved drafts require an active review session`
-            )
+            throw new Error(`entityId is required to update a saved ${config.singularLabel}`)
           }
 
           throw new Error(
-            `No active ${config.singularLabel} review session found for ${entityId}. Open the ${config.singularLabel} review before editing.`
+            `No active ${config.singularLabel} review session found for ${entityId}. Open the ${config.singularLabel} review before updating.`
           )
         }
 
@@ -293,7 +335,7 @@ function createEditEntityDocumentTool(toolId: string, config: EntityToolConfig) 
         await this.markToolComplete(200, `${config.singularLabel} document updated`, {
           success: true,
           entityKind: config.kind,
-          ...(session.descriptor.entityId ?? entityId
+          ...((session.descriptor.entityId ?? entityId)
             ? { entityId: session.descriptor.entityId ?? entityId }
             : {}),
           entityName,
@@ -341,39 +383,63 @@ const mcpServerToolConfig: EntityToolConfig = {
 }
 
 export const ListSkillsClientTool = createListEntityTool('list_skills', skillToolConfig)
-export const GetSkillClientTool = createGetEntityDocumentTool(
-  'get_skill',
-  skillToolConfig
-)
-export const EditSkillClientTool = createEditEntityDocumentTool(
+export const GetSkillClientTool = createGetEntityDocumentTool('get_skill', skillToolConfig)
+export const EditSkillClientTool = createEntityDocumentMutationTool(
   'edit_skill',
-  skillToolConfig
+  skillToolConfig,
+  'edit'
+)
+export const CreateSkillClientTool = createEntityDocumentMutationTool(
+  'create_skill',
+  skillToolConfig,
+  'create'
+)
+export const RenameSkillClientTool = createEntityDocumentMutationTool(
+  'rename_skill',
+  skillToolConfig,
+  'rename'
 )
 
-export const ListCustomToolsClientTool = createListEntityTool(
-  'list_custom_tools',
-  customToolConfig
-)
+export const ListCustomToolsClientTool = createListEntityTool('list_custom_tools', customToolConfig)
 export const GetCustomToolClientTool = createGetEntityDocumentTool(
   'get_custom_tool',
   customToolConfig
 )
-export const EditCustomToolClientTool = createEditEntityDocumentTool(
+export const EditCustomToolClientTool = createEntityDocumentMutationTool(
   'edit_custom_tool',
-  customToolConfig
+  customToolConfig,
+  'edit'
+)
+export const CreateCustomToolClientTool = createEntityDocumentMutationTool(
+  'create_custom_tool',
+  customToolConfig,
+  'create'
+)
+export const RenameCustomToolClientTool = createEntityDocumentMutationTool(
+  'rename_custom_tool',
+  customToolConfig,
+  'rename'
 )
 
-export const ListIndicatorsClientTool = createListEntityTool(
-  'list_indicators',
-  indicatorToolConfig
-)
+export const ListIndicatorsClientTool = createListEntityTool('list_indicators', indicatorToolConfig)
 export const GetIndicatorClientTool = createGetEntityDocumentTool(
   'get_indicator',
   indicatorToolConfig
 )
-export const EditIndicatorClientTool = createEditEntityDocumentTool(
+export const EditIndicatorClientTool = createEntityDocumentMutationTool(
   'edit_indicator',
-  indicatorToolConfig
+  indicatorToolConfig,
+  'edit'
+)
+export const CreateIndicatorClientTool = createEntityDocumentMutationTool(
+  'create_indicator',
+  indicatorToolConfig,
+  'create'
+)
+export const RenameIndicatorClientTool = createEntityDocumentMutationTool(
+  'rename_indicator',
+  indicatorToolConfig,
+  'rename'
 )
 
 export const ListMcpServersClientTool = createListEntityTool(
@@ -384,7 +450,18 @@ export const GetMcpServerClientTool = createGetEntityDocumentTool(
   'get_mcp_server',
   mcpServerToolConfig
 )
-export const EditMcpServerClientTool = createEditEntityDocumentTool(
+export const EditMcpServerClientTool = createEntityDocumentMutationTool(
   'edit_mcp_server',
-  mcpServerToolConfig
+  mcpServerToolConfig,
+  'edit'
+)
+export const CreateMcpServerClientTool = createEntityDocumentMutationTool(
+  'create_mcp_server',
+  mcpServerToolConfig,
+  'create'
+)
+export const RenameMcpServerClientTool = createEntityDocumentMutationTool(
+  'rename_mcp_server',
+  mcpServerToolConfig,
+  'rename'
 )

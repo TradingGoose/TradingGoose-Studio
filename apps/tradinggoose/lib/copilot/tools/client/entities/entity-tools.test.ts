@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
+  CreateSkillClientTool,
   EditSkillClientTool,
   GetCustomToolClientTool,
   GetSkillClientTool,
   ListSkillsClientTool,
+  RenameSkillClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
 
 const mockRegistryState = {
@@ -23,6 +25,8 @@ const mockEntitySessionRegistry = {
 const mockEntityFieldState = {
   values: {} as Record<string, unknown>,
 }
+
+const originalFetch = globalThis.fetch
 
 vi.mock('@/stores/workflows/registry/store', () => ({
   useWorkflowRegistry: {
@@ -48,17 +52,16 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
     return mockEntitySessionRegistry.session
   }),
   getRegisteredEntitySessionByIdentity: vi.fn(
-    (
-      entityKind: string,
-      entityId?: string | null,
-      workspaceId?: string | null
-    ) => {
+    (entityKind: string, entityId?: string | null, workspaceId?: string | null) => {
       const session = mockEntitySessionRegistry.session
       if (!entityId || !session) {
         return null
       }
 
-      if (session.descriptor.entityKind !== entityKind || session.descriptor.entityId !== entityId) {
+      if (
+        session.descriptor.entityKind !== entityKind ||
+        session.descriptor.entityId !== entityId
+      ) {
         return null
       }
 
@@ -84,7 +87,8 @@ vi.mock('@/lib/yjs/entity-session', () => ({
 describe('entity document tools', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
+    globalThis.fetch = originalFetch
     mockRegistryState.workflows = {
       'wf-context': { workspaceId: 'ws-1' },
     }
@@ -124,7 +128,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     const toolCallId = 'list-skills'
     const tool = new ListSkillsClientTool(toolCallId)
@@ -198,7 +202,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     const toolCallId = 'get-custom-tool'
     const tool = new GetCustomToolClientTool(toolCallId)
@@ -245,7 +249,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     mockEntityFieldState.values = {
       title: 'live-market-tool',
@@ -316,7 +320,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     mockEntityFieldState.values = {
       name: 'old-skill',
@@ -404,7 +408,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     mockEntityFieldState.values = {
       name: 'draft-skill',
@@ -471,7 +475,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     mockEntityFieldState.values = {
       name: 'draft-skill',
@@ -538,6 +542,171 @@ describe('entity document tools', () => {
     expect(markCompleteBody.data).not.toHaveProperty('entityId')
   })
 
+  it('create_skill applies the document to an unsaved draft and marks completion with the create alias', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    mockEntityFieldState.values = {
+      name: '',
+      description: '',
+      content: '',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'create-skill'
+    const tool = new CreateSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'create_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'created-skill',
+        description: 'Created draft description',
+        content: 'Created draft content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'created-skill',
+      description: 'Created draft description',
+      content: 'Created draft content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.name).toBe('create_skill')
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityName: 'created-skill',
+      reviewSessionId: 'review-draft',
+      draftSessionId: 'draft-1',
+    })
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('rename_skill applies the renamed document to a saved review target', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    mockEntityFieldState.values = {
+      name: 'old-skill-name',
+      description: 'Existing description',
+      content: 'Existing content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        reviewSessionId: 'review-1',
+        draftSessionId: 'draft-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'rename-skill'
+    const tool = new RenameSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'rename_skill',
+      channelId: 'pair-purple',
+      workflowId: 'wf-context',
+      reviewSessionId: 'review-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityId: 'skill-1',
+      entityDocument: JSON.stringify({
+        name: 'renamed-skill',
+        description: 'Existing description',
+        content: 'Existing content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    })
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'renamed-skill',
+      description: 'Existing description',
+      content: 'Existing content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.name).toBe('rename_skill')
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      entityName: 'renamed-skill',
+      reviewSessionId: 'review-1',
+      draftSessionId: 'draft-1',
+    })
+  })
+
   it('edit_skill rejects edits without an explicit entityId when no unsaved draft review session is active', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -553,7 +722,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    vi.stubGlobal('fetch', fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     mockEntitySessionRegistry.session = {
       descriptor: {
@@ -596,7 +765,7 @@ describe('entity document tools', () => {
     })
     const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(markCompleteBody.status).toBe(500)
-    expect(markCompleteBody.message).toContain('entityId is required to edit a saved skill')
+    expect(markCompleteBody.message).toContain('entityId is required to update a saved skill')
   })
 
   it('registry schemas accept optional explicit entity ids for entity document tools', () => {
@@ -621,6 +790,13 @@ describe('entity document tools', () => {
     ).toMatchObject({
       entityDocument: '{"name":"skill","description":"","content":""}',
     })
+    expect(
+      ToolArgSchemas.create_skill.parse({
+        entityDocument: '{"name":"skill","description":"","content":""}',
+      })
+    ).toMatchObject({
+      entityDocument: '{"name":"skill","description":"","content":""}',
+    })
 
     expect(
       ToolResultSchemas.get_custom_tool.parse({
@@ -636,6 +812,16 @@ describe('entity document tools', () => {
         entityKind: 'skill',
         entities: [],
         count: 0,
+      })
+    ).toBeDefined()
+    expect(
+      ToolResultSchemas.rename_skill.parse({
+        success: true,
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        entityName: 'renamed-skill',
+        documentFormat: 'tg-skill-document-v1',
+        entityDocument: '{"name":"renamed-skill","description":"","content":""}',
       })
     ).toBeDefined()
   })

@@ -18,13 +18,6 @@ describe('Wand Copilot API Route', () => {
       })),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(() => ({
-        provider: 'anthropic',
-        model: 'claude-4.5-sonnet',
-      })),
-    }))
-
     global.fetch = vi.fn()
   })
 
@@ -67,10 +60,15 @@ describe('Wand Copilot API Route', () => {
 
     const [url, init] = (global.fetch as any).mock.calls[0]
     expect(url).toBe('http://localhost:8000/api/completion?version=v1')
+    expect(init.headers).toMatchObject({
+      'Content-Type': 'application/json',
+      'x-api-key': 'test-copilot-key',
+      'x-copilot-user-id': 'user-123',
+    })
 
     const payload = JSON.parse(init.body)
     expect(payload).toEqual({
-      model: 'anthropic/claude-4.5-sonnet',
+      model: 'anthropic/claude-sonnet-4.6',
       stream: true,
       messages: [
         { role: 'system', content: 'You are a code assistant.' },
@@ -111,7 +109,7 @@ describe('Wand Copilot API Route', () => {
     const [, init] = (global.fetch as any).mock.calls[0]
     const payload = JSON.parse(init.body)
     expect(payload).toMatchObject({
-      model: 'anthropic/claude-4.5-sonnet',
+      model: 'anthropic/claude-sonnet-4.6',
       stream: true,
     })
   })

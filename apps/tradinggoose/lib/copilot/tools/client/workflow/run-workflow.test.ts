@@ -25,7 +25,7 @@ vi.mock('@/stores/execution/store', () => ({
 describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
     mockExecutionState.isExecuting = false
     mockExecutionState.setIsExecuting.mockClear()
     mockExecuteWorkflowWithFullLogging.mockReset()

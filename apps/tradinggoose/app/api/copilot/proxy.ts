@@ -7,18 +7,21 @@ export type CopilotProxyRequest = {
   endpoint: string
   body?: Record<string, unknown>
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
 export type CopilotCompletionRequest = {
   body?: Record<string, unknown>
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
 type CopilotQuery = Record<string, string | number | boolean | null | undefined>
 
 async function createRequestInit(
   body: Record<string, unknown> | undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  extraHeaders?: Record<string, string>
 ): Promise<RequestInit> {
   const copilotApi = await resolveCopilotApiServiceConfig()
   const headers: Record<string, string> = {
@@ -28,6 +31,7 @@ async function createRequestInit(
   if (apiKey) {
     headers['x-api-key'] = apiKey
   }
+  Object.assign(headers, extraHeaders)
 
   return {
     method: 'POST',
@@ -47,16 +51,24 @@ export async function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
   return url.toString()
 }
 
-export async function proxyCopilotRequest({ endpoint, body, signal }: CopilotProxyRequest) {
+export async function proxyCopilotRequest({ endpoint, body, signal, headers }: CopilotProxyRequest) {
   return fetch(
     await getCopilotApiUrl(endpoint),
-    await createRequestInit(body ? { ...body, version: COPILOT_API_VERSION } : undefined, signal)
+    await createRequestInit(
+      body ? { ...body, version: COPILOT_API_VERSION } : undefined,
+      signal,
+      headers
+    )
   )
 }
 
-export async function proxyCopilotCompletionRequest({ body, signal }: CopilotCompletionRequest) {
+export async function proxyCopilotCompletionRequest({
+  body,
+  signal,
+  headers,
+}: CopilotCompletionRequest) {
   return fetch(
     await getCopilotApiUrl('/api/completion', { version: COMPLETION_API_VERSION }),
-    await createRequestInit(body, signal)
+    await createRequestInit(body, signal, headers)
   )
 }

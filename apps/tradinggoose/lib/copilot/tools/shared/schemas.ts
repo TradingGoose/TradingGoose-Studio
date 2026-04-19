@@ -115,6 +115,134 @@ export const GetBlocksMetadataInput = z.object({
 export const GetBlocksMetadataResult = z.object({ metadata: z.record(BlockMermaidProfileSchema) })
 export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult>
 
+// get_indicator_catalog / get_indicator_metadata
+export const IndicatorCatalogSectionIdSchema = z.enum([
+  'section:document',
+  'section:runtime',
+  'section:context',
+  'section:inputs',
+  'section:indicator_options',
+  'section:triggers',
+  'section:unsupported',
+])
+export type IndicatorCatalogSectionId = z.infer<typeof IndicatorCatalogSectionIdSchema>
+
+export const IndicatorCatalogSupportSchema = z.enum(['supported', 'curated', 'unsupported'])
+export type IndicatorCatalogSupport = z.infer<typeof IndicatorCatalogSupportSchema>
+
+export const IndicatorCatalogItemTypeSchema = z.enum([
+  'section',
+  'document_field',
+  'runtime_behavior',
+  'context_surface',
+  'input_function',
+  'indicator_option',
+  'trigger_api',
+  'unsupported_feature',
+])
+export type IndicatorCatalogItemType = z.infer<typeof IndicatorCatalogItemTypeSchema>
+
+export const IndicatorSourceReferenceSchema = z.object({
+  label: z.string(),
+  path: z.string(),
+})
+export type IndicatorSourceReference = z.infer<typeof IndicatorSourceReferenceSchema>
+
+export const IndicatorCatalogSectionSchema = z.object({
+  id: IndicatorCatalogSectionIdSchema,
+  title: z.string(),
+  summary: z.string(),
+  itemCount: z.number(),
+})
+export type IndicatorCatalogSection = z.infer<typeof IndicatorCatalogSectionSchema>
+
+export const IndicatorCatalogItemSchema = z.object({
+  id: z.string(),
+  sectionId: IndicatorCatalogSectionIdSchema,
+  type: IndicatorCatalogItemTypeSchema.exclude(['section']),
+  title: z.string(),
+  summary: z.string(),
+  support: IndicatorCatalogSupportSchema,
+  relatedIds: z.array(z.string()).optional(),
+})
+export type IndicatorCatalogItem = z.infer<typeof IndicatorCatalogItemSchema>
+
+export const IndicatorMetadataExampleSchema = z.object({
+  title: z.string(),
+  summary: z.string().optional(),
+  code: z.string().optional(),
+  indicatorId: z.string().optional(),
+})
+export type IndicatorMetadataExample = z.infer<typeof IndicatorMetadataExampleSchema>
+
+export const IndicatorMetadataEntrySchema = z.object({
+  id: z.string(),
+  sectionId: IndicatorCatalogSectionIdSchema.optional(),
+  type: IndicatorCatalogItemTypeSchema,
+  title: z.string(),
+  summary: z.string(),
+  detail: z.string(),
+  support: IndicatorCatalogSupportSchema,
+  signature: z.string().optional(),
+  supportedValues: z.array(z.string()).optional(),
+  defaultValue: z.unknown().optional(),
+  relatedIds: z.array(z.string()).optional(),
+  examples: z.array(IndicatorMetadataExampleSchema).optional(),
+  sourceReferences: z.array(IndicatorSourceReferenceSchema).optional(),
+})
+export type IndicatorMetadataEntry = z.infer<typeof IndicatorMetadataEntrySchema>
+
+export const GetIndicatorCatalogInput = z.object({
+  sections: z
+    .array(IndicatorCatalogSectionIdSchema)
+    .min(1)
+    .optional()
+    .describe(
+      'Optional exact section ids to narrow the catalog. Omit to inspect every supported indicator authoring section.'
+    ),
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      'Optional capability search query used to narrow the TradingGoose indicator authoring catalog, for example `input enum`, `overlay`, `trigger`, or `runtime output`.'
+    ),
+  includeItems: z
+    .boolean()
+    .optional()
+    .describe('When false, return only section summaries without the individual item ids.'),
+})
+export const GetIndicatorCatalogResult = z.object({
+  sections: z.array(IndicatorCatalogSectionSchema),
+  items: z.array(IndicatorCatalogItemSchema),
+  count: z.number(),
+  query: z.string().optional(),
+})
+export type GetIndicatorCatalogResultType = z.infer<typeof GetIndicatorCatalogResult>
+
+export const GetIndicatorMetadataInput = z.object({
+  targetIds: z
+    .array(
+      z
+        .string()
+        .min(1)
+        .describe(
+          'Exact indicator section ids or item ids returned by `get_indicator_catalog`, such as `section:inputs`, `input.int`, or `indicator.overlay`.'
+        )
+    )
+    .min(1)
+    .max(50)
+    .describe(
+      'Exact indicator section ids or item ids to inspect in detail. Use `get_indicator_catalog` first when the available ids are not yet known.'
+    ),
+})
+export const GetIndicatorMetadataResult = z.object({
+  items: z.array(IndicatorMetadataEntrySchema),
+  missingIds: z.array(z.string()),
+})
+export type GetIndicatorMetadataResultType = z.infer<typeof GetIndicatorMetadataResult>
+
 // get_trigger_blocks
 export const GetTriggerBlocksInput = z.object({})
 export const GetTriggerBlocksResult = z.object({

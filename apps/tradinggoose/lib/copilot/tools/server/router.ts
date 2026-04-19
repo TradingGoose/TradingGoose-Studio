@@ -51,6 +51,20 @@ async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, 
     return getBlocksMetadataServerTool
   }
 
+  if (toolName === 'get_indicator_catalog') {
+    const { getIndicatorCatalogServerTool } = await import(
+      '@/lib/copilot/tools/server/indicators/get-indicator-catalog'
+    )
+    return getIndicatorCatalogServerTool
+  }
+
+  if (toolName === 'get_indicator_metadata') {
+    const { getIndicatorMetadataServerTool } = await import(
+      '@/lib/copilot/tools/server/indicators/get-indicator-metadata'
+    )
+    return getIndicatorMetadataServerTool
+  }
+
   return serverToolRegistry[toolName] ?? null
 }
 

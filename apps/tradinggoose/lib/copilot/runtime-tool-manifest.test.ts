@@ -38,6 +38,28 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'workflow',
         }),
         expect.objectContaining({
+          name: 'get_indicator_catalog',
+          description: expect.stringContaining('indicator authoring catalog'),
+          kind: 'inspect',
+          entityKind: 'indicator',
+          parameters: expect.objectContaining({
+            properties: expect.objectContaining({
+              query: expect.objectContaining({
+                description: expect.stringContaining('capability search query'),
+              }),
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          name: 'get_indicator_metadata',
+          description: expect.stringContaining('exact section ids or item ids'),
+          kind: 'inspect',
+          entityKind: 'indicator',
+          parameters: expect.objectContaining({
+            required: expect.arrayContaining(['targetIds']),
+          }),
+        }),
+        expect.objectContaining({
           name: 'edit_workflow',
           kind: 'edit',
           entityKind: 'workflow',
@@ -61,10 +83,36 @@ describe('copilot runtime tool manifest', () => {
           }),
         }),
         expect.objectContaining({
+          name: 'create_workflow',
+          kind: 'create',
+          entityKind: 'workflow',
+          description: expect.stringContaining('Use `edit_workflow` next'),
+        }),
+        expect.objectContaining({
+          name: 'rename_workflow',
+          kind: 'rename',
+          entityKind: 'workflow',
+          parameters: expect.objectContaining({
+            required: expect.arrayContaining(['workflowId', 'name']),
+          }),
+        }),
+        expect.objectContaining({
           name: 'get_skill',
           description: expect.stringContaining('editable document payload'),
           kind: 'read',
           entityKind: 'skill',
+        }),
+        expect.objectContaining({
+          name: 'create_skill',
+          kind: 'create',
+          entityKind: 'skill',
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
         }),
         expect.objectContaining({
           name: 'edit_skill',
@@ -84,6 +132,11 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'custom_tool',
         }),
         expect.objectContaining({
+          name: 'rename_mcp_server',
+          kind: 'rename',
+          entityKind: 'mcp_server',
+        }),
+        expect.objectContaining({
           name: 'edit_monitor',
           kind: 'edit',
           surfaceKind: 'monitor',
@@ -99,9 +152,7 @@ describe('copilot runtime tool manifest', () => {
     )
     const edgeValidator = manifest.tools
       .find((tool) => tool.name === 'edit_workflow')
-      ?.semanticValidators?.find(
-        (validator) => validator.kind === 'string_document_contract'
-      )
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_document_contract')
     expect(edgeValidator).toBeDefined()
     expect(edgeValidator?.description).toBe(
       'Keep visible edges and canonical `TG_EDGE` state aligned.'
@@ -113,9 +164,11 @@ describe('copilot runtime tool manifest', () => {
     )
     expect(
       (
-        edgeValidator?.args as {
-          contract?: { embeddedValidators?: Array<{ whenBlockType: string; path: string }> }
-        } | undefined
+        edgeValidator?.args as
+          | {
+              contract?: { embeddedValidators?: Array<{ whenBlockType: string; path: string }> }
+            }
+          | undefined
       )?.contract?.embeddedValidators
     ).toEqual(
       expect.arrayContaining([
@@ -144,5 +197,9 @@ describe('copilot runtime tool manifest', () => {
       'confirmation'
     )
     expect(toolNames).toContain('edit_workflow')
+    expect(toolNames).toContain('create_workflow')
+    expect(toolNames).toContain('get_indicator_catalog')
+    expect(toolNames).toContain('get_indicator_metadata')
+    expect(toolNames).toContain('rename_skill')
   })
 })

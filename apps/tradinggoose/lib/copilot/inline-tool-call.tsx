@@ -105,6 +105,9 @@ const ACTION_VERBS = [
   'Create',
   'Creating',
   'Created',
+  'Rename',
+  'Renaming',
+  'Renamed',
   'Generating',
   'Generated',
   'Rendering',
@@ -277,14 +280,14 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
     : 0
 
   const changeSummary = [
-    ...((blockDiff?.added || []).map((blockId) => `Add ${blockId}`)),
-    ...((blockDiff?.updated || []).map((blockId) => `Update ${blockId}`)),
-    ...((blockDiff?.removed || []).map((blockId) => `Remove ${blockId}`)),
+    ...(blockDiff?.added || []).map((blockId) => `Add ${blockId}`),
+    ...(blockDiff?.updated || []).map((blockId) => `Update ${blockId}`),
+    ...(blockDiff?.removed || []).map((blockId) => `Remove ${blockId}`),
   ]
 
   const previewDiffOperations = [
-    ...((blockDiff?.added || []).map((block_id) => ({ operation_type: 'add', block_id }))),
-    ...((blockDiff?.updated || []).map((block_id) => ({ operation_type: 'edit', block_id }))),
+    ...(blockDiff?.added || []).map((block_id) => ({ operation_type: 'add', block_id })),
+    ...(blockDiff?.updated || []).map((block_id) => ({ operation_type: 'edit', block_id })),
   ]
 
   return {
@@ -545,8 +548,7 @@ export function InlineToolCall({
   const displayName = getDisplayName(toolCall, { isIntegration })
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
-  const showWorkflowReview =
-    workflowReviewPayload && toolCall.state === ClientToolCallState.review
+  const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
   const entityReviewDiffPayload =
     entitySession.doc && entitySession.descriptor
       ? buildEntityReviewDiffPayload(

@@ -20,7 +20,7 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 describe('SetGlobalWorkflowVariablesClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
     mockGetRegisteredWorkflowSession.mockReset()
     mockGetVariablesForWorkflow.mockReset()
     mockSetVariables.mockReset()

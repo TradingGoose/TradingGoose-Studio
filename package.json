@@ -33,7 +33,8 @@
     "docs:audit:json": "bun run scripts/audit-docs.ts --json",
     "docs:generate": "bun run scripts/doc-gen/index.ts",
     "docs:generate:tools": "bun run scripts/doc-gen/index.ts tools",
-    "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers"
+    "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers",
+    "script:indicator": "bun run scripts/indicators/index.ts"
   },
   "overrides": {
     "react": "19.2.4",

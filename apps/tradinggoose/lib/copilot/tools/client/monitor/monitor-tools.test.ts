@@ -28,7 +28,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
 describe('monitor tools', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
     mockRegistryState.workflows = {}
     mockCopilotState.toolCallsById = {}
   })

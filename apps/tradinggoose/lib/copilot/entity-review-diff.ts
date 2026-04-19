@@ -137,7 +137,9 @@ export function buildEntityReviewDiffPayload(
   }
 
   switch (toolCall.name) {
-    case 'edit_skill': {
+    case 'create_skill':
+    case 'edit_skill':
+    case 'rename_skill': {
       const nextFields = buildSkillDocumentNextFields(toolCall, currentFields)
       if (!nextFields) {
         return null
@@ -150,7 +152,9 @@ export function buildEntityReviewDiffPayload(
       ])
       return sections.length > 0 ? { title: 'Proposed Skill Changes', sections } : null
     }
-    case 'edit_custom_tool': {
+    case 'create_custom_tool':
+    case 'edit_custom_tool':
+    case 'rename_custom_tool': {
       const nextFields = buildCustomToolDocumentNextFields(toolCall, currentFields)
       if (!nextFields) {
         return null
@@ -163,7 +167,9 @@ export function buildEntityReviewDiffPayload(
       ])
       return sections.length > 0 ? { title: 'Proposed Custom Tool Changes', sections } : null
     }
-    case 'edit_indicator': {
+    case 'create_indicator':
+    case 'edit_indicator':
+    case 'rename_indicator': {
       const nextFields = buildIndicatorDocumentNextFields(toolCall, currentFields)
       if (!nextFields) {
         return null
@@ -177,7 +183,9 @@ export function buildEntityReviewDiffPayload(
       ])
       return sections.length > 0 ? { title: 'Proposed Indicator Changes', sections } : null
     }
-    case 'edit_mcp_server': {
+    case 'create_mcp_server':
+    case 'edit_mcp_server':
+    case 'rename_mcp_server': {
       const nextFields = buildMcpDocumentNextFields(toolCall, currentFields)
       if (!nextFields) {
         return null
@@ -208,10 +216,7 @@ export type EntityReviewDiffLine =
   | { type: 'removed'; text: string }
   | { type: 'added'; text: string }
 
-export function buildEntityReviewDiffLines(
-  before: string,
-  after: string
-): EntityReviewDiffLine[] {
+export function buildEntityReviewDiffLines(before: string, after: string): EntityReviewDiffLine[] {
   const beforeLines = splitDiffLines(before)
   const afterLines = splitDiffLines(after)
 
