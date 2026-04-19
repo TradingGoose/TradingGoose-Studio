@@ -57,6 +57,24 @@ describe('copilotToolHasInterrupt', () => {
     expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
   })
 
+  it('surfaces review interrupts for edit_workflow_block once staged', () => {
+    const instance = ensureClientToolInstance('edit_workflow_block', toolCallId)
+
+    instance?.setState(ClientToolCallState.review, {
+      result: {
+        workflowState: {
+          blocks: {},
+          edges: [],
+          loops: {},
+          parallels: {},
+        },
+      },
+    })
+
+    expect(getToolInterruptDisplays('edit_workflow_block', toolCallId)).toBeDefined()
+    expect(copilotToolHasInterrupt('edit_workflow_block', toolCallId)).toBe(true)
+  })
+
   it('does not inject workflow ids into server tool args from execution provenance', () => {
     const context = createExecutionContext({
       toolCallId,

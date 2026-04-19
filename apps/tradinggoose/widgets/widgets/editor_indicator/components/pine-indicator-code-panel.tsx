@@ -1,7 +1,10 @@
 'use client'
 
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { MonacoEditorHandle } from '@/components/monaco-editor'
+import {
+  buildMonacoIndicatorDiagnosticSource,
+  type MonacoEditorHandle,
+} from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Notice } from '@/components/ui/notice'
 import {
@@ -397,6 +400,7 @@ export function IndicatorCodePanel({
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}
           extraLibs={PINE_CHEAT_SHEET_EXTRA_LIBS}
+          diagnosticSourceBuilder={buildMonacoIndicatorDiagnosticSource}
           editorOptions={{
             scrollbar: { alwaysConsumeMouseWheel: true },
           }}

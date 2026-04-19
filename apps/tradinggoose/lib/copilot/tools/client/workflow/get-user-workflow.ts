@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
+  buildWorkflowSummary,
   buildWorkflowDocumentToolResult,
   getReadableWorkflowState,
   resolveWorkflowTarget,
@@ -14,7 +15,6 @@ import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-me
 
 interface GetUserWorkflowArgs {
   workflowId: string
-  includeMetadata?: boolean
 }
 
 const logger = createLogger('GetUserWorkflowClientTool')
@@ -53,7 +53,6 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       logger.info('Fetching user workflow from readable workflow snapshot', {
         workflowId,
         workflowName,
-        includeMetadata: args?.includeMetadata,
       })
 
       const { workflowState, source } = await getReadableWorkflowState(
@@ -102,6 +101,7 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
           workflowName,
           workspaceId,
           workflowDocument,
+          workflowSummary: buildWorkflowSummary(workflowState),
         })
       )
       this.setState(ClientToolCallState.success)

@@ -34,6 +34,7 @@ export const ToolIds = z.enum([
   'get_user_workflow',
   'create_workflow',
   'edit_workflow',
+  'edit_workflow_block',
   'rename_workflow',
   'run_workflow',
   'get_workflow_console',
@@ -149,6 +150,28 @@ const EditWorkflowArgs = z
   })
   .strict()
 
+const EditWorkflowBlockArgs = z
+  .object({
+    workflowId: RequiredId,
+    blockId: z.string().trim().min(1).describe('Existing workflow block instance id.'),
+    blockType: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe('Optional safety check. Must match the existing workflow block type.'),
+    name: z.string().trim().min(1).optional(),
+    enabled: z.boolean().optional(),
+    subBlocks: z
+      .record(z.any())
+      .optional()
+      .describe(
+        'Map canonical sub-block ids to replacement values. Use get_blocks_metadata for the block type before editing.'
+      ),
+    currentWorkflowState: z.string().optional(),
+  })
+  .strict()
+
 const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
 const CreateCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT, {
   includeEntityId: false,
@@ -194,7 +217,6 @@ export const ToolArgSchemas = {
   get_user_workflow: z
     .object({
       workflowId: RequiredId,
-      includeMetadata: z.boolean().optional(),
     })
     .strict(),
   create_workflow: CreateWorkflowArgs,
@@ -227,6 +249,7 @@ export const ToolArgSchemas = {
   }),
 
   edit_workflow: EditWorkflowArgs,
+  edit_workflow_block: EditWorkflowBlockArgs,
   rename_workflow: RenameWorkflowArgs,
 
   run_workflow: z.object({
@@ -387,6 +410,7 @@ export const ToolSSESchemas = {
     ToolArgSchemas.set_global_workflow_variables
   ),
   edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
+  edit_workflow_block: toolCallSSEFor('edit_workflow_block', ToolArgSchemas.edit_workflow_block),
   rename_workflow: toolCallSSEFor('rename_workflow', ToolArgSchemas.rename_workflow),
   run_workflow: toolCallSSEFor('run_workflow', ToolArgSchemas.run_workflow),
   get_workflow_console: toolCallSSEFor('get_workflow_console', ToolArgSchemas.get_workflow_console),
@@ -475,6 +499,19 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
   entityDocument: z.string(),
   workflowDocument: z.string(),
+  workflowSummary: z
+    .object({
+      blocks: z.array(
+        z.object({
+          blockId: z.string(),
+          blockType: z.string(),
+          blockName: z.string(),
+          enabled: z.boolean().optional(),
+          subBlockIds: z.array(z.string()),
+        })
+      ),
+    })
+    .optional(),
 })
 
 const GenericEntityListEntry = z.object({
@@ -666,6 +703,7 @@ export const ToolResultSchemas = {
   }),
 
   edit_workflow: BuildOrEditWorkflowResult,
+  edit_workflow_block: BuildOrEditWorkflowResult,
   rename_workflow: WorkflowMutationResult,
   run_workflow: z.object({
     executionId: z.string().optional(),

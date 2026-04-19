@@ -55,6 +55,8 @@ const SPECIAL_BLOCK_DEFINITIONS: Record<string, Omit<BlockCatalogDefinition, 'bl
   },
 }
 
+const NON_INPUT_SUBBLOCK_TYPES = new Set(['text', 'trigger-save', 'schedule-config'])
+
 function resolveAuthType(authMode: AuthMode | undefined): BlockAuthType | undefined {
   if (!authMode) return undefined
   if (authMode === AuthMode.OAuth) return 'OAuth'
@@ -188,6 +190,76 @@ function buildSubBlockSummaries(
   return subBlocks.length > 0 ? subBlocks : undefined
 }
 
+function blockHasInputSurface(blockConfig: BlockConfig | undefined): boolean {
+  if (!blockConfig) {
+    return false
+  }
+
+  if (Object.keys(blockConfig.inputs ?? {}).length > 0) {
+    return true
+  }
+
+  return (blockConfig.subBlocks ?? []).some(
+    (subBlock) => !NON_INPUT_SUBBLOCK_TYPES.has(subBlock.type)
+  )
+}
+
+function buildInputReferenceGrammar(
+  blockType: string,
+  blockConfig: BlockConfig | undefined
+): BlockProfile['inputReferenceGrammar'] {
+  if (!blockHasInputSurface(blockConfig)) {
+    return undefined
+  }
+
+  return {
+    hardRequirement: true,
+    summary:
+      'All input-capable fields on this block must use TradingGoose reference grammar exactly. Do not invent alternate placeholder syntaxes.',
+    workflowOutputs: {
+      syntax: '<block.output>',
+      summary:
+        'Reference outputs from workflow blocks with angle brackets and the exact output path for the source block.',
+      examples: ['<agent.content>', '<historical_data.close>'],
+      sourceTools: ['get_block_outputs', 'get_block_upstream_references'],
+    },
+    workflowVariables: {
+      syntax: '<variable.name>',
+      summary:
+        'Reference workflow-scoped variables with the reserved `variable.` prefix and the exact variable name.',
+      examples: ['<variable.riskLimit>', '<variable.companyName>'],
+      sourceTools: ['get_global_workflow_variables'],
+    },
+    environmentVariables: {
+      syntax: '{{ENV_VAR_NAME}}',
+      summary:
+        'Reference environment variables with double curly braces and the exact environment variable name.',
+      examples: ['{{OPENAI_API_KEY}}', '{{SERVICE_API_KEY}}'],
+      sourceTools: ['get_environment_variables'],
+    },
+    ...(blockType === 'function'
+      ? {
+          blockSpecificRules: [
+            {
+              title: 'Use built-in indicators with Historical Data output',
+              summary:
+                'Call built-in indicators with `indicator.<ID>(marketSeries)` and pass Historical Data output as the market series input.',
+              examples: [
+                'await indicator.RSI(<historical_data>)',
+                'await indicator.MACD(<historical_data>)',
+              ],
+            },
+            {
+              title: 'Do not author custom Pine indicators inside Function blocks',
+              summary:
+                'Do not define indicators with `indicator(...)`, PineTS, or `pinets` imports inside Function blocks. Use the dedicated indicator authoring surface for custom indicators.',
+            },
+          ],
+        }
+      : {}),
+  }
+}
+
 function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinition | null {
   const specialDefinition = SPECIAL_BLOCK_DEFINITIONS[blockType]
   if (specialDefinition) {
@@ -300,6 +372,7 @@ export async function getWorkflowBlockProfile(blockType: string): Promise<BlockP
   }
   const blockConfig = blockRegistry[blockType]
   const subBlocks = buildSubBlockSummaries(blockConfig)
+  const inputReferenceGrammar = buildInputReferenceGrammar(blockType, blockConfig)
 
   const shape = await loadWorkflowBlockMermaidShape({
     blockType,
@@ -318,6 +391,7 @@ export async function getWorkflowBlockProfile(blockType: string): Promise<BlockP
       : {}),
     ...(definition.yamlDocumentation ? { yamlDocumentation: definition.yamlDocumentation } : {}),
     ...(subBlocks ? { subBlocks } : {}),
+    ...(inputReferenceGrammar ? { inputReferenceGrammar } : {}),
     ...shape,
     ...(definition.operationChoices.length > 0
       ? {

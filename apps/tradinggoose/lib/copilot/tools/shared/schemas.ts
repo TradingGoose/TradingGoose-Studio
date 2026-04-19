@@ -64,6 +64,34 @@ export const BlockMermaidSubBlockSchema = z.object({
   defaultValue: z.unknown().optional(),
   options: z.array(BlockMermaidSubBlockOptionSchema).optional(),
 })
+export const BlockInputReferencePatternSchema = z.object({
+  syntax: z.string(),
+  summary: z.string(),
+  examples: z.array(z.string()).min(1),
+  sourceTools: z
+    .array(
+      z.enum([
+        'get_block_outputs',
+        'get_block_upstream_references',
+        'get_global_workflow_variables',
+        'get_environment_variables',
+      ])
+    )
+    .min(1),
+})
+export const BlockInputReferenceRuleSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  examples: z.array(z.string()).optional(),
+})
+export const BlockInputReferenceGrammarSchema = z.object({
+  hardRequirement: z.literal(true),
+  summary: z.string(),
+  workflowOutputs: BlockInputReferencePatternSchema,
+  workflowVariables: BlockInputReferencePatternSchema,
+  environmentVariables: BlockInputReferencePatternSchema,
+  blockSpecificRules: z.array(BlockInputReferenceRuleSchema).optional(),
+})
 export const BlockMermaidOperationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -87,6 +115,7 @@ export const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
   requiredCredentials: BlockRequiredCredentialsSchema.optional(),
   yamlDocumentation: z.string().optional(),
   subBlocks: z.array(BlockMermaidSubBlockSchema).optional(),
+  inputReferenceGrammar: BlockInputReferenceGrammarSchema.optional(),
   mermaidExamples: BlockMermaidExamplesSchema,
   operations: z.array(BlockMermaidOperationSchema).optional(),
 })

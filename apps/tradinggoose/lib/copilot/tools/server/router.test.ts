@@ -33,32 +33,6 @@ const getEnvironmentVariablesExecute = vi.fn(async () => ({ variableNames: [], c
 const getOAuthCredentialsExecute = vi.fn(async () => ({ credentials: [], total: 0 }))
 const setEnvironmentVariablesExecute = vi.fn(async () => ({ message: 'ok' }))
 
-vi.mock('@tradinggoose/db', () => ({ db: {} }))
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflow: {
-    id: 'workflow.id',
-    userId: 'workflow.user_id',
-    workspaceId: 'workflow.workspace_id',
-    folderId: 'workflow.folder_id',
-    name: 'workflow.name',
-    description: 'workflow.description',
-    color: 'workflow.color',
-    lastSynced: 'workflow.last_synced',
-    createdAt: 'workflow.created_at',
-    updatedAt: 'workflow.updated_at',
-    isDeployed: 'workflow.is_deployed',
-    collaborators: 'workflow.collaborators',
-    runCount: 'workflow.run_count',
-    variables: 'workflow.variables',
-    isPublished: 'workflow.is_published',
-    marketplaceData: 'workflow.marketplace_data',
-  },
-}))
-vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  createPermissionError: vi.fn(),
-  verifyWorkflowAccess: vi.fn(),
-}))
-
 vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-and-tools', () => ({
   getBlocksAndToolsServerTool: {
     name: 'get_blocks_and_tools',
@@ -198,6 +172,16 @@ describe('copilot contract registry', () => {
         workflowDocument:
           'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowSummary: {
+          blocks: [
+            {
+              blockId: 'trigger',
+              blockType: 'input_trigger',
+              blockName: 'Input Form',
+              subBlockIds: ['ticker'],
+            },
+          ],
+        },
       })
     ).toThrow()
 

@@ -1,6 +1,9 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
-import type { MonacoEditorHandle } from '@/components/monaco-editor'
+import {
+  createMonacoFunctionBodyDiagnosticSourceBuilder,
+  type MonacoEditorHandle,
+} from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
@@ -278,6 +281,15 @@ IMPORTANT FORMATTING RULES:
       return false
     }
   }, [jsonSchema])
+
+  const codeDiagnosticSourceBuilder = useMemo(
+    () =>
+      createMonacoFunctionBodyDiagnosticSourceBuilder({
+        language: 'javascript',
+        parameterNames: schemaParameters.map((param) => param.name),
+      }),
+    [schemaParameters]
+  )
 
   const parseCurrentSchema = useCallback(() => {
     setSchemaError(null)
@@ -739,6 +751,7 @@ IMPORTANT FORMATTING RULES:
             disabled={codeGeneration.isLoading || codeGeneration.isStreaming}
             onKeyDown={handleKeyDown}
             schemaParameters={schemaParameters}
+            diagnosticSourceBuilder={codeDiagnosticSourceBuilder}
           />
 
           {showEnvVars ? (

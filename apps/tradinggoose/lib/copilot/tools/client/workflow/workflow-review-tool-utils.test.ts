@@ -50,7 +50,6 @@ describe('workflow-review-tool-utils', () => {
       {
         toolCallId: 'tool-1',
         toolName: 'get_user_workflow',
-        channelId: 'channel-1',
         workflowId: 'workflow-current',
       },
       'workflow-live'
@@ -98,7 +97,6 @@ describe('workflow-review-tool-utils', () => {
       {
         toolCallId: 'tool-1',
         toolName: 'get_user_workflow',
-        channelId: 'channel-1',
         workflowId: 'workflow-current',
       },
       'workflow-db'
@@ -131,20 +129,40 @@ describe('workflow-review-tool-utils', () => {
       getReadableWorkflowState({
         toolCallId: 'tool-1',
         toolName: 'get_user_workflow',
-        channelId: 'channel-1',
         workflowId: 'workflow-current',
       })
     ).rejects.toThrow('Workflow target is required')
   })
 
   it('builds workflow document payloads with entity aliases', async () => {
-    const { buildWorkflowDocumentToolResult } = await import('./workflow-review-tool-utils')
+    const { buildWorkflowDocumentToolResult, buildWorkflowSummary } = await import(
+      './workflow-review-tool-utils'
+    )
 
     expect(
       buildWorkflowDocumentToolResult({
         workflowId: 'workflow-entity',
         workflowName: 'Momentum Flow',
         workflowDocument: 'flowchart TD',
+        workflowSummary: buildWorkflowSummary({
+          blocks: {
+            trigger: {
+              id: 'trigger',
+              type: 'input_trigger',
+              name: 'Input Form',
+              position: { x: 0, y: 0 },
+              enabled: true,
+              subBlocks: {
+                ticker: { id: 'ticker', type: 'short-input', value: 'AAPL' },
+                tradeDate: { id: 'tradeDate', type: 'short-input', value: '2026-04-18' },
+              },
+              outputs: {},
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+        }),
       })
     ).toEqual({
       entityKind: 'workflow',
@@ -155,6 +173,17 @@ describe('workflow-review-tool-utils', () => {
       workflowName: 'Momentum Flow',
       workflowDocument: 'flowchart TD',
       documentFormat: 'tg-mermaid-v1',
+      workflowSummary: {
+        blocks: [
+          {
+            blockId: 'trigger',
+            blockType: 'input_trigger',
+            blockName: 'Input Form',
+            enabled: true,
+            subBlockIds: ['ticker', 'tradeDate'],
+          },
+        ],
+      },
     })
   })
 
@@ -176,7 +205,6 @@ describe('workflow-review-tool-utils', () => {
         {
           toolCallId: 'tool-1',
           toolName: 'get_workflow_from_name',
-          channelId: 'channel-1',
         },
         { workflow_name: 'Analysts' }
       )

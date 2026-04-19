@@ -25,7 +25,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_user_workflow: {
     description:
-      'Read a workflow by exact `workflowId` and return `workflowId`, `entityId`, `workflowDocument`, `entityDocument`, and `documentFormat`.',
+      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks` with block ids, types, names, enabled state, and current sub-block ids.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -38,6 +38,12 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   edit_workflow: {
     description:
       'Update a workflow using exact argument keys `workflowId`, full `workflowDocument`, and `documentFormat: tg-mermaid-v1`, then return the resulting workflow state.',
+    kind: 'edit',
+    entityKind: 'workflow',
+  },
+  edit_workflow_block: {
+    description:
+      'Update one existing workflow block without changing workflow connections, graph structure, loops, or parallels. Use exact argument keys `workflowId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values.',
     kind: 'edit',
     entityKind: 'workflow',
   },
@@ -65,7 +71,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_blocks_metadata: {
     description:
-      'Fetch detailed canonical profiles for workflow block types returned by `get_blocks_and_tools`, including sub-block ids, option values, examples, auth requirements, best practices, operations, and Mermaid structure examples.',
+      'Fetch detailed canonical profiles for workflow block types returned by `get_blocks_and_tools`, including sub-block ids, option values, input reference grammar, auth requirements, best practices, operations, and Mermaid structure examples.',
     kind: 'inspect',
     entityKind: 'workflow',
   },
@@ -97,7 +103,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'external',
   },
   get_environment_variables: {
-    description: 'Get environment variables for the current workspace or workflow context.',
+    description:
+      'Get environment variables for the current workspace or workflow context. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
     kind: 'read',
     entityKind: 'environment',
   },
@@ -123,12 +130,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_workflow_from_name: {
     description:
-      'Read a workflow by exact `workflow_name` and return the same workflow document payload as `get_user_workflow`.',
+      'Read a workflow by exact `workflow_name` and return the same Mermaid document payload and `workflowSummary.blocks` shape as `get_user_workflow`.',
     kind: 'read',
     entityKind: 'workflow',
   },
   get_global_workflow_variables: {
-    description: 'Get global workflow variables.',
+    description:
+      'Get global workflow variables. Use returned names with the exact `<variable.name>` syntax in block inputs.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -301,12 +309,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'utility',
   },
   get_block_outputs: {
-    description: 'Return available output paths for the given block ids.',
+    description:
+      'Return exact output paths for the given block ids, such as `agent.content`. Use those paths inside angle-bracket references like `<agent.content>`.',
     kind: 'inspect',
     entityKind: 'workflow',
   },
   get_block_upstream_references: {
-    description: 'Return upstream outputs and variables accessible to the given block ids.',
+    description:
+      'Return exact upstream outputs and workflow variable tags accessible to the given block ids. Use returned block outputs inside `<...>` references and workflow variables as `<variable.name>`.',
     kind: 'inspect',
     entityKind: 'workflow',
   },

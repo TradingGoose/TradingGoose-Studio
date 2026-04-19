@@ -2,7 +2,7 @@ import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 
-function getAllowedSubBlockIds(subBlocks: SubBlockConfig[]): Set<string> {
+export function getAllowedSubBlockIds(subBlocks: SubBlockConfig[]): Set<string> {
   const allowedIds = new Set<string>()
 
   for (const subBlock of subBlocks) {

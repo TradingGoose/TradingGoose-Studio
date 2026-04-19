@@ -19,6 +19,16 @@ type WorkflowTarget = {
   workspaceId?: string | null
 }
 
+export type WorkflowSummary = {
+  blocks: Array<{
+    blockId: string
+    blockType: string
+    blockName: string
+    enabled?: boolean
+    subBlockIds: string[]
+  }>
+}
+
 function normalizeWorkflowTargetValue(value?: string | null): string | undefined {
   const normalized = value?.trim()
   return normalized ? normalized : undefined
@@ -64,6 +74,7 @@ export function buildWorkflowDocumentToolResult(options: {
   workflowName?: string
   workspaceId?: string | null
   workflowDocument: string
+  workflowSummary?: WorkflowSummary
 }) {
   const workflowName = normalizeWorkflowTargetValue(options.workflowName)
 
@@ -76,6 +87,23 @@ export function buildWorkflowDocumentToolResult(options: {
     workflowId: options.workflowId,
     workflowDocument: options.workflowDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+    ...(options.workflowSummary ? { workflowSummary: options.workflowSummary } : {}),
+  }
+}
+
+export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
+  return {
+    blocks: Object.entries(workflowState.blocks ?? {})
+      .map(([blockId, block]) => ({
+        blockId,
+        blockType: block.type,
+        blockName:
+          normalizeWorkflowTargetValue(typeof block.name === 'string' ? block.name : undefined) ??
+          blockId,
+        ...(typeof block.enabled === 'boolean' ? { enabled: block.enabled } : {}),
+        subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
+      }))
+      .sort((left, right) => left.blockId.localeCompare(right.blockId)),
   }
 }
 

@@ -7,6 +7,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import {
+  buildWorkflowSummary,
   buildWorkflowDocumentToolResult,
   getReadableWorkflowState,
   resolveWorkflowTarget,
@@ -74,6 +75,7 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
           workflowName: resolvedWorkflowName || workflowName,
           workspaceId,
           workflowDocument,
+          workflowSummary: buildWorkflowSummary(workflowState),
         })
       )
       this.setState(ClientToolCallState.success)

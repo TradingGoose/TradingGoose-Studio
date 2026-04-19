@@ -3,7 +3,12 @@ import type { MutableRefObject } from 'react'
 import type * as Y from 'yjs'
 import { Wand2 } from 'lucide-react'
 import { MonacoEditor } from '@/components/monaco-editor'
-import type { MonacoDecoration, MonacoEditorHandle, MonacoEditorProps } from '@/components/monaco-editor'
+import type {
+  MonacoDecoration,
+  MonacoDiagnosticSourceBuilder,
+  MonacoEditorHandle,
+  MonacoEditorProps,
+} from '@/components/monaco-editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +47,7 @@ interface CodeEditorProps {
   autoHeight?: boolean
   extraLibs?: ReadonlyArray<{ content: string; filePath?: string }>
   editorOptions?: MonacoEditorProps['options']
+  diagnosticSourceBuilder?: MonacoDiagnosticSourceBuilder
   /** Y.Text instance for collaborative Yjs binding (bypasses value/onChange) */
   yText?: Y.Text | null
   /** Yjs Awareness for remote cursor rendering */
@@ -73,6 +79,7 @@ export function CodeEditor({
   autoHeight,
   extraLibs,
   editorOptions,
+  diagnosticSourceBuilder,
   yText,
   awareness,
 }: CodeEditorProps) {
@@ -354,6 +361,7 @@ export function CodeEditor({
           className={cn('h-full focus:outline-none', isCollapsed && 'pointer-events-none select-none')}
           readOnly={disabled || isCollapsed}
           extraLibs={extraLibs}
+          diagnosticSourceBuilder={diagnosticSourceBuilder}
           options={mergedEditorOptions}
           yText={yText}
           awareness={awareness}

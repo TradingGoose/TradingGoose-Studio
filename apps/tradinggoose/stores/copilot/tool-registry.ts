@@ -56,6 +56,7 @@ import { SetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/us
 import { CheckDeploymentStatusClientTool } from '@/lib/copilot/tools/client/workflow/check-deployment-status'
 import { CreateWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/create-workflow'
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
+import { EditWorkflowBlockClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow-block'
 import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
 import { GetBlockOutputsClientTool } from '@/lib/copilot/tools/client/workflow/get-block-outputs'
 import { GetBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client/workflow/get-block-upstream-references'
@@ -156,6 +157,7 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   oauth_request_access: clientTool(OAuthRequestAccessClientTool),
   create_workflow: clientTool(CreateWorkflowClientTool),
   edit_workflow: clientTool(EditWorkflowClientTool),
+  edit_workflow_block: clientTool(EditWorkflowBlockClientTool),
   rename_workflow: clientTool(RenameWorkflowClientTool),
   get_user_workflow: clientTool(GetUserWorkflowClientTool),
   list_user_workflows: clientTool(ListUserWorkflowsClientTool),

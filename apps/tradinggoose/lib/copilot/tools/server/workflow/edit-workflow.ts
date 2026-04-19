@@ -1,48 +1,20 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import {
-  buildWorkflowDocumentPreviewDiff,
   parseTgMermaidToWorkflow,
-  serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
-import { validateWorkflowState } from '@/lib/workflows/validation'
-import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
-import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import {
+  buildWorkflowMutationResult,
+  loadBaseWorkflowState,
+} from './workflow-mutation-utils'
 
 interface EditWorkflowParams {
   workflowId: string
   workflowDocument: string
   documentFormat?: string
   currentWorkflowState?: string
-}
-
-async function getCurrentWorkflowStateFromDb(workflowId: string): Promise<WorkflowSnapshot> {
-  const normalized = await loadWorkflowFromNormalizedTables(workflowId)
-  if (!normalized) {
-    throw new Error(`Workflow ${workflowId} not found in database`)
-  }
-
-  return createWorkflowSnapshot({
-    blocks: normalized.blocks || {},
-    edges: normalized.edges || [],
-    loops: normalized.loops || {},
-    parallels: normalized.parallels || {},
-  })
-}
-
-function parseCurrentWorkflowState(currentWorkflowState?: string): WorkflowSnapshot | undefined {
-  if (!currentWorkflowState) {
-    return undefined
-  }
-
-  try {
-    return createWorkflowSnapshot(JSON.parse(currentWorkflowState))
-  } catch {
-    throw new Error('Invalid currentWorkflowState format')
-  }
 }
 
 export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
@@ -64,80 +36,22 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       hasCurrentWorkflowState: !!currentWorkflowState,
     })
 
-    const baseWorkflowState =
-      parseCurrentWorkflowState(currentWorkflowState) ??
-      (await getCurrentWorkflowStateFromDb(workflowId))
-
+    const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)
     const parsedWorkflowDocument = parseTgMermaidToWorkflow(workflowDocument)
-    const requestedDirection = parsedWorkflowDocument.direction
-    const parsedWorkflowState = createWorkflowSnapshot(parsedWorkflowDocument)
-    const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
-      parsedWorkflowState,
-      baseWorkflowState
-    )
-
-    if (nonCanonicalSubBlockErrors.length > 0) {
-      throw new Error(`Invalid edited workflow: ${nonCanonicalSubBlockErrors.join('; ')}`)
-    }
-
-    const validation = validateWorkflowState(parsedWorkflowState, { sanitize: true })
-
-    if (!validation.valid) {
-      logger.error('Edited workflow state is invalid', {
-        errors: validation.errors,
-        warnings: validation.warnings,
-      })
-      throw new Error(`Invalid edited workflow: ${validation.errors.join('; ')}`)
-    }
-
-    let finalWorkflowState = createWorkflowSnapshot(
-      (validation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ?? parsedWorkflowState
-    )
-    const orientationWarnings: string[] = []
-    const normalizedWorkflow = normalizeWorkflowStateToMermaidDirection(
-      finalWorkflowState,
-      requestedDirection
-    )
-
-    if (normalizedWorkflow.didRelayout) {
-      finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
-      orientationWarnings.push(
-        `Re-laid out workflow blocks to match Mermaid direction ${requestedDirection}.`
-      )
-    } else {
-      finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
-    }
-    const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-    const combinedWarnings = [...orientationWarnings, ...preview.warnings, ...validation.warnings]
+    const result = buildWorkflowMutationResult({
+      workflowId,
+      baseWorkflowState,
+      nextWorkflowState: createWorkflowSnapshot(parsedWorkflowDocument),
+      requestedDirection: parsedWorkflowDocument.direction,
+    })
 
     logger.info('edit_workflow successfully parsed workflow document', {
       workflowId,
-      blocksCount: Object.keys(finalWorkflowState.blocks).length,
-      edgesCount: finalWorkflowState.edges.length,
-      warningCount: combinedWarnings.length,
+      blocksCount: Object.keys(result.workflowState.blocks).length,
+      edgesCount: result.workflowState.edges.length,
+      warningCount: result.preview?.warnings.length ?? 0,
     })
 
-    const nextWorkflowDocument = serializeWorkflowToTgMermaid(finalWorkflowState, {
-      direction: requestedDirection,
-    })
-
-    return {
-      success: true,
-      entityKind: 'workflow',
-      entityId: workflowId,
-      entityDocument: nextWorkflowDocument,
-      workflowId,
-      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-      workflowDocument: nextWorkflowDocument,
-      workflowState: finalWorkflowState,
-      preview: {
-        ...preview,
-        warnings: Array.from(new Set(combinedWarnings)),
-      },
-      data: {
-        blocksCount: Object.keys(finalWorkflowState.blocks || {}).length,
-        edgesCount: Array.isArray(finalWorkflowState.edges) ? finalWorkflowState.edges.length : 0,
-      },
-    }
+    return result
   },
 }

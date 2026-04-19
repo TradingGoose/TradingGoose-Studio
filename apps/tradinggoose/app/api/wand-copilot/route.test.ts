@@ -113,4 +113,39 @@ describe('Wand Copilot API Route', () => {
       stream: true,
     })
   })
+
+  it('appends strict json-object output constraints when generationType is provided', async () => {
+    const upstreamStream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder()
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      },
+    })
+
+    ;(global.fetch as any).mockResolvedValue({
+      ok: true,
+      body: upstreamStream,
+    })
+
+    const req = createMockRequest('POST', {
+      prompt: 'Generate a filter object',
+      systemPrompt: 'Generate a Mongo-style filter object.',
+      generationType: 'json-object',
+    })
+
+    const { POST } = await import('@/app/api/wand-copilot/route')
+    const response = await POST(req)
+
+    expect(response.status).toBe(200)
+
+    const [, init] = (global.fetch as any).mock.calls[0]
+    const payload = JSON.parse(init.body)
+    expect(payload.messages[0]).toMatchObject({
+      role: 'system',
+    })
+    expect(payload.messages[0].content).toContain('STRICT OUTPUT CONTRACT:')
+    expect(payload.messages[0].content).toContain('Return ONLY a single valid JSON object.')
+    expect(payload.messages[0].content).toContain('The response must start with { and end with }.')
+  })
 })

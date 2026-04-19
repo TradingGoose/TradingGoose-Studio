@@ -14,6 +14,7 @@ import { getCredentialsServerTool } from '@/lib/copilot/tools/server/user/get-cr
 import { getEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/get-environment-variables'
 import { getOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/get-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { getWorkflowConsoleServerTool } from '@/lib/copilot/tools/server/workflow/get-workflow-console'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -23,6 +24,7 @@ const logger = createLogger('ServerToolRouter')
 const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [getTriggerBlocksServerTool.name]: getTriggerBlocksServerTool,
   [editWorkflowServerTool.name]: editWorkflowServerTool,
+  [editWorkflowBlockServerTool.name]: editWorkflowBlockServerTool,
   [getWorkflowConsoleServerTool.name]: getWorkflowConsoleServerTool,
   [searchDocumentationServerTool.name]: searchDocumentationServerTool,
   [searchOnlineServerTool.name]: searchOnlineServerTool,

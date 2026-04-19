@@ -36,7 +36,7 @@ function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
 }
 
 export class EditWorkflowClientTool extends BaseClientTool {
-  static readonly id = 'edit_workflow'
+  static readonly id: string = 'edit_workflow'
   private lastResult: any | undefined
   private hasExecuted = false
   private hasAppliedState = false
@@ -46,8 +46,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
     return this.resolvePersistedResult()
   }
 
-  constructor(toolCallId: string) {
-    super(toolCallId, EditWorkflowClientTool.id, EditWorkflowClientTool.metadata)
+  constructor(
+    toolCallId: string,
+    toolName = EditWorkflowClientTool.id,
+    metadata: BaseClientToolMetadata = EditWorkflowClientTool.metadata
+  ) {
+    super(toolCallId, toolName, metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -156,6 +160,28 @@ export class EditWorkflowClientTool extends BaseClientTool {
     return 'Workflow changes rejected'
   }
 
+  protected getServerToolName(): string {
+    return EditWorkflowClientTool.id
+  }
+
+  protected buildServerPayload(
+    workflowId: string,
+    args: Record<string, any> | undefined,
+    currentWorkflowState: string | undefined
+  ): Record<string, any> {
+    const workflowDocument = args?.workflowDocument?.trim()
+    if (!workflowDocument) {
+      throw new Error(`No workflowDocument provided for ${this.getServerToolName()}`)
+    }
+
+    return {
+      workflowId,
+      workflowDocument,
+      ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
+      ...(currentWorkflowState ? { currentWorkflowState } : {}),
+    }
+  }
+
   protected async getPendingUserAction(): Promise<'execute'> {
     return 'execute'
   }
@@ -196,13 +222,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
       )
       this.lastWorkflowId = workflowId
 
-      const workflowDocument = args?.workflowDocument?.trim()
-      if (!workflowDocument) {
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No workflowDocument provided for edit_workflow')
-        return
-      }
-
       let currentWorkflowState: string | undefined
 
       try {
@@ -214,14 +233,10 @@ export class EditWorkflowClientTool extends BaseClientTool {
         throw new Error('Failed to read the current workflow')
       }
 
+      const fallbackWorkflowDocument = args?.workflowDocument?.trim()
       const result = (await executeCopilotServerTool({
-        toolName: 'edit_workflow',
-        payload: {
-          workflowId,
-          workflowDocument,
-          ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
-          ...(currentWorkflowState ? { currentWorkflowState } : {}),
-        },
+        toolName: this.getServerToolName(),
+        payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
       })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
@@ -234,7 +249,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
           workflowName,
           workspaceId,
           workflowDocument:
-            typeof result?.workflowDocument === 'string' ? result.workflowDocument : workflowDocument,
+            typeof result?.workflowDocument === 'string'
+              ? result.workflowDocument
+              : fallbackWorkflowDocument || '',
         }),
       }
       this.hasAppliedState = false

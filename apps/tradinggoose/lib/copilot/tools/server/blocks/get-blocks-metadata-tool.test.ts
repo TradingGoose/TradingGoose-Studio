@@ -11,6 +11,7 @@ vi.mock('@/blocks/registry', () => {
       subBlocks: [
         {
           id: 'operation',
+          type: 'dropdown',
           options: [
             { id: 'github_pr', label: 'Get PR details' },
             { id: 'github_comment', label: 'Create PR comment' },
@@ -39,6 +40,21 @@ vi.mock('@/blocks/registry', () => {
           type: 'input-format',
         },
       ],
+      outputs: {},
+    },
+    function: {
+      name: 'Function',
+      description: 'Run custom logic.',
+      longDescription: 'Execute custom code.',
+      subBlocks: [
+        {
+          id: 'code',
+          type: 'code',
+        },
+      ],
+      inputs: {
+        code: { type: 'string', description: 'Code to execute' },
+      },
       outputs: {},
     },
   }
@@ -71,7 +87,7 @@ describe('getBlocksMetadataServerTool', () => {
     )
 
     const result = await getBlocksMetadataServerTool.execute({
-      blockIds: ['github', 'condition', 'input_trigger', 'loop'],
+      blockIds: ['github', 'condition', 'input_trigger', 'function', 'loop'],
     })
 
     expect(result.metadata.github).toEqual(
@@ -106,6 +122,36 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).not.toContain(
       '"inputSchema"'
     )
+    expect(result.metadata.input_trigger?.inputReferenceGrammar).toEqual(
+      expect.objectContaining({
+        hardRequirement: true,
+        workflowOutputs: expect.objectContaining({
+          syntax: '<block.output>',
+          sourceTools: expect.arrayContaining([
+            'get_block_outputs',
+            'get_block_upstream_references',
+          ]),
+        }),
+        workflowVariables: expect.objectContaining({
+          syntax: '<variable.name>',
+          sourceTools: ['get_global_workflow_variables'],
+        }),
+        environmentVariables: expect.objectContaining({
+          syntax: '{{ENV_VAR_NAME}}',
+          sourceTools: ['get_environment_variables'],
+        }),
+      })
+    )
     expect(result.metadata.loop?.mermaidContract.renderKind).toBe('loop_container')
+    expect(result.metadata.function?.inputReferenceGrammar?.blockSpecificRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Use built-in indicators with Historical Data output',
+        }),
+        expect.objectContaining({
+          title: 'Do not author custom Pine indicators inside Function blocks',
+        }),
+      ])
+    )
   })
 })
