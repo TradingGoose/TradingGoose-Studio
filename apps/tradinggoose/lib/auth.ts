@@ -40,12 +40,9 @@ import {
 } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
-import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
-import {
-  hydrateSubscriptionsWithTiers,
-  requireBillingTierById,
-} from '@/lib/billing/tiers'
+import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
@@ -61,7 +58,6 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
 import {
   getCanonicalScopesForProvider,
   getMicrosoftRefreshTokenExpiry,
@@ -70,6 +66,7 @@ import {
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
 import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
   REGISTRATION_DISABLED_MESSAGE,
@@ -1720,24 +1717,10 @@ export const auth = betterAuth({
   },
 })
 
-function isUnauthorizedSessionError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const status = (error as any).status ?? (error as any).statusCode
-  const code = (error as any).code
-  const message = (error as any).message ?? (error as any).meta?.message
-
-  return (
-    status === 401 ||
-    code === 'UNAUTHORIZED' ||
-    message === 'Failed to get session' ||
-    message === 'Failed to get session.'
-  )
-}
-
-export async function getSession(headersOverride?: Headers, options?: { disableCookieCache?: boolean }) {
+export async function getSession(
+  headersOverride?: Headers,
+  options?: { disableCookieCache?: boolean }
+) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({

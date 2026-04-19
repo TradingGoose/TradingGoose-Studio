@@ -63,6 +63,7 @@ const nextConfig: NextConfig = {
     'playwright',
     '@browserbasehq/stagehand',
     'postgres',
+    'yjs',
   ],
   experimental: {
     optimizeCss: true,
@@ -92,12 +93,12 @@ const nextConfig: NextConfig = {
     allowedDevOrigins: [
       ...(env.NEXT_PUBLIC_APP_URL
         ? (() => {
-          try {
-            return [new URL(env.NEXT_PUBLIC_APP_URL).host]
-          } catch {
-            return []
-          }
-        })()
+            try {
+              return [new URL(env.NEXT_PUBLIC_APP_URL).host]
+            } catch {
+              return []
+            }
+          })()
         : []),
       'localhost:3000',
       'localhost:3001',
