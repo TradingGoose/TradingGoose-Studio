@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
+import { useXYFlowColorMode } from '@/hooks/use-xyflow-color-mode'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
@@ -87,6 +88,7 @@ type WorkflowPreviewFlowProps = Omit<WorkflowPreviewCanvasProps, 'workflowKey'>
 function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowProps) {
   const nodeTypes = useMemo(() => previewNodeTypesImport, [])
   const edgeTypes = useMemo(() => previewEdgeTypesImport, [])
+  const colorMode = useXYFlowColorMode()
   const { nodes, edges } = useMemo(() => adaptPreviewPayloadToCanvas(workflowState), [workflowState])
 
   const onInit = useCallback((instance: any) => {
@@ -102,6 +104,7 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
       <ReactFlow
         defaultNodes={nodes}
         defaultEdges={edges}
+        colorMode={colorMode}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionLineType={ConnectionLineType.Bezier}
@@ -122,8 +125,9 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         noWheelClassName='allow-scroll'
         proOptions={{ hideAttribution: true }}
         className='h-full w-full'
+        style={{ backgroundColor: 'transparent' }}
       >
-        <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+        <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
         <WorkflowPreviewControls />
       </ReactFlow>
     </div>
