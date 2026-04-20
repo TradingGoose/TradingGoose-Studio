@@ -5,29 +5,30 @@ import { MARKET_API_URL_DEFAULT } from '../market/client/constants'
  * Content Security Policy (CSP) configuration builder
  */
 
-function getUrlOrigin(url: string | undefined, fallback?: string): string | null {
-  const candidate = url?.trim() || fallback
-  if (!candidate) return null
+function getUrlOrigin(url: string | undefined): string | null {
+  const candidate = url?.trim()
+  if (!candidate) {
+    return null
+  }
+
   try {
     return new URL(candidate).origin
   } catch {
-    if (!fallback || candidate === fallback) return null
-    try {
-      return new URL(fallback).origin
-    } catch {
-      return null
-    }
+    return null
   }
 }
 
-function getOriginFromUrl(url: string | undefined, fallback?: string): string[] {
-  const origin = getUrlOrigin(url, fallback)
+function getOriginFromUrl(url: string | undefined): string[] {
+  const origin = getUrlOrigin(url)
   return origin ? [origin] : []
 }
 
-function getSocketSourcesFromUrl(url: string | undefined, fallback = 'http://localhost:3002'): string[] {
-  const candidate = url?.trim() || fallback
-  if (!candidate) return []
+function getSocketSourcesFromUrl(url: string | undefined): string[] {
+  const candidate = url?.trim()
+  if (!candidate) {
+    return []
+  }
+
   try {
     const parsed = new URL(candidate)
     const sources = new Set<string>([parsed.origin])
@@ -44,8 +45,7 @@ function getSocketSourcesFromUrl(url: string | undefined, fallback = 'http://loc
 
     return [...sources]
   } catch {
-    if (!fallback || candidate === fallback) return []
-    return getSocketSourcesFromUrl(fallback)
+    return []
   }
 }
 
@@ -117,7 +117,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
   'connect-src': [
     "'self'",
     ...getOriginFromUrl(env.NEXT_PUBLIC_APP_URL),
-    ...getSocketSourcesFromUrl(env.NEXT_PUBLIC_SOCKET_URL),
+    ...getSocketSourcesFromUrl(env.NEXT_PUBLIC_SOCKET_URL?.trim() || 'http://localhost:3002'),
     ...getOriginFromUrl('http://localhost:11434'),
     'https://api.browser-use.com',
     'https://api.exa.ai',
@@ -206,7 +206,9 @@ export async function generateRuntimeCSP(): Promise<string> {
     'connect-src': [
       "'self'",
       ...getOriginFromUrl(getEnv('NEXT_PUBLIC_APP_URL')),
-      ...getSocketSourcesFromUrl(getEnv('NEXT_PUBLIC_SOCKET_URL')),
+      ...getSocketSourcesFromUrl(
+        getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+      ),
       ...getOriginFromUrl('http://localhost:11434'),
       ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
       ...(getEnv('NODE_ENV') === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
@@ -225,11 +227,7 @@ export async function generateRuntimeCSP(): Promise<string> {
       'https://*.supabase.co',
     ],
     'worker-src': ["'self'", 'blob:'],
-    'frame-src': [
-      'https://drive.google.com',
-      'https://docs.google.com',
-      'https://*.google.com',
-    ],
+    'frame-src': ['https://drive.google.com', 'https://docs.google.com', 'https://*.google.com'],
     'frame-ancestors': ["'self'"],
     'form-action': ["'self'"],
     'base-uri': ["'self'"],
