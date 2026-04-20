@@ -95,7 +95,7 @@ export interface WorkflowExecutionLog {
     key: string
     uploadedAt: string
     expiresAt: string
-    storageProvider?: 's3' | 'blob' | 'local'
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
     bucketName?: string
   }>
   // Execution details

@@ -139,7 +139,7 @@ describe('Function Execute Billing', () => {
       })),
     }))
     vi.doMock('@/lib/billing/tiers', () => ({
-      getTierFunctionExecutionDurationMultiplier: vi.fn(() => 0.5),
+      getTierFunctionExecutionMultiplier: vi.fn(() => 0.5),
     }))
     vi.doMock('@/lib/billing/settings', () => ({
       getResolvedBillingSettings: vi.fn().mockResolvedValue({
@@ -187,7 +187,7 @@ describe('Function Execute Billing', () => {
     }))
   })
 
-  it('accrues personal function execution cost from flat and duration pricing', async () => {
+  it('accrues personal function execution cost from base rate, duration, and tier multiplier', async () => {
     vi.doMock('@/app/api/function/e2b-execution', () => ({
       executeFunctionWithRuntimeGate: vi.fn().mockResolvedValue({
         engine: 'local_vm',
@@ -213,7 +213,7 @@ describe('Function Execute Billing', () => {
     expect(accrueUserUsageCost).toHaveBeenCalledWith({
       userId: 'test-user-id',
       workflowId: undefined,
-      cost: 1.45,
+      cost: 0.3,
       reason: 'function_execution',
     })
   })
@@ -284,7 +284,7 @@ describe('Function Execute Billing', () => {
     expect(accrueUserUsageCost).toHaveBeenCalledWith({
       userId: 'test-user-id',
       workflowId: 'workflow-123',
-      cost: 0.75,
+      cost: 0.125,
       reason: 'function_execution',
     })
   })
@@ -409,7 +409,7 @@ describe('Function Execute Billing', () => {
       userId: 'test-user-id',
       workspaceId: 'workspace-123',
       workflowId: undefined,
-      cost: 0.75,
+      cost: 0.125,
       reason: 'function_execution',
     })
   })
@@ -470,7 +470,7 @@ describe('Function Execute Billing', () => {
     expect(accrueUserUsageCost).toHaveBeenCalledWith({
       userId: 'test-user-id',
       workflowId: undefined,
-      cost: 1,
+      cost: 0.1875,
       reason: 'function_execution',
     })
   })

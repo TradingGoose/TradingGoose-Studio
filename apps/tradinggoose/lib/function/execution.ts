@@ -1,6 +1,6 @@
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getResolvedBillingSettings, isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import { getTierFunctionExecutionDurationMultiplier } from '@/lib/billing/tiers'
+import { getTierFunctionExecutionMultiplier } from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
   resolveWorkflowBillingContext,
@@ -66,12 +66,13 @@ export type FunctionExecutionResponse = {
 function calculateFunctionExecutionCost(params: {
   executionTimeMs: number
   functionExecutionChargeUsd: number
-  functionExecutionDurationMultiplier: number
+  functionExecutionMultiplier: number
 }): number {
   const executionSeconds = Math.max(params.executionTimeMs, 0) / 1000
   const totalCost =
-    Math.max(params.functionExecutionChargeUsd, 0) +
-    executionSeconds * Math.max(params.functionExecutionDurationMultiplier, 0)
+    Math.max(params.functionExecutionChargeUsd, 0) *
+    executionSeconds *
+    Math.max(params.functionExecutionMultiplier, 0)
 
   return Number(totalCost.toFixed(6))
 }
@@ -237,9 +238,7 @@ export async function executeFunctionRequest(
         functionExecutionCost = calculateFunctionExecutionCost({
           executionTimeMs: runtimeExecution.executionTime,
           functionExecutionChargeUsd: billingSettings.functionExecutionChargeUsd,
-          functionExecutionDurationMultiplier: getTierFunctionExecutionDurationMultiplier(
-            billingContext.tier,
-          ),
+          functionExecutionMultiplier: getTierFunctionExecutionMultiplier(billingContext.tier),
         })
         if (functionExecutionCost > 0) {
           await accrueUserUsageCost({

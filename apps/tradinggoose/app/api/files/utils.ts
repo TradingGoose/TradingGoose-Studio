@@ -94,19 +94,29 @@ export function isS3Path(path: string): boolean {
   return path.includes('/api/files/serve/s3/')
 }
 
-export function isBlobPath(path: string): boolean {
-  return path.includes('/api/files/serve/blob/')
+export function isAzurePath(path: string): boolean {
+  return path.includes('/api/files/serve/azure/')
+}
+
+export function isVercelPath(path: string): boolean {
+  return path.includes('/api/files/serve/vercel/')
 }
 
 export function isCloudPath(path: string): boolean {
-  return isS3Path(path) || isBlobPath(path)
+  return isS3Path(path) || isAzurePath(path) || isVercelPath(path)
 }
 
-export function extractStorageKey(path: string, storageType: 's3' | 'blob'): string {
-  const prefix = `/api/files/serve/${storageType}/`
-  if (path.includes(prefix)) {
-    return decodeURIComponent(path.split(prefix)[1])
+export function extractStorageKey(path: string, storageType: 's3' | 'azure' | 'vercel'): string {
+  const prefixes = [`/api/files/serve/${storageType}/`]
+
+  for (const prefix of prefixes) {
+    if (path.includes(prefix)) {
+      const afterPrefix = path.split(prefix)[1]
+      const withoutQuery = afterPrefix.split('?')[0]
+      return decodeURIComponent(withoutQuery)
+    }
   }
+
   return path
 }
 
@@ -114,8 +124,12 @@ export function extractS3Key(path: string): string {
   return extractStorageKey(path, 's3')
 }
 
-export function extractBlobKey(path: string): string {
-  return extractStorageKey(path, 'blob')
+export function extractAzureKey(path: string): string {
+  return extractStorageKey(path, 'azure')
+}
+
+export function extractVercelKey(path: string): string {
+  return extractStorageKey(path, 'vercel')
 }
 
 export function extractFilename(path: string): string {
@@ -132,9 +146,13 @@ export function extractFilename(path: string): string {
     .replace(/\/\.\./g, '')
     .replace(/\.\.\//g, '')
 
-  if (filename.startsWith('s3/') || filename.startsWith('blob/')) {
+  if (
+    filename.startsWith('s3/') ||
+    filename.startsWith('azure/') ||
+    filename.startsWith('vercel/')
+  ) {
     const parts = filename.split('/')
-    const prefix = parts[0] // 's3' or 'blob'
+    const prefix = parts[0]
     const keyParts = parts.slice(1)
 
     const sanitizedKeyParts = keyParts

@@ -173,6 +173,24 @@ export async function PATCH(
           { status: 409 },
         )
       }
+
+      const zeroedExecutionMultipliers = [
+        parsed.data.workflowExecutionMultiplier === 0
+          ? 'workflow execution multiplier'
+          : null,
+        parsed.data.functionExecutionMultiplier === 0
+          ? 'function execution multiplier'
+          : null,
+      ].filter((value): value is string => Boolean(value))
+
+      if (zeroedExecutionMultipliers.length > 0) {
+        return NextResponse.json(
+          {
+            error: `A tier with subscriptions cannot set ${zeroedExecutionMultipliers.join(' or ')} to 0. Create a separate free tier if you need zero-cost executions.`,
+          },
+          { status: 409 },
+        )
+      }
     }
 
     await db.transaction(async (tx) => {
@@ -210,11 +228,14 @@ export async function PATCH(
           canEditUsageLimit: parsed.data.canEditUsageLimit,
           canConfigureSso: parsed.data.canConfigureSso,
           logRetentionDays: parsed.data.logRetentionDays,
+          workflowExecutionMultiplier: String(
+            parsed.data.workflowExecutionMultiplier ?? 1,
+          ),
           workflowModelCostMultiplier: String(
             parsed.data.workflowModelCostMultiplier ?? 1,
           ),
-          functionExecutionDurationMultiplier: String(
-            parsed.data.functionExecutionDurationMultiplier ?? 0,
+          functionExecutionMultiplier: String(
+            parsed.data.functionExecutionMultiplier ?? 1,
           ),
           copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
           pricingFeatures: parsed.data.pricingFeatures,

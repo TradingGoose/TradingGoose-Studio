@@ -56,6 +56,7 @@ describe('fetchFinnhubSeries', () => {
 
     await expect(
       fetchFinnhubSeries({
+        kind: 'series',
         listing: {
           listing_id: 'AAPL',
           base_id: '',
@@ -95,6 +96,7 @@ describe('fetchFinnhubSeries', () => {
     const { fetchFinnhubSeries } = await import('./series')
 
     await fetchFinnhubSeries({
+      kind: 'series',
       listing: {
         listing_id: 'AAPL',
         base_id: '',

@@ -58,7 +58,7 @@ describe('workflow metadata tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockRegistryState.createWorkflow = vi.fn(async (options: Record<string, unknown>) => {
       mockRegistryState.workflows['wf-2'] = {
@@ -139,7 +139,7 @@ describe('workflow metadata tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockRegistryState.workflows = {
       'wf-1': {

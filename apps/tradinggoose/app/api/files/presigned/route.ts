@@ -3,9 +3,11 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles } from '@/lib/uploads'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
-import { USE_BLOB_STORAGE } from '@/lib/uploads/core/setup'
+import { getStorageConfig } from '@/lib/uploads/core/config-resolver'
+import { getStorageProvider } from '@/lib/uploads/core/setup'
 import { generatePresignedUploadUrl, hasCloudStorage } from '@/lib/uploads/core/storage-service'
-import { validateFileType } from '@/lib/uploads/utils/validation'
+import { createVercelUploadToken } from '@/lib/uploads/providers/vercel/upload-token'
+import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
 import { createErrorResponse } from '@/app/api/files/utils'
 
 const logger = createLogger('PresignedUploadAPI')
@@ -51,40 +53,18 @@ export async function POST(request: NextRequest) {
 
     const { fileName, contentType, fileSize } = data
 
-    if (!fileName?.trim()) {
-      throw new ValidationError('fileName is required and cannot be empty')
-    }
-    if (!contentType?.trim()) {
-      throw new ValidationError('contentType is required and cannot be empty')
-    }
-    if (!fileSize || fileSize <= 0) {
-      throw new ValidationError('fileSize must be a positive number')
-    }
+    const uploadType: StorageContext = resolveUploadContext(
+      request.nextUrl.searchParams.get('type')
+    )
+    const validationError = validateUploadRequest({
+      fileName,
+      contentType,
+      fileSize,
+      context: uploadType,
+    })
 
-    const MAX_FILE_SIZE = 100 * 1024 * 1024
-    if (fileSize > MAX_FILE_SIZE) {
-      throw new ValidationError(
-        `File size (${fileSize} bytes) exceeds maximum allowed size (${MAX_FILE_SIZE} bytes)`
-      )
-    }
-
-    const uploadTypeParam = request.nextUrl.searchParams.get('type')
-    const uploadType: StorageContext =
-      uploadTypeParam === 'knowledge-base'
-        ? 'knowledge-base'
-        : uploadTypeParam === 'chat'
-          ? 'chat'
-          : uploadTypeParam === 'copilot'
-            ? 'copilot'
-            : uploadTypeParam === 'profile-pictures'
-              ? 'profile-pictures'
-              : 'general'
-
-    if (uploadType === 'knowledge-base') {
-      const fileValidationError = validateFileType(fileName, contentType)
-      if (fileValidationError) {
-        throw new ValidationError(`${fileValidationError.message}`)
-      }
+    if (validationError) {
+      throw new ValidationError(validationError.message)
     }
 
     const sessionUserId = session.user.id
@@ -103,6 +83,7 @@ export async function POST(request: NextRequest) {
           size: fileSize,
           type: contentType,
         },
+        storageProvider: 'local',
         directUploadSupported: false,
       })
     }
@@ -132,11 +113,6 @@ export async function POST(request: NextRequest) {
             'Authenticated user session is required for profile picture uploads'
           )
         }
-        if (!CopilotFiles.isImageFileType(contentType)) {
-          throw new ValidationError(
-            'Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed for profile picture uploads'
-          )
-        }
       }
 
       presignedUrlResponse = await generatePresignedUploadUrl({
@@ -149,7 +125,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const finalPath = `/api/files/serve/${USE_BLOB_STORAGE ? 'blob' : 's3'}/${encodeURIComponent(presignedUrlResponse.key)}?context=${uploadType}`
+    const storageProvider = getStorageProvider()
+    const storageConfig = getStorageConfig(uploadType)
+    const requiresClientUpload = storageProvider === 'vercel'
+    const finalPath = `/api/files/serve/${storageProvider}/${encodeURIComponent(presignedUrlResponse.key)}?context=${uploadType}`
+    const clientUploadAuthorization =
+      requiresClientUpload
+        ? await createVercelUploadToken(
+            {
+              pathname: presignedUrlResponse.key,
+              context: uploadType,
+              contentType,
+              size: fileSize,
+              userId: sessionUserId,
+            },
+            3600
+          )
+        : undefined
 
     return NextResponse.json({
       fileName,
@@ -161,8 +153,13 @@ export async function POST(request: NextRequest) {
         size: fileSize,
         type: contentType,
       },
+      storageProvider,
+      blobAccess: storageProvider === 'vercel' ? storageConfig.access : undefined,
+      clientUploadAuthorization,
+      requiresClientUpload,
+      context: uploadType,
       uploadHeaders: presignedUrlResponse.uploadHeaders,
-      directUploadSupported: true,
+      directUploadSupported: !requiresClientUpload,
     })
   } catch (error) {
     logger.error('Error generating presigned URL:', error)

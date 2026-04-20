@@ -10,7 +10,7 @@ export const MongoDBBlock: BlockConfig<MongoDBResponse> = {
     'Integrate MongoDB into the workflow. Can find, insert, update, delete, and aggregate data.',
   docsLink: 'https://docs.tradinggoose.ai/tools/mongodb',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#00684A',
   icon: MongoDBIcon,
   subBlocks: [
     {

@@ -71,6 +71,7 @@
     "@trigger.dev/sdk": "4.1.2",
     "@types/pdf-parse": "1.1.5",
     "@types/three": "0.177.0",
+    "@vercel/blob": "2.3.3",
     "@xyflow/react": "^12.10.2",
     "@y/protocols": "1.0.6-1",
     "better-auth": "1.5.6",

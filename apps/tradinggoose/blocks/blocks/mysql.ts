@@ -10,7 +10,7 @@ export const MySQLBlock: BlockConfig<MySQLResponse> = {
     'Integrate MySQL into the workflow. Can query, insert, update, delete, and execute raw SQL.',
   docsLink: 'https://docs.tradinggoose.ai/tools/mysql',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#F29111',
   icon: MySQLIcon,
   subBlocks: [
     {

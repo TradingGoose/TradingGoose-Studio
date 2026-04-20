@@ -1,7 +1,13 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { USE_BLOB_STORAGE, USE_S3_STORAGE } from '@/lib/uploads/core/setup'
-import type { CustomBlobConfig } from '@/lib/uploads/providers/blob/blob-client'
+import {
+  USE_AZURE_STORAGE,
+  USE_S3_STORAGE,
+  USE_VERCEL_STORAGE,
+  type StorageProvider,
+} from '@/lib/uploads/core/setup'
+import type { CustomAzureConfig } from '@/lib/uploads/providers/azure/azure-client'
 import type { CustomS3Config } from '@/lib/uploads/providers/s3/s3-client'
+import type { CustomVercelConfig } from '@/lib/uploads/providers/vercel/vercel-client'
 
 const logger = createLogger('StorageClient')
 
@@ -18,11 +24,14 @@ export type CustomStorageConfig = {
   // S3 config
   bucket?: string
   region?: string
-  // Blob config
+  // Azure config
   containerName?: string
   accountName?: string
   accountKey?: string
   connectionString?: string
+  // Vercel config
+  token?: string
+  access?: 'public' | 'private'
 }
 
 /**
@@ -64,19 +73,32 @@ export async function uploadFile(
   configOrSize?: CustomStorageConfig | number,
   size?: number
 ): Promise<FileInfo> {
-  if (USE_BLOB_STORAGE) {
-    logger.info(`Uploading file to Azure Blob Storage: ${fileName}`)
-    const { uploadToBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+  if (USE_AZURE_STORAGE) {
+    logger.info(`Uploading file to Azure storage: ${fileName}`)
+    const { uploadToAzure } = await import('@/lib/uploads/providers/azure/azure-client')
     if (typeof configOrSize === 'object') {
-      const blobConfig: CustomBlobConfig = {
+      const azureConfig: CustomAzureConfig = {
         containerName: configOrSize.containerName!,
         accountName: configOrSize.accountName!,
         accountKey: configOrSize.accountKey,
         connectionString: configOrSize.connectionString,
       }
-      return uploadToBlob(file, fileName, contentType, blobConfig, size)
+      return uploadToAzure(file, fileName, contentType, azureConfig, size)
     }
-    return uploadToBlob(file, fileName, contentType, configOrSize)
+    return uploadToAzure(file, fileName, contentType, configOrSize)
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    logger.info(`Uploading file to Vercel Blob: ${fileName}`)
+    const { uploadToVercel } = await import('@/lib/uploads/providers/vercel/vercel-client')
+    if (typeof configOrSize === 'object') {
+      const vercelConfig: CustomVercelConfig = {
+        token: configOrSize.token!,
+        access: configOrSize.access || 'private',
+      }
+      return uploadToVercel(file, fileName, contentType, vercelConfig, size)
+    }
+    return uploadToVercel(file, fileName, contentType, configOrSize)
   }
 
   if (USE_S3_STORAGE) {
@@ -141,19 +163,32 @@ export async function downloadFile(
   key: string,
   customConfig?: CustomStorageConfig
 ): Promise<Buffer> {
-  if (USE_BLOB_STORAGE) {
-    logger.info(`Downloading file from Azure Blob Storage: ${key}`)
-    const { downloadFromBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+  if (USE_AZURE_STORAGE) {
+    logger.info(`Downloading file from Azure storage: ${key}`)
+    const { downloadFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
     if (customConfig) {
-      const blobConfig: CustomBlobConfig = {
+      const azureConfig: CustomAzureConfig = {
         containerName: customConfig.containerName!,
         accountName: customConfig.accountName!,
         accountKey: customConfig.accountKey,
         connectionString: customConfig.connectionString,
       }
-      return downloadFromBlob(key, blobConfig)
+      return downloadFromAzure(key, azureConfig)
     }
-    return downloadFromBlob(key)
+    return downloadFromAzure(key)
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    logger.info(`Downloading file from Vercel Blob: ${key}`)
+    const { downloadFromVercel } = await import('@/lib/uploads/providers/vercel/vercel-client')
+    if (customConfig) {
+      const vercelConfig: CustomVercelConfig = {
+        token: customConfig.token!,
+        access: customConfig.access || 'private',
+      }
+      return downloadFromVercel(key, vercelConfig)
+    }
+    return downloadFromVercel(key)
   }
 
   if (USE_S3_STORAGE) {
@@ -198,10 +233,16 @@ export async function downloadFile(
  * @param key File key/name
  */
 export async function deleteFile(key: string): Promise<void> {
-  if (USE_BLOB_STORAGE) {
-    logger.info(`Deleting file from Azure Blob Storage: ${key}`)
-    const { deleteFromBlob } = await import('@/lib/uploads/providers/blob/blob-client')
-    return deleteFromBlob(key)
+  if (USE_AZURE_STORAGE) {
+    logger.info(`Deleting file from Azure storage: ${key}`)
+    const { deleteFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
+    return deleteFromAzure(key)
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    logger.info(`Deleting file from Vercel Blob: ${key}`)
+    const { deleteFromVercel } = await import('@/lib/uploads/providers/vercel/vercel-client')
+    return deleteFromVercel(key)
   }
 
   if (USE_S3_STORAGE) {
@@ -235,27 +276,26 @@ export async function deleteFile(key: string): Promise<void> {
   }
 }
 
-/**
- * Get the current storage provider name
- */
-export function getStorageProvider(): 'blob' | 's3' | 'local' {
-  if (USE_BLOB_STORAGE) return 'blob'
+export function getStorageProvider(): StorageProvider {
+  if (USE_AZURE_STORAGE) return 'azure'
   if (USE_S3_STORAGE) return 's3'
+  if (USE_VERCEL_STORAGE) return 'vercel'
   return 'local'
 }
 
 /**
- * Check if we're using cloud storage (either S3 or Blob)
+ * Check if we're using cloud storage.
  */
 export function isUsingCloudStorage(): boolean {
-  return USE_BLOB_STORAGE || USE_S3_STORAGE
+  return USE_AZURE_STORAGE || USE_S3_STORAGE || USE_VERCEL_STORAGE
 }
 
 /**
  * Get the appropriate serve path prefix based on storage provider
  */
 export function getServePathPrefix(): string {
-  if (USE_BLOB_STORAGE) return '/api/files/serve/blob/'
+  if (USE_AZURE_STORAGE) return '/api/files/serve/azure/'
   if (USE_S3_STORAGE) return '/api/files/serve/s3/'
+  if (USE_VERCEL_STORAGE) return '/api/files/serve/vercel/'
   return '/api/files/serve/'
 }

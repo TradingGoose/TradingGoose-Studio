@@ -5,12 +5,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://tradinggoose.ai'
   const posts = await getAllPosts()
 
-  // Only include routes that are actually reachable in hosted mode.
-  // proxy.ts (HOSTED_ALLOWED_PATHS) restricts public routes to:
-  //   /, /licenses, /privacy, /terms, /changelog, /blog, /blog/:slug
-  // plus static files (robots.txt, sitemap.xml, llms.txt, llms-full.txt, changelog.xml).
-  // Listing /signup, /login, /careers, etc. here would submit 404 URLs to AI crawlers
-  // and actively hurt GEO — do not add routes here without updating proxy.ts first.
+  // Keep the sitemap focused on stable public-entry pages.
+  // Auth flows like /login, /signup, and /waitlist are intentionally omitted.
   const staticPages = [
     {
       url: baseUrl,

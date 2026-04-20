@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextRequest } from 'next/server'
 
 const {
   checkSessionOrInternalAuthMock,
@@ -74,7 +75,7 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Unauthorized',
     })
 
-    const response = await POST(new Request('http://localhost/api/workflows/workflow-1/queue'), {
+    const response = await POST(new NextRequest('http://localhost/api/workflows/workflow-1/queue'), {
       params: Promise.resolve({ id: 'workflow-1' }),
     })
 
@@ -86,7 +87,7 @@ describe('POST /api/workflows/[id]/queue', () => {
 
   it('queues a child workflow execution for an authenticated session', async () => {
     const response = await POST(
-      new Request('http://localhost/api/workflows/workflow-1/queue', {
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
         body: JSON.stringify({
           input: { symbol: 'AAPL' },
@@ -148,7 +149,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     })
 
     const response = await POST(
-      new Request('http://localhost/api/workflows/workflow-1/queue', {
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
         body: JSON.stringify({
           input: { symbol: 'MSFT' },

@@ -56,6 +56,7 @@ describe('fetchAlphaVantageSeries', () => {
 
     await expect(
       fetchAlphaVantageSeries({
+        kind: 'series',
         listing: {
           listing_id: 'AAPL',
           base_id: '',
@@ -95,6 +96,7 @@ describe('fetchAlphaVantageSeries', () => {
     const { fetchAlphaVantageSeries } = await import('./series')
 
     await fetchAlphaVantageSeries({
+      kind: 'series',
       listing: {
         listing_id: 'AAPL',
         base_id: '',

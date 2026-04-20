@@ -2,12 +2,14 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
-import { USE_BLOB_STORAGE } from '@/lib/uploads/core/setup'
+import { getStorageConfig } from '@/lib/uploads/core/config-resolver'
+import { getStorageProvider } from '@/lib/uploads/core/setup'
 import {
   generateBatchPresignedUploadUrls,
   hasCloudStorage,
 } from '@/lib/uploads/core/storage-service'
-import { validateFileType } from '@/lib/uploads/utils/validation'
+import { createVercelUploadToken } from '@/lib/uploads/providers/vercel/upload-token'
+import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
 import { createErrorResponse } from '@/app/api/files/utils'
 
 const logger = createLogger('BatchPresignedUploadAPI')
@@ -52,54 +54,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const uploadTypeParam = request.nextUrl.searchParams.get('type')
-    const uploadType: StorageContext =
-      uploadTypeParam === 'knowledge-base'
-        ? 'knowledge-base'
-        : uploadTypeParam === 'chat'
-          ? 'chat'
-          : uploadTypeParam === 'copilot'
-            ? 'copilot'
-            : uploadTypeParam === 'profile-pictures'
-              ? 'profile-pictures'
-              : 'general'
-
-    const MAX_FILE_SIZE = 100 * 1024 * 1024
+    const uploadType: StorageContext = resolveUploadContext(
+      request.nextUrl.searchParams.get('type')
+    )
     for (const file of files) {
-      if (!file.fileName?.trim()) {
-        return NextResponse.json({ error: 'fileName is required for all files' }, { status: 400 })
-      }
-      if (!file.contentType?.trim()) {
-        return NextResponse.json(
-          { error: 'contentType is required for all files' },
-          { status: 400 }
-        )
-      }
-      if (!file.fileSize || file.fileSize <= 0) {
-        return NextResponse.json(
-          { error: 'fileSize must be positive for all files' },
-          { status: 400 }
-        )
-      }
-      if (file.fileSize > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: `File ${file.fileName} exceeds maximum size of ${MAX_FILE_SIZE} bytes` },
-          { status: 400 }
-        )
-      }
+      const validationError = validateUploadRequest({
+        fileName: file.fileName,
+        contentType: file.contentType,
+        fileSize: file.fileSize,
+        context: uploadType,
+      })
 
-      if (uploadType === 'knowledge-base') {
-        const fileValidationError = validateFileType(file.fileName, file.contentType)
-        if (fileValidationError) {
-          return NextResponse.json(
-            {
-              error: fileValidationError.message,
-              code: fileValidationError.code,
-              supportedTypes: fileValidationError.supportedTypes,
-            },
-            { status: 400 }
-          )
-        }
+      if (validationError) {
+        return NextResponse.json(
+          {
+            error: validationError.message,
+            code: validationError.code,
+            supportedTypes: validationError.supportedTypes,
+          },
+          { status: 400 }
+        )
       }
     }
 
@@ -127,6 +101,7 @@ export async function POST(request: NextRequest) {
             size: file.fileSize,
             type: file.contentType,
           },
+          storageProvider: 'local',
           directUploadSupported: false,
         })),
         directUploadSupported: false,
@@ -153,27 +128,50 @@ export async function POST(request: NextRequest) {
       `Generated ${files.length} presigned URLs in ${duration}ms (avg ${Math.round(duration / files.length)}ms per file)`
     )
 
-    const storagePrefix = USE_BLOB_STORAGE ? 'blob' : 's3'
+    const storageProvider = getStorageProvider()
+    const storageConfig = getStorageConfig(uploadType)
+    const requiresClientUpload = storageProvider === 'vercel'
 
     return NextResponse.json({
-      files: presignedUrls.map((urlResponse, index) => {
-        const finalPath = `/api/files/serve/${storagePrefix}/${encodeURIComponent(urlResponse.key)}?context=${uploadType}`
+      files: await Promise.all(
+        presignedUrls.map(async (urlResponse, index) => {
+          const finalPath = `/api/files/serve/${storageProvider}/${encodeURIComponent(urlResponse.key)}?context=${uploadType}`
+          const clientUploadAuthorization =
+            requiresClientUpload
+              ? await createVercelUploadToken(
+                  {
+                    pathname: urlResponse.key,
+                    context: uploadType,
+                    contentType: files[index].contentType,
+                    size: files[index].fileSize,
+                    userId: sessionUserId,
+                  },
+                  3600
+                )
+              : undefined
 
-        return {
-          fileName: files[index].fileName,
-          presignedUrl: urlResponse.url,
-          fileInfo: {
-            path: finalPath,
-            key: urlResponse.key,
-            name: files[index].fileName,
-            size: files[index].fileSize,
-            type: files[index].contentType,
-          },
-          uploadHeaders: urlResponse.uploadHeaders,
-          directUploadSupported: true,
-        }
-      }),
-      directUploadSupported: true,
+          return {
+            fileName: files[index].fileName,
+            presignedUrl: urlResponse.url,
+            fileInfo: {
+              path: finalPath,
+              key: urlResponse.key,
+              name: files[index].fileName,
+              size: files[index].fileSize,
+              type: files[index].contentType,
+            },
+            storageProvider,
+            blobAccess: storageProvider === 'vercel' ? storageConfig.access : undefined,
+            clientUploadAuthorization,
+            requiresClientUpload,
+            context: uploadType,
+            uploadHeaders: urlResponse.uploadHeaders,
+            directUploadSupported: !requiresClientUpload,
+          }
+        })
+      ),
+      requiresClientUpload,
+      directUploadSupported: !requiresClientUpload,
     })
   } catch (error) {
     logger.error('Error generating batch presigned URLs:', error)

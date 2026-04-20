@@ -1,5 +1,8 @@
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
-import { getTierWorkflowModelCostMultiplier } from '@/lib/billing/tiers'
+import {
+  getTierWorkflowExecutionMultiplier,
+  getTierWorkflowModelCostMultiplier,
+} from '@/lib/billing/tiers'
 import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
@@ -127,7 +130,9 @@ export class LoggingSession {
     })
 
     return {
-      workflowExecutionChargeUsd: billingSettings.workflowExecutionChargeUsd,
+      workflowExecutionChargeUsd:
+        billingSettings.workflowExecutionChargeUsd *
+        getTierWorkflowExecutionMultiplier(billingContext.tier),
       workflowModelCostMultiplier: getTierWorkflowModelCostMultiplier(billingContext.tier),
     }
   }

@@ -24,8 +24,9 @@ export interface AdminBillingTierSnapshot {
   canEditUsageLimit: boolean
   canConfigureSso: boolean
   logRetentionDays: number | null
+  workflowExecutionMultiplier: number | null
   workflowModelCostMultiplier: number | null
-  functionExecutionDurationMultiplier: number | null
+  functionExecutionMultiplier: number | null
   copilotCostMultiplier: number | null
   pricingFeatures: string[]
   isPublic: boolean

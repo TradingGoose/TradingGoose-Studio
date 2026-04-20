@@ -6,60 +6,6 @@ import { generateRuntimeCSP } from './lib/security/csp'
 const logger = createLogger('Proxy')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
-
-/**
- * When running in hosted mode (tradinggoose.ai / staging), only landing pages
- * are served. Every other route gets a 404 so we can show "coming soon" only.
- */
-const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms', '/changelog'])
-const HOSTED_ALLOWED_API_PATHS = new Set(['/api/github-stars', '/api/newsletter/subscribe'])
-
-const HOSTED_HOSTNAMES = [
-  'www.tradinggoose.ai',
-  'tradinggoose.ai',
-  'preview.tradinggoose.ai',
-  'staging.tradinggoose.ai',
-]
-
-function extractHostname(value: string | null | undefined): string {
-  if (!value) return ''
-  try {
-    return new URL(value.includes('://') ? value : `https://${value}`).hostname
-  } catch {
-    return value.replace(/^https?:\/\//, '').split('/')[0]?.split(':')[0] ?? ''
-  }
-}
-
-function isHostedEnvironment(request: NextRequest): boolean {
-  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
-  const requestHost = forwardedHost || request.nextUrl.hostname || request.headers.get('host')
-  return HOSTED_HOSTNAMES.includes(extractHostname(requestHost))
-}
-
-function isAllowedInHostedMode(pathname: string): boolean {
-  if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
-  if (pathname === '/blog' || pathname.startsWith('/blog/')) return true
-  if (pathname.startsWith('/blog-images/')) return true
-  if (HOSTED_ALLOWED_API_PATHS.has(pathname)) return true
-  // Allow static assets, Next.js internals, and public files
-  if (pathname.startsWith('/_next/')) return true
-  if (pathname.startsWith('/favicon')) return true
-  if (pathname.startsWith('/social/')) return true
-  if (pathname.startsWith('/logo/')) return true
-  if (pathname.startsWith('/static/')) return true
-  if (pathname.startsWith('/footer/')) return true
-  // Allow public root assets (images, icons, etc.)
-  if (/^\/.+\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|css|js)$/.test(pathname)) return true
-  if (
-    pathname === '/robots.txt' ||
-    pathname === '/sitemap.xml' ||
-    pathname === '/manifest.webmanifest'
-  )
-    return true
-  if (pathname === '/changelog.xml' || pathname === '/llms.txt' || pathname === '/llms-full.txt')
-    return true
-  return false
-}
 const AUTH_COOKIE_KEYS = [
   'better-auth.session_token',
   'better-auth.session_data',
@@ -164,11 +110,6 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
-
-  // In hosted mode, only serve landing pages — everything else is 404
-  if (isHostedEnvironment(request) && !isAllowedInHostedMode(url.pathname)) {
-    return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 })
-  }
 
   const hasActiveSession = Boolean(getSessionCookie(request))
   const isProtectedPath = isProtectedAppPath(url.pathname)

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { upload as uploadToVercelBlob } from '@vercel/blob/client'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('KnowledgeUpload')
@@ -188,23 +189,33 @@ interface PresignedFileInfo {
 }
 
 interface PresignedUploadInfo {
+  clientUploadAuthorization?: string
   fileName: string
-  presignedUrl: string
+  presignedUrl?: string
   fileInfo: PresignedFileInfo
   uploadHeaders?: Record<string, string>
   directUploadSupported: boolean
+  storageProvider?: 'local' | 's3' | 'azure' | 'vercel'
+  blobAccess?: 'public' | 'private'
+  context?: string
   presignedUrls?: any
 }
 
 const normalizePresignedData = (data: any, context: string): PresignedUploadInfo => {
   const presignedUrl = data?.presignedUrl || data?.uploadUrl
   const fileInfo = data?.fileInfo
+  const storageProvider = data?.storageProvider
 
-  if (!presignedUrl || !fileInfo?.path) {
+  if (!fileInfo?.path) {
+    throw new PresignedUrlError(`Invalid presigned response for ${context}`, data)
+  }
+
+  if (data?.directUploadSupported !== false && storageProvider !== 'vercel' && !presignedUrl) {
     throw new PresignedUrlError(`Invalid presigned response for ${context}`, data)
   }
 
   return {
+    clientUploadAuthorization: data?.clientUploadAuthorization,
     fileName: data.fileName || fileInfo.name || context,
     presignedUrl,
     fileInfo: {
@@ -216,6 +227,9 @@ const normalizePresignedData = (data: any, context: string): PresignedUploadInfo
     },
     uploadHeaders: data.uploadHeaders || undefined,
     directUploadSupported: data.directUploadSupported !== false,
+    storageProvider,
+    blobAccess: data?.blobAccess,
+    context: data?.context,
     presignedUrls: data.presignedUrls,
   }
 }
@@ -357,6 +371,10 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
       try {
         presignedData = presignedOverride ?? (await getPresignedData(file, timeoutMs, controller))
 
+        if (presignedData.storageProvider === 'vercel') {
+          return await uploadFileWithVercelClientUpload(file, presignedData, timeoutMs, fileIndex)
+        }
+
         if (presignedData.directUploadSupported) {
           if (file.size > UPLOAD_CONFIG.LARGE_FILE_THRESHOLD) {
             return await uploadFileInChunks(file, presignedData, timeoutMs, fileIndex)
@@ -403,7 +421,8 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
         }
 
         await sleep(delay)
-        const shouldReusePresigned = (isTimeout || isNetwork) && presignedData
+        const shouldReusePresigned =
+          (isTimeout || isNetwork) && presignedData?.storageProvider !== 'vercel' && presignedData
         return uploadSingleFileWithRetry(
           file,
           retryCount + 1,
@@ -431,6 +450,12 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
     outerController: AbortController,
     fileIndex?: number
   ): Promise<UploadedFile> => {
+    if (!presignedData.presignedUrl) {
+      throw new DirectUploadError(`Missing presigned URL for ${file.name}`)
+    }
+
+    const presignedUrl = presignedData.presignedUrl
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       let isCompleted = false
@@ -527,7 +552,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
       xhr.addEventListener('abort', abortHandler)
 
       // Start the upload
-      xhr.open('PUT', presignedData.presignedUrl)
+      xhr.open('PUT', presignedUrl)
 
       // Set headers
       xhr.setRequestHeader('Content-Type', file.type)
@@ -539,6 +564,75 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
 
       xhr.send(file)
     })
+  }
+
+  /**
+   * Upload file using the Vercel Blob client upload flow.
+   */
+  const uploadFileWithVercelClientUpload = async (
+    file: File,
+    presignedData: PresignedUploadInfo,
+    timeoutMs: number,
+    fileIndex?: number
+  ): Promise<UploadedFile> => {
+    if (!presignedData.fileInfo.key) {
+      throw new DirectUploadError(`Missing Vercel upload key for ${file.name}`)
+    }
+    if (!presignedData.clientUploadAuthorization) {
+      throw new DirectUploadError(`Missing Vercel upload authorization for ${file.name}`)
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    const startTime = getHighResTime()
+
+    try {
+      const context = presignedData.context || 'knowledge-base'
+      const blob = await uploadToVercelBlob(presignedData.fileInfo.key, file, {
+        access: presignedData.blobAccess || 'private',
+        handleUploadUrl: `/api/files/vercel/client-upload?type=${encodeURIComponent(context)}`,
+        clientPayload: JSON.stringify({
+          clientUploadAuthorization: presignedData.clientUploadAuthorization,
+          contentType: file.type,
+          fileName: file.name,
+          fileSize: file.size,
+          pathname: presignedData.fileInfo.key,
+        }),
+        contentType: file.type,
+        multipart: file.size > UPLOAD_CONFIG.LARGE_FILE_THRESHOLD,
+        abortSignal: controller.signal,
+        onUploadProgress: ({ percentage }) => {
+          if (fileIndex === undefined) return
+
+          const percentComplete = Math.min(100, Math.max(0, Math.round(percentage)))
+          setUploadProgress((prev) => ({
+            ...prev,
+            fileStatuses: prev.fileStatuses?.map((fs, idx) =>
+              idx === fileIndex ? { ...fs, progress: percentComplete } : fs
+            ),
+          }))
+        },
+      })
+
+      const durationMs = getHighResTime() - startTime
+      const fullFileUrl = `${window.location.origin}/api/files/serve/vercel/${encodeURIComponent(blob.pathname)}?context=${encodeURIComponent(context)}`
+
+      logger.info('Vercel client upload completed', {
+        fileName: file.name,
+        sizeMB: formatMegabytes(file.size),
+        durationMs: formatDurationSeconds(durationMs),
+        throughputMbps: calculateThroughputMbps(file.size, durationMs),
+      })
+
+      return createUploadedFile(file.name, fullFileUrl, file.size, file.type, file)
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new DirectUploadError(`Upload aborted for ${file.name}`)
+      }
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
+    }
   }
 
   /**
@@ -775,7 +869,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
   }
 
   /**
-   * Upload files using batch presigned URLs (works for both S3 and Azure Blob)
+   * Upload files using batch presigned URLs.
    */
   const uploadFilesInBatches = async (files: File[]): Promise<UploadedFile[]> => {
     const results: UploadedFile[] = []

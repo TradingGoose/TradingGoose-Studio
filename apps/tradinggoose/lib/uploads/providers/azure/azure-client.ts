@@ -6,40 +6,40 @@ import {
   StorageSharedKeyCredential,
 } from '@azure/storage-blob'
 import { createLogger } from '@/lib/logs/console/logger'
-import { BLOB_CONFIG } from '@/lib/uploads/core/setup'
+import { AZURE_CONFIG } from '@/lib/uploads/core/setup'
 
-const logger = createLogger('BlobClient')
+const logger = createLogger('AzureClient')
 
 // Lazily create a single Blob service client instance.
-let _blobServiceClient: BlobServiceClient | null = null
+let _azureServiceClient: BlobServiceClient | null = null
 
-export function getBlobServiceClient(): BlobServiceClient {
-  if (_blobServiceClient) return _blobServiceClient
+export function getAzureServiceClient(): BlobServiceClient {
+  if (_azureServiceClient) return _azureServiceClient
 
-  const { accountName, accountKey, connectionString } = BLOB_CONFIG
+  const { accountName, accountKey, connectionString } = AZURE_CONFIG
 
   if (connectionString) {
     // Use connection string if provided
-    _blobServiceClient = BlobServiceClient.fromConnectionString(connectionString)
+    _azureServiceClient = BlobServiceClient.fromConnectionString(connectionString)
   } else if (accountName && accountKey) {
     // Use account name and key
     const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey)
-    _blobServiceClient = new BlobServiceClient(
+    _azureServiceClient = new BlobServiceClient(
       `https://${accountName}.blob.core.windows.net`,
       sharedKeyCredential
     )
   } else {
     throw new Error(
-      'Azure Blob Storage credentials are missing – set AZURE_STORAGE_CONNECTION_STRING or both AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY in your environment.'
+      'Azure storage credentials are missing – set AZURE_STORAGE_CONNECTION_STRING or both AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY in your environment.'
     )
   }
 
-  return _blobServiceClient
+  return _azureServiceClient
 }
 
 /**
- * Sanitize a filename for use in blob metadata headers
- * Azure blob metadata headers must contain only ASCII printable characters
+ * Sanitize a filename for use in Azure metadata headers.
+ * Azure metadata headers must contain only ASCII printable characters
  * and cannot contain certain special characters
  */
 export function sanitizeFilenameForMetadata(filename: string): string {
@@ -63,16 +63,16 @@ export function sanitizeFilenameForMetadata(filename: string): string {
  */
 export interface FileInfo {
   path: string // Path to access the file
-  key: string // Blob name or local filename
+  key: string // Azure key or local filename
   name: string // Original filename
   size: number // File size in bytes
   type: string // MIME type
 }
 
 /**
- * Custom Blob configuration
+ * Custom Azure configuration
  */
-export interface CustomBlobConfig {
+export interface CustomAzureConfig {
   containerName: string
   accountName: string
   accountKey?: string
@@ -80,14 +80,14 @@ export interface CustomBlobConfig {
 }
 
 /**
- * Upload a file to Azure Blob Storage
+ * Upload a file to Azure storage
  * @param file Buffer containing file data
  * @param fileName Original file name
  * @param contentType MIME type of the file
  * @param size File size in bytes (optional, will use buffer length if not provided)
  * @returns Object with file information
  */
-export async function uploadToBlob(
+export async function uploadToAzure(
   file: Buffer,
   fileName: string,
   contentType: string,
@@ -95,31 +95,31 @@ export async function uploadToBlob(
 ): Promise<FileInfo>
 
 /**
- * Upload a file to Azure Blob Storage with custom container configuration
+ * Upload a file to Azure storage with custom container configuration
  * @param file Buffer containing file data
  * @param fileName Original file name
  * @param contentType MIME type of the file
- * @param customConfig Custom Blob configuration (container and account info)
+ * @param customConfig Custom Azure configuration (container and account info)
  * @param size File size in bytes (optional, will use buffer length if not provided)
  * @returns Object with file information
  */
-export async function uploadToBlob(
+export async function uploadToAzure(
   file: Buffer,
   fileName: string,
   contentType: string,
-  customConfig: CustomBlobConfig,
+  customConfig: CustomAzureConfig,
   size?: number
 ): Promise<FileInfo>
 
-export async function uploadToBlob(
+export async function uploadToAzure(
   file: Buffer,
   fileName: string,
   contentType: string,
-  configOrSize?: CustomBlobConfig | number,
+  configOrSize?: CustomAzureConfig | number,
   size?: number
 ): Promise<FileInfo> {
   // Handle overloaded parameters
-  let config: CustomBlobConfig
+  let config: CustomAzureConfig
   let fileSize: number
 
   if (typeof configOrSize === 'object') {
@@ -129,10 +129,10 @@ export async function uploadToBlob(
   } else {
     // Use default config
     config = {
-      containerName: BLOB_CONFIG.containerName,
-      accountName: BLOB_CONFIG.accountName,
-      accountKey: BLOB_CONFIG.accountKey,
-      connectionString: BLOB_CONFIG.connectionString,
+      containerName: AZURE_CONFIG.containerName,
+      accountName: AZURE_CONFIG.accountName,
+      accountKey: AZURE_CONFIG.accountKey,
+      connectionString: AZURE_CONFIG.connectionString,
     }
     fileSize = configOrSize ?? file.length
   }
@@ -140,8 +140,8 @@ export async function uploadToBlob(
   const safeFileName = fileName.replace(/\s+/g, '-') // Replace spaces with hyphens
   const uniqueKey = `${Date.now()}-${safeFileName}`
 
-  const blobServiceClient = getBlobServiceClient()
-  const containerClient = blobServiceClient.getContainerClient(config.containerName)
+  const azureServiceClient = getAzureServiceClient()
+  const containerClient = azureServiceClient.getContainerClient(config.containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(uniqueKey)
 
   await blockBlobClient.upload(file, fileSize, {
@@ -154,7 +154,7 @@ export async function uploadToBlob(
     },
   })
 
-  const servePath = `/api/files/serve/blob/${encodeURIComponent(uniqueKey)}`
+  const servePath = `/api/files/serve/azure/${encodeURIComponent(uniqueKey)}`
 
   return {
     path: servePath,
@@ -167,17 +167,17 @@ export async function uploadToBlob(
 
 /**
  * Generate a presigned URL for direct file access
- * @param key Blob name
+ * @param key File key
  * @param expiresIn Time in seconds until URL expires
  * @returns Presigned URL
  */
 export async function getPresignedUrl(key: string, expiresIn = 3600) {
-  const blobServiceClient = getBlobServiceClient()
-  const containerClient = blobServiceClient.getContainerClient(BLOB_CONFIG.containerName)
+  const azureServiceClient = getAzureServiceClient()
+  const containerClient = azureServiceClient.getContainerClient(AZURE_CONFIG.containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   const sasOptions = {
-    containerName: BLOB_CONFIG.containerName,
+    containerName: AZURE_CONFIG.containerName,
     blobName: key,
     permissions: BlobSASPermissions.parse('r'), // Read permission
     startsOn: new Date(),
@@ -187,8 +187,8 @@ export async function getPresignedUrl(key: string, expiresIn = 3600) {
   const sasToken = generateBlobSASQueryParameters(
     sasOptions,
     new StorageSharedKeyCredential(
-      BLOB_CONFIG.accountName,
-      BLOB_CONFIG.accountKey ??
+      AZURE_CONFIG.accountName,
+      AZURE_CONFIG.accountKey ??
         (() => {
           throw new Error('AZURE_ACCOUNT_KEY is required when using account name authentication')
         })()
@@ -200,36 +200,36 @@ export async function getPresignedUrl(key: string, expiresIn = 3600) {
 
 /**
  * Generate a presigned URL for direct file access with custom container
- * @param key Blob name
- * @param customConfig Custom Blob configuration
+ * @param key File key
+ * @param customConfig Custom Azure configuration
  * @param expiresIn Time in seconds until URL expires
  * @returns Presigned URL
  */
 export async function getPresignedUrlWithConfig(
   key: string,
-  customConfig: CustomBlobConfig,
+  customConfig: CustomAzureConfig,
   expiresIn = 3600
 ) {
-  let tempBlobServiceClient: BlobServiceClient
+  let tempAzureServiceClient: BlobServiceClient
 
   if (customConfig.connectionString) {
-    tempBlobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+    tempAzureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
   } else if (customConfig.accountName && customConfig.accountKey) {
     const sharedKeyCredential = new StorageSharedKeyCredential(
       customConfig.accountName,
       customConfig.accountKey
     )
-    tempBlobServiceClient = new BlobServiceClient(
+    tempAzureServiceClient = new BlobServiceClient(
       `https://${customConfig.accountName}.blob.core.windows.net`,
       sharedKeyCredential
     )
   } else {
     throw new Error(
-      'Custom blob config must include either connectionString or accountName + accountKey'
+      'Custom Azure config must include either connectionString or accountName + accountKey'
     )
   }
 
-  const containerClient = tempBlobServiceClient.getContainerClient(customConfig.containerName)
+  const containerClient = tempAzureServiceClient.getContainerClient(customConfig.containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   const sasOptions = {
@@ -255,54 +255,54 @@ export async function getPresignedUrlWithConfig(
 }
 
 /**
- * Download a file from Azure Blob Storage
- * @param key Blob name
+ * Download a file from Azure storage
+ * @param key File key
  * @returns File buffer
  */
-export async function downloadFromBlob(key: string): Promise<Buffer>
+export async function downloadFromAzure(key: string): Promise<Buffer>
 
 /**
- * Download a file from Azure Blob Storage with custom configuration
- * @param key Blob name
- * @param customConfig Custom Blob configuration
+ * Download a file from Azure storage with custom configuration
+ * @param key File key
+ * @param customConfig Custom Azure configuration
  * @returns File buffer
  */
-export async function downloadFromBlob(key: string, customConfig: CustomBlobConfig): Promise<Buffer>
+export async function downloadFromAzure(key: string, customConfig: CustomAzureConfig): Promise<Buffer>
 
-export async function downloadFromBlob(
+export async function downloadFromAzure(
   key: string,
-  customConfig?: CustomBlobConfig
+  customConfig?: CustomAzureConfig
 ): Promise<Buffer> {
-  let blobServiceClient: BlobServiceClient
+  let azureServiceClient: BlobServiceClient
   let containerName: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
     } else if (customConfig.accountName && customConfig.accountKey) {
       const credential = new StorageSharedKeyCredential(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
   }
 
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   const downloadBlockBlobResponse = await blockBlobClient.download()
   if (!downloadBlockBlobResponse.readableStreamBody) {
-    throw new Error('Failed to get readable stream from blob download')
+    throw new Error('Failed to get readable stream from Azure download')
   }
   const downloaded = await streamToBuffer(downloadBlockBlobResponse.readableStreamBody)
 
@@ -310,44 +310,44 @@ export async function downloadFromBlob(
 }
 
 /**
- * Delete a file from Azure Blob Storage
- * @param key Blob name
+ * Delete a file from Azure storage
+ * @param key File key
  */
-export async function deleteFromBlob(key: string): Promise<void>
+export async function deleteFromAzure(key: string): Promise<void>
 
 /**
- * Delete a file from Azure Blob Storage with custom configuration
- * @param key Blob name
- * @param customConfig Custom Blob configuration
+ * Delete a file from Azure storage with custom configuration
+ * @param key File key
+ * @param customConfig Custom Azure configuration
  */
-export async function deleteFromBlob(key: string, customConfig: CustomBlobConfig): Promise<void>
+export async function deleteFromAzure(key: string, customConfig: CustomAzureConfig): Promise<void>
 
-export async function deleteFromBlob(key: string, customConfig?: CustomBlobConfig): Promise<void> {
-  let blobServiceClient: BlobServiceClient
+export async function deleteFromAzure(key: string, customConfig?: CustomAzureConfig): Promise<void> {
+  let azureServiceClient: BlobServiceClient
   let containerName: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
     } else if (customConfig.accountName && customConfig.accountKey) {
       const credential = new StorageSharedKeyCredential(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
   }
 
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   await blockBlobClient.delete()
@@ -374,7 +374,7 @@ export interface AzureMultipartUploadInit {
   fileName: string
   contentType: string
   fileSize: number
-  customConfig?: CustomBlobConfig
+  customConfig?: CustomAzureConfig
 }
 
 export interface AzureMultipartUploadResult {
@@ -395,35 +395,35 @@ export interface AzureMultipartPart {
 }
 
 /**
- * Initiate a multipart upload for Azure Blob Storage
+ * Initiate a multipart upload for Azure storage
  */
 export async function initiateMultipartUpload(
   options: AzureMultipartUploadInit
 ): Promise<{ uploadId: string; key: string }> {
   const { fileName, contentType, customConfig } = options
 
-  let blobServiceClient: BlobServiceClient
+  let azureServiceClient: BlobServiceClient
   let containerName: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
     } else if (customConfig.accountName && customConfig.accountKey) {
       const credential = new StorageSharedKeyCredential(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
   }
 
   // Create unique key for the blob
@@ -435,7 +435,7 @@ export async function initiateMultipartUpload(
   const uploadId = uuidv4()
 
   // Store the blob client reference for later use (in a real implementation, you'd use Redis or similar)
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(uniqueKey)
 
   // Set metadata to track the multipart upload
@@ -458,18 +458,18 @@ export async function initiateMultipartUpload(
  */
 export async function getMultipartPartUrls(
   key: string,
-  _uploadId: string, // Not used in Azure Blob, kept for interface consistency
+  _uploadId: string, // Not used in Azure multipart flow, kept for interface consistency
   partNumbers: number[],
-  customConfig?: CustomBlobConfig
+  customConfig?: CustomAzureConfig
 ): Promise<AzurePartUploadUrl[]> {
-  let blobServiceClient: BlobServiceClient
+  let azureServiceClient: BlobServiceClient
   let containerName: string
   let accountName: string
   let accountKey: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
       // Extract account name from connection string
       const match = customConfig.connectionString.match(/AccountName=([^;]+)/)
       if (!match) throw new Error('Cannot extract account name from connection string')
@@ -483,28 +483,28 @@ export async function getMultipartPartUrls(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
       accountName = customConfig.accountName
       accountKey = customConfig.accountKey
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
-    accountName = BLOB_CONFIG.accountName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
+    accountName = AZURE_CONFIG.accountName
     accountKey =
-      BLOB_CONFIG.accountKey ||
+      AZURE_CONFIG.accountKey ||
       (() => {
         throw new Error('AZURE_ACCOUNT_KEY is required')
       })()
   }
 
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   return partNumbers.map((partNumber) => {
@@ -541,35 +541,35 @@ export async function getMultipartPartUrls(
  */
 export async function completeMultipartUpload(
   key: string,
-  _uploadId: string, // Not used in Azure Blob, kept for interface consistency
+  _uploadId: string, // Not used in Azure multipart flow, kept for interface consistency
   parts: Array<{ blockId: string; partNumber: number }>,
-  customConfig?: CustomBlobConfig
+  customConfig?: CustomAzureConfig
 ): Promise<{ location: string; path: string; key: string }> {
-  let blobServiceClient: BlobServiceClient
+  let azureServiceClient: BlobServiceClient
   let containerName: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
     } else if (customConfig.accountName && customConfig.accountKey) {
       const credential = new StorageSharedKeyCredential(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
   }
 
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   // Sort parts by part number and extract block IDs
@@ -586,7 +586,7 @@ export async function completeMultipartUpload(
   })
 
   const location = blockBlobClient.url
-  const path = `/api/files/serve/blob/${encodeURIComponent(key)}`
+  const path = `/api/files/serve/azure/${encodeURIComponent(key)}`
 
   return {
     location,
@@ -600,34 +600,34 @@ export async function completeMultipartUpload(
  */
 export async function abortMultipartUpload(
   key: string,
-  _uploadId: string, // Not used in Azure Blob, kept for interface consistency
-  customConfig?: CustomBlobConfig
+  _uploadId: string, // Not used in Azure multipart flow, kept for interface consistency
+  customConfig?: CustomAzureConfig
 ): Promise<void> {
-  let blobServiceClient: BlobServiceClient
+  let azureServiceClient: BlobServiceClient
   let containerName: string
 
   if (customConfig) {
     if (customConfig.connectionString) {
-      blobServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
+      azureServiceClient = BlobServiceClient.fromConnectionString(customConfig.connectionString)
     } else if (customConfig.accountName && customConfig.accountKey) {
       const credential = new StorageSharedKeyCredential(
         customConfig.accountName,
         customConfig.accountKey
       )
-      blobServiceClient = new BlobServiceClient(
+      azureServiceClient = new BlobServiceClient(
         `https://${customConfig.accountName}.blob.core.windows.net`,
         credential
       )
     } else {
-      throw new Error('Invalid custom blob configuration')
+      throw new Error('Invalid custom Azure configuration')
     }
     containerName = customConfig.containerName
   } else {
-    blobServiceClient = getBlobServiceClient()
-    containerName = BLOB_CONFIG.containerName
+    azureServiceClient = getAzureServiceClient()
+    containerName = AZURE_CONFIG.containerName
   }
 
-  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
   try {

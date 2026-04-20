@@ -241,10 +241,10 @@ describe('/api/files/presigned', () => {
       expect(data.directUploadSupported).toBe(true)
     })
 
-    it('should generate Azure Blob presigned URL successfully', async () => {
+    it('should generate Azure presigned URL successfully', async () => {
       setupFileApiMocks({
         cloudEnabled: true,
-        storageProvider: 'blob',
+        storageProvider: 'azure',
       })
 
       const { POST } = await import('@/app/api/files/presigned/route')
@@ -273,10 +273,10 @@ describe('/api/files/presigned', () => {
       expect(data.directUploadSupported).toBe(true)
     })
 
-    it('should generate chat Azure Blob presigned URL with chat prefix and direct path', async () => {
+    it('should generate chat Azure presigned URL with chat prefix and direct path', async () => {
       setupFileApiMocks({
         cloudEnabled: true,
-        storageProvider: 'blob',
+        storageProvider: 'azure',
       })
 
       const { POST } = await import('@/app/api/files/presigned/route')
@@ -295,9 +295,39 @@ describe('/api/files/presigned', () => {
 
       expect(response.status).toBe(200)
       expect(data.fileInfo.key).toMatch(/^chat\/.*chat-logo\.png$/)
-      expect(data.fileInfo.path).toMatch(/\/api\/files\/serve\/blob\/.+\?context=chat$/)
+      expect(data.fileInfo.path).toMatch(/\/api\/files\/serve\/azure\/.+\?context=chat$/)
       expect(data.presignedUrl).toBeTruthy()
       expect(data.directUploadSupported).toBe(true)
+    })
+
+    it('should generate Vercel upload metadata successfully', async () => {
+      setupFileApiMocks({
+        cloudEnabled: true,
+        storageProvider: 'vercel',
+      })
+
+      const { POST } = await import('@/app/api/files/presigned/route')
+
+      const request = new NextRequest('http://localhost:3000/api/files/presigned?type=chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: 'chat-logo.png',
+          contentType: 'image/png',
+          fileSize: 4096,
+        }),
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.storageProvider).toBe('vercel')
+      expect(data.blobAccess).toBe('private')
+      expect(data.clientUploadAuthorization).toEqual(expect.any(String))
+      expect(data.requiresClientUpload).toBe(true)
+      expect(data.presignedUrl).toBe('')
+      expect(data.fileInfo.path).toMatch(/\/api\/files\/serve\/vercel\/.+\?context=chat$/)
+      expect(data.directUploadSupported).toBe(false)
     })
 
     it('should return error for unknown storage provider', async () => {
@@ -362,10 +392,10 @@ describe('/api/files/presigned', () => {
       expect(typeof data.error).toBe('string')
     })
 
-    it('should handle Azure Blob errors gracefully', async () => {
+    it('should handle Azure errors gracefully', async () => {
       setupFileApiMocks({
         cloudEnabled: true,
-        storageProvider: 'blob',
+        storageProvider: 'azure',
       })
 
       vi.doMock('@/lib/uploads/core/storage-service', () => ({

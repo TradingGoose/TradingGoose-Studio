@@ -58,7 +58,7 @@ describe('Function Execute API Route', () => {
       isBillingEnabledForRuntime: vi.fn().mockResolvedValue(false),
     }))
     vi.doMock('@/lib/billing/tiers', () => ({
-      getTierFunctionExecutionDurationMultiplier: vi.fn(() => 0.5),
+      getTierFunctionExecutionMultiplier: vi.fn(() => 0.5),
     }))
     vi.doMock('@/lib/billing/usage-accrual', () => ({
       accrueUserUsageCost: vi.fn().mockResolvedValue(true),

@@ -96,7 +96,7 @@ export async function generateCopilotUploadUrl(
  * Download a copilot file from storage
  *
  * Uses the unified storage service with explicit copilot context.
- * Handles S3, Azure Blob, and local storage automatically.
+ * Handles S3, Azure, Vercel, and local storage automatically.
  *
  * @param key File storage key
  * @returns File buffer

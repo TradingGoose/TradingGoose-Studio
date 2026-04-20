@@ -14,7 +14,7 @@ export const WebflowBlock: BlockConfig<WebflowResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/webflow',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: undefined,
+  bgColor: '#146EF5',
   icon: WebflowIcon,
   subBlocks: [
     {

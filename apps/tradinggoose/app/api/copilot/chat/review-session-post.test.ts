@@ -993,8 +993,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
     expect(response.headers.get('Content-Type')).toBe('text/event-stream')
     await response.text()
 
-    const persistedAssistantMessage =
-      mockBuildAppendReviewTurn.mock.calls.at(-1)?.[0]?.assistantMessage
+    const lastBuildAppendReviewTurnCall = mockBuildAppendReviewTurn.mock.calls.at(-1) as
+      | [{ assistantMessage?: unknown }]
+      | undefined
+    const persistedAssistantMessage = lastBuildAppendReviewTurnCall?.[0]?.assistantMessage
 
     expect(persistedAssistantMessage).toMatchObject({
       content: 'Done.',

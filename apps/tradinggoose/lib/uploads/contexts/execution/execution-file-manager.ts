@@ -75,7 +75,7 @@ export async function uploadExecutionFile(
       name: fileName,
       size: fileBuffer.length,
       type: contentType,
-      url: directUrl || `/api/files/serve/${fileInfo.key}`, // Use presigned URL (5 or 10 min), fallback to serve path
+      url: directUrl || fileInfo.path,
       key: fileInfo.key,
       uploadedAt: new Date().toISOString(),
       expiresAt: getFileExpirationDate(),

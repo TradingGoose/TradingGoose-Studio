@@ -12,7 +12,7 @@ export const WhatsAppBlock: BlockConfig<WhatsAppResponse> = {
   longDescription: 'Integrate WhatsApp into the workflow. Can send messages.',
   docsLink: 'https://docs.tradinggoose.ai/tools/whatsapp',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#25D366',
   icon: WhatsAppIcon,
   triggerAllowed: true,
   subBlocks: [

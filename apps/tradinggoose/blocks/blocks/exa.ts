@@ -12,7 +12,7 @@ export const ExaBlock: BlockConfig<ExaResponse> = {
     'Integrate Exa into the workflow. Can search, get contents, find similar links, answer a question, and perform research.',
   docsLink: 'https://docs.tradinggoose.ai/tools/exa',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#1E40ED',
   icon: ExaAIIcon,
   subBlocks: [
     {

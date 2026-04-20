@@ -58,8 +58,9 @@ export interface BillingTierSummary {
   canEditUsageLimit: boolean
   canConfigureSso: boolean
   logRetentionDays: number | null
+  workflowExecutionMultiplier: number
   workflowModelCostMultiplier: number
-  functionExecutionDurationMultiplier: number
+  functionExecutionMultiplier: number
   copilotCostMultiplier: number
   pricingFeatures: string[]
   isPublic: boolean
