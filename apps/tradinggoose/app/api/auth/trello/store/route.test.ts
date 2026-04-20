@@ -91,7 +91,7 @@ global.fetch = mockFetch
 const TRELLO_STATE_COOKIE = 'tradinggoose_trello_oauth_state'
 
 function createRequest(body: Record<string, unknown>, stateCookie = 'trello-state') {
-  return new NextRequest('http://localhost:3000/api/auth/trello/token', {
+  return new NextRequest('http://localhost:3000/api/auth/trello/store', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: {
@@ -101,7 +101,7 @@ function createRequest(body: Record<string, unknown>, stateCookie = 'trello-stat
   })
 }
 
-describe('Trello token route', () => {
+describe('Trello store route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -119,7 +119,6 @@ describe('Trello token route', () => {
       json: async () => ({
         id: 'member-id',
         username: 'trello-user',
-        fullName: 'Trello User',
       }),
     })
   })
@@ -130,7 +129,7 @@ describe('Trello token route', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ success: true, accountId: 'credential-id' })
+    expect(body).toEqual({ success: true })
     expect(response.headers.get('set-cookie')).toContain(`${TRELLO_STATE_COOKIE}=`)
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0')
 
@@ -159,7 +158,7 @@ describe('Trello token route', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ success: true, accountId: 'existing-credential-id' })
+    expect(body).toEqual({ success: true })
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
         accessToken: 'new-token',

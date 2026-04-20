@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     const state = createTrelloOAuthState()
-    const returnURL = new URL('/auth/trello/callback', getBaseUrl())
+    const returnURL = new URL('/api/auth/trello/callback', getBaseUrl())
     returnURL.searchParams.set('callbackURL', callbackURL)
     returnURL.searchParams.set('state', state)
 

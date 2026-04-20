@@ -3,24 +3,20 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getTrelloApiKey,
-  TRELLO_OAUTH_STATE_COOKIE,
-} from '@/lib/trello/auth'
+import { getTrelloApiKey, TRELLO_OAUTH_STATE_COOKIE } from '@/lib/trello/auth'
 
 export const dynamic = 'force-dynamic'
 
-const logger = createLogger('TrelloTokenAPI')
+const logger = createLogger('TrelloStoreAPI')
 
 interface TrelloMember {
   id?: string
   username?: string
-  fullName?: string
 }
 
 async function getTrelloMember(apiKey: string, token: string): Promise<TrelloMember | null> {
   const url = new URL('https://api.trello.com/1/members/me')
-  url.searchParams.set('fields', 'id,username,fullName')
+  url.searchParams.set('fields', 'id,username')
   url.searchParams.set('key', apiKey)
   url.searchParams.set('token', token)
 
@@ -61,10 +57,7 @@ export async function POST(request: NextRequest) {
     const token = typeof body?.token === 'string' ? body.token.trim() : ''
     const state = typeof body?.state === 'string' ? body.state.trim() : ''
     if (!isValidState(request, state)) {
-      return jsonWithClearedState(
-        { error: 'Invalid Trello authorization state' },
-        { status: 400 }
-      )
+      return jsonWithClearedState({ error: 'Invalid Trello authorization state' }, { status: 400 })
     }
 
     if (!token) {
@@ -103,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     if (existingAccounts[0]) {
       await db.update(account).set(accountData).where(eq(account.id, existingAccounts[0].id))
-      return jsonWithClearedState({ success: true, accountId: existingAccounts[0].id })
+      return jsonWithClearedState({ success: true })
     }
 
     const id = crypto.randomUUID()
@@ -123,9 +116,9 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     })
 
-    return jsonWithClearedState({ success: true, accountId: id })
+    return jsonWithClearedState({ success: true })
   } catch (error) {
-    logger.error('Failed to save Trello token', { error })
+    logger.error('Failed to store Trello token', { error })
     return jsonWithClearedState({ error: 'Internal server error' }, { status: 500 })
   }
 }
