@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse } from '@/lib/auth/credential-access'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
 import { getCredential, refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
@@ -49,8 +50,9 @@ export async function POST(request: NextRequest) {
     try {
       // Refresh the token if needed
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
+      const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
-        { accessToken, idToken: credential.idToken || undefined },
+        { accessToken, idToken: credential.idToken || undefined, apiKey },
         { status: 200 }
       )
     } catch (error) {
@@ -99,8 +101,9 @@ export async function GET(request: NextRequest) {
 
     try {
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
+      const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
-        { accessToken, idToken: credential.idToken || undefined },
+        { accessToken, idToken: credential.idToken || undefined, apiKey },
         { status: 200 }
       )
     } catch (_error) {

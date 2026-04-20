@@ -7,6 +7,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { validateExternalUrl } from '@/lib/security/input-validation'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SSO-Register')
 const REDACTED_MARKER = '[REDACTED]'
@@ -321,7 +322,7 @@ export async function POST(request: NextRequest) {
       } = body
 
       const computedCallbackUrl =
-        callbackUrl || `${issuer.replace('/metadata', '')}/callback/${providerId}`
+        callbackUrl || `${getBaseUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
 
       const escapeXml = (value: string) =>
         value.replace(/[<>&"']/g, (character) => {

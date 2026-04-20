@@ -1,5 +1,5 @@
-import { getEnv } from '@/lib/env'
 import type { TrelloUpdateCardParams, TrelloUpdateCardResponse } from '@/tools/trello/types'
+import { getTrelloApiKey } from '@/tools/trello/utils'
 import type { ToolConfig } from '@/tools/types'
 
 export const trelloUpdateCardTool: ToolConfig<TrelloUpdateCardParams, TrelloUpdateCardResponse> = {
@@ -69,7 +69,7 @@ export const trelloUpdateCardTool: ToolConfig<TrelloUpdateCardParams, TrelloUpda
       if (!params.cardId) {
         throw new Error('Card ID is required')
       }
-      const apiKey = getEnv('TRELLO_API_KEY') || ''
+      const apiKey = getTrelloApiKey(params)
       const token = params.accessToken
       return `https://api.trello.com/1/cards/${params.cardId}?key=${apiKey}&token=${token}`
     },

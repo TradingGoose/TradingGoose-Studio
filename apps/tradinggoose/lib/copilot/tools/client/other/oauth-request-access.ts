@@ -4,8 +4,8 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
 
 const logger = createLogger('OAuthRequestAccessClientTool')
@@ -140,10 +140,9 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         this.setState(ClientToolCallState.success)
         await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)
 
-        await client.oauth2.link({
+        await startOAuthConnectFlow({
           providerId,
           callbackURL,
-          errorCallbackURL: callbackURL,
         })
         return
       }

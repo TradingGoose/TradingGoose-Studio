@@ -67,6 +67,11 @@ interface SSOProvider {
   hasSamlConfig: boolean
 }
 
+const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
+  `${getBaseUrl()}/api/auth/${
+    providerType === 'saml' ? 'sso/saml2/sp/acs' : 'sso/callback'
+  }/${providerId}`
+
 export function SSO() {
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
@@ -447,7 +452,7 @@ export function SSO() {
     })
   }
 
-  const callbackUrl = `${getBaseUrl()}/api/auth/sso/callback/${formData.providerId}`
+  const callbackUrl = getSsoCallbackUrl(formData.providerId, formData.providerType)
 
   const copyCallback = async () => {
     try {
@@ -519,14 +524,14 @@ export function SSO() {
                       <div className='relative mt-2'>
                         <Input
                           readOnly
-                          value={`${getBaseUrl()}/api/auth/sso/callback/${provider.providerId}`}
+                          value={getSsoCallbackUrl(provider.providerId, provider.providerType)}
                           className='h-9 w-full cursor-text pr-10 font-mono text-xs focus-visible:ring-2 focus-visible:ring-primary/20'
                           onClick={(e) => (e.target as HTMLInputElement).select()}
                         />
                         <button
                           type='button'
                           onClick={() => {
-                            const url = `${getBaseUrl()}/api/auth/sso/callback/${provider.providerId}`
+                            const url = getSsoCallbackUrl(provider.providerId, provider.providerType)
                             navigator.clipboard.writeText(url)
                             setCopied(true)
                             setTimeout(() => setCopied(false), 1500)

@@ -76,6 +76,10 @@ export async function GET(request: NextRequest) {
           displayName = `${acc.accountId} (GitHub)`
         }
 
+        if (!displayName && baseProvider === 'trello') {
+          displayName = `${acc.accountId} (Trello)`
+        }
+
         // Method 3: Use the user's email from our database
         if (!displayName && userEmail) {
           displayName = userEmail
