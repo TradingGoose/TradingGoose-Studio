@@ -13,7 +13,6 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { copilotReviewSessions } from './copilot'
 import { user, workspace } from './core'
 import { apiKey } from './workspaces'
 
@@ -608,56 +607,6 @@ export const chat = pgTable(
       ),
     }
   },
-)
-
-export const workflowCheckpoints = pgTable(
-  'workflow_checkpoints',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    workflowId: text('workflow_id')
-      .notNull()
-      .references(() => workflow.id, { onDelete: 'cascade' }),
-    chatId: uuid('chat_id')
-      .notNull()
-      .references(() => copilotReviewSessions.id, { onDelete: 'cascade' }),
-    messageId: text('message_id'), // ID of the user message that triggered this checkpoint
-    workflowState: json('workflow_state').notNull(), // JSON workflow state
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    // Primary access patterns
-    userIdIdx: index('workflow_checkpoints_user_id_idx').on(table.userId),
-    workflowIdIdx: index('workflow_checkpoints_workflow_id_idx').on(
-      table.workflowId,
-    ),
-    chatIdIdx: index('workflow_checkpoints_chat_id_idx').on(table.chatId),
-    messageIdIdx: index('workflow_checkpoints_message_id_idx').on(
-      table.messageId,
-    ),
-
-    // Combined indexes for common queries
-    userWorkflowIdx: index('workflow_checkpoints_user_workflow_idx').on(
-      table.userId,
-      table.workflowId,
-    ),
-    workflowChatIdx: index('workflow_checkpoints_workflow_chat_idx').on(
-      table.workflowId,
-      table.chatId,
-    ),
-
-    // Ordering indexes
-    createdAtIdx: index('workflow_checkpoints_created_at_idx').on(
-      table.createdAt,
-    ),
-    chatCreatedAtIdx: index('workflow_checkpoints_chat_created_at_idx').on(
-      table.chatId,
-      table.createdAt,
-    ),
-  }),
 )
 
 export const templates = pgTable(
