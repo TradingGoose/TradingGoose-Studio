@@ -25,7 +25,7 @@ import {
   TierEditorHeaderCenter,
   type TierEditorSectionState,
   type TierFormDefaults,
-} from './billing-admin'
+} from './tier-editor'
 
 function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnapshot }) {
   const router = useRouter()
@@ -57,6 +57,12 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
       previewValues={previewValues}
       extraStats={[
         { label: 'Subscribers', value: String(tier.subscriptionCount) },
+        {
+          label: 'Workflow Exec',
+          value: previewValues.workflowExecutionMultiplier
+            ? `${previewValues.workflowExecutionMultiplier}x`
+            : '1x',
+        },
         { label: 'Tier ID', value: tier.id },
       ]}
     />

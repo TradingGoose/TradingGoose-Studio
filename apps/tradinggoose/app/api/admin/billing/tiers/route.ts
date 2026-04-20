@@ -97,11 +97,14 @@ export async function POST(request: Request) {
         canEditUsageLimit: parsed.data.canEditUsageLimit,
         canConfigureSso: parsed.data.canConfigureSso,
         logRetentionDays: parsed.data.logRetentionDays,
+        workflowExecutionMultiplier: String(
+          parsed.data.workflowExecutionMultiplier ?? 1,
+        ),
         workflowModelCostMultiplier: String(
           parsed.data.workflowModelCostMultiplier ?? 1,
         ),
-        functionExecutionDurationMultiplier: String(
-          parsed.data.functionExecutionDurationMultiplier ?? 0,
+        functionExecutionMultiplier: String(
+          parsed.data.functionExecutionMultiplier ?? 1,
         ),
         copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
         pricingFeatures: parsed.data.pricingFeatures,

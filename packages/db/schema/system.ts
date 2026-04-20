@@ -64,8 +64,9 @@ export interface SystemBillingTierSettings {
   canEditUsageLimit: boolean
   canConfigureSso: boolean
   logRetentionDays: number | null
+  workflowExecutionMultiplier: number
   workflowModelCostMultiplier: number
-  functionExecutionDurationMultiplier: number
+  functionExecutionMultiplier: number
   copilotCostMultiplier: number
   pricingFeatures: string[]
   isPublic: boolean
@@ -224,11 +225,14 @@ export const systemBillingTier = pgTable(
     canEditUsageLimit: boolean('can_edit_usage_limit').notNull().default(false),
     canConfigureSso: boolean('can_configure_sso').notNull().default(false),
     logRetentionDays: integer('log_retention_days'),
+    workflowExecutionMultiplier: decimal('workflow_execution_multiplier')
+      .notNull()
+      .default('1'),
     workflowModelCostMultiplier: decimal('workflow_model_cost_multiplier')
       .notNull()
       .default('1'),
-    functionExecutionDurationMultiplier: decimal(
-      'function_execution_duration_multiplier',
+    functionExecutionMultiplier: decimal(
+      'function_execution_multiplier',
     )
       .notNull()
       .default('0'),
@@ -300,13 +304,17 @@ export const systemBillingTier = pgTable(
       'system_billing_tier_log_retention_days_check',
       sql`${table.logRetentionDays} is null or ${table.logRetentionDays} >= 0`,
     ),
+    workflowExecutionMultiplierCheck: check(
+      'system_billing_tier_workflow_execution_multiplier_check',
+      sql`${table.workflowExecutionMultiplier} >= 0`,
+    ),
     workflowModelCostMultiplierCheck: check(
       'system_billing_tier_workflow_model_cost_multiplier_check',
       sql`${table.workflowModelCostMultiplier} >= 0`,
     ),
-    functionExecutionDurationMultiplierCheck: check(
-      'system_billing_tier_function_execution_duration_multiplier_check',
-      sql`${table.functionExecutionDurationMultiplier} >= 0`,
+    functionExecutionMultiplierCheck: check(
+      'system_billing_tier_function_execution_multiplier_check',
+      sql`${table.functionExecutionMultiplier} >= 0`,
     ),
     copilotCostMultiplierCheck: check(
       'system_billing_tier_copilot_cost_multiplier_check',

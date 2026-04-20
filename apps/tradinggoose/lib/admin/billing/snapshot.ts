@@ -48,14 +48,18 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
     canEditUsageLimit: tier.canEditUsageLimit,
     canConfigureSso: tier.canConfigureSso,
     logRetentionDays: tier.logRetentionDays,
+    workflowExecutionMultiplier:
+      tier.workflowExecutionMultiplier === null
+        ? null
+        : parseBillingAmount(tier.workflowExecutionMultiplier),
     workflowModelCostMultiplier:
       tier.workflowModelCostMultiplier === null
         ? null
         : parseBillingAmount(tier.workflowModelCostMultiplier),
-    functionExecutionDurationMultiplier:
-      tier.functionExecutionDurationMultiplier === null
+    functionExecutionMultiplier:
+      tier.functionExecutionMultiplier === null
         ? null
-        : parseBillingAmount(tier.functionExecutionDurationMultiplier),
+        : parseBillingAmount(tier.functionExecutionMultiplier),
     copilotCostMultiplier:
       tier.copilotCostMultiplier === null
         ? null

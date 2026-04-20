@@ -208,13 +208,17 @@ export function toBillingTierSummary(
     canEditUsageLimit: tier.canEditUsageLimit,
     canConfigureSso: tier.canConfigureSso,
     logRetentionDays: tier.logRetentionDays ?? null,
+    workflowExecutionMultiplier: parseBillingAmountWithFallback(
+      tier.workflowExecutionMultiplier,
+      1,
+    ),
     workflowModelCostMultiplier: parseBillingAmountWithFallback(
       tier.workflowModelCostMultiplier,
       1,
     ),
-    functionExecutionDurationMultiplier: parseBillingAmountWithFallback(
-      tier.functionExecutionDurationMultiplier,
-      0,
+    functionExecutionMultiplier: parseBillingAmountWithFallback(
+      tier.functionExecutionMultiplier,
+      1,
     ),
     copilotCostMultiplier: parseBillingAmountWithFallback(
       tier.copilotCostMultiplier,
@@ -240,13 +244,16 @@ export function getTierWorkflowModelCostMultiplier(
   return parseBillingAmountWithFallback(tier?.workflowModelCostMultiplier, 1)
 }
 
-export function getTierFunctionExecutionDurationMultiplier(
+export function getTierWorkflowExecutionMultiplier(
   tier: BillingTierRecord | null | undefined,
 ): number {
-  return parseBillingAmountWithFallback(
-    tier?.functionExecutionDurationMultiplier,
-    0,
-  )
+  return parseBillingAmountWithFallback(tier?.workflowExecutionMultiplier, 1)
+}
+
+export function getTierFunctionExecutionMultiplier(
+  tier: BillingTierRecord | null | undefined,
+): number {
+  return parseBillingAmountWithFallback(tier?.functionExecutionMultiplier, 1)
 }
 
 export function getTierCopilotCostMultiplier(
