@@ -111,7 +111,9 @@ export function extractStorageKey(path: string, storageType: 's3' | 'azure' | 'v
 
   for (const prefix of prefixes) {
     if (path.includes(prefix)) {
-      return decodeURIComponent(path.split(prefix)[1])
+      const afterPrefix = path.split(prefix)[1]
+      const withoutQuery = afterPrefix.split('?')[0]
+      return decodeURIComponent(withoutQuery)
     }
   }
 

@@ -104,6 +104,32 @@ describe('File Delete API Route', () => {
     })
   })
 
+  it('should strip query parameters from Vercel delete paths', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 'vercel',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath: '/api/files/serve/vercel/1234567890-test-file.pdf?context=general',
+    })
+
+    const { POST } = await import('@/app/api/files/delete/route')
+
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toHaveProperty('success', true)
+    expect(data).toHaveProperty('message', 'File deleted successfully')
+
+    const storageService = await import('@/lib/uploads/core/storage-service')
+    expect(storageService.deleteFile).toHaveBeenCalledWith({
+      key: '1234567890-test-file.pdf',
+      context: 'general',
+    })
+  })
+
   it('should handle missing file path', async () => {
     setupFileApiMocks()
 
