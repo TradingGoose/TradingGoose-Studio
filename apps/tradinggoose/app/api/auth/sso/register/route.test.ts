@@ -47,6 +47,9 @@ vi.mock('@/lib/env', () => ({
   env: {
     SSO_ENABLED: true,
   },
+  getEnv: vi.fn(() => undefined),
+  isTruthy: (value: string | boolean | number | undefined) =>
+    typeof value === 'string' ? value.toLowerCase() === 'true' || value === '1' : Boolean(value),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -386,7 +389,7 @@ describe('SSO register route', () => {
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
   })
 
-  it('registers saml providers for the active organization with a computed callback url', async () => {
+  it('registers saml providers for the active organization with Better Auth ACS callback url', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -423,7 +426,7 @@ describe('SSO register route', () => {
         providerId: 'okta-saml',
         organizationId: 'org-1',
         samlConfig: expect.objectContaining({
-          callbackUrl: 'https://issuer.example.com/callback/okta-saml',
+          callbackUrl: 'http://localhost:3000/api/auth/sso/saml2/sp/acs/okta-saml',
         }),
       }),
       headers: expect.objectContaining({

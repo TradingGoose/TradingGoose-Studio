@@ -58,17 +58,20 @@ export interface TrelloComment {
 
 export interface TrelloListListsParams {
   accessToken: string
+  apiKey?: string
   boardId: string
 }
 
 export interface TrelloListCardsParams {
   accessToken: string
+  apiKey?: string
   boardId: string
   listId?: string
 }
 
 export interface TrelloCreateCardParams {
   accessToken: string
+  apiKey?: string
   boardId: string
   listId: string
   name: string
@@ -80,6 +83,7 @@ export interface TrelloCreateCardParams {
 
 export interface TrelloUpdateCardParams {
   accessToken: string
+  apiKey?: string
   cardId: string
   name?: string
   desc?: string
@@ -91,6 +95,7 @@ export interface TrelloUpdateCardParams {
 
 export interface TrelloGetActionsParams {
   accessToken: string
+  apiKey?: string
   boardId?: string
   cardId?: string
   filter?: string
@@ -99,6 +104,7 @@ export interface TrelloGetActionsParams {
 
 export interface TrelloAddCommentParams {
   accessToken: string
+  apiKey?: string
   cardId: string
   text: string
 }

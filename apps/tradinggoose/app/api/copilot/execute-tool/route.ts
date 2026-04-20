@@ -14,6 +14,7 @@ import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/revie
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 import { executeTool } from '@/tools'
@@ -167,6 +168,9 @@ export async function POST(req: NextRequest) {
         }
 
         executionParams.accessToken = accessToken
+        if (provider === 'trello') {
+          executionParams.apiKey = await getTrelloApiKey()
+        }
         if (executionParams.credential) {
           delete executionParams.credential
         }

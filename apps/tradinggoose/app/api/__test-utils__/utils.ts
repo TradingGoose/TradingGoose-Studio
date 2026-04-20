@@ -1090,7 +1090,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
  */
 export interface AuthApiMockOptions {
   operations?: {
-    forgetPassword?: {
+    requestPasswordReset?: {
       success?: boolean
       error?: string
     }
@@ -1307,7 +1307,7 @@ export function createAuthApiMocks(options: AuthApiMockOptions = {}) {
   const { operations = {} } = options
 
   const defaultOperations = {
-    forgetPassword: { success: true, error: 'Forget password error' },
+    requestPasswordReset: { success: true, error: 'Request password reset error' },
     resetPassword: { success: true, error: 'Reset password error' },
     signIn: { success: true, error: 'Sign in error' },
     signUp: { success: true, error: 'Sign up error' },
@@ -1326,7 +1326,10 @@ export function createAuthApiMocks(options: AuthApiMockOptions = {}) {
   vi.doMock('@/lib/auth', () => ({
     auth: {
       api: {
-        forgetPassword: createAuthMethod('forgetPassword', defaultOperations.forgetPassword),
+        requestPasswordReset: createAuthMethod(
+          'requestPasswordReset',
+          defaultOperations.requestPasswordReset
+        ),
         resetPassword: createAuthMethod('resetPassword', defaultOperations.resetPassword),
         signIn: createAuthMethod('signIn', defaultOperations.signIn),
         signUp: createAuthMethod('signUp', defaultOperations.signUp),

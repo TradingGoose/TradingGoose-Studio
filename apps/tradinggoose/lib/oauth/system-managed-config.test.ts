@@ -71,4 +71,27 @@ describe('system managed oauth client credentials', () => {
 
     await expect(loadSystemOAuthClientCredentials(['google', 'github'])).resolves.toEqual({})
   })
+
+  it('supports Trello API-key-only system credentials', async () => {
+    mockResolveSystemIntegrationDefinitions.mockResolvedValue({
+      trello: {
+        isEnabled: true,
+        secrets: {
+          api_key: 'trello-api-key',
+        },
+      },
+    })
+
+    const { loadSystemOAuthClientCredentials } = await import('./system-managed-config')
+
+    await expect(loadSystemOAuthClientCredentials(['trello'])).resolves.toEqual({
+      trello: {
+        clientId: 'trello-api-key',
+        clientSecret: '',
+        fields: {
+          api_key: 'trello-api-key',
+        },
+      },
+    })
+  })
 })

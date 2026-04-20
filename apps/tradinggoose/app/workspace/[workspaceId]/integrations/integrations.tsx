@@ -87,9 +87,10 @@ export function Integrations() {
         const state = searchParams.get('state')
         const error = searchParams.get('error')
         const errorDescription = searchParams.get('error_description')
+        const trelloConnected = searchParams.get('trello_connected')
 
         // Handle OAuth callback
-        if (code && state) {
+        if ((code && state) || trelloConnected === '1') {
             setAuthError(null)
             // This is an OAuth callback - try to restore state from localStorage
             try {

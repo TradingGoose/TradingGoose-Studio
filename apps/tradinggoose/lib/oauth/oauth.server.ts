@@ -136,6 +136,11 @@ function getProviderAuthTemplate(providerId: string): Omit<ProviderAuthConfig, '
         tokenEndpoint: 'https://api.alpaca.markets/oauth/token',
         useBasicAuth: false,
       }
+    case 'hubspot':
+      return {
+        tokenEndpoint: 'https://api.hubspot.com/oauth/v3/token',
+        useBasicAuth: false,
+      }
     default:
       throw new Error(`Unsupported provider: ${providerId}`)
   }

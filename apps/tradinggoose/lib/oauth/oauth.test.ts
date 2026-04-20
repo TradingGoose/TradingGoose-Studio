@@ -13,7 +13,8 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
   loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
     Object.fromEntries(
       providerIds.flatMap((providerId) =>
-        mockCredentials[providerId]?.clientId && mockCredentials[providerId]?.clientSecret
+        mockCredentials[providerId]?.clientId &&
+        (mockCredentials[providerId]?.clientSecret || providerId === 'trello')
           ? [[providerId, mockCredentials[providerId]]]
           : []
       )
@@ -51,6 +52,18 @@ function setIntegration(providerIds: string[], clientId: string, clientSecret: s
       fields: {
         client_id: clientId,
         client_secret: clientSecret,
+      },
+    }
+  }
+}
+
+function setApiKeyIntegration(providerIds: string[], apiKey: string) {
+  for (const providerId of providerIds) {
+    mockCredentials[providerId] = {
+      clientId: apiKey,
+      clientSecret: '',
+      fields: {
+        api_key: apiKey,
       },
     }
   }
@@ -97,6 +110,8 @@ function seedMockIntegrations() {
   setIntegration(['webflow'], 'webflow_client_id', 'webflow_client_secret')
   setIntegration(['tradier'], 'tradier_client_id', 'tradier_client_secret')
   setIntegration(['alpaca'], 'alpaca_client_id', 'alpaca_client_secret')
+  setIntegration(['hubspot'], 'hubspot_client_id', 'hubspot_client_secret')
+  setApiKeyIntegration(['trello'], 'trello_api_key')
 
   mockEnvValues.GITHUB_CLIENT_ID = 'github_social_client_id'
   mockEnvValues.GITHUB_CLIENT_SECRET = 'github_social_client_secret'
@@ -116,11 +131,15 @@ describe('OAuth Provider Availability', () => {
         'google-drive',
         'github-repo',
         'microsoft-teams',
+        'hubspot',
+        'trello',
       ])
     ).resolves.toEqual({
       'google-drive': true,
       'github-repo': true,
       'microsoft-teams': true,
+      hubspot: true,
+      trello: true,
     })
   })
 
@@ -152,6 +171,15 @@ describe('OAuth Provider Availability', () => {
     await expect(getOAuthProviderAvailability(['google-email', 'github-repo'])).resolves.toEqual({
       'google-email': false,
       'github-repo': false,
+    })
+  })
+
+  it('does not make Trello available from TRELLO_API_KEY env fallback', async () => {
+    delete mockCredentials.trello
+    mockEnvValues.TRELLO_API_KEY = 'env-trello-api-key'
+
+    await expect(getOAuthProviderAvailability(['trello'])).resolves.toEqual({
+      trello: false,
     })
   })
 
@@ -379,6 +407,13 @@ describe('OAuth Token Refresh', () => {
         endpoint: 'https://api.alpaca.markets/oauth/token',
         expectedClientId: 'alpaca_client_id',
         expectedClientSecret: 'alpaca_client_secret',
+      },
+      {
+        name: 'HubSpot',
+        providerId: 'hubspot',
+        endpoint: 'https://api.hubspot.com/oauth/v3/token',
+        expectedClientId: 'hubspot_client_id',
+        expectedClientSecret: 'hubspot_client_secret',
       },
     ]
 

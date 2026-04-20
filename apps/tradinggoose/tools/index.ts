@@ -371,6 +371,9 @@ export async function executeTool(
 
         const data = await response.json()
         contextParams.accessToken = data.accessToken
+        if (data.apiKey) {
+          contextParams.apiKey = data.apiKey
+        }
 
         logger.info(
           `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`

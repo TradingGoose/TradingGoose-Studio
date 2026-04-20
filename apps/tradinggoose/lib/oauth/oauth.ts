@@ -11,6 +11,7 @@ import {
   GoogleFormsIcon,
   GoogleIcon,
   GoogleSheetsIcon,
+  HubspotIcon,
   JiraIcon,
   LinearIcon,
   DollarIcon,
@@ -25,6 +26,7 @@ import {
   RedditIcon,
   SlackIcon,
   SupabaseIcon,
+  TrelloIcon,
   WealthboxIcon,
   WebflowIcon,
   xIcon,
@@ -132,6 +134,32 @@ export interface OAuthServiceConfig {
   scopes: string[]
   credentialProvider?: string
 }
+
+export const HUBSPOT_OAUTH_SCOPES = [
+  'crm.objects.contacts.read',
+  'crm.objects.contacts.write',
+  'crm.objects.companies.read',
+  'crm.objects.companies.write',
+  'crm.objects.deals.read',
+  'crm.objects.deals.write',
+  'crm.objects.owners.read',
+  'crm.objects.users.read',
+  'crm.objects.users.write',
+  'crm.objects.marketing_events.read',
+  'crm.objects.marketing_events.write',
+  'crm.objects.line_items.read',
+  'crm.objects.line_items.write',
+  'crm.objects.quotes.read',
+  'crm.objects.quotes.write',
+  'crm.objects.appointments.read',
+  'crm.objects.appointments.write',
+  'crm.objects.carts.read',
+  'crm.objects.carts.write',
+  'crm.import',
+  'crm.lists.read',
+  'crm.lists.write',
+  'tickets',
+]
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   alpaca: {
@@ -584,6 +612,51 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
       },
     },
     defaultService: 'tradier',
+  },
+  hubspot: {
+    id: 'hubspot',
+    name: 'HubSpot',
+    icon: (props) => HubspotIcon(props),
+    services: {
+      hubspot: {
+        id: 'hubspot',
+        name: 'HubSpot',
+        description: 'Manage contacts, companies, deals, and CRM data in HubSpot.',
+        providerId: 'hubspot',
+        icon: (props) => HubspotIcon(props),
+        baseProviderIcon: (props) => HubspotIcon(props),
+        scopes: HUBSPOT_OAUTH_SCOPES,
+      },
+    },
+    defaultService: 'hubspot',
+  },
+  trello: {
+    id: 'trello',
+    name: 'Trello',
+    icon: (props) => TrelloIcon(props),
+    credentialFields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        note: 'Public Trello API key used with user tokens',
+        placeholder: 'Enter Trello API key',
+        isSensitive: false,
+        required: true,
+        oauthProperty: 'clientId',
+      },
+    ],
+    services: {
+      trello: {
+        id: 'trello',
+        name: 'Trello',
+        description: 'Manage Trello boards, lists, cards, actions, and comments.',
+        providerId: 'trello',
+        icon: (props) => TrelloIcon(props),
+        baseProviderIcon: (props) => TrelloIcon(props),
+        scopes: ['read', 'write'],
+      },
+    },
+    defaultService: 'trello',
   },
   webflow: {
     id: 'webflow',

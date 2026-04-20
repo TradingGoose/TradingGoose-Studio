@@ -61,6 +61,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
   getMicrosoftRefreshTokenExpiry,
+  HUBSPOT_OAUTH_SCOPES,
   isMicrosoftProvider,
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
@@ -95,6 +96,7 @@ const BASE_TRUSTED_OAUTH_PROVIDERS = [
   'slack',
   'reddit',
   'webflow',
+  'hubspot',
 ]
 
 const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
@@ -1402,6 +1404,58 @@ export const auth = betterAuth({
               }
             } catch (error) {
               logger.error('Error in Webflow getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        {
+          providerId: 'hubspot',
+          authorizationUrl: 'https://app.hubspot.com/oauth/authorize',
+          tokenUrl: 'https://api.hubspot.com/oauth/v3/token',
+          scopes: HUBSPOT_OAUTH_SCOPES,
+          responseType: 'code',
+          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/hubspot`,
+          getUserInfo: async (tokens) => {
+            try {
+              const credentials = getSystemOAuthClientCredentialsForRequest('hubspot')
+              const response = await fetch('https://api.hubspot.com/oauth/v3/token/introspect', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  client_id: credentials.clientId,
+                  client_secret: credentials.clientSecret,
+                  token_type_hint: 'access_token',
+                  access_token: tokens.accessToken ?? '',
+                }).toString(),
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching HubSpot token metadata:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+              const hubId = String(profile.hub_id ?? 'hubspot')
+              const userId = String(profile.user_id ?? profile.user ?? crypto.randomUUID())
+              const email = profile.user || `${userId}@hubspot.user`
+              const now = new Date()
+
+              return {
+                id: `${hubId}-${userId}`,
+                name: profile.user || profile.hub_domain || 'HubSpot User',
+                email,
+                emailVerified: Boolean(profile.user),
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in HubSpot getUserInfo:', { error })
               return null
             }
           },
