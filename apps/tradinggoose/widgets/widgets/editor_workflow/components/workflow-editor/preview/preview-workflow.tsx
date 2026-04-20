@@ -102,7 +102,6 @@ export function PreviewWorkflow({
             style={{
               backgroundColor: 'transparent',
             }}
-            className='xyflow-theme'
             onNodeClick={(event, node) => {
               setSelectedNodeId(node.id)
               onNodeClick?.(node.id, { x: event.clientX, y: event.clientY })

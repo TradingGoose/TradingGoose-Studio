@@ -121,7 +121,7 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         nodeExtent={PREVIEW_CANVAS_EXTENT}
         noWheelClassName='allow-scroll'
         proOptions={{ hideAttribution: true }}
-        className='h-full w-full xyflow-theme'
+        className='h-full w-full'
         style={{
           backgroundColor: 'transparent',
         }}
