@@ -127,9 +127,10 @@ export async function POST(request: NextRequest) {
 
     const storageProvider = getStorageProvider()
     const storageConfig = getStorageConfig(uploadType)
+    const requiresClientUpload = storageProvider === 'vercel'
     const finalPath = `/api/files/serve/${storageProvider}/${encodeURIComponent(presignedUrlResponse.key)}?context=${uploadType}`
     const clientUploadAuthorization =
-      storageProvider === 'vercel'
+      requiresClientUpload
         ? await createVercelUploadToken(
             {
               pathname: presignedUrlResponse.key,
@@ -155,9 +156,10 @@ export async function POST(request: NextRequest) {
       storageProvider,
       blobAccess: storageProvider === 'vercel' ? storageConfig.access : undefined,
       clientUploadAuthorization,
+      requiresClientUpload,
       context: uploadType,
       uploadHeaders: presignedUrlResponse.uploadHeaders,
-      directUploadSupported: true,
+      directUploadSupported: !requiresClientUpload,
     })
   } catch (error) {
     logger.error('Error generating presigned URL:', error)

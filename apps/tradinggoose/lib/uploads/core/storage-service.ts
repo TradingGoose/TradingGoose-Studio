@@ -86,7 +86,7 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
 
   if (USE_VERCEL_STORAGE) {
     const { uploadToVercel } = await import('../providers/vercel/vercel-client')
-    return uploadToVercel(
+    const fileInfo = await uploadToVercel(
       file,
       keyToUse,
       contentType,
@@ -94,6 +94,11 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       file.length,
       preserveKey
     )
+
+    return {
+      ...fileInfo,
+      path: `/api/files/serve/vercel/${encodeURIComponent(fileInfo.key)}?context=${encodeURIComponent(context)}`,
+    }
   }
 
   if (USE_S3_STORAGE) {

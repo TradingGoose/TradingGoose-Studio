@@ -324,9 +324,10 @@ describe('/api/files/presigned', () => {
       expect(data.storageProvider).toBe('vercel')
       expect(data.blobAccess).toBe('private')
       expect(data.clientUploadAuthorization).toEqual(expect.any(String))
+      expect(data.requiresClientUpload).toBe(true)
       expect(data.presignedUrl).toBe('')
       expect(data.fileInfo.path).toMatch(/\/api\/files\/serve\/vercel\/.+\?context=chat$/)
-      expect(data.directUploadSupported).toBe(true)
+      expect(data.directUploadSupported).toBe(false)
     })
 
     it('should return error for unknown storage provider', async () => {

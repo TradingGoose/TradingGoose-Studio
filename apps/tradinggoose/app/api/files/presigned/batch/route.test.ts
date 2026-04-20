@@ -65,7 +65,8 @@ describe('/api/files/presigned/batch', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.directUploadSupported).toBe(true)
+    expect(data.requiresClientUpload).toBe(true)
+    expect(data.directUploadSupported).toBe(false)
     expect(data.files).toHaveLength(2)
     expect(data.files).toEqual(
       expect.arrayContaining([
@@ -73,7 +74,9 @@ describe('/api/files/presigned/batch', () => {
           storageProvider: 'vercel',
           blobAccess: 'private',
           clientUploadAuthorization: expect.any(String),
+          requiresClientUpload: true,
           presignedUrl: '',
+          directUploadSupported: false,
         }),
       ])
     )

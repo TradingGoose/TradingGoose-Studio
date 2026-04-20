@@ -130,13 +130,14 @@ export async function POST(request: NextRequest) {
 
     const storageProvider = getStorageProvider()
     const storageConfig = getStorageConfig(uploadType)
+    const requiresClientUpload = storageProvider === 'vercel'
 
     return NextResponse.json({
       files: await Promise.all(
         presignedUrls.map(async (urlResponse, index) => {
           const finalPath = `/api/files/serve/${storageProvider}/${encodeURIComponent(urlResponse.key)}?context=${uploadType}`
           const clientUploadAuthorization =
-            storageProvider === 'vercel'
+            requiresClientUpload
               ? await createVercelUploadToken(
                   {
                     pathname: urlResponse.key,
@@ -162,13 +163,15 @@ export async function POST(request: NextRequest) {
             storageProvider,
             blobAccess: storageProvider === 'vercel' ? storageConfig.access : undefined,
             clientUploadAuthorization,
+            requiresClientUpload,
             context: uploadType,
             uploadHeaders: urlResponse.uploadHeaders,
-            directUploadSupported: true,
+            directUploadSupported: !requiresClientUpload,
           }
         })
       ),
-      directUploadSupported: true,
+      requiresClientUpload,
+      directUploadSupported: !requiresClientUpload,
     })
   } catch (error) {
     logger.error('Error generating batch presigned URLs:', error)
