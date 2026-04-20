@@ -263,7 +263,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
 
       const initPromise = (async () => {
         const token = await generateSocketToken()
-        const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL') || 'http://localhost:3002'
+        const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
 
         logger.info('Attempting to connect to Socket.IO server', {
           url: socketUrl,

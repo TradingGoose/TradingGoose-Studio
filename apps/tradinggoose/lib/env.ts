@@ -120,8 +120,7 @@ function safeCreateEnv() {
     KB_CONFIG_DELAY_BETWEEN_DOCUMENTS: z.number().optional().default(50),      // Delay between documents in ms
 
     // Real-time Communication
-    SOCKET_SERVER_URL: z.string().url().optional(),            // WebSocket server URL for real-time features
-    SOCKET_PORT: z.number().optional(),                  // Port for WebSocket server
+    SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
     PORT: z.number().optional(),                  // Main application port
     ALLOWED_ORIGINS: z.string().optional(),                  // CORS allowed origins
 
@@ -144,7 +143,7 @@ function safeCreateEnv() {
     NEXT_PUBLIC_APP_URL: z.string().url(),                       // Base URL of the application (e.g., https://app.tradinggoose.ai)
 
     // Client-side Services
-    NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),            // WebSocket server URL for real-time features
+    NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),            // Optional realtime URL; defaults to http://localhost:3002 when unset
 
     // Google Services - For client-side Google integrations
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),                  // Google OAuth client ID for browser auth

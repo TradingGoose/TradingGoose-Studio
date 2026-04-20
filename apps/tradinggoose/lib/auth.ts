@@ -321,8 +321,8 @@ export const auth = betterAuth({
   baseURL: getBaseUrl(),
   trustedOrigins: [
     getBaseUrl(),
-    ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
-  ].filter(Boolean),
+    getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002',
+  ],
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,

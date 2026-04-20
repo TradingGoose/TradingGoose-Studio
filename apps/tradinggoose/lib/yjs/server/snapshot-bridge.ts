@@ -1,5 +1,8 @@
-import { type ReviewTargetDescriptor, type ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
-import { env } from '@/lib/env'
+import type {
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
+import { env, getEnv } from '@/lib/env'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -21,7 +24,7 @@ export class SocketServerBridgeError extends Error {
 }
 
 function getSocketServerUrl(): string {
-  return env.SOCKET_SERVER_URL || 'http://localhost:3002'
+  return getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
 }
 
 function getInternalSecret(): string {
@@ -58,7 +61,10 @@ export async function getYjsSnapshot(
   sessionId: string,
   params?: Record<string, string>
 ): Promise<YjsSnapshotResponse> {
-  const url = new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot`, getSocketServerUrl())
+  const url = new URL(
+    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot`,
+    getSocketServerUrl()
+  )
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value)
@@ -79,24 +85,35 @@ export async function applyWorkflowStateInSocketServer(
     getSocketServerUrl()
   )
 
-  await fetchFromSocketServer(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  await fetchFromSocketServer(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workflowState,
+        ...(variables === undefined ? {} : { variables }),
+      }),
     },
-    body: JSON.stringify({
-      workflowState,
-      ...(variables === undefined ? {} : { variables }),
-    }),
-  }, 10000)
+    10000
+  )
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
-  const url = new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getSocketServerUrl())
+  const url = new URL(
+    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}`,
+    getSocketServerUrl()
+  )
 
-  await fetchFromSocketServer(url, {
-    method: 'DELETE',
-  }, 10000)
+  await fetchFromSocketServer(
+    url,
+    {
+      method: 'DELETE',
+    },
+    10000
+  )
 }
 
 export async function clearYjsSessionReseededFromCanonicalInSocketServer(
@@ -107,7 +124,11 @@ export async function clearYjsSessionReseededFromCanonicalInSocketServer(
     getSocketServerUrl()
   )
 
-  await fetchFromSocketServer(url, {
-    method: 'POST',
-  }, 10000)
+  await fetchFromSocketServer(
+    url,
+    {
+      method: 'POST',
+    },
+    10000
+  )
 }
