@@ -35,7 +35,7 @@
   pointer-events: auto;
 }
 
-.dark .react-flow.xyflow-theme {
+:root.dark .react-flow.xyflow-theme {
   --xy-edge-stroke-default: #3e3e3e;
   --xy-edge-stroke-width-default: 1;
   --xy-edge-stroke-selected-default: #727272;
@@ -106,7 +106,7 @@
 
   /* Light Mode Theme */
   :root,
-  .light {
+  :root.light {
     /* Core Colors */
     --background: 0 0% 100%;
     --foreground: 20 14.3% 4.1%;
@@ -184,7 +184,7 @@
   }
 
   /* Dark Mode Theme */
-  .dark {
+  :root.dark {
     /* Core Colors */
     --background: 20 14.3% 2.9%;
     --foreground: 60 9.1% 97.8%;
