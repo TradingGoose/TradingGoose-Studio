@@ -121,7 +121,7 @@ export async function POST(request: Request) {
           allowOverwrite: false,
           allowedContentTypes: [authorizedUpload.contentType],
           maximumSizeInBytes: authorizedUpload.size,
-          validUntil: Date.now() + 60 * 60 * 1000,
+          validUntil: authorizedUpload.exp * 1000,
           tokenPayload: JSON.stringify({
             context,
             contentType: authorizedUpload.contentType,

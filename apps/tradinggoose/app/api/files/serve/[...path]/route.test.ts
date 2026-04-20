@@ -311,6 +311,44 @@ describe('File Serve API Route', () => {
       expect(downloadCopilotFileMock).toHaveBeenCalledWith('copilot-image.png')
     })
 
+    it('should serve a signed general Vercel download through storage service without hybrid auth', async () => {
+      const downloadFileMock = vi.fn().mockResolvedValue(Buffer.from('signed file'))
+
+      vi.doMock('@/lib/uploads', () => ({
+        CopilotFiles: {
+          downloadCopilotFile: vi.fn(),
+        },
+        isUsingCloudStorage: vi.fn().mockReturnValue(false),
+      }))
+
+      vi.doMock('@/lib/uploads/core/storage-service', () => ({
+        downloadFile: downloadFileMock,
+      }))
+
+      const { createVercelDownloadToken } = await import(
+        '@/lib/uploads/providers/vercel/download-token'
+      )
+      const token = await createVercelDownloadToken(
+        { key: 'private.pdf', context: 'general' },
+        300
+      )
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/files/serve/vercel/private.pdf?downloadToken=${encodeURIComponent(token)}`
+      )
+      const params = { path: ['vercel', 'private.pdf'] }
+      const { GET } = await import('@/app/api/files/serve/[...path]/route')
+
+      const response = await GET(req, { params: Promise.resolve(params) })
+
+      expect(response.status).toBe(200)
+      expect(checkHybridAuthMock).not.toHaveBeenCalled()
+      expect(downloadFileMock).toHaveBeenCalledWith({
+        key: 'private.pdf',
+        context: 'general',
+      })
+    })
+
     it('should reject expired signed Vercel downloads without fallback access', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-04-19T00:00:00Z'))

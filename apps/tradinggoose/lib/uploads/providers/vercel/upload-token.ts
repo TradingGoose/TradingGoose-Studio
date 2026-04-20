@@ -27,6 +27,10 @@ export interface VercelUploadClaims {
   userId: string
 }
 
+export interface VerifiedVercelUploadClaims extends VercelUploadClaims {
+  exp: number
+}
+
 function encodeBase64Url(value: string): string {
   return Buffer.from(value).toString('base64url')
 }
@@ -64,7 +68,9 @@ export async function createVercelUploadToken(
   return `${unsignedToken}.${signToken(unsignedToken)}`
 }
 
-export async function verifyVercelUploadToken(token: string): Promise<VercelUploadClaims | null> {
+export async function verifyVercelUploadToken(
+  token: string
+): Promise<VerifiedVercelUploadClaims | null> {
   try {
     const [encodedHeader, encodedPayload, encodedSignature] = token.split('.')
 
@@ -103,6 +109,7 @@ export async function verifyVercelUploadToken(token: string): Promise<VercelUplo
     return {
       contentType: payload.contentType,
       context: payload.context as StorageContext,
+      exp: payload.exp,
       pathname: payload.pathname,
       size: payload.size,
       userId: payload.userId,

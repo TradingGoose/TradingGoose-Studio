@@ -36,6 +36,7 @@ describe('/api/files/vercel/client-upload', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -205,6 +206,66 @@ describe('/api/files/vercel/client-upload', () => {
       maximumSizeInBytes: 2048,
       addRandomSuffix: false,
       allowOverwrite: false,
+    })
+  })
+
+  it('bounds generated Vercel client tokens to the upload authorization expiry', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-19T00:00:00.000Z'))
+
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 'vercel',
+    })
+
+    const { handleUpload } = await import('@vercel/blob/client')
+    const handleUploadMock = vi.mocked(handleUpload)
+    let capturedTokenOptions: Record<string, unknown> | undefined
+
+    handleUploadMock.mockImplementation(async ({ body, onBeforeGenerateToken }) => {
+      if (body.type !== 'blob.generate-client-token') {
+        throw new Error('Expected client token generation request')
+      }
+
+      capturedTokenOptions = await onBeforeGenerateToken(
+        body.payload.pathname,
+        body.payload.clientPayload,
+        body.payload.multipart
+      )
+
+      return {
+        type: 'blob.generate-client-token',
+        clientToken: 'client-token',
+      }
+    })
+
+    const { POST } = await import('@/app/api/files/vercel/client-upload/route')
+    const authorization = await createVercelUploadToken(
+      {
+        pathname: 'kb/1712345678-report.pdf',
+        context: 'knowledge-base',
+        contentType: 'application/pdf',
+        size: 2048,
+        userId: 'user-123',
+      },
+      120
+    )
+    const request = createTokenRequest('knowledge-base', {
+      pathname: 'kb/1712345678-report.pdf',
+      clientPayload: JSON.stringify({
+        clientUploadAuthorization: authorization,
+        pathname: 'kb/1712345678-report.pdf',
+        fileName: 'report.pdf',
+        contentType: 'application/pdf',
+        fileSize: 2048,
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(capturedTokenOptions).toMatchObject({
+      validUntil: Date.parse('2026-04-19T00:02:00.000Z'),
     })
   })
 
