@@ -11,6 +11,7 @@ import { z } from 'zod'
  * where its internal `next/cache` dependency is unavailable.
  */
 let _runtimeEnv: ((key: string) => string | undefined) | null | false = false
+const REALTIME_SERVICE_HOST_SUFFIX = '_REALTIME_SERVICE_HOST'
 
 const getEnv = (variable: string) => {
   // Lazy-load next-runtime-env on first call
@@ -33,6 +34,23 @@ const getEnv = (variable: string) => {
 
   return process.env[variable]
 }
+
+const getKubernetesRealtimeUrl = () => {
+  for (const [key, host] of Object.entries(process.env)) {
+    if (!key.endsWith(REALTIME_SERVICE_HOST_SUFFIX) || !host) {
+      continue
+    }
+
+    const prefix = key.slice(0, -'_SERVICE_HOST'.length)
+    const port = process.env[`${prefix}_SERVICE_PORT`] || '3002'
+    return `http://${host}:${port}`
+  }
+
+  return null
+}
+
+const getInternalRealtimeUrl = () =>
+  getKubernetesRealtimeUrl() || getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
 
 // Wrap createEnv in a function so non-Next.js consumers (e.g. React Email preview)
 // get a safe fallback instead of a top-level crash.
@@ -199,4 +217,4 @@ export const isTruthy = (value: string | boolean | number | undefined) =>
 export const isFalsy = (value: string | boolean | number | undefined) =>
   typeof value === 'string' ? value.toLowerCase() === 'false' || value === '0' : value === false
 
-export { getEnv }
+export { getEnv, getInternalRealtimeUrl }

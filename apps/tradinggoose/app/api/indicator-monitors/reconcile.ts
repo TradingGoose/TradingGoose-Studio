@@ -1,4 +1,4 @@
-import { env, getEnv } from '@/lib/env'
+import { env, getInternalRealtimeUrl } from '@/lib/env'
 
 type Logger = {
   warn: (message: string, ...args: unknown[]) => void
@@ -12,7 +12,7 @@ export const notifyIndicatorMonitorsReconcile = async ({
   logger: Logger
 }) => {
   try {
-    const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+    const socketUrl = getInternalRealtimeUrl()
     const response = await fetch(`${socketUrl}/internal/indicator-monitors/reconcile`, {
       method: 'POST',
       headers: {

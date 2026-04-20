@@ -2,7 +2,7 @@ import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { env, getEnv } from '@/lib/env'
+import { env, getInternalRealtimeUrl } from '@/lib/env'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -24,7 +24,7 @@ export class SocketServerBridgeError extends Error {
 }
 
 function getSocketServerUrl(): string {
-  return getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+  return getInternalRealtimeUrl()
 }
 
 function getInternalSecret(): string {
