@@ -99,12 +99,15 @@ export function PreviewWorkflow({
             elementsSelectable={showInspector}
             nodesDraggable={false}
             nodesConnectable={false}
+            style={{
+              backgroundColor: 'transparent',
+            }}
             onNodeClick={(event, node) => {
               setSelectedNodeId(node.id)
               onNodeClick?.(node.id, { x: event.clientX, y: event.clientY })
             }}
           >
-            <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+            <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
           </ReactFlow>
         </div>
 

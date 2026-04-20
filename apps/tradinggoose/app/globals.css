@@ -68,7 +68,7 @@
 
   /* Light Mode Theme */
   :root,
-  .light {
+  :root.light {
     /* Core Colors */
     --background: 0 0% 100%;
     --foreground: 20 14.3% 4.1%;
@@ -146,7 +146,7 @@
   }
 
   /* Dark Mode Theme */
-  .dark {
+  :root.dark {
     /* Core Colors */
     --background: 20 14.3% 2.9%;
     --foreground: 60 9.1% 97.8%;

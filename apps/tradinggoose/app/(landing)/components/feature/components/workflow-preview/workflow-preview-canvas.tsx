@@ -122,8 +122,11 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         noWheelClassName='allow-scroll'
         proOptions={{ hideAttribution: true }}
         className='h-full w-full'
+        style={{
+          backgroundColor: 'transparent',
+        }}
       >
-        <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+        <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
         <WorkflowPreviewControls />
       </ReactFlow>
     </div>
