@@ -23,7 +23,6 @@ app:
   env:
     NEXT_PUBLIC_APP_URL: "https://tradinggoose.acme.ai"
     BETTER_AUTH_URL: "https://tradinggoose.acme.ai"
-    SOCKET_SERVER_URL: "https://tradinggoose-ws.acme.ai"
     NEXT_PUBLIC_SOCKET_URL: "https://tradinggoose-ws.acme.ai"
     
     # Security settings (REQUIRED - replace with your own secure secrets)
