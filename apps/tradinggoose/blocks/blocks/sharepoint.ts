@@ -15,7 +15,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
     'Integrate SharePoint into the workflow. Read/create pages, list sites, and work with lists (read, create, update items). Requires OAuth.',
   docsLink: 'https://docs.tradinggoose.ai/tools/sharepoint',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#1A9BA1',
   icon: MicrosoftSharepointIcon,
   subBlocks: [
     {

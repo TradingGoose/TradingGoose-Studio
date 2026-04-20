@@ -11,7 +11,7 @@ export const FirecrawlBlock: BlockConfig<FirecrawlResponse> = {
   longDescription: 'Integrate Firecrawl into the workflow. Can search, scrape, or crawl websites.',
   docsLink: 'https://docs.tradinggoose.ai/tools/firecrawl',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#FA5D19',
   icon: FirecrawlIcon,
   subBlocks: [
     {

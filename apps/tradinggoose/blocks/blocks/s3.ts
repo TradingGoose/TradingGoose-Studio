@@ -12,7 +12,7 @@ export const S3Block: BlockConfig<S3Response> = {
     'Integrate S3 into the workflow. Upload files, download objects, list bucket contents, delete objects, and copy objects between buckets. Requires AWS access key and secret access key.',
   docsLink: 'https://docs.tradinggoose.ai/tools/s3',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#FF9900',
   icon: S3Icon,
   subBlocks: [
     // Operation selector

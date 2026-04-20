@@ -12,7 +12,7 @@ export const GoogleDocsBlock: BlockConfig<GoogleDocsResponse> = {
     'Integrate Google Docs into the workflow. Can read, write, and create documents.',
   docsLink: 'https://docs.tradinggoose.ai/tools/google_docs',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#3086F6',
   icon: GoogleDocsIcon,
   subBlocks: [
     // Operation selector

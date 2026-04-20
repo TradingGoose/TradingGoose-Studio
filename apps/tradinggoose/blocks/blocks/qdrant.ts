@@ -11,7 +11,7 @@ export const QdrantBlock: BlockConfig<QdrantResponse> = {
   longDescription: 'Integrate Qdrant into the workflow. Can upsert, search, and fetch points.',
   docsLink: 'https://qdrant.tech/documentation/',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#DC244C',
   icon: QdrantIcon,
 
   subBlocks: [

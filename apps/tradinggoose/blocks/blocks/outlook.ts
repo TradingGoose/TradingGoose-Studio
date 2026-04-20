@@ -14,7 +14,7 @@ export const OutlookBlock: BlockConfig<OutlookResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/outlook',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: undefined,
+  bgColor: '#50D9FF',
   icon: OutlookIcon,
   subBlocks: [
     {

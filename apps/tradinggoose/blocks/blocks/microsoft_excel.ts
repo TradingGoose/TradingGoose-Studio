@@ -12,7 +12,7 @@ export const MicrosoftExcelBlock: BlockConfig<MicrosoftExcelResponse> = {
     'Integrate Microsoft Excel into the workflow. Can read, write, update, and add to table.',
   docsLink: 'https://docs.tradinggoose.ai/tools/microsoft_excel',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#33C481',
   icon: MicrosoftExcelIcon,
   subBlocks: [
     {

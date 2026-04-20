@@ -11,7 +11,7 @@ export const PerplexityBlock: BlockConfig<PerplexityChatResponse> = {
   authMode: AuthMode.ApiKey,
   docsLink: 'https://docs.tradinggoose.ai/tools/perplexity',
   category: 'tools',
-  bgColor: undefined, // Perplexity turquoise color
+  bgColor: '#21808D', // Perplexity turquoise color
   icon: PerplexityIcon,
   subBlocks: [
     {

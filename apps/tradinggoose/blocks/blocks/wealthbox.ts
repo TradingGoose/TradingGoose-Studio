@@ -12,7 +12,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
     'Integrate Wealthbox into the workflow. Can read and write notes, read and write contacts, and read and write tasks.',
   docsLink: 'https://docs.tradinggoose.ai/tools/wealthbox',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#116ED5',
   icon: WealthboxIcon,
   subBlocks: [
     {
