@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import CallToAction from '@/app/(landing)/components/cta/cta'
 import Footer from '@/app/(landing)/components/footer/footer'
@@ -39,7 +40,9 @@ export default async function Landing() {
         <Suspense fallback={<MonitorSectionSkeleton />}>
           <MonitorSection />
         </Suspense>
-        <Feature />
+        <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+          <Feature />
+        </TooltipProvider>
         <Integrations />
         <CallToAction />
       </main>
