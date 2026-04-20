@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 function getSafeCallbackURL(rawCallbackURL: string | null) {
@@ -26,7 +26,7 @@ function withStatus(callbackURL: URL, params: Record<string, string>) {
   return `${redirectURL.pathname}${redirectURL.search}${redirectURL.hash}`
 }
 
-export default function TrelloCallbackPage() {
+function TrelloCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [message, setMessage] = useState('Connecting Trello...')
@@ -87,5 +87,19 @@ export default function TrelloCallbackPage() {
     <main className='flex min-h-screen items-center justify-center p-6'>
       <p className='text-muted-foreground text-sm'>{message}</p>
     </main>
+  )
+}
+
+export default function TrelloCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className='flex min-h-screen items-center justify-center p-6'>
+          <p className='text-muted-foreground text-sm'>Connecting Trello...</p>
+        </main>
+      }
+    >
+      <TrelloCallbackContent />
+    </Suspense>
   )
 }
